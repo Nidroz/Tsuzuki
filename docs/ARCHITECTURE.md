@@ -83,6 +83,10 @@ tsuzuki/
 
 Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
 
+- Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
+- Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.
+- Dependencies are installed with pnpm in its default isolated mode (no hoisting). pnpm settings, when needed, live in `pnpm-workspace.yaml`; `.npmrc` holds only auth and registry settings.
+
 `src/ui/` components never call i18n: features translate and pass every label (visible text and accessibility labels) as props. This keeps `ui` independent of `core`.
 
 ## 3. Catalog provider adapter
