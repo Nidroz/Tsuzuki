@@ -1,0 +1,2 @@
+# format and lint staged files (CONTRIBUTING.md section 3); the full check stays `pnpm check`
+lint-staged
