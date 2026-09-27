@@ -17,6 +17,9 @@ const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 // ignore patterns are resolved against this config's folder (the repo root), not the ignore file's
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
 
+const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
+const NETWORK_MESSAGE = `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`;
+
 // banned package groups; F-05/F-06 extend this table
 const BANNED = {
   reactNative: {
@@ -40,6 +43,7 @@ const BANNED = {
     regexes: ['^@supabase/'],
     message: `the Supabase client is imported only in src/core/repositories/supabase (${LAYERS_RULE}).`,
   },
+  network: { regexes: ['^expo/fetch$'], message: NETWORK_MESSAGE },
 };
 
 // the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
@@ -68,9 +72,6 @@ const JIKAN_GUARDS = [
   { selector: 'Literal[value=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
   { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
 ];
-
-const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
-const NETWORK_MESSAGE = `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`;
 
 // esquery regex literals cannot contain "/", even escaped
 const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
@@ -109,7 +110,7 @@ const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
   };
 };
 
-const { reactNative, expo, nativewind, supabase } = BANNED;
+const { reactNative, expo, nativewind, supabase, network } = BANNED;
 const LAYERS = [
   {
     files: ['src/core/**'],
@@ -122,14 +123,14 @@ const LAYERS = [
     allowJikan: true,
   },
   { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind] },
-  { files: ['src/ui/**'], banned: [supabase] },
+  { files: ['src/ui/**'], banned: [supabase, network] },
   {
     files: ['src/platform/**'],
     banned: [nativewind, supabase],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
-  { files: ['src/features/**'], banned: [nativewind, supabase] },
-  { files: ['app/**'], banned: [nativewind, supabase] },
+  { files: ['src/features/**'], banned: [nativewind, supabase, network] },
+  { files: ['app/**'], banned: [nativewind, supabase, network] },
 ];
 
 // every rule is an error: presets that ship warnings are promoted so editors match --max-warnings 0
@@ -244,10 +245,16 @@ export default defineConfig(
               ['./app'],
               'app/ is the composition root: nothing imports it',
             ),
+            // lists every catalog provider adapter and repository implementation folder:
+            // a new provider next to jikan/ must be added here
             layerZone(
               './src/features',
-              ['./src/core/catalog/jikan', './src/core/repositories/supabase'],
-              'src/features uses src/core hooks, never the Supabase or catalog provider implementations',
+              [
+                './src/core/catalog/jikan',
+                './src/core/repositories/supabase',
+                './src/core/repositories/local',
+              ],
+              'src/features uses src/core hooks, never repository or catalog provider implementations',
             ),
           ],
         },
