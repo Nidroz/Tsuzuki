@@ -36,9 +36,9 @@ Tsuzuki is a mobile app (Android + iOS) to track anime, manga, manhwa and manhua
 # prerequisites: Node 22.13+ (see .nvmrc), Corepack, Supabase CLI, EAS CLI
 corepack enable                   # provides the pnpm version pinned in package.json
 pnpm install
-cp .env.example .env.local        # fill in the Supabase URL and anon key
-supabase start                    # local Supabase stack
-supabase db reset                 # apply migrations + seed
+cp .env.example .env.local        # fill in the Supabase URL and anon key (from F-10)
+supabase start                    # local Supabase stack (from F-08)
+supabase db reset                 # apply migrations + seed (from F-08)
 pnpm start                        # Expo dev server
 ```
 
