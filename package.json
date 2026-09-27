@@ -12,7 +12,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "typecheck": "tsc --noEmit",
-    "check": "pnpm typecheck"
+    "check": "pnpm typecheck",
+    "prepare": "husky"
   },
   "dependencies": {
     "expo": "~57.0.25",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.18",
+    "husky": "^9.1.7",
     "typescript": "~6.0.3"
   }
 }
