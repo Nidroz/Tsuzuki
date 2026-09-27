@@ -1,0 +1,16 @@
+# single-author policy (CONTRIBUTING.md section 2): co-author trailers and tool-generated footers are rejected
+# drop everything from the scissors line onwards, then git comment lines
+msg=$(sed -e '/^# -* >8 -*$/,$d' -e '/^#/d' "$1")
+
+reject() {
+  printf 'commit-msg: %s (see CONTRIBUTING.md section 2)\n' "$1" >&2
+  exit 1
+}
+
+if printf '%s\n' "$msg" | grep -Eiq '^[[:space:]]*co-authored-by:'; then
+  reject 'co-author trailers are not allowed'
+fi
+
+if printf '%s\n' "$msg" | grep -Eiq '^[^[:alnum:]]*generated[ -](with|by)([[:space:]:]|$)'; then
+  reject 'tool-generated footers are not allowed'
+fi

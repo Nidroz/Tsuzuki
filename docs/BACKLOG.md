@@ -12,7 +12,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 
 ## Phase 1 — Foundations
 
-- [ ] F-01 Initialize the Expo project
+- [x] F-01 Initialize the Expo project
 - [ ] F-02 Linting, formatting and git hooks
 - [ ] F-03 Test tooling
 - [ ] F-04 CI pipeline
@@ -46,7 +46,7 @@ Details:
 - Jest (jest-expo preset), React Native Testing Library, MSW for HTTP mocking, fake timers setup.
 - Coverage thresholds: `src/core/` 90 % lines/branches, global 70 % lines; CI fails below.
 - pgTAP runner: `pnpm test:rls` runs `supabase test db`.
-- Maestro installed and one smoke flow (app launches, tabs visible).
+- Maestro installed and one smoke flow (app launches; the tabs check is added in F-07).
 - `pnpm check` extended with `pnpm test`.
 - **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail.
 
@@ -54,10 +54,11 @@ Details:
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
 - CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
+- Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught.
 - release-please config.
 - CI runs on PRs to both `dev` and `main`; release PRs to `main` also run the E2E suite.
 - Document required checks to enable in branch protection for `dev` and `main`.
-- **Acceptance**: a PR with a failing test, a lint warning or a fake secret is blocked.
+- **Acceptance**: a PR with a failing test, a lint warning, a fake secret or a commit message with a co-author trailer is blocked.
 
 ### F-05 Theme and UI primitives
 - NativeWind setup confined to `src/ui/`.
@@ -73,7 +74,8 @@ Details:
 - Tabs: Discover, Search, Library, Favorites, Settings, with placeholder screens using primitives.
 - Media detail route `media/[kind]/[id]` with Zod-validated params.
 - Settings: theme and language pickers wired.
-- **Acceptance**: navigation E2E smoke flow passes; invalid deep link params show an error state.
+- Maestro smoke flow from F-03 extended: the five tabs are visible.
+- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
 
 ### F-08 Supabase schema v1
 - Local Supabase config, first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
