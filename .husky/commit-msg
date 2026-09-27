@@ -11,6 +11,6 @@ if printf '%s\n' "$msg" | grep -Eiq '^[[:space:]]*co-authored-by:'; then
   reject 'co-author trailers are not allowed'
 fi
 
-if printf '%s\n' "$msg" | grep -Eiq '^[^[:alnum:]]*generated (with|by)[[:space:]]'; then
+if printf '%s\n' "$msg" | grep -Eiq '^[^[:alnum:]]*generated[ -](with|by)([[:space:]:]|$)'; then
   reject 'tool-generated footers are not allowed'
 fi
