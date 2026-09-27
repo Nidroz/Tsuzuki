@@ -27,14 +27,15 @@ Read first: `SPEC.md` (what we build), `docs/ARCHITECTURE.md` (how), `docs/BACKL
 | `pnpm install` | Install dependencies (pnpm only, lockfile committed) |
 | `pnpm start` | Expo dev server |
 | `pnpm lint` / `pnpm lint:fix` | ESLint, zero warnings allowed |
+| `pnpm format` / `pnpm format:check` | Prettier: format / verify formatting (Markdown is not formatted) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm test` | Jest unit + component tests with coverage thresholds |
 | `pnpm test:rls` | pgTAP tests for RLS policies (needs `supabase start`) |
 | `pnpm test:e2e` | Maestro flows |
-| `pnpm check` | lint + typecheck + unit/component tests, as far as they exist (see below) — run before declaring any task done |
+| `pnpm check` | lint + format check + typecheck + unit/component tests, as far as they exist (see below) — run before declaring any task done |
 | `supabase migration new <name>` | Create a migration (never edit an applied one) |
 
-`pnpm check` grows with the backlog and never contains placeholder scripts: F-01 runs typecheck, F-02 adds lint, F-03 adds tests. CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
+`pnpm check` grows with the backlog and never contains placeholder scripts: F-01 runs typecheck, F-02 adds lint and the format check, F-03 adds tests. CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
 
 ## 4. Project structure and layers
 
@@ -48,7 +49,7 @@ supabase/       migrations, edge functions, RLS tests
 e2e/            Maestro flows
 ```
 
-Dependency direction (enforced by `import/no-restricted-paths`):
+Dependency direction (enforced by `import-x/no-restricted-paths`):
 
 ```
 app → features → ui, core, platform
@@ -68,7 +69,7 @@ Root configuration files belong to the area they configure. A change to one of t
 
 | Area | Files |
 | --- | --- |
-| App and tooling | `package.json`, `tsconfig.json`, `app.config.ts`, `babel.config.js`, `metro.config.js`, `.npmrc`, `.nvmrc`, `.gitattributes`, `eas.json`, ESLint and Prettier config, husky and commitlint config, `.github/workflows/` |
+| App and tooling | `package.json`, `tsconfig.json`, `app.config.ts`, `babel.config.js`, `metro.config.js`, `.npmrc`, `pnpm-workspace.yaml`, `.nvmrc`, `.gitattributes`, `eas.json`, ESLint and Prettier config, husky and commitlint config, `.github/workflows/` |
 | Testing | Jest config and setup, MSW handlers setup, Maestro config |
 | Database | `supabase/config.toml` |
 

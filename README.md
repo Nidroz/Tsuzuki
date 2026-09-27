@@ -33,7 +33,7 @@ Tsuzuki is a mobile app (Android + iOS) to track anime, manga, manhwa and manhua
 ## Getting started
 
 ```bash
-# prerequisites: Node 22.13+ (see .nvmrc), Corepack, Supabase CLI, EAS CLI
+# prerequisites: Node 22.22.1+ (see .nvmrc), Corepack, Supabase CLI, EAS CLI
 corepack enable                   # provides the pnpm version pinned in package.json
 pnpm install
 cp .env.example .env.local        # fill in the Supabase URL and anon key (from F-10)
@@ -47,14 +47,17 @@ pnpm start                        # Expo dev server
 | Command | Purpose |
 | --- | --- |
 | `pnpm start` | Start the Expo dev server |
-| `pnpm lint` | ESLint (zero warnings) |
+| `pnpm lint` / `pnpm lint:fix` | ESLint (zero warnings) / with auto-fix |
+| `pnpm format` / `pnpm format:check` | Prettier: format / verify formatting |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm test` | Unit + component tests with coverage |
 | `pnpm test:rls` | Row Level Security tests (pgTAP) |
 | `pnpm test:e2e` | Maestro end-to-end flows |
-| `pnpm check` | Lint + typecheck + unit/component tests, as far as they exist |
+| `pnpm check` | Lint + format check + typecheck + unit/component tests, as far as they exist |
 
 CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
+
+Git hooks (husky, installed by `pnpm install`): `pre-commit` lints and formats staged files, `commit-msg` checks the message against Conventional Commits and the single-author rule (`commitlint.config.mjs`). Git clients outside a terminal need `node` on their `PATH` for the hooks to run.
 
 ## Documentation
 
