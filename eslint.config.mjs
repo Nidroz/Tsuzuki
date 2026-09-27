@@ -264,9 +264,11 @@ export default defineConfig(
               'src/features uses src/core hooks, never repository or catalog provider implementations',
             ),
             // targets are minimatch globs on absolute paths: every nested file (nested layouts
-            // included) and every root file except the root layout itself
+            // included), every root file not named _layout.*, and every _layout.* variant except
+            // _layout.tsx. on windows the resolved target puts a backslash before each segment, which
+            // escapes a leading "!(": every pattern needs another glob character to stay a glob
             layerZone(
-              ['./app/*/**', './app/!(_layout.tsx)'],
+              ['./app/*/**', './app/!(_layout).*', './app/_layout.!(tsx)'],
               IMPLEMENTATION_FOLDERS,
               'only app/_layout.tsx (the composition root) wires repository and catalog provider implementations',
             ),
