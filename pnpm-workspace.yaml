@@ -1,4 +1,5 @@
-# align transitive peers auto-installed by pnpm with the expo sdk 57 versions (bundledNativeModules.json)
+# pin these 5 versions to align with expo sdk 57 (expo/bundledNativeModules.json): pnpm otherwise
+# auto-installs peers pulled in by expo-router's dependencies at newer, unsupported versions
 overrides:
   react-dom: 19.2.3
   react-native-gesture-handler: ~2.32.0
