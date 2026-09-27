@@ -12,7 +12,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 
 ## Phase 1 — Foundations
 
-- [ ] F-01 Initialize the Expo project
+- [x] F-01 Initialize the Expo project
 - [ ] F-02 Linting, formatting and git hooks
 - [ ] F-03 Test tooling
 - [ ] F-04 CI pipeline
