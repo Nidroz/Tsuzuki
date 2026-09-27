@@ -43,7 +43,12 @@ const BANNED = {
     regexes: ['^@supabase/'],
     message: `the Supabase client is imported only in src/core/repositories/supabase (${LAYERS_RULE}).`,
   },
-  network: { regexes: ['^expo/fetch$'], message: NETWORK_MESSAGE },
+  network: { regexes: ['^expo/fetch(?:$|[./])'], message: NETWORK_MESSAGE },
+  // expo/src and expo/build reach modules such as fetch without their public specifier
+  expoInternals: {
+    regexes: ['^expo/(?:src|build)(?:$|/)'],
+    message: `deep imports of Expo internals bypass the rules on screens and ui: use public entry points (${LAYERS_RULE}).`,
+  },
 };
 
 // the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
@@ -110,7 +115,7 @@ const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
   };
 };
 
-const { reactNative, expo, nativewind, supabase, network } = BANNED;
+const { reactNative, expo, nativewind, supabase, network, expoInternals } = BANNED;
 const LAYERS = [
   {
     files: ['src/core/**'],
@@ -123,14 +128,14 @@ const LAYERS = [
     allowJikan: true,
   },
   { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind] },
-  { files: ['src/ui/**'], banned: [supabase, network] },
+  { files: ['src/ui/**'], banned: [supabase, network, expoInternals] },
   {
     files: ['src/platform/**'],
     banned: [nativewind, supabase],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
-  { files: ['src/features/**'], banned: [nativewind, supabase, network] },
-  { files: ['app/**'], banned: [nativewind, supabase, network] },
+  { files: ['src/features/**'], banned: [nativewind, supabase, network, expoInternals] },
+  { files: ['app/**'], banned: [nativewind, supabase, network, expoInternals] },
 ];
 
 // every rule is an error: presets that ship warnings are promoted so editors match --max-warnings 0
@@ -161,6 +166,14 @@ const layerZone = (target, from, message) => ({
   from,
   message: `${message} (${LAYERS_RULE}).`,
 });
+
+// every catalog provider adapter and repository implementation folder: a new provider next to
+// jikan/ must be added here
+const IMPLEMENTATION_FOLDERS = [
+  './src/core/catalog/jikan',
+  './src/core/repositories/supabase',
+  './src/core/repositories/local',
+];
 
 export default defineConfig(
   includeIgnoreFile(ignoreFiles.filter((file, index) => index === 0 || existsSync(file))),
@@ -245,16 +258,17 @@ export default defineConfig(
               ['./app'],
               'app/ is the composition root: nothing imports it',
             ),
-            // lists every catalog provider adapter and repository implementation folder:
-            // a new provider next to jikan/ must be added here
             layerZone(
               './src/features',
-              [
-                './src/core/catalog/jikan',
-                './src/core/repositories/supabase',
-                './src/core/repositories/local',
-              ],
+              IMPLEMENTATION_FOLDERS,
               'src/features uses src/core hooks, never repository or catalog provider implementations',
+            ),
+            // targets are minimatch globs on absolute paths: every nested file (nested layouts
+            // included) and every root file except the root layout itself
+            layerZone(
+              ['./app/*/**', './app/!(_layout.tsx)'],
+              IMPLEMENTATION_FOLDERS,
+              'only app/_layout.tsx (the composition root) wires repository and catalog provider implementations',
             ),
           ],
         },
