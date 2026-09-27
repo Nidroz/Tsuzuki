@@ -39,7 +39,7 @@ Details:
 - ESLint 10 (typescript-eslint strict type-checked, @eslint-react, react-hooks, import-x) + Prettier; eslint-plugin-react-native dropped (incompatible with ESLint 10).
 - `import-x/no-restricted-paths` encoding the layer rules of `CONTRIBUTING.md` §4, plus `no-restricted-imports` banning `react-native`, `expo-*` and `nativewind` in `src/core/`.
 - lint-staged (pre-commit) and commitlint (conventional commits) on the husky setup from F-01.
-- `pnpm check` extended with `pnpm lint`.
+- `pnpm check` extended with `pnpm lint` and `pnpm format:check`.
 - **Acceptance**: a deliberate layer violation is rejected (proved in the PR description); `pnpm lint` passes with zero warnings.
 
 ### F-03 Test tooling
