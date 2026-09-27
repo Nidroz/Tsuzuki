@@ -50,7 +50,10 @@ const CANONICAL_PATHS = {
 
 // platform may import core only as types, except typed errors (owner decision)
 const PLATFORM_CORE_TYPE_ONLY = {
-  regexes: ['^@core/(?!errors(?:/|$))', '^(?:\\.{1,2}/)+(?:src/)?core/(?!errors(?:/|$))'],
+  regexes: [
+    '^@core(?:$|/(?!errors(?:/|$)))',
+    '^(?:\\.{1,2}/)+(?:src/)?core(?:$|/(?!errors(?:/|$)))',
+  ],
   message: `src/platform imports src/core with "import type" only, except @core/errors (${LAYERS_RULE}).`,
 };
 
@@ -65,6 +68,9 @@ const JIKAN_GUARDS = [
   { selector: 'Literal[value=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
   { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
 ];
+
+const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
+const NETWORK_MESSAGE = `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`;
 
 // esquery regex literals cannot contain "/", even escaped
 const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
@@ -88,11 +94,11 @@ const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
         ],
       },
     ],
-    // static imports are covered above; these guards cover import() calls
+    // static imports are covered above; these guards cover import() calls, always runtime imports
     'no-restricted-syntax': [
       'error',
       LITERAL_IMPORT_GUARD,
-      ...banned.flatMap(({ regexes, message }) =>
+      ...[...banned, ...(typeOnly ? [typeOnly] : [])].flatMap(({ regexes, message }) =>
         regexes.map((regex) => ({
           selector: `ImportExpression[source.value=${toSelectorRegex(regex)}]`,
           message,
@@ -238,6 +244,11 @@ export default defineConfig(
               ['./app'],
               'app/ is the composition root: nothing imports it',
             ),
+            layerZone(
+              './src/features',
+              ['./src/core/catalog/jikan', './src/core/repositories/supabase'],
+              'src/features uses src/core hooks, never the Supabase or catalog provider implementations',
+            ),
           ],
         },
       ],
@@ -282,10 +293,14 @@ export default defineConfig(
     rules: {
       'no-restricted-globals': [
         'error',
-        ...['fetch', 'XMLHttpRequest', 'WebSocket'].map((name) => ({
-          name,
-          message: `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`,
-        })),
+        ...NETWORK_GLOBALS.map((name) => ({ name, message: NETWORK_MESSAGE })),
+      ],
+      // globalThis.fetch(...) and friends would bypass no-restricted-globals
+      'no-restricted-properties': [
+        'error',
+        ...['globalThis', 'window', 'self', 'global'].flatMap((object) =>
+          NETWORK_GLOBALS.map((property) => ({ object, property, message: NETWORK_MESSAGE })),
+        ),
       ],
     },
   },
