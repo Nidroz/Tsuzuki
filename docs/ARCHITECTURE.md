@@ -83,6 +83,8 @@ tsuzuki/
 
 Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
 
+`src/ui/` components never call i18n: features translate and pass every label (visible text and accessibility labels) as props. This keeps `ui` independent of `core`.
+
 ## 3. Catalog provider adapter
 
 All catalog access goes through one interface, so Jikan can be replaced or complemented (AniList, MangaUpdates) without touching screens.
@@ -165,6 +167,29 @@ export interface LibraryRepository {
 
 Two implementations: `supabase/` for signed-in users and `local/` for guests. The active one is chosen by the auth state; hooks do not know which one they use.
 
+Authentication also goes through a repository, so Supabase stays confined to `src/core/repositories/supabase/`:
+
+```ts
+export type OAuthProvider = 'google' | 'apple';
+
+export interface AuthSession {
+  userId: string;
+}
+
+export interface AuthRepository {
+  signUp(email: string, password: string): Promise<void>; // sends the confirmation email
+  signIn(email: string, password: string): Promise<AuthSession>;
+  signInWithOAuth(provider: OAuthProvider): Promise<AuthSession>; // pkce
+  resetPassword(email: string): Promise<void>; // sends the recovery email
+  updatePassword(newPassword: string): Promise<void>; // submitted by the user after the recovery deep link
+  signOut(): Promise<void>;
+  onAuthStateChange(listener: (session: AuthSession | null) => void): () => void; // returns unsubscribe
+  deleteAccount(): Promise<void>; // calls the delete-account edge function
+}
+```
+
+Implemented in `src/core/repositories/supabase/`. The OAuth browser step (`expo-web-browser`) is mobile-only, so it is injected from `src/platform/` like the storage adapters.
+
 ## 5. Data model (Supabase)
 
 ```sql
@@ -200,8 +225,7 @@ create table public.library_entries (
   finished_at date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, media_kind, mal_id),
-  check (media_total_units is null or progress <= media_total_units)
+  unique (user_id, media_kind, mal_id)
 );
 
 create index library_entries_user_status_idx on public.library_entries (user_id, status);
@@ -221,6 +245,8 @@ create table public.progress_events (
 
 - The media snapshot is stored **per user** in `library_entries` instead of a shared `media` table: a shared table writable by clients would let any user alter titles or image URLs seen by everyone.
 - `updated_at` is maintained by a trigger; `progress_events` rows are inserted by a trigger on progress change, never by the client.
+- There is no database check `progress <= media_total_units`: BR-01 is enforced in the domain on user edits, and a snapshot refresh must never fail when the provider total drops below the saved progress. The UI shows progress above total gracefully. To be finalized in F-08.
+- Guest merge (BR-08) goes through a Postgres function (`security invoker`, so RLS applies) doing last-write-wins on a client-provided timestamp, since the `updated_at` trigger overwrites client values. To be finalized in A-04.
 
 ### Row Level Security
 

@@ -51,7 +51,9 @@ pnpm start                        # Expo dev server
 | `pnpm test` | Unit + component tests with coverage |
 | `pnpm test:rls` | Row Level Security tests (pgTAP) |
 | `pnpm test:e2e` | Maestro end-to-end flows |
-| `pnpm check` | Everything CI runs, locally |
+| `pnpm check` | Lint + typecheck + unit/component tests, as far as they exist |
+
+CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
 
 ## Documentation
 
