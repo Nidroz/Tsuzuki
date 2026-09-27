@@ -31,14 +31,16 @@ Read first: `SPEC.md` (what we build), `docs/ARCHITECTURE.md` (how), `docs/BACKL
 | `pnpm test` | Jest unit + component tests with coverage thresholds |
 | `pnpm test:rls` | pgTAP tests for RLS policies (needs `supabase start`) |
 | `pnpm test:e2e` | Maestro flows |
-| `pnpm check` | lint + typecheck + test — run before declaring any task done |
+| `pnpm check` | lint + typecheck + unit/component tests, as far as they exist (see below) — run before declaring any task done |
 | `supabase migration new <name>` | Create a migration (never edit an applied one) |
+
+`pnpm check` grows with the backlog and never contains placeholder scripts: F-01 runs typecheck, F-02 adds lint, F-03 adds tests. CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
 
 ## 4. Project structure and layers
 
 ```
 app/            expo-router routes only: thin screens composing features
-src/features/   mobile screen logic per feature (search, library, media-detail, favorites, auth, settings)
+src/features/   mobile screen logic per feature (search, discovery, library, media-detail, favorites, auth, settings)
 src/ui/         design system: theme tokens + primitive components. only place allowed to use NativeWind
 src/core/       platform-agnostic TypeScript: domain, schemas, catalog providers, repositories, hooks, i18n
 src/platform/   mobile-only adapters: MMKV storage, secure session storage, Sentry
@@ -59,6 +61,16 @@ platform → core (interfaces only)
 - Screens never import Supabase or a catalog provider directly: they use hooks from `src/core/hooks/`, which use repositories and the `CatalogProvider` interface.
 - Supabase client is imported only in `src/core/repositories/supabase/`.
 - Jikan is imported only in `src/core/catalog/jikan/`.
+
+### Root configuration ownership
+
+Root configuration files belong to the area they configure. A change to one of them is reviewed with that area's rules.
+
+| Area | Files |
+| --- | --- |
+| App and tooling | `package.json`, `tsconfig.json`, `app.config.ts`, `babel.config.js`, `metro.config.js`, `.npmrc`, `.nvmrc`, `.gitattributes`, `eas.json`, ESLint and Prettier config, husky and commitlint config, `.github/workflows/` |
+| Testing | Jest config and setup, MSW handlers setup, Maestro config |
+| Database | `supabase/config.toml` |
 
 ## 5. Code standards
 
@@ -105,7 +117,7 @@ platform → core (interfaces only)
 A task is done only when all of these are true:
 
 1. Acceptance criteria from the backlog item are met.
-2. `pnpm check` passes locally; RLS tests pass if the schema changed.
+2. `pnpm check` passes locally with the checks that exist at that point (see §3); RLS tests pass if the schema changed.
 3. Tests added/updated per §6.
 4. Docs updated: `ARCHITECTURE.md`, a new ADR if a structural decision was made, backlog item ticked.
 5. Code review approved.

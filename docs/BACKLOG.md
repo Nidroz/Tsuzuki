@@ -4,7 +4,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 
 ## Phase 0 — Setup (owner)
 
-- [ ] Create the GitHub repository `tsuzuki` (private) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
+- [x] Create the GitHub repository `tsuzuki` (private) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
 - [ ] Create Supabase projects `tsuzuki-staging` and `tsuzuki-prod`
 - [ ] Create the Expo account/project and link EAS
 - [ ] Sentry project
@@ -29,20 +29,25 @@ Details:
 - Expo (latest stable SDK) + Expo Router + TypeScript, pnpm, Hermes.
 - `tsconfig` with `strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`; path aliases `@core/*`, `@features/*`, `@ui/*`, `@platform/*`.
 - Folder structure from `ARCHITECTURE.md` §2 (empty folders keep a `README.md` stating their purpose).
-- **Acceptance**: app starts on Android emulator and iOS simulator (or Expo Go); `pnpm typecheck` passes.
+- `.gitattributes` with `* text=auto eol=lf`.
+- Node pinned: `.nvmrc` = 22, `engines.node` >= 22, `packageManager` field for pnpm (Corepack).
+- husky with a `commit-msg` hook rejecting any `Co-authored-by` trailer or tool-generated footer (the rest of the git hooks come in F-02).
+- `pnpm check` = `pnpm typecheck` (lint and tests are added by F-02 and F-03).
+- **Acceptance**: app starts in Expo Go (or an Android emulator); `pnpm check` passes; a commit with a `Co-authored-by` trailer is rejected.
 
 ### F-02 Linting, formatting and git hooks
 - ESLint (typescript-eslint strict type-checked, react, react-hooks, react-native, import) + Prettier.
 - `import/no-restricted-paths` encoding the layer rules of `CONTRIBUTING.md` §4, plus `no-restricted-imports` banning `react-native`, `expo-*` and `nativewind` in `src/core/`.
-- husky + lint-staged (pre-commit), commitlint (conventional commits).
-- `commit-msg` hook rejecting any `Co-authored-by` trailer or tool-generated footer (single author).
-- **Acceptance**: a deliberate layer violation and a commit with a `Co-authored-by` trailer are both rejected (proved in the PR description); `pnpm lint` passes with zero warnings.
+- lint-staged (pre-commit) and commitlint (conventional commits) on the husky setup from F-01.
+- `pnpm check` extended with `pnpm lint`.
+- **Acceptance**: a deliberate layer violation is rejected (proved in the PR description); `pnpm lint` passes with zero warnings.
 
 ### F-03 Test tooling
 - Jest (jest-expo preset), React Native Testing Library, MSW for HTTP mocking, fake timers setup.
 - Coverage thresholds: `src/core/` 90 % lines/branches, global 70 % lines; CI fails below.
 - pgTAP runner: `pnpm test:rls` runs `supabase test db`.
 - Maestro installed and one smoke flow (app launches, tabs visible).
+- `pnpm check` extended with `pnpm test`.
 - **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail.
 
 ### F-04 CI pipeline
@@ -81,7 +86,8 @@ Details:
 - Secure session storage adapter for supabase-js (`expo-secure-store`, chunking for large values).
 - Supabase client factory in `src/core/repositories/supabase/` receiving the storage adapter.
 - Query client with key factory, stale times, persisted cache (MMKV) busted on app version.
-- **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test).
+- Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV.
+- **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test); the app runs in a development build.
 
 ### F-10 Environments, Sentry and EAS
 - `app.config.ts` reading env (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `SENTRY_DSN`), validated with Zod at startup; `.env.example`.
