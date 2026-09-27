@@ -42,6 +42,12 @@ const BANNED = {
   },
 };
 
+// the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
+const CANONICAL_PATHS = {
+  regexes: ['(?:^|/)node_modules(?:/|$)', '(?:^|/)(?!\\.\\.(?:/|$))[^/]+/\\.\\.(?:/|$)'],
+  message: `import paths are written canonically, with no ".." after a segment and no node_modules path, so layer rules can check them (${LAYERS_RULE}).`,
+};
+
 // platform may import core only as types, except typed errors (owner decision)
 const PLATFORM_CORE_TYPE_ONLY = {
   regexes: ['^@core/(?!errors(?:/|$))', '^(?:\\.{1,2}/)+(?:src/)?core/(?!errors(?:/|$))'],
@@ -65,34 +71,37 @@ const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
 
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax
-const layerRules = ({ banned, typeOnly, allowJikan = false }) => ({
-  'no-restricted-imports': 'off',
-  '@typescript-eslint/no-restricted-imports': [
-    'error',
-    {
-      patterns: [
-        ...banned.flatMap(({ regexes, message }) => regexes.map((regex) => ({ regex, message }))),
-        ...(typeOnly?.regexes ?? []).map((regex) => ({
-          regex,
-          message: typeOnly.message,
-          allowTypeImports: true,
+const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
+  const banned = [CANONICAL_PATHS, ...layerBanned];
+  return {
+    'no-restricted-imports': 'off',
+    '@typescript-eslint/no-restricted-imports': [
+      'error',
+      {
+        patterns: [
+          ...banned.flatMap(({ regexes, message }) => regexes.map((regex) => ({ regex, message }))),
+          ...(typeOnly?.regexes ?? []).map((regex) => ({
+            regex,
+            message: typeOnly.message,
+            allowTypeImports: true,
+          })),
+        ],
+      },
+    ],
+    // static imports are covered above; these guards cover import() calls
+    'no-restricted-syntax': [
+      'error',
+      LITERAL_IMPORT_GUARD,
+      ...banned.flatMap(({ regexes, message }) =>
+        regexes.map((regex) => ({
+          selector: `ImportExpression[source.value=${toSelectorRegex(regex)}]`,
+          message,
         })),
-      ],
-    },
-  ],
-  // static imports are covered above; these guards cover import() calls
-  'no-restricted-syntax': [
-    'error',
-    LITERAL_IMPORT_GUARD,
-    ...banned.flatMap(({ regexes, message }) =>
-      regexes.map((regex) => ({
-        selector: `ImportExpression[source.value=${toSelectorRegex(regex)}]`,
-        message,
-      })),
-    ),
-    ...(allowJikan ? [] : JIKAN_GUARDS),
-  ],
-});
+      ),
+      ...(allowJikan ? [] : JIKAN_GUARDS),
+    ],
+  };
+};
 
 const { reactNative, expo, nativewind, supabase } = BANNED;
 const LAYERS = [
