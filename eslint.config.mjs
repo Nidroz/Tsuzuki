@@ -13,6 +13,8 @@ const ROOT = import.meta.dirname;
 const TS_FILES = ['**/*.{ts,tsx}'];
 const JS_FILES = ['**/*.{js,mjs,cjs}'];
 const LAYERS_RULE = 'CONTRIBUTING.md section 4';
+// a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
+const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 
 // ignore patterns are resolved against this config's folder (the repo root), not the ignore file's
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
@@ -289,9 +291,9 @@ export default defineConfig(
       '@typescript-eslint/ban-ts-comment': [
         'error',
         {
-          // syntax: // @ts-expect-error(#42): upstream type is wrong
-          'ts-expect-error': { descriptionFormat: '^\\(#[1-9]\\d*\\): \\S' },
-          'ts-ignore': { descriptionFormat: '^\\(#[1-9]\\d*\\): \\S' },
+          // syntax: // @ts-expect-error(F-05): upstream type is wrong (a backlog id from docs/BACKLOG.md)
+          'ts-expect-error': { descriptionFormat: TS_DIRECTIVE_FORMAT },
+          'ts-ignore': { descriptionFormat: TS_DIRECTIVE_FORMAT },
           'ts-nocheck': true,
         },
       ],
