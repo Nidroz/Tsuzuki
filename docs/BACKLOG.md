@@ -50,7 +50,7 @@ Details:
 - `pnpm check` extended with `pnpm test`.
 - Unit tests for the single-author commitlint rule (`singleAuthorViolation` / `singleAuthor` exports): LF and CRLF, lowercase and indented trailers, generated with/by footers, comment lines, scissors section, merge/revert/fixup exemption.
 - Regression tests for the layer lint rules via the ESLint Node API: one case per zone, package ban, type-only rule, canonical path rule, network ban and Jikan guard, plus positive controls.
-- Last: a small local ESLint plugin enforcing `TODO(#n)` and file name casing (kebab-case, PascalCase components, expo-router names such as `_layout`, `[id]`, `(tabs)`, `+not-found`), tested with `RuleTester`.
+- Last: a small local ESLint plugin enforcing `TODO(<backlog id>)` (checking, if feasible, that the ID exists in `docs/BACKLOG.md`) and file name casing (kebab-case, PascalCase components, expo-router names such as `_layout`, `[id]`, `(tabs)`, `+not-found`), tested with `RuleTester`.
 - **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail.
 
 ### F-04 CI pipeline
