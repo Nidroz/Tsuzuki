@@ -10,6 +10,8 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
+import { tsuzukiPlugin } from './tools/eslint/plugin/index.mjs';
+
 const ROOT = import.meta.dirname;
 const TS_FILES = ['**/*.{ts,tsx}'];
 const JS_FILES = ['**/*.{js,mjs,cjs}'];
@@ -344,6 +346,16 @@ export default defineConfig(
     },
   },
   { files: TS_FILES, rules: { '@typescript-eslint/consistent-type-imports': 'error' } },
+
+  {
+    // project rules from tools/eslint/plugin: backlog ids in work markers and ts directives, and
+    // file naming (CONTRIBUTING.md section 5)
+    plugins: { tsuzuki: tsuzukiPlugin },
+    rules: {
+      'tsuzuki/backlog-reference': 'error',
+      'tsuzuki/file-name-case': 'error',
+    },
+  },
 
   ...LAYERS.map(({ files, ignores, ...layer }) => ({
     files,
