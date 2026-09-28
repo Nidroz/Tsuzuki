@@ -100,7 +100,8 @@ const projectsRunning = (file) =>
     .map(([name]) => name);
 
 // a test file outside every project would never run, and one inside both would run twice:
-// either case fails the whole run here instead
+// either case fails the whole run here instead. matchesGlob skips dot folders, so a test under
+// one is reported too: that errs on the loud side
 const assertEveryTestInOneProject = () => {
   const misplaced = TEST_ROOTS.flatMap(filesUnder).filter(
     (file) => TEST_FILE.test(file) && projectsRunning(file).length !== 1,
