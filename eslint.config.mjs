@@ -5,6 +5,7 @@ import js from '@eslint/js';
 import eslintReact from '@eslint-react/eslint-plugin';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import { importX } from 'eslint-plugin-import-x';
+import jestPlugin from 'eslint-plugin-jest';
 import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import tseslint from 'typescript-eslint';
@@ -12,6 +13,10 @@ import tseslint from 'typescript-eslint';
 const ROOT = import.meta.dirname;
 const TS_FILES = ['**/*.{ts,tsx}'];
 const JS_FILES = ['**/*.{js,mjs,cjs}'];
+// jest tests only: the node:test tooling tests (*.test.mjs) get no jest rules
+const JEST_FILES = ['**/*.test.{ts,tsx}'];
+// matches the installed jest major, so version-dependent rules skip auto-detection
+const JEST_VERSION = 29;
 const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 // a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
 const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
@@ -154,6 +159,9 @@ const promoteWarnings = (configs) =>
       ),
     }),
   }));
+
+// the jest presets also declare jest globals: tests import them from @jest/globals instead
+const jestRulesOnly = ({ plugins, rules }) => ({ plugins, rules });
 
 // eslint-plugin-react-hooks owns the hooks rules; drop the @eslint-react copies to avoid double reports
 const reactHooksDuplicates = Object.fromEntries(
@@ -357,5 +365,25 @@ export default defineConfig(
   {
     files: ['src/ui/theme/**', '**/*.test.{ts,tsx}', '**/__tests__/**', '**/__fixtures__/**'],
     rules: { '@typescript-eslint/no-magic-numbers': 'off' },
+  },
+
+  {
+    // leaves the layer import rules alone: each layer keeps its complete option set
+    files: JEST_FILES,
+    extends: [
+      promoteWarnings(jestRulesOnly(jestPlugin.configs['flat/recommended'])),
+      promoteWarnings(jestRulesOnly(jestPlugin.configs['flat/style'])),
+    ],
+    settings: { jest: { version: JEST_VERSION } },
+    rules: {
+      'jest/prefer-importing-jest-globals': 'error',
+      'jest/no-disabled-tests': 'error',
+      'jest/no-focused-tests': 'error',
+      // the jest variant understands jest.fn() and expect(obj.method) calls
+      '@typescript-eslint/unbound-method': 'off',
+      'jest/unbound-method': 'error',
+      // a test is never a route or a tool config: overrides the app/** exception above
+      'import-x/no-default-export': 'error',
+    },
   },
 );
