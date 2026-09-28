@@ -96,10 +96,28 @@ const TOOLING_TEST_FILES = ['tools/**/*.test.mjs'];
 const TEST_HYGIENE_MESSAGE =
   'tests are never skipped, focused or left todo (CONTRIBUTING.md section 6).';
 const TEST_RUNNERS = ['it', 'test', 'describe', 'suite'];
+// runner methods and option keys alike; only also focuses a RuleTester case
 const TEST_MODIFIERS = ['skip', 'only', 'todo'];
-// the key that focuses a case, in node:test options and in RuleTester cases alike
 const FOCUS_KEY = 'only';
-const OPTION_KEYS_EXCEPT_FOCUS = TEST_MODIFIERS.filter((key) => key !== FOCUS_KEY);
+// test context methods that skip, todo or focus from inside a test body (t.skip(), t.runOnly(true))
+const TEST_CONTEXT_MODIFIERS = ['skip', 'todo', 'runOnly'];
+// node:test exports that may be imported, each under its own name only: an alias, a namespace or
+// the default export (the runner itself) would escape the runner names above
+const NODE_TEST_SOURCE = 'node:test';
+const NODE_TEST_IMPORTS = [
+  'after',
+  'afterEach',
+  'assert',
+  'before',
+  'beforeEach',
+  'describe',
+  'it',
+  'mock',
+  'run',
+  'snapshot',
+  'suite',
+  'test',
+];
 
 // esquery regex matching exactly one of the names
 const oneOf = (names) => `/^(?:${names.join('|')})$/`;
@@ -123,18 +141,31 @@ const TEST_HYGIENE_PROPERTIES = [
   },
 ];
 
-// a runner call, plain (it(...)) or on a test context (t.test(...))
-const RUNNER_CALL = `CallExpression:matches([callee.type='Identifier'][callee.name=${oneOf(TEST_RUNNERS)}], [callee.type='MemberExpression'][callee.computed=false][callee.property.name=${oneOf(TEST_RUNNERS)}])`;
+const NODE_TEST_IMPORT = `ImportDeclaration[source.value='${NODE_TEST_SOURCE}']`;
+// esquery cannot compare two fields: one [imported][local] pair per allowed name
+const PLAIN_NODE_TEST_SPECIFIER = NODE_TEST_IMPORTS.map(
+  (name) => `[imported.name='${name}'][local.name='${name}']`,
+).join(', ');
+
 const TEST_HYGIENE_SYNTAX = [
-  // the key alone is banned, whatever its value: { skip: false } is one edit away from skipping
+  // in any object literal, whatever its value: runner options and RuleTester cases, however they
+  // are built (inline or through a variable); { skip: false } is one edit away from skipping
   {
-    selector: `${RUNNER_CALL} > ObjectExpression > ${propertyKey(oneOf(OPTION_KEYS_EXCEPT_FOCUS))}`,
-    message: `skip and todo options: ${TEST_HYGIENE_MESSAGE}`,
+    selector: `ObjectExpression > ${propertyKey(oneOf(TEST_MODIFIERS))}`,
+    message: `skip, only and todo options: ${TEST_HYGIENE_MESSAGE}`,
   },
-  // anywhere in an object literal: runner options and RuleTester cases, however they are built
+  // whatever the test context is called; optional calls (t.skip?.()) are call expressions too
   {
-    selector: `ObjectExpression > ${propertyKey(oneOf([FOCUS_KEY]))}`,
-    message: `only option: ${TEST_HYGIENE_MESSAGE}`,
+    selector: `CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name=${oneOf(TEST_CONTEXT_MODIFIERS)}]`,
+    message: `skip, todo and runOnly calls: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  {
+    selector: `${NODE_TEST_IMPORT} > :matches(ImportDefaultSpecifier, ImportNamespaceSpecifier)`,
+    message: `${NODE_TEST_SOURCE} default and namespace imports: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  {
+    selector: `${NODE_TEST_IMPORT} > ImportSpecifier:not(${PLAIN_NODE_TEST_SPECIFIER})`,
+    message: `${NODE_TEST_SOURCE} imports are unrenamed (${NODE_TEST_IMPORTS.join(', ')}): ${TEST_HYGIENE_MESSAGE}`,
   },
 ];
 
