@@ -12,7 +12,6 @@ import { backlogReference } from './backlog-reference.mjs';
 
 RuleTester.describe = describe;
 RuleTester.it = it;
-RuleTester.itOnly = it.only;
 
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
 // backlog paths are resolved against the eslint cwd, the repo root under `pnpm test:tooling`
@@ -153,6 +152,17 @@ ruleTester.run('backlog-reference (fixture backlog)', backlogReference, {
       options: WITH_FIXTURE,
       errors: [completedId('L-02', at(1, 4, 'FIXME'.length))],
     },
+    // markdown renders "[X]" as a ticked box too
+    {
+      code: '// TODO(L-03): x',
+      options: WITH_FIXTURE,
+      errors: [completedId('L-03', MARKER_AT_START)],
+    },
+    {
+      code: '// @ts-expect-error(L-03): x',
+      options: WITH_FIXTURE,
+      errors: [completedId('L-03', at(1, 4, '@ts-expect-error(L-03)'.length))],
+    },
     {
       code: '// @ts-ignore(F-99): x',
       options: WITH_FIXTURE,
@@ -225,7 +235,8 @@ ruleTester.run('backlog-reference (fixture backlog)', backlogReference, {
   ],
 });
 
-// integration with the real backlog: F-01 is ticked for good, R-06 is the last item to close
+// integration with the real backlog: F-01 is ticked for good and Z-99 is no item, for good.
+// R-06 is the last item to close: update when R-06 closes (cite any item still open)
 ruleTester.run('backlog-reference (docs/BACKLOG.md, default option)', backlogReference, {
   assertionOptions,
   valid: [{ code: '// TODO(R-06): x' }, { code: '// FIXME(R-06): x', options: [{}] }],

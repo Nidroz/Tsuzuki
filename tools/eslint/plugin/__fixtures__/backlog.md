@@ -18,6 +18,7 @@ Trimmed copy of the `docs/BACKLOG.md` item format.
 - [x] L-02 Duplicated item, ticked twice
 - [x] L-02 Duplicated item, ticked twice (second line)
 - [ ] A-100 Three-digit number: not an item id
+- [X] L-03 Ticked with an uppercase X: done, like a lowercase tick
 
 Prose mentions such as R-01 or `- [ ] R-02` are not items.
 

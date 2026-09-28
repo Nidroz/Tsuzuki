@@ -15,8 +15,9 @@ const MARKER_REFERENCE = /^\(([A-Z]-\d{2})\): \S/;
 // comment (same detection as @typescript-eslint/ban-ts-comment, which owns the format)
 const LINE_DIRECTIVE = /^\/*\s*@ts-(?:expect-error|ignore)\(([A-Z]-\d{2})\)/;
 const BLOCK_DIRECTIVE = /^\s*(?:\/|\*)*\s*@ts-(?:expect-error|ignore)\(([A-Z]-\d{2})\)/;
-// checkbox lines of the backlog, e.g. "- [x] F-01 Initialize the Expo project"
-const BACKLOG_ITEM = /^- \[( |x)\] ([A-Z]-\d{2})\b/gm;
+// checkbox lines of the backlog, e.g. "- [x] F-01 Initialize the Expo project"; markdown ticks a
+// box with "x" or "X"
+const BACKLOG_ITEM = /^- \[( |[xX])\] ([A-Z]-\d{2})\b/gm;
 
 // resolved backlog path -> { items: Map<id, done> } or { error: string }, read once per process
 const backlogCache = new Map();
@@ -25,7 +26,7 @@ const parseBacklog = (text) => {
   const items = new Map();
   for (const [, box, id] of text.matchAll(BACKLOG_ITEM)) {
     // a duplicated id stays open while any of its lines is unticked
-    items.set(id, (items.get(id) ?? true) && box === 'x');
+    items.set(id, (items.get(id) ?? true) && box !== ' ');
   }
   return items;
 };
