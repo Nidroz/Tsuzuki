@@ -74,6 +74,49 @@ const aliasesFromTsconfig = () => {
   );
 };
 
+// test files of each project, relative to the root. testMatch is built from these lists and the
+// guard below checks every test file against the same lists, so the two cannot drift
+const CORE_TESTS = ['src/core/**/*.test.{ts,tsx}', 'test/core/**/*.test.{ts,tsx}'];
+const MOBILE_TESTS = [
+  'src/{features,ui,platform}/**/*.test.{ts,tsx}',
+  'test/app/**/*.test.{ts,tsx}',
+  'test/mobile/**/*.test.{ts,tsx}',
+];
+const PROJECT_TESTS = { core: CORE_TESTS, mobile: MOBILE_TESTS };
+const TEST_ROOTS = ['app', 'src', 'test'];
+const TEST_FILE = /\.test\.tsx?$/;
+
+const toTestMatch = (patterns) => patterns.map((pattern) => `<rootDir>/${pattern}`);
+
+// root-relative paths with forward slashes, as the patterns above are written
+const filesUnder = (root) =>
+  readdirSync(path.join(ROOT, root), { recursive: true }).map((entry) =>
+    path.posix.join(root, ...String(entry).split(path.sep)),
+  );
+
+const projectsRunning = (file) =>
+  Object.entries(PROJECT_TESTS)
+    .filter(([, patterns]) => patterns.some((pattern) => path.posix.matchesGlob(file, pattern)))
+    .map(([name]) => name);
+
+// a test file outside every project would never run, and one inside both would run twice:
+// either case fails the whole run here instead
+const assertEveryTestInOneProject = () => {
+  const misplaced = TEST_ROOTS.flatMap(filesUnder).filter(
+    (file) => TEST_FILE.test(file) && projectsRunning(file).length !== 1,
+  );
+  if (misplaced.length > 0) {
+    const projects = Object.entries(PROJECT_TESTS).map(
+      ([name, patterns]) => `${name}: ${patterns.join(', ')}`,
+    );
+    throw new Error(
+      `test files outside exactly one jest project: ${misplaced.join(', ')}. ` +
+        `move them under one project's paths (${projects.join('; ')})`,
+    );
+  }
+};
+assertEveryTestInOneProject();
+
 // the app's babel transform (expo preset, as metro runs it), without the react native preset
 const expoPreset = require('jest-expo/jest-preset');
 const BABEL_PATTERN = '\\.[jt]sx?$';
@@ -108,10 +151,7 @@ const config = {
       displayName: 'core',
       // node export conditions: msw/node resolves, and a react native import fails at runtime
       testEnvironment: 'node',
-      testMatch: [
-        '<rootDir>/src/core/**/*.test.{ts,tsx}',
-        '<rootDir>/test/core/**/*.test.{ts,tsx}',
-      ],
+      testMatch: toTestMatch(CORE_TESTS),
       transform: { '\\.(?:[jt]sx?|mjs)$': babelTransform },
       // pnpm stores packages under node_modules/.pnpm/<name>@<version>/node_modules/<name>
       transformIgnorePatterns: [
@@ -124,11 +164,7 @@ const config = {
       ...shared,
       displayName: 'mobile',
       preset: 'jest-expo',
-      testMatch: [
-        '<rootDir>/src/{features,ui,platform}/**/*.test.{ts,tsx}',
-        '<rootDir>/test/app/**/*.test.{ts,tsx}',
-        '<rootDir>/test/mobile/**/*.test.{ts,tsx}',
-      ],
+      testMatch: toTestMatch(MOBILE_TESTS),
       setupFilesAfterEnv: ['<rootDir>/test/mobile/setup.ts'],
     },
   ],
