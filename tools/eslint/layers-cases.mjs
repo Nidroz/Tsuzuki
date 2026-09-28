@@ -1,6 +1,8 @@
 // case tables for layers.test.mjs: every rejected case names the exact rule and a fragment of its
 // message, so an unrelated error cannot satisfy it
 
+import path from 'node:path';
+
 import { EXISTING, PROBES } from './layers-harness.mjs';
 
 const PATHS = 'import-x/no-restricted-paths';
@@ -11,7 +13,7 @@ const PROPERTIES = 'no-restricted-properties';
 
 export const MESSAGES = {
   core: 'src/core is platform-agnostic and imports no other layer',
-  hooks: 'src/core/hooks uses repository and catalog provider interfaces',
+  coreInterfaces: 'src/core uses repository and catalog provider interfaces',
   ui: 'src/ui depends only on itself',
   platform: 'src/platform depends only on src/core',
   app: 'app/ is the composition root: nothing imports it',
@@ -63,6 +65,20 @@ const JIKAN_PROBES = [
   ['jikan url template', `export const url = (id: number) => \`${JIKAN_URL}/\${String(id)}\`;\n`],
 ];
 
+// relative specifier from a probe to a root-relative module, e.g. "../repositories/local/x"
+const relativeFrom = (file, target) => {
+  const specifier = path.posix.relative(path.posix.dirname(file), target);
+  return specifier.startsWith('.') ? specifier : `./${specifier}`;
+};
+
+// every implementation in the four import forms: alias, relative, import type, import()
+const implementationImports = (file) => [
+  ...values(...IMPLEMENTATIONS),
+  ...values(...IMPLEMENTATIONS.map((s) => relativeFrom(file, s.replace(/^@core\//, 'src/core/')))),
+  ...types(...IMPLEMENTATIONS),
+  ...dynamics(...IMPLEMENTATIONS),
+];
+
 const rejected = (files, ruleId, fragment, probes) =>
   [files].flat().flatMap((file) =>
     probes.map(([label, code]) => ({
@@ -89,6 +105,17 @@ const APP_ROUTES = [
   PROBES.notFound,
 ];
 const CORE_FILES = [PROBES.core, PROBES.coreTest, PROBES.hooks];
+// every src/core and test/core file outside the implementation folders
+const INTERFACE_SIDE_FILES = [
+  PROBES.core,
+  PROBES.hooks,
+  PROBES.domain,
+  PROBES.repositoryInterface,
+  PROBES.catalogInterface,
+  PROBES.coreTest,
+  PROBES.coreTestSource,
+];
+const INTERFACES = ['@core/repositories/library-repository', '@core/catalog/catalog-provider'];
 const SCREEN_FILES = [EXISTING.index, PROBES.features, PROBES.ui];
 
 export const REJECTED = {
@@ -106,12 +133,9 @@ export const REJECTED = {
     ]),
     ...rejected(PROBES.features, PATHS, MESSAGES.app, values(APP_INDEX_FROM_SRC_LAYER)),
     ...rejected(PROBES.features, PATHS, MESSAGES.features, values(...IMPLEMENTATIONS)),
-    ...rejected(PROBES.hooks, PATHS, MESSAGES.hooks, [
-      ...values(...IMPLEMENTATIONS),
-      ...values('../repositories/local/x', '../repositories/supabase/x', '../catalog/jikan/x'),
-      ...types(...IMPLEMENTATIONS),
-      ...dynamics(...IMPLEMENTATIONS),
-    ]),
+    ...INTERFACE_SIDE_FILES.flatMap((file) =>
+      rejected(file, PATHS, MESSAGES.coreInterfaces, implementationImports(file)),
+    ),
     ...rejected(APP_ROUTES, PATHS, MESSAGES.root, values(...IMPLEMENTATIONS)),
   ],
 
@@ -207,11 +231,38 @@ export const REJECTED = {
 export const ALLOWED = {
   zones: [
     ...allowed(PROBES.hooks, [
-      ...types('@core/repositories/library-repository', '@core/catalog/catalog-provider'),
+      ...types(...INTERFACES),
       ...values('@core/repositories/library-repository', '../catalog/catalog-provider'),
+    ]),
+    ...allowed(PROBES.domain, [...types(...INTERFACES), ...values(...INTERFACES)]),
+    ...allowed([PROBES.repositoryInterface, PROBES.catalogInterface], values('@core/domain/x')),
+    // an implementation folder imports its own files and the interfaces
+    ...allowed(PROBES.supabase, values('./y', '@core/repositories/supabase/y')),
+    ...allowed(PROBES.jikan, values('./y', '@core/catalog/jikan/y')),
+    ...allowed(PROBES.local, values('./y', '@core/repositories/local/y')),
+    ...allowed(
+      [PROBES.supabase, PROBES.local],
+      [
+        ...values('@core/repositories/library-repository', '../library-repository'),
+        ...types('@core/repositories/library-repository'),
+      ],
+    ),
+    ...allowed(PROBES.jikan, [
+      ...values('../catalog-provider'),
+      ...types('@core/catalog/catalog-provider'),
     ]),
     ...allowed(PROBES.features, values('@core/hooks/use-library')),
     ...allowed(EXISTING.layout, values(...IMPLEMENTATIONS)),
+  ],
+  // documents current behavior, not a rule: the owner decided not to restrict imports between
+  // implementation folders in F-03. restricting them later must update these cases on purpose
+  'zones: cross-implementation imports (currently allowed)': [
+    ...allowed(PROBES.supabase, values('../local/y', '@core/repositories/local/y')),
+    ...allowed(PROBES.local, values('../supabase/y', '@core/repositories/supabase/y')),
+    ...allowed(
+      PROBES.jikan,
+      values('../../repositories/supabase/y', '@core/repositories/supabase/y'),
+    ),
   ],
   'package bans': [
     ...allowed(PROBES.ui, values('nativewind')),

@@ -24,9 +24,15 @@ export const LAYER_RULE_IDS = [
 export const PROBES = {
   core: 'src/core/probe.ts',
   coreTest: 'test/core/probe.test.ts',
+  coreTestSource: 'test/core/probe.ts',
   hooks: 'src/core/hooks/probe.ts',
+  domain: 'src/core/domain/probe.ts',
+  // root interface files, next to the implementation folders
+  repositoryInterface: 'src/core/repositories/library-repository.ts',
+  catalogInterface: 'src/core/catalog/catalog-provider.ts',
   jikan: 'src/core/catalog/jikan/probe.ts',
   supabase: 'src/core/repositories/supabase/probe.ts',
+  local: 'src/core/repositories/local/probe.ts',
   ui: 'src/ui/probe.ts',
   platform: 'src/platform/probe.ts',
   features: 'src/features/probe.ts',

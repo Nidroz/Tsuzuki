@@ -185,6 +185,30 @@ const IMPLEMENTATION_FOLDERS = [
   './src/core/repositories/local',
 ];
 
+const CORE_ROOT = './src/core';
+
+// globs for every file under root except the excluded folders (leaves under root): at each level
+// on the way down to them, the files of that folder plus every sibling folder. targets are
+// minimatch globs on absolute paths; on windows the resolved target puts a backslash before each
+// segment, which escapes a leading "!(": each pattern keeps another glob character to stay a glob
+const targetsExcept = (root, excluded) => {
+  const children = new Map();
+  for (const folder of excluded) {
+    if (!folder.startsWith(`${root}/`)) {
+      throw new Error(`${folder} is not under ${root}`);
+    }
+    const segments = folder.slice(`${root}/`.length).split('/');
+    segments.forEach((segment, index) => {
+      const parent = [root, ...segments.slice(0, index)].join('/');
+      children.set(parent, new Set([...(children.get(parent) ?? []), segment]));
+    });
+  }
+  return [...children].flatMap(([folder, names]) => [
+    `${folder}/*.*`,
+    `${folder}/!(${[...names].join('|')})/**`,
+  ]);
+};
+
 export default defineConfig(
   includeIgnoreFile(ignoreFiles.filter((file, index) => index === 0 || existsSync(file))),
   globalIgnores([
@@ -253,10 +277,11 @@ export default defineConfig(
               ['./src/platform', './src/features', './src/ui', './app'],
               'src/core is platform-agnostic and imports no other layer',
             ),
+            // the implementation folders themselves are left out of the targets
             layerZone(
-              './src/core/hooks',
+              [...targetsExcept(CORE_ROOT, IMPLEMENTATION_FOLDERS), './test/core/**'],
               IMPLEMENTATION_FOLDERS,
-              'src/core/hooks uses repository and catalog provider interfaces, never their implementations',
+              'src/core uses repository and catalog provider interfaces; only the implementation folders themselves (and app/_layout.tsx) touch implementations',
             ),
             layerZone(
               './src/ui',
