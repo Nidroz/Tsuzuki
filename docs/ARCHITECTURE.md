@@ -29,7 +29,7 @@ flowchart LR
 ```
 tsuzuki/
 ├── app/                              # expo-router routes (thin)
-│   ├── _layout.tsx                   # providers: query client, theme, i18n, auth
+│   ├── _layout.tsx                   # providers: query client, theme, i18n, auth; composition root
 │   ├── (tabs)/
 │   │   ├── _layout.tsx
 │   │   ├── index.tsx                 # discovery
@@ -83,6 +83,8 @@ tsuzuki/
 
 Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
 
+- Only the root layout `app/_layout.tsx`, the composition root, wires the repository and catalog provider implementations (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`). Every other route, nested layouts included, and every feature goes through `src/core/hooks/`.
+- Screens have no direct network access: `app/`, `src/features/` and `src/ui/` never use `fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch` or Expo internals (`expo/src/…`, `expo/build/…`). Network access lives in `src/core/` (catalog adapters and repositories), with `src/platform/` for mobile SDKs.
 - Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
 - Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.
 - Dependencies are installed with pnpm in its default isolated mode (no hoisting). pnpm settings, when needed, live in `pnpm-workspace.yaml`; `.npmrc` holds only auth and registry settings.

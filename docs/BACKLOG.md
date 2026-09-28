@@ -13,7 +13,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 ## Phase 1 — Foundations
 
 - [x] F-01 Initialize the Expo project
-- [ ] F-02 Linting, formatting and git hooks
+- [x] F-02 Linting, formatting and git hooks
 - [ ] F-03 Test tooling
 - [ ] F-04 CI pipeline
 - [ ] F-05 Theme and UI primitives
@@ -36,10 +36,10 @@ Details:
 - **Acceptance**: app starts in Expo Go (or an Android emulator); `pnpm check` passes; a commit with a `Co-authored-by` trailer is rejected.
 
 ### F-02 Linting, formatting and git hooks
-- ESLint (typescript-eslint strict type-checked, react, react-hooks, react-native, import) + Prettier.
-- `import/no-restricted-paths` encoding the layer rules of `CONTRIBUTING.md` §4, plus `no-restricted-imports` banning `react-native`, `expo-*` and `nativewind` in `src/core/`.
+- ESLint 10 (typescript-eslint strict type-checked, @eslint-react, react-hooks, import-x) + Prettier; eslint-plugin-react-native dropped (incompatible with ESLint 10).
+- `import-x/no-restricted-paths` encoding the layer rules of `CONTRIBUTING.md` §4, plus `no-restricted-imports` banning `react-native`, `expo-*` and `nativewind` in `src/core/`.
 - lint-staged (pre-commit) and commitlint (conventional commits) on the husky setup from F-01.
-- `pnpm check` extended with `pnpm lint`.
+- `pnpm check` extended with `pnpm lint` and `pnpm format:check`.
 - **Acceptance**: a deliberate layer violation is rejected (proved in the PR description); `pnpm lint` passes with zero warnings.
 
 ### F-03 Test tooling
@@ -48,13 +48,17 @@ Details:
 - pgTAP runner: `pnpm test:rls` runs `supabase test db`.
 - Maestro installed and one smoke flow (app launches; the tabs check is added in F-07).
 - `pnpm check` extended with `pnpm test`.
+- Unit tests for the single-author commitlint rule (`singleAuthorViolation` / `singleAuthor` exports): LF and CRLF, lowercase and indented trailers, generated with/by footers, comment lines, scissors section, merge/revert/fixup exemption.
+- Regression tests for the layer lint rules via the ESLint Node API: one case per zone, package ban, type-only rule, canonical path rule, network ban and Jikan guard, plus positive controls.
+- Last: a small local ESLint plugin enforcing `TODO(<backlog id>)` (checking, if feasible, that the ID exists in `docs/BACKLOG.md`) and file name casing (kebab-case, PascalCase components, expo-router names such as `_layout`, `[id]`, `(tabs)`, `+not-found`), tested with `RuleTester`.
 - **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail.
 
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
 - CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
-- Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught.
+- Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
+- commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
 - release-please config.
 - CI runs on PRs to both `dev` and `main`; release PRs to `main` also run the E2E suite.
 - Document required checks to enable in branch protection for `dev` and `main`.
@@ -64,6 +68,7 @@ Details:
 - NativeWind setup confined to `src/ui/`.
 - Tokens in `src/ui/theme/` (colors light/dark, spacing, radii, typography), system/light/dark switching.
 - Primitives: `Screen`, `Text`, `Button`, `IconButton`, `Card`, `Input`, `Chip`, `Spinner`, `EmptyState`, `ErrorState`, `Pagination` (numbers window, prev/next, jump to page).
+- When extending the lint layer rules, split `eslint.config.mjs`: the layer tables move to their own module.
 - **Acceptance**: every primitive has component tests incl. accessibility labels; no `className` outside `src/ui/` (lint rule or check script).
 
 ### F-06 Internationalization
@@ -95,6 +100,7 @@ Details:
 - `app.config.ts` reading env (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `SENTRY_DSN`), validated with Zod at startup; `.env.example`.
 - `eas.json` profiles: development, preview, production; channels matching `ARCHITECTURE.md` §10.
 - Sentry with `beforeSend` PII scrubbing.
+- ESLint `no-console` everywhere except the Sentry adapter.
 - Workflows: EAS preview build + staging migrations on merge to `dev`; production build, prod migrations and store submission on release tag from `main`; back-merge `main` → `dev` after each release.
 - **Acceptance**: preview build installs on a device; a test proves PII scrubbing.
 
