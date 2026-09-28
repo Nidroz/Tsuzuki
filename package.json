@@ -20,7 +20,7 @@
     "test:tooling": "node --test \"tools/**/*.test.mjs\"",
     "test:rls": "supabase test db",
     "test:e2e": "maestro test e2e/flows",
-    "check": "pnpm lint && pnpm format:check && pnpm typecheck",
+    "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:tooling",
     "prepare": "husky"
   },
   "dependencies": {
