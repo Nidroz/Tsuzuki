@@ -20,7 +20,7 @@ const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
 
 const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
-const NETWORK_MESSAGE = `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`;
+const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
 
 // banned package groups; F-05/F-06 extend this table
 const BANNED = {
@@ -49,7 +49,7 @@ const BANNED = {
   // expo/src and expo/build reach modules such as fetch without their public specifier
   expoInternals: {
     regexes: ['^expo/(?:src|build)(?:$|/)'],
-    message: `deep imports of Expo internals bypass the rules on screens and ui: use public entry points (${LAYERS_RULE}).`,
+    message: `deep imports of Expo internals bypass the rules on routes, features and UI components: use public entry points (${LAYERS_RULE}).`,
   },
 };
 
@@ -120,7 +120,7 @@ const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
 const { reactNative, expo, nativewind, supabase, network, expoInternals } = BANNED;
 const LAYERS = [
   {
-    files: ['src/core/**'],
+    files: ['src/core/**', 'test/core/**'],
     ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**'],
     banned: [reactNative, expo, nativewind, supabase],
   },
@@ -244,6 +244,11 @@ export default defineConfig(
               './src/core',
               ['./src/platform', './src/features', './src/ui', './app'],
               'src/core is platform-agnostic and imports no other layer',
+            ),
+            layerZone(
+              './src/core/hooks',
+              IMPLEMENTATION_FOLDERS,
+              'src/core/hooks uses repository and catalog provider interfaces, never their implementations',
             ),
             layerZone(
               './src/ui',
