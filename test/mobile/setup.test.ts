@@ -4,7 +4,7 @@ import { takeUnexpectedConsoleMessages } from '../core/fail-on-console';
 import { FIXED_NOW } from '../core/fixed-clock';
 
 const DELAY_MS = 1000;
-const URL = 'https://example.test/any';
+const ANY_URL = 'https://example.test/any';
 const NO_NETWORK = 'component tests have no network';
 
 describe('mobile test setup', () => {
@@ -25,9 +25,9 @@ describe('mobile test setup', () => {
   });
 
   it('throws on any network access', () => {
-    expect(() => fetch(URL)).toThrow(`fetch was called: ${NO_NETWORK}`);
+    expect(() => fetch(ANY_URL)).toThrow(`fetch was called: ${NO_NETWORK}`);
     expect(() => new XMLHttpRequest()).toThrow(`XMLHttpRequest was called: ${NO_NETWORK}`);
-    expect(() => new WebSocket(URL)).toThrow(`WebSocket was called: ${NO_NETWORK}`);
+    expect(() => new WebSocket(ANY_URL)).toThrow(`WebSocket was called: ${NO_NETWORK}`);
   });
 
   it('records an unexpected console error or warning to fail the test', () => {
