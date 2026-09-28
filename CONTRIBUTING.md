@@ -59,10 +59,10 @@ platform → core (interfaces only)
 ```
 
 - `src/core/` must stay shareable with a future Next.js app: React and TanStack Query are allowed, React Native is not.
-- Screens never import Supabase or a catalog provider directly: they use hooks from `src/core/hooks/`, which use repositories and the `CatalogProvider` interface.
+- Routes, features and UI components never import Supabase or a catalog provider directly; routes and features use hooks from `src/core/hooks/`, which depend on repository and `CatalogProvider` interfaces, never on their implementations.
 - Supabase client is imported only in `src/core/repositories/supabase/`.
 - Jikan is imported only in `src/core/catalog/jikan/`.
-- Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); screens (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/`.
+- Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); routes, features and UI components (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/` and `src/platform/` (mobile SDKs).
 
 ### Root configuration ownership
 
