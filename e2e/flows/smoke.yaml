@@ -1,0 +1,15 @@
+# smoke flow: the app launches and shows the home screen.
+# expo go today; F-09 switches appId to the development build.
+# a phone on the LAN: maestro test -e METRO_URL=exp://<lan-ip>:8081 e2e/flows
+appId: host.exp.exponent
+env:
+  METRO_URL: exp://127.0.0.1:8081
+---
+- launchApp:
+    clearState: true
+- openLink: ${METRO_URL}
+# the first bundle can take a while; F-07 adds the tabs check
+- extendedWaitUntil:
+    visible:
+      id: home-screen
+    timeout: 60000
