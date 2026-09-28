@@ -8,5 +8,7 @@ overrides:
   '@react-native/metro-config': 0.86.3
 
 allowBuilds:
+  # denied: postinstall only copies the browser service worker; tests use msw/node
+  msw: false
   # denied: the native binary comes from optional platform packages, the postinstall is only a fallback
   unrs-resolver: false
