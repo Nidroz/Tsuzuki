@@ -5,13 +5,20 @@ import js from '@eslint/js';
 import eslintReact from '@eslint-react/eslint-plugin';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import { importX } from 'eslint-plugin-import-x';
+import jestPlugin from 'eslint-plugin-jest';
 import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
+import { tsuzukiPlugin } from './tools/eslint/plugin/index.mjs';
+
 const ROOT = import.meta.dirname;
 const TS_FILES = ['**/*.{ts,tsx}'];
 const JS_FILES = ['**/*.{js,mjs,cjs}'];
+// jest tests only: the node:test tooling tests (*.test.mjs) get no jest rules
+const JEST_FILES = ['**/*.test.{ts,tsx}'];
+// matches the installed jest major, so version-dependent rules skip auto-detection
+const JEST_VERSION = 29;
 const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 // a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
 const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
@@ -20,7 +27,7 @@ const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
 
 const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
-const NETWORK_MESSAGE = `screens and ui reach the network only through src/core hooks (${LAYERS_RULE}).`;
+const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
 
 // banned package groups; F-05/F-06 extend this table
 const BANNED = {
@@ -49,7 +56,7 @@ const BANNED = {
   // expo/src and expo/build reach modules such as fetch without their public specifier
   expoInternals: {
     regexes: ['^expo/(?:src|build)(?:$|/)'],
-    message: `deep imports of Expo internals bypass the rules on screens and ui: use public entry points (${LAYERS_RULE}).`,
+    message: `deep imports of Expo internals bypass the rules on routes, features and UI components: use public entry points (${LAYERS_RULE}).`,
   },
 };
 
@@ -78,6 +85,88 @@ const JIKAN_MESSAGE = `the catalog provider is reached only through its adapter 
 const JIKAN_GUARDS = [
   { selector: 'Literal[value=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
   { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
+];
+
+// every file's no-restricted-syntax guards; a block that sets its own options must re-include them
+const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS];
+
+// node:test tooling suites (the test:tooling script): tests are never skipped, focused or left todo
+// (CONTRIBUTING.md section 6); jest tests get jest/no-disabled-tests and jest/no-focused-tests
+const TOOLING_TEST_FILES = ['tools/**/*.test.mjs'];
+const TEST_HYGIENE_MESSAGE =
+  'tests are never skipped, focused or left todo (CONTRIBUTING.md section 6).';
+const TEST_RUNNERS = ['it', 'test', 'describe', 'suite'];
+// runner methods and option keys alike; only also focuses a RuleTester case
+const TEST_MODIFIERS = ['skip', 'only', 'todo'];
+const FOCUS_KEY = 'only';
+// test context methods that skip, todo or focus from inside a test body (t.skip(), t.runOnly(true))
+const TEST_CONTEXT_MODIFIERS = ['skip', 'todo', 'runOnly'];
+// node:test exports that may be imported, each under its own name only: an alias, a namespace or
+// the default export (the runner itself) would escape the runner names above
+const NODE_TEST_SOURCE = 'node:test';
+const NODE_TEST_IMPORTS = [
+  'after',
+  'afterEach',
+  'assert',
+  'before',
+  'beforeEach',
+  'describe',
+  'it',
+  'mock',
+  'run',
+  'snapshot',
+  'suite',
+  'test',
+];
+
+// esquery regex matching exactly one of the names
+const oneOf = (names) => `/^(?:${names.join('|')})$/`;
+// a non-computed identifier key or a string key
+const propertyKey = (pattern) =>
+  `Property:matches([computed=false][key.name=${pattern}], [key.value=${pattern}])`;
+
+// object/property pairs also catch computed (it['skip']) and destructured ({ skip } = it) forms
+const TEST_HYGIENE_PROPERTIES = [
+  ...TEST_RUNNERS.flatMap((object) =>
+    TEST_MODIFIERS.map((property) => ({
+      object,
+      property,
+      message: `${object}.${property}: ${TEST_HYGIENE_MESSAGE}`,
+    })),
+  ),
+  {
+    object: 'RuleTester',
+    property: FOCUS_KEY,
+    message: `RuleTester.only: ${TEST_HYGIENE_MESSAGE}`,
+  },
+];
+
+const NODE_TEST_IMPORT = `ImportDeclaration[source.value='${NODE_TEST_SOURCE}']`;
+// esquery cannot compare two fields: one [imported][local] pair per allowed name
+const PLAIN_NODE_TEST_SPECIFIER = NODE_TEST_IMPORTS.map(
+  (name) => `[imported.name='${name}'][local.name='${name}']`,
+).join(', ');
+
+const TEST_HYGIENE_SYNTAX = [
+  // in any object literal, whatever its value: runner options and RuleTester cases, however they
+  // are built (inline or through a variable); { skip: false } is one edit away from skipping
+  {
+    selector: `ObjectExpression > ${propertyKey(oneOf(TEST_MODIFIERS))}`,
+    message: `skip, only and todo options: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  // whatever the test context is called; optional calls (t.skip?.()) are call expressions too
+  {
+    selector: `CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name=${oneOf(TEST_CONTEXT_MODIFIERS)}]`,
+    message: `skip, todo and runOnly calls: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  {
+    selector: `${NODE_TEST_IMPORT} > :matches(ImportDefaultSpecifier, ImportNamespaceSpecifier)`,
+    message: `${NODE_TEST_SOURCE} default and namespace imports: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  {
+    selector: `${NODE_TEST_IMPORT} > ImportSpecifier:not(${PLAIN_NODE_TEST_SPECIFIER})`,
+    message: `${NODE_TEST_SOURCE} imports are unrenamed (${NODE_TEST_IMPORTS.join(', ')}): ${TEST_HYGIENE_MESSAGE}`,
+  },
 ];
 
 // esquery regex literals cannot contain "/", even escaped
@@ -120,7 +209,7 @@ const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
 const { reactNative, expo, nativewind, supabase, network, expoInternals } = BANNED;
 const LAYERS = [
   {
-    files: ['src/core/**'],
+    files: ['src/core/**', 'test/core/**'],
     ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**'],
     banned: [reactNative, expo, nativewind, supabase],
   },
@@ -155,6 +244,9 @@ const promoteWarnings = (configs) =>
     }),
   }));
 
+// the jest presets also declare jest globals: tests import them from @jest/globals instead
+const jestRulesOnly = ({ plugins, rules }) => ({ plugins, rules });
+
 // eslint-plugin-react-hooks owns the hooks rules; drop the @eslint-react copies to avoid double reports
 const reactHooksDuplicates = Object.fromEntries(
   Object.keys(eslintReact.configs['disable-conflict-eslint-plugin-react-hooks'].rules)
@@ -176,6 +268,30 @@ const IMPLEMENTATION_FOLDERS = [
   './src/core/repositories/supabase',
   './src/core/repositories/local',
 ];
+
+const CORE_ROOT = './src/core';
+
+// globs for every file under root except the excluded folders (leaves under root): at each level
+// on the way down to them, the files of that folder plus every sibling folder. targets are
+// minimatch globs on absolute paths; on windows the resolved target puts a backslash before each
+// segment, which escapes a leading "!(": each pattern keeps another glob character to stay a glob
+const targetsExcept = (root, excluded) => {
+  const children = new Map();
+  for (const folder of excluded) {
+    if (!folder.startsWith(`${root}/`)) {
+      throw new Error(`${folder} is not under ${root}`);
+    }
+    const segments = folder.slice(`${root}/`.length).split('/');
+    segments.forEach((segment, index) => {
+      const parent = [root, ...segments.slice(0, index)].join('/');
+      children.set(parent, new Set([...(children.get(parent) ?? []), segment]));
+    });
+  }
+  return [...children].flatMap(([folder, names]) => [
+    `${folder}/*.*`,
+    `${folder}/!(${[...names].join('|')})/**`,
+  ]);
+};
 
 export default defineConfig(
   includeIgnoreFile(ignoreFiles.filter((file, index) => index === 0 || existsSync(file))),
@@ -245,6 +361,12 @@ export default defineConfig(
               ['./src/platform', './src/features', './src/ui', './app'],
               'src/core is platform-agnostic and imports no other layer',
             ),
+            // the implementation folders themselves are left out of the targets
+            layerZone(
+              [...targetsExcept(CORE_ROOT, IMPLEMENTATION_FOLDERS), './test/core/**'],
+              IMPLEMENTATION_FOLDERS,
+              'src/core uses repository and catalog provider interfaces; only the implementation folders themselves (and app/_layout.tsx) touch implementations',
+            ),
             layerZone(
               './src/ui',
               ['./src/core', './src/features', './src/platform', './app'],
@@ -302,10 +424,20 @@ export default defineConfig(
         'never',
         { ignorePattern: 'TODO|FIXME', ignoreConsecutiveComments: true },
       ],
-      'no-restricted-syntax': ['error', ...JIKAN_GUARDS],
+      'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS],
     },
   },
   { files: TS_FILES, rules: { '@typescript-eslint/consistent-type-imports': 'error' } },
+
+  {
+    // project rules from tools/eslint/plugin: backlog ids in work markers and ts directives, and
+    // file naming (CONTRIBUTING.md section 5)
+    plugins: { tsuzuki: tsuzukiPlugin },
+    rules: {
+      'tsuzuki/backlog-reference': 'error',
+      'tsuzuki/file-name-case': 'error',
+    },
+  },
 
   ...LAYERS.map(({ files, ignores, ...layer }) => ({
     files,
@@ -352,5 +484,34 @@ export default defineConfig(
   {
     files: ['src/ui/theme/**', '**/*.test.{ts,tsx}', '**/__tests__/**', '**/__fixtures__/**'],
     rules: { '@typescript-eslint/no-magic-numbers': 'off' },
+  },
+
+  {
+    // leaves the layer import rules alone: each layer keeps its complete option set
+    files: JEST_FILES,
+    extends: [
+      promoteWarnings(jestRulesOnly(jestPlugin.configs['flat/recommended'])),
+      promoteWarnings(jestRulesOnly(jestPlugin.configs['flat/style'])),
+    ],
+    settings: { jest: { version: JEST_VERSION } },
+    rules: {
+      'jest/prefer-importing-jest-globals': 'error',
+      'jest/no-disabled-tests': 'error',
+      'jest/no-focused-tests': 'error',
+      // the jest variant understands jest.fn() and expect(obj.method) calls
+      '@typescript-eslint/unbound-method': 'off',
+      'jest/unbound-method': 'error',
+      // a test is never a route or a tool config: overrides the app/** exception above
+      'import-x/no-default-export': 'error',
+    },
+  },
+
+  {
+    // no-restricted-syntax options replace the base ones here: the base guards are re-included
+    files: TOOLING_TEST_FILES,
+    rules: {
+      'no-restricted-properties': ['error', ...TEST_HYGIENE_PROPERTIES],
+      'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS, ...TEST_HYGIENE_SYNTAX],
+    },
   },
 );

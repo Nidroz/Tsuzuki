@@ -30,12 +30,13 @@ Read first: `SPEC.md` (what we build), `docs/ARCHITECTURE.md` (how), `docs/BACKL
 | `pnpm format` / `pnpm format:check` | Prettier: format / verify formatting (Markdown is not formatted) |
 | `pnpm typecheck` | `tsc --noEmit` |
 | `pnpm test` | Jest unit + component tests with coverage thresholds |
-| `pnpm test:rls` | pgTAP tests for RLS policies (needs `supabase start`) |
+| `pnpm test:tooling` | Node test runner tests of the repository tooling (commitlint rule, lint layer rules, local ESLint plugin) |
+| `pnpm test:rls` | pgTAP tests for RLS policies (needs `pnpm exec supabase start`) |
 | `pnpm test:e2e` | Maestro flows |
-| `pnpm check` | lint + format check + typecheck + unit/component tests, as far as they exist (see below) — run before declaring any task done |
-| `supabase migration new <name>` | Create a migration (never edit an applied one) |
+| `pnpm check` | lint + format check + typecheck + unit/component tests + tooling tests (see below) — run before declaring any task done |
+| `pnpm exec supabase migration new <name>` | Create a migration (never edit an applied one) |
 
-`pnpm check` grows with the backlog and never contains placeholder scripts: F-01 runs typecheck, F-02 adds lint and the format check, F-03 adds tests. CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
+`pnpm check` grows with the backlog and never contains placeholder scripts: F-01 runs typecheck, F-02 adds lint and the format check, F-03 adds the Jest and tooling tests. CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
 
 ## 4. Project structure and layers
 
@@ -59,10 +60,10 @@ platform → core (interfaces only)
 ```
 
 - `src/core/` must stay shareable with a future Next.js app: React and TanStack Query are allowed, React Native is not.
-- Screens never import Supabase or a catalog provider directly: they use hooks from `src/core/hooks/`, which use repositories and the `CatalogProvider` interface.
+- Routes, features and UI components never import Supabase or a catalog provider directly; routes and features use hooks from `src/core/hooks/`, which depend on repository and `CatalogProvider` interfaces, never on their implementations.
 - Supabase client is imported only in `src/core/repositories/supabase/`.
 - Jikan is imported only in `src/core/catalog/jikan/`.
-- Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); screens (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/`.
+- Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); routes, features and UI components (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/` and `src/platform/` (mobile SDKs).
 
 ### Root configuration ownership
 
@@ -99,6 +100,7 @@ Root configuration files belong to the area they configure. A change to one of t
 | E2E | Maestro | search → add → +1 → favorite; sign in; guest → account merge |
 
 - Write the test with the code, in the same PR. A bug fix starts with a failing test.
+- Tests sit next to the code they test (`*.test.ts(x)`), except route tests: every file in `app/` is a route, so route tests live in `test/app/`.
 - Tests are deterministic: no real network, no real time (fake timers), no order dependency.
 - Never lower a threshold or skip a test to make CI pass.
 

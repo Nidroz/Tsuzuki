@@ -33,12 +33,13 @@ Tsuzuki is a mobile app (Android + iOS) to track anime, manga, manhwa and manhua
 ## Getting started
 
 ```bash
-# prerequisites: Node 22.22.1+ (see .nvmrc), Corepack, Supabase CLI, EAS CLI
+# prerequisites: Node 22.22.1+ (see .nvmrc), Corepack, Docker (local Supabase), EAS CLI
+# the Supabase CLI is a dev dependency locked by the lockfile: run it with `pnpm exec supabase`
 corepack enable                   # provides the pnpm version pinned in package.json
 pnpm install
 cp .env.example .env.local        # fill in the Supabase URL and anon key (from F-10)
-supabase start                    # local Supabase stack (from F-08)
-supabase db reset                 # apply migrations + seed (from F-08)
+pnpm exec supabase start          # local Supabase stack (Docker)
+pnpm exec supabase db reset       # apply migrations + seed (from F-08)
 pnpm start                        # Expo dev server
 ```
 
@@ -50,10 +51,11 @@ pnpm start                        # Expo dev server
 | `pnpm lint` / `pnpm lint:fix` | ESLint (zero warnings) / with auto-fix |
 | `pnpm format` / `pnpm format:check` | Prettier: format / verify formatting |
 | `pnpm typecheck` | `tsc --noEmit` |
-| `pnpm test` | Unit + component tests with coverage |
-| `pnpm test:rls` | Row Level Security tests (pgTAP) |
-| `pnpm test:e2e` | Maestro end-to-end flows |
-| `pnpm check` | Lint + format check + typecheck + unit/component tests, as far as they exist |
+| `pnpm test` | Jest unit + component tests with coverage thresholds |
+| `pnpm test:tooling` | Tests of the repository tooling (commitlint rule, lint layer rules, local ESLint plugin), Node test runner |
+| `pnpm test:rls` | Row Level Security tests (pgTAP), against the local stack started with `pnpm exec supabase start` |
+| `pnpm test:e2e` | Maestro end-to-end flows (see [`e2e/README.md`](./e2e/README.md)) |
+| `pnpm check` | Lint + format check + typecheck + Jest tests + tooling tests |
 
 CI runs `pnpm check` and additionally RLS tests, gitleaks, `pnpm audit` and CodeQL.
 
