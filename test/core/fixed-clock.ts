@@ -3,7 +3,8 @@ import { beforeEach, jest } from '@jest/globals';
 // every test starts at this instant, whatever the previous test did with the clock
 export const FIXED_NOW = Date.UTC(2026, 0, 1);
 
-const installFakeTimers = (): void => {
+/** back to fake timers at FIXED_NOW, with no pending timer */
+export const resetClock = (): void => {
   jest.useFakeTimers({ now: FIXED_NOW });
 };
 
@@ -11,6 +12,6 @@ const installFakeTimers = (): void => {
 // clock, drops timers left pending by the previous test and undoes a switch to real timers.
 // the first call covers code that runs while the test file is imported
 export const pinClockPerTest = (): void => {
-  installFakeTimers();
-  beforeEach(installFakeTimers);
+  resetClock();
+  beforeEach(resetClock);
 };
