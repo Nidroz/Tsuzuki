@@ -77,13 +77,21 @@ tsuzuki/
 │   ├── tests/                        # pgTAP
 │   └── seed.sql
 ├── e2e/                              # Maestro flows
+├── test/                             # shared test infrastructure (see §12)
+│   ├── core/                         # core project setup, msw server factory, determinism tests; core lint bans apply
+│   ├── app/                          # route tests (renderRouterAsync); kept out of app/, where every .tsx is a route
+│   └── mobile/                       # mobile project setup and its tests, renderRouterAsync helper
+├── tools/                            # repository tooling, tested with node:test
+│   ├── commitlint/                   # commitlint.config.mjs tests
+│   └── eslint/                       # layer rule regression tests
+│       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
 └── .github/workflows/
 ```
 
 Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
 
-- Only the root layout `app/_layout.tsx`, the composition root, wires the repository and catalog provider implementations (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`). Every other route, nested layouts included, and every feature goes through `src/core/hooks/`. `src/core/hooks/` itself depends only on repository and `CatalogProvider` interfaces, never on the implementation folders (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`).
+- Only the root layout `app/_layout.tsx`, the composition root, wires the repository and catalog provider implementations (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`). Every other route, nested layouts included, and every feature goes through `src/core/hooks/`. Everything else in `src/core/` (domain, schemas, query, errors, i18n, hooks, and the interface files at the root of `repositories/` and `catalog/`) and in `test/core/` depends only on the repository and `CatalogProvider` interfaces, never on the implementation folders.
 - Routes, features and UI components have no direct network access: `app/`, `src/features/` and `src/ui/` never use `fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch` or Expo internals (`expo/src/…`, `expo/build/…`). Network access lives in `src/core/` (catalog adapters and repositories), with `src/platform/` for mobile SDKs.
 - Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
 - Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.
@@ -359,3 +367,25 @@ flowchart LR
 - **Web version**: Next.js app in a pnpm + Turborepo monorepo. `src/core/` moves to `packages/core` as is; the web app implements its own screens and a web `platform` layer (ADR-0006).
 - **Dedicated backend**: if Edge Functions are not enough (shared Jikan cache, scheduled notifications), Next.js API routes or a dedicated service implement the same repository interfaces over HTTP; Postgres and Supabase Auth stay.
 - **More providers**: AniList (GraphQL, good manhwa/manhua coverage), MangaUpdates (chapter releases) as new `CatalogProvider` adapters.
+
+## 12. Testing
+
+Rules and thresholds are in `CONTRIBUTING.md` §6; tooling choices in [ADR-0010](./adr/0010-test-tooling.md).
+
+| Scope | Runner | Command | Notes |
+| --- | --- | --- | --- |
+| `src/core/**`, `test/core/**` | Jest 29, project `core` | `pnpm test` | Node environment with Node export conditions, the app Babel transform (jest-expo's transform entry) and path aliases, no React Native preset: a React Native import in core fails at runtime as well as in lint. A few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP mocked with MSW (`msw/node`, unhandled requests are errors) |
+| `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render` |
+| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, layer rule regressions (ESLint Node API), local ESLint plugin rules |
+| `supabase/tests/` | pgTAP | `pnpm test:rls` | `supabase test db` against the local stack; Supabase CLI pinned as a devDependency. A guard test asserts RLS is enabled on every table in `public` |
+| `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. Maestro and adb are installed by the developer |
+
+- Tests import Jest APIs from `@jest/globals`; there are no ambient Jest types.
+- Determinism:
+  - `TZ=UTC` is set at the top of `jest.config.mjs`, so workers inherit it.
+  - Fake timers are on by default; the shared setup (`test/core/fixed-clock.ts`) resets the clock to `Date.UTC(2026, 0, 1)` before every test, so a test that moves the clock cannot leak into the next.
+  - Mocks are restored after each test.
+  - Test order is randomized within each file by the global Jest `randomize` option; the seed is printed on each run.
+  - Unexpected `console.error` / `console.warn` calls are recorded and fail the test in `afterEach` (throwing inside the console call could be swallowed, e.g. by MSW).
+- Coverage is collected from `app/` and `src/` (tests, fixtures, mocks and declarations excluded); untested files count as 0 %. Thresholds: global 70 % lines, `src/core/` 90 % lines and branches. Jest errors when a threshold path matches no file, so the `src/core/` threshold group is declared with the first source file in `src/core/`.
+- Core hooks are tested with `@testing-library/react` in a jsdom environment (from the first core hook, F-09 or C-04), since React Native Testing Library is banned in core.

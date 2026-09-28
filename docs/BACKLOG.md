@@ -55,7 +55,8 @@ Details:
 
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
-- CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`).
+- CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`); hold `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it), and keep `jest`, `@jest/globals` and `jest-expo` on the major the Expo SDK supports.
+- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the pinned dev dependency (`pnpm exec supabase start`, then `pnpm test:rls`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
 - commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
@@ -68,11 +69,15 @@ Details:
 - NativeWind setup confined to `src/ui/`.
 - Tokens in `src/ui/theme/` (colors light/dark, spacing, radii, typography), system/light/dark switching.
 - Primitives: `Screen`, `Text`, `Button`, `IconButton`, `Card`, `Input`, `Chip`, `Spinner`, `EmptyState`, `ErrorState`, `Pagination` (numbers window, prev/next, jump to page).
-- When extending the lint layer rules, split `eslint.config.mjs`: the layer tables move to their own module.
+- When extending the lint layer rules, split `eslint.config.mjs`: the layer tables move to their own module in `tools/eslint/`.
+- Add a lint zone preventing production code (`app/`, `src/`) from importing the test infrastructure in `test/`.
+- Close the layer rule gaps found by the F-03 regression tests: files directly under `src/` outside the four layers get no layer rules, `EventSource` is not in the banned network globals, and `jest.mock(...)` / `jest.requireActual(...)` specifiers are not checked by the package bans; add a regression case for each.
+- Decide how `tsuzuki/file-name-case` treats dotfiles and dot-folders (e.g. `.prettierrc.mjs`, `.storybook/`, rejected today) and Expo API route files (`+api`), before the first one is added.
 - **Acceptance**: every primitive has component tests incl. accessibility labels; no `className` outside `src/ui/` (lint rule or check script).
 
 ### F-06 Internationalization
 - i18n in `src/core/i18n/` with `en.json` and `fr.json`, device locale detection via platform adapter, EN fallback, setting override.
+- Formatting (dates, numbers) always passes an explicit locale, so tests do not depend on the machine locale.
 - **Acceptance**: switching language in settings updates the UI; a missing key fails a test.
 
 ### F-07 Navigation shell
@@ -83,7 +88,7 @@ Details:
 - **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
 
 ### F-08 Supabase schema v1
-- Local Supabase config, first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
+- Tune the local Supabase config created in F-03 (auth, email confirmation, redirect URLs, seed), first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
 - pgTAP tests for every policy and constraint (BR-01, BR-07).
 - Generated TypeScript DB types committed in `src/core/repositories/supabase/database.types.ts`.
 - **Acceptance**: `pnpm test:rls` passes; another user cannot read or write an entry; anon has no access.
@@ -93,7 +98,8 @@ Details:
 - Secure session storage adapter for supabase-js (`expo-secure-store`, chunking for large values).
 - Supabase client factory in `src/core/repositories/supabase/` receiving the storage adapter.
 - Query client with key factory, stale times, persisted cache (MMKV) busted on app version.
-- Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV.
+- Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV; the Maestro smoke flow targets the development build app id instead of Expo Go.
+- With the first core hook (here or in C-04): add `@testing-library/react` and a jsdom test environment for core hook tests (`@testing-library/react-native` is banned in `src/core/`).
 - **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test); the app runs in a development build.
 
 ### F-10 Environments, Sentry and EAS
