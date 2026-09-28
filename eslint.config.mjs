@@ -87,6 +87,57 @@ const JIKAN_GUARDS = [
   { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
 ];
 
+// every file's no-restricted-syntax guards; a block that sets its own options must re-include them
+const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS];
+
+// node:test tooling suites (the test:tooling script): tests are never skipped, focused or left todo
+// (CONTRIBUTING.md section 6); jest tests get jest/no-disabled-tests and jest/no-focused-tests
+const TOOLING_TEST_FILES = ['tools/**/*.test.mjs'];
+const TEST_HYGIENE_MESSAGE =
+  'tests are never skipped, focused or left todo (CONTRIBUTING.md section 6).';
+const TEST_RUNNERS = ['it', 'test', 'describe', 'suite'];
+const TEST_MODIFIERS = ['skip', 'only', 'todo'];
+// the key that focuses a case, in node:test options and in RuleTester cases alike
+const FOCUS_KEY = 'only';
+const OPTION_KEYS_EXCEPT_FOCUS = TEST_MODIFIERS.filter((key) => key !== FOCUS_KEY);
+
+// esquery regex matching exactly one of the names
+const oneOf = (names) => `/^(?:${names.join('|')})$/`;
+// a non-computed identifier key or a string key
+const propertyKey = (pattern) =>
+  `Property:matches([computed=false][key.name=${pattern}], [key.value=${pattern}])`;
+
+// object/property pairs also catch computed (it['skip']) and destructured ({ skip } = it) forms
+const TEST_HYGIENE_PROPERTIES = [
+  ...TEST_RUNNERS.flatMap((object) =>
+    TEST_MODIFIERS.map((property) => ({
+      object,
+      property,
+      message: `${object}.${property}: ${TEST_HYGIENE_MESSAGE}`,
+    })),
+  ),
+  {
+    object: 'RuleTester',
+    property: FOCUS_KEY,
+    message: `RuleTester.only: ${TEST_HYGIENE_MESSAGE}`,
+  },
+];
+
+// a runner call, plain (it(...)) or on a test context (t.test(...))
+const RUNNER_CALL = `CallExpression:matches([callee.type='Identifier'][callee.name=${oneOf(TEST_RUNNERS)}], [callee.type='MemberExpression'][callee.computed=false][callee.property.name=${oneOf(TEST_RUNNERS)}])`;
+const TEST_HYGIENE_SYNTAX = [
+  // the key alone is banned, whatever its value: { skip: false } is one edit away from skipping
+  {
+    selector: `${RUNNER_CALL} > ObjectExpression > ${propertyKey(oneOf(OPTION_KEYS_EXCEPT_FOCUS))}`,
+    message: `skip and todo options: ${TEST_HYGIENE_MESSAGE}`,
+  },
+  // anywhere in an object literal: runner options and RuleTester cases, however they are built
+  {
+    selector: `ObjectExpression > ${propertyKey(oneOf([FOCUS_KEY]))}`,
+    message: `only option: ${TEST_HYGIENE_MESSAGE}`,
+  },
+];
+
 // esquery regex literals cannot contain "/", even escaped
 const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
 
@@ -342,7 +393,7 @@ export default defineConfig(
         'never',
         { ignorePattern: 'TODO|FIXME', ignoreConsecutiveComments: true },
       ],
-      'no-restricted-syntax': ['error', ...JIKAN_GUARDS],
+      'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS],
     },
   },
   { files: TS_FILES, rules: { '@typescript-eslint/consistent-type-imports': 'error' } },
@@ -421,6 +472,15 @@ export default defineConfig(
       'jest/unbound-method': 'error',
       // a test is never a route or a tool config: overrides the app/** exception above
       'import-x/no-default-export': 'error',
+    },
+  },
+
+  {
+    // no-restricted-syntax options replace the base ones here: the base guards are re-included
+    files: TOOLING_TEST_FILES,
+    rules: {
+      'no-restricted-properties': ['error', ...TEST_HYGIENE_PROPERTIES],
+      'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS, ...TEST_HYGIENE_SYNTAX],
     },
   },
 );

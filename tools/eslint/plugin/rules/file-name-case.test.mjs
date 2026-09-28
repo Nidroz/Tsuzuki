@@ -12,7 +12,6 @@ import { fileNameCase } from './file-name-case.mjs';
 
 RuleTester.describe = describe;
 RuleTester.it = it;
-RuleTester.itOnly = it.only;
 
 // the rule checks paths relative to the eslint cwd, the repo root under `pnpm test:tooling`
 const ROOT = path.resolve(import.meta.dirname, '..', '..', '..', '..');
