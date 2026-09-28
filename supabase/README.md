@@ -11,7 +11,7 @@ The project config (`config.toml`) is created in F-03 with the CLI defaults and 
 
 ## Local database and RLS tests
 
-The Supabase CLI is a pinned dev dependency: run it with `pnpm exec supabase`, never a global install.
+The Supabase CLI is a dev dependency locked by the lockfile: run it with `pnpm exec supabase`, never a global install.
 
 ```sh
 pnpm exec supabase start   # needs Docker running

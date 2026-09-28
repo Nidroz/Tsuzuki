@@ -51,12 +51,12 @@ Details:
 - Unit tests for the single-author commitlint rule (`singleAuthorViolation` / `singleAuthor` exports): LF and CRLF, lowercase and indented trailers, generated with/by footers, comment lines, scissors section, merge/revert/fixup exemption.
 - Regression tests for the layer lint rules via the ESLint Node API: one case per zone, package ban, type-only rule, canonical path rule, network ban and Jikan guard, plus positive controls.
 - Last: a small local ESLint plugin enforcing `TODO(<backlog id>)` (checking, if feasible, that the ID exists in `docs/BACKLOG.md`) and file name casing (kebab-case, PascalCase components, expo-router names such as `_layout`, `[id]`, `(tabs)`, `+not-found`), tested with `RuleTester`.
-- **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail.
+- **Acceptance**: sample tests in each category pass; lowering coverage makes `pnpm test` fail. E2E: smoke flow written and reviewed, execution deferred to R-01.
 
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
 - CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`); hold `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it), and keep `jest`, `@jest/globals` and `jest-expo` on the major the Expo SDK supports.
-- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the pinned dev dependency (`pnpm exec supabase start`, then `pnpm test:rls`).
+- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase start`, then `pnpm test:rls`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
 - commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
@@ -147,3 +147,8 @@ Details:
 - [ ] R-04 MASVS L1 security review
 - [ ] R-05 Privacy policy, store listings, screenshots, age rating
 - [ ] R-06 Internal testing: TestFlight + Play internal track
+
+Details:
+
+### R-01 E2E suite complete
+- Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).

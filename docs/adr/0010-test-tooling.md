@@ -27,7 +27,7 @@ Options considered:
 - **Folders**:
   - `test/core/` (core setup, MSW server factory, determinism tests; same lint bans as `src/core/`), `test/app/` (route tests), `test/mobile/` (mobile setup and its tests, `renderRouterAsync` helper).
   - `tools/commitlint/` (commitlint config tests), `tools/eslint/` (layer rule regression tests through the ESLint Node API; the layer tables split planned in F-05 also go here), `tools/eslint/plugin/` (local rules `backlog-reference` and `file-name-case`).
-- **Database**: `pnpm test:rls` runs `supabase test db` (pgTAP in `supabase/tests/`) against the local stack. The Supabase CLI is a pinned devDependency, not a global install. A guard test asserts every table in `public` has RLS enabled.
+- **Database**: `pnpm test:rls` runs `supabase test db` (pgTAP in `supabase/tests/`) against the local stack. The Supabase CLI is a devDependency locked by the lockfile, not a global install. A guard test asserts every table in `public` has RLS enabled.
 - **E2E**: Maestro flows in `e2e/flows/`, run with `pnpm test:e2e` against Expo Go, then a development build from F-09. Maestro and adb are installed by the developer, not by pnpm.
 
 ## Consequences
