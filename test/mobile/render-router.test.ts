@@ -18,8 +18,15 @@ describe('assertThenable', () => {
     }).not.toThrow();
   });
 
+  it('accepts a function with a then method', () => {
+    expect(() => {
+      assertThenable(Object.assign(() => undefined, { then: () => undefined }));
+    }).not.toThrow();
+  });
+
   it.each([
     ['a synchronous render result', SYNC_RENDER],
+    ['a function without a then method', () => undefined],
     ['an object whose then is not a function', { then: 1 }],
     ['undefined', undefined],
     ['null', null],
