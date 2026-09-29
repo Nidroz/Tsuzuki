@@ -8,7 +8,7 @@ import { MESSAGES, SYNTAX, allowed, dynamics, rejected } from './layers-cases.mj
 import { JEST_IMPORT, jestCall } from './layers-test-code-cases.mjs';
 
 // every colocated or test/core jest test inside the layers
-const JEST_TESTS = [
+export const JEST_TESTS = [
   PROBES.featuresTest,
   PROBES.hooksTest,
   PROBES.coreTest,
@@ -242,6 +242,10 @@ export const ALLOWED = {
       'const other = { mock: (name: string) => name };\nconst alias = other;\n' +
         "other['mock']('@supabase/supabase-js');\nalias.mock('@supabase/supabase-js');\n",
     ],
+  ]),
+
+  'jest optional calls follow the package bans': allowed(PROBES.featuresTest, [
+    ["jest?.mock('@core/domain/x')", `${JEST_IMPORT}jest?.mock('@core/domain/x');\n`],
   ]),
 
   'jest module calls are written canonically': [

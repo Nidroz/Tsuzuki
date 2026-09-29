@@ -1,6 +1,7 @@
 // no-restricted-syntax guards of the layer rules (tools/eslint/layers.mjs): literal import()
 // sources, the catalog provider url, className outside src/ui, and the jest module calls, which load
-// or mock a module by its specifier like an import (CONTRIBUTING.md section 4)
+// or mock a module by its specifier like an import, called by name directly on jest (CONTRIBUTING.md
+// section 4)
 
 import { memberName, oneOf, propertyKey, toSelectorRegex } from './selectors.mjs';
 
@@ -30,7 +31,8 @@ export const CLASS_NAME_GUARDS = [
 ];
 
 // every jest function that loads or mocks a module by its specifier: its first argument follows the
-// package bans of the layer, like an import
+// package bans of the layer, like an import. unstable_unmockModule is not in the jest 29.7 typings
+// (@jest/environment) yet; it stays listed so a later jest cannot slip it past the guards
 const JEST = 'jest';
 const JEST_GLOBALS = '@jest/globals';
 const JEST_MODULE_METHODS = [
@@ -46,11 +48,46 @@ const JEST_MODULE_METHODS = [
   'unstable_unmockModule',
   'createMockFromModule',
 ];
+// the jest methods typed as returning the jest object in the jest 29.7 typings (@jest/environment):
+// a member read on their result reaches jest on a call result, out of reach of the guards below
+const JEST_RETURNING_METHODS = [
+  'autoMockOff',
+  'autoMockOn',
+  'clearAllMocks',
+  'deepUnmock',
+  'disableAutomock',
+  'doMock',
+  'dontMock',
+  'enableAutomock',
+  'isolateModules',
+  'mock',
+  'resetAllMocks',
+  'resetModules',
+  'restoreAllMocks',
+  'retryTimes',
+  'setMock',
+  'setTimeout',
+  'unmock',
+  'unstable_mockModule',
+  'useFakeTimers',
+  'useRealTimers',
+];
 const JEST_OBJECT = `[object.type='Identifier'][object.name='${JEST}']`;
 // a module method read by name on jest: jest.mock
 const JEST_MODULE_METHOD = `MemberExpression${JEST_OBJECT}[computed=false][property.name=${oneOf(JEST_MODULE_METHODS)}]`;
-// a direct call of it, optional or not: jest.mock(...), jest?.mock(...), jest.mock?.(...)
-const JEST_MODULE_CALL = `CallExpression[callee.type='MemberExpression'][callee.object.type='Identifier'][callee.object.name='${JEST}'][callee.computed=false][callee.property.name=${oneOf(JEST_MODULE_METHODS)}]`;
+// a direct call of a method by name, optional or not: jest.mock(...), jest?.mock(...), jest.mock?.(...)
+const jestCall = (methods) =>
+  `CallExpression[callee.type='MemberExpression'][callee.object.type='Identifier'][callee.object.name='${JEST}'][callee.computed=false][callee.property.name=${oneOf(methods)}]`;
+const JEST_MODULE_CALL = jestCall(JEST_MODULE_METHODS);
+const JEST_RETURNING_CALL = jestCall(JEST_RETURNING_METHODS);
+// the nodes that hand their expression on unchanged: (jest.x?.()).y, jest.x()!.y, (jest.x() as T).y
+const TRANSPARENT_WRAPPERS = [
+  'ChainExpression',
+  'TSNonNullExpression',
+  'TSAsExpression',
+  'TSSatisfiesExpression',
+  'TSTypeAssertion',
+];
 
 // any other first argument (template literal, identifier, concatenation, spread) would hide the
 // specifier from the package bans, like a non-literal import() source; a string value only exists
@@ -64,6 +101,8 @@ const JEST_LITERAL_GUARD = {
 // object would hide the module calls from them
 const JEST_NAME_MESSAGE = `jest is imported and used under its own name: import { jest } from '${JEST_GLOBALS}' (${LAYERS_RULE}).`;
 const JEST_NAME_GUARDS = [
+  // export * and export * as g hand jest to another module under a name the guards do not follow
+  { selector: `ExportAllDeclaration[source.value='${JEST_GLOBALS}']`, message: JEST_NAME_MESSAGE },
   {
     selector: `ImportDeclaration[source.value='${JEST_GLOBALS}'] > :matches(ImportSpecifier:matches([imported.name='${JEST}'], [imported.value='${JEST}']):not([local.name='${JEST}']), ImportNamespaceSpecifier, ImportDefaultSpecifier)`,
     message: JEST_NAME_MESSAGE,
@@ -103,6 +142,13 @@ const JEST_BY_NAME_GUARDS = [
   // jest.mock.call(jest, 'x'), jest.requireActual.bind(jest)('x'), (0, jest.mock)('x')
   {
     selector: `${JEST_MODULE_METHOD}:not(CallExpression > .callee)`,
+    message: JEST_BY_NAME_MESSAGE,
+  },
+  // any member read on a returned jest, called or not, plain, optional or computed, directly or
+  // through one wrapper: jest.resetModules().mock('x'), jest.resetModules()?.['mock']('x'),
+  // (jest.resetModules?.()).mock('x'). a returned jest kept in a variable stays out of reach
+  {
+    selector: `:matches(MemberExpression > ${JEST_RETURNING_CALL}.object, MemberExpression > :matches(${TRANSPARENT_WRAPPERS.join(', ')}).object > ${JEST_RETURNING_CALL}.expression)`,
     message: JEST_BY_NAME_MESSAGE,
   },
 ];

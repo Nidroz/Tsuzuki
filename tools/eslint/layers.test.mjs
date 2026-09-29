@@ -8,6 +8,7 @@ import * as classNameCases from './layers-class-name-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
 import * as jestCases from './layers-jest-cases.mjs';
+import * as jestChainCases from './layers-jest-chain-cases.mjs';
 import * as networkCases from './layers-network-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
 import {
@@ -24,7 +25,15 @@ import {
 
 const { APP_INDEX_FROM_SRC_LAYER, MESSAGES, valueImport } = layerCases;
 // the case tables, split by topic; a group name is unique across tables
-const TABLES = [layerCases, networkCases, testCodeCases, jestCases, classNameCases, dotfileCases];
+const TABLES = [
+  layerCases,
+  networkCases,
+  testCodeCases,
+  jestCases,
+  jestChainCases,
+  classNameCases,
+  dotfileCases,
+];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
 
 describe('layer rules: rejected', () => {
