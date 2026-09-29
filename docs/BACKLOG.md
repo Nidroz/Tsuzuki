@@ -55,7 +55,7 @@ Details:
 
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
-- CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`); hold `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it), and keep `jest`, `@jest/globals` and `jest-expo` on the major the Expo SDK supports.
+- CodeQL workflow. No dependency update bot: updates are the recurring item M-01, with Dependabot alerts only.
 - CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase start`, then `pnpm test:rls`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
@@ -153,3 +153,20 @@ Details:
 
 ### R-01 E2E suite complete
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
+
+## Maintenance (recurring, never ticked)
+
+- [ ] M-01 Dependency update (recurring)
+
+Details:
+
+### M-01 Dependency update
+- Done by the agents under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
+- Respect the pins:
+  - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
+  - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
+  - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
+  - Node major unchanged.
+- Bump the pinned GitHub Action SHAs (with their version comments) and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
+- Respect pnpm's `minimumReleaseAge`.
+- `pnpm check` and `pnpm test:rls` green; review until APPROVED.
