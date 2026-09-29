@@ -85,7 +85,7 @@ tsuzuki/
 │   ├── ci/                           # base branch policy for the PR policy workflow
 │   ├── commitlint/                   # commitlint.config.mjs tests
 │   ├── jest/                         # jest.config.mjs tests (tsconfig alias mapping)
-│   └── eslint/                       # layer rule regression tests
+│   └── eslint/                       # rule tables for eslint.config.mjs (layers.mjs, test-hygiene.mjs), their regression tests and case tables (layers-*-cases.mjs)
 │       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
 ├── .github/
@@ -94,11 +94,16 @@ tsuzuki/
 └── release-please-config.json, .release-please-manifest.json
 ```
 
-Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
+Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint; their tables live in `tools/eslint/layers.mjs`.
 
 - Only the root layout `app/_layout.tsx`, the composition root, wires the repository and catalog provider implementations (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`). Every other route, nested layouts included, and every feature goes through `src/core/hooks/`. Everything else in `src/core/` (domain, schemas, query, errors, i18n, hooks, and the interface files at the root of `repositories/` and `catalog/`) and in `test/core/` depends only on the repository and `CatalogProvider` interfaces, never on the implementation folders.
-- Routes, features and UI components have no direct network access: `app/`, `src/features/` and `src/ui/` never use `fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch` or Expo internals (`expo/src/…`, `expo/build/…`). Network access lives in `src/core/` (catalog adapters and repositories), with `src/platform/` for mobile SDKs.
+- Routes, features and UI components have no direct network access: `app/`, `src/features/` and `src/ui/` never use `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `expo/fetch` or Expo internals (`expo/src/…`, `expo/build/…`). Network access lives in `src/core/` (catalog adapters and repositories), with `src/platform/` for mobile SDKs.
+- Every file under `src/` belongs to one of the four layers (`src/core/`, `src/features/`, `src/ui/`, `src/platform/`), so each file gets the rules of exactly one layer.
+- Jest module calls (`jest.mock`, `doMock`, `requireActual`, `requireMock`, `unstable_mockModule`, `createMockFromModule`) take a string literal and follow the package bans of their layer, like imports.
+- Production code (non-test files in `app/` and `src/`) never imports the test infrastructure in `test/`: only tests do.
+- `className` and its variants (`*ClassName` props and object keys) are used only inside `src/ui/`, the only layer that uses NativeWind. `tools/` is exempt: its rule tables name `className` as data and NativeWind never runs there.
 - Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
+- Expo Router API routes (`+api`) are not used: server logic lives in Supabase Edge Functions. `tsuzuki/file-name-case` rejects them, and accepts dotfiles and dot-folders outside `app/` whose name after the leading dot is kebab-case (`.prettierrc.mjs`, `.github/`).
 - Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.
 - Dependencies are installed with pnpm in its default isolated mode (no hoisting). pnpm settings, when needed, live in `pnpm-workspace.yaml`; `.npmrc` holds only auth and registry settings.
 
@@ -451,7 +456,7 @@ Rules and thresholds are in `CONTRIBUTING.md` §6; tooling choices in [ADR-0010]
 | --- | --- | --- | --- |
 | `src/core/**`, `test/core/**` | Jest 29, project `core` | `pnpm test` | Node environment with Node export conditions, the app Babel transform (jest-expo's transform entry) and path aliases, no React Native preset: a React Native import in core fails at runtime as well as in lint. A few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP mocked with MSW (`msw/node`, unhandled requests are errors) |
 | `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render` |
-| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, Jest config tsconfig alias mapping, layer rule regressions (ESLint Node API), local ESLint plugin rules, base branch policy (`tools/ci/`) |
+| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, Jest config tsconfig alias mapping, layer rule regressions (ESLint Node API), test hygiene rules of the tooling suites (no skipped, focused or todo tests), local ESLint plugin rules, base branch policy (`tools/ci/`) |
 | `supabase/tests/` | pgTAP | `pnpm test:rls` | `supabase test db` against the local stack; Supabase CLI as a devDependency locked by the lockfile. A guard test asserts RLS is enabled on every table in `public` |
 | `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. Maestro and adb are installed by the developer |
 
