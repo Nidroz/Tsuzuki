@@ -20,7 +20,8 @@ const CORE_BRANCHES_THRESHOLD = 90;
 const GLOBAL_LINES_THRESHOLD = 70;
 
 const SOURCE_EXTENSION = /\.tsx?$/;
-const EXCLUDED_FILE = /\.(?:test\.tsx?|d\.ts)$/;
+// tool configs (src/ui/theme/tailwind.config.ts) are read by their tools, never by the app
+const EXCLUDED_FILE = /\.(?:test\.tsx?|config\.tsx?|d\.ts)$/;
 const EXCLUDED_FOLDERS = new Set(['__tests__', '__fixtures__', '__mocks__']);
 
 // keep in sync with isCoveredSource below
@@ -28,13 +29,14 @@ const collectCoverageFrom = [
   'app/**/*.{ts,tsx}',
   'src/**/*.{ts,tsx}',
   '!**/*.test.{ts,tsx}',
+  '!**/*.config.{ts,tsx}',
   '!**/__tests__/**',
   '!**/__fixtures__/**',
   '!**/__mocks__/**',
   '!**/*.d.ts',
 ];
 
-const isCoveredSource = (relativePath) => {
+export const isCoveredSource = (relativePath) => {
   const segments = relativePath.split(/[\\/]/);
   const fileName = segments.at(-1) ?? '';
   return (
@@ -95,10 +97,15 @@ const aliasesFromTsconfig = () => {
 };
 
 // test files of each project, relative to the root. testMatch is built from these lists and the
-// guard below checks every test file against the same lists, so the two cannot drift
+// guard below checks every test file against the same lists, so the two cannot drift.
+// no path segment may start with one of {}()+?.^$: on windows jest turns the slash before it into
+// a backslash that escapes it, and the pattern matches nothing (src\{ui,core}), so folder
+// alternatives are spelled out one pattern each (tools/jest/jest-config-globs.test.mjs)
 const CORE_TESTS = ['src/core/**/*.test.{ts,tsx}', 'test/core/**/*.test.{ts,tsx}'];
 const MOBILE_TESTS = [
-  'src/{features,ui,platform}/**/*.test.{ts,tsx}',
+  'src/features/**/*.test.{ts,tsx}',
+  'src/ui/**/*.test.{ts,tsx}',
+  'src/platform/**/*.test.{ts,tsx}',
   'test/app/**/*.test.{ts,tsx}',
   'test/mobile/**/*.test.{ts,tsx}',
 ];
@@ -149,6 +156,9 @@ if (!babelTransform) {
 // jest 29 cannot require native esm: esm-only dependencies of msw are transformed to commonjs
 const CORE_ESM_DEPENDENCIES = ['@open-draft/deferred-promise', 'rettime', 'until-async'];
 
+// any stylesheet import, matched against the module name as written
+const CSS_MODULE = '\\.css$';
+
 const shared = {
   rootDir: ROOT,
   cacheDirectory: '<rootDir>/node_modules/.cache/jest',
@@ -186,6 +196,8 @@ const config = {
       displayName: 'mobile',
       preset: 'jest-expo',
       testMatch: toTestMatch(MOBILE_TESTS),
+      // nativewind compiles src/ui/theme/global.css in metro only: jest gets an empty module
+      moduleNameMapper: { [CSS_MODULE]: '<rootDir>/test/mobile/css-stub.ts' },
       setupFilesAfterEnv: ['<rootDir>/test/mobile/setup.ts'],
     },
   ],
