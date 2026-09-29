@@ -348,7 +348,7 @@ Baseline: OWASP MASVS L1. Rules are in `CONTRIBUTING.md` §7. Summary:
 | `dev` | Development/integration, deployed to staging; every PR targets it explicitly (`--base dev`) | PRs from `feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`; back-merges from `main` | Squash; merge commit for back-merges from `main` only |
 | `main` | Production, always releasable, GitHub default branch | Release PRs from `dev`, hotfix PRs, the release-please PR | Merge commit for release PRs; squash for hotfix and release-please PRs |
 | `hotfix/*` | Urgent production fix | Branched from `main`, merged into `main`, then `main` merged back into `dev` | Squash into `main` |
-| `release-please--branches--main` | Release PR `chore(main): release X.Y.Z` (version + changelog) | Opened and updated by release-please on `main` | Squash into `main` |
+| `release-please--branches--main--components--tsuzuki` | Release PR `chore(main): release X.Y.Z` (version + changelog). release-please puts the component in the branch name even with a single package and `include-component-in-tag: false` | Opened and updated by release-please on `main` | Squash into `main` |
 
 ```mermaid
 flowchart LR
@@ -365,7 +365,7 @@ flowchart LR
     TAG --> BM[main merged back<br/>into dev]
 ```
 
-- Both `dev` and `main` are protected by the `protect-main-dev` ruleset: PR only, no direct push, no force push, required status checks and code scanning results (see "CI workflows and required checks").
+- Both `dev` and `main` are protected by the `protect-main-dev` ruleset: PR only, no direct push, no force push. Required status checks and code scanning results are added by the owner once F-04 is merged into `dev` (see "CI workflows and required checks" and "Repository settings (owner)").
 - A release PR from `dev` to `main` also requires the owner's approval and the E2E suite (from R-01). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 - JS-only fixes can ship with EAS Update on the matching runtime version; native changes require a store build.
 
@@ -376,6 +376,7 @@ flowchart LR
 - Checkout with `persist-credentials: false`; concurrency groups; a timeout on every job.
 - Third-party actions are pinned by full commit SHA with a version comment.
 - Jobs that install dependencies use the local composite action `.github/actions/setup/`: `pnpm install --frozen-lockfile`, pnpm store cached on the lockfile hash.
+- Accepted risk: like every `pull_request` workflow, the PR policy checks run the pull request's own copy of `tools/ci/` and `commitlint.config.mjs`, so a PR could weaken its own policy checks. The owner reviews every change to these files; the run has a read-only token and no secrets.
 
 | Workflow | File | Triggers | Jobs |
 | --- | --- | --- | --- |
@@ -392,12 +393,12 @@ flowchart LR
 | `tooling` | CI | `pnpm test:tooling` |
 | `rls` | CI | `pnpm exec supabase db start` (database only, Supabase CLI locked by the lockfile), `pnpm test:rls`, then stop |
 | `security` | CI | gitleaks v8.30.1 binary pinned by sha256 over the PR commit range (full history on push to `dev`), then `pnpm audit --audit-level high` |
-| `base-branch` | PR policy | `tools/ci/base-branch.mjs`: a PR to `main` must come from this repository and from `dev`, `hotfix/*` or `release-please--branches--main*`; work branches (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) and any other branch are rejected. PRs to `dev` are unrestricted |
+| `base-branch` | PR policy | `tools/ci/base-branch.mjs`: a PR to `main` must come from this repository and from `dev`, `hotfix/*` or a release-please branch, which is exactly `release-please--branches--main` or `release-please--branches--main--components--<component>` (look-alike names are rejected); work branches (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) and any other branch are rejected. PRs to `dev` are unrestricted |
 | `pr-title` | PR policy | commitlint on the PR title with `commitlint.config.mjs`: squash merges use the title as the commit message, and release-please reads it |
 | `commits` | PR policy | commitlint over every PR commit (`--from <base> --to <head>`, full history checkout), single-author rule included, so commits made with `--no-verify` are still caught. Merge commits written by git are exempt only while they carry no co-author trailer |
 | `codeql (actions)`, `codeql (javascript-typescript)` | CodeQL | CodeQL analysis, build mode none. Free because the repository is public |
 
-The `protect-main-dev` ruleset requires all eleven checks above on both `dev` and `main`, with source GitHub Actions, plus the rule "Require code scanning results" (CodeQL: security alerts High or higher, other alerts Errors). The E2E suite becomes a release PR requirement from R-01.
+Target state: after F-04 is merged into `dev`, the owner adds the eleven checks above as required status checks (source GitHub Actions) to `protect-main-dev` for both `dev` and `main`, plus the rule "Require code scanning results" (CodeQL: security alerts High or higher, other alerts Errors). Until then the checks run but do not block a merge. The E2E suite becomes a release PR requirement from R-01.
 
 ### Releases
 
@@ -409,15 +410,31 @@ release-please (`release-please.yml`) runs on push to `main`. Config: `release-p
 4. After each release or hotfix, `main` is merged back into `dev` with a merge commit, so they never diverge (automated in F-10).
 
 - `chore` and `docs` commits alone produce no release.
-- Token: a fine-grained personal access token scoped to this repository only (Contents, Pull requests, Issues: read and write), stored by the owner as the Actions secret `RELEASE_PLEASE_TOKEN` before the first release. A PR created with `GITHUB_TOKEN` would not trigger the required checks, and its tag would not trigger the F-10 release workflows. With the owner's token the release commits keep the single author.
-- Ruleset change before the first release: `protect-main-dev` currently requires linear history on both branches, which blocks the merge commits of release PRs and back-merges. The owner removes `required_linear_history` and splits the ruleset per branch, with the merge methods of the branching table: `dev` allows squash and merge (merge only for back-merges from `main`), `main` allows merge, plus squash for hotfixes and the release-please PR.
+- First release: there is no `v0.1.0` tag, so its changelog covers the whole history of `main`; `chore` and `docs` entries are hidden by default.
+- Token: a fine-grained personal access token scoped to this repository only (Contents, Pull requests, Issues: read and write), stored as the Actions secret `RELEASE_PLEASE_TOKEN` (see "Repository settings (owner)"). A PR created with `GITHUB_TOKEN` would not trigger the required checks, and its tag would not trigger the F-10 release workflows. With the owner's token the release commits keep the single author.
+- The release flow needs merge commits on `main` and `dev` and PR-title squash commits; the ruleset and merge settings it depends on are listed in "Repository settings (owner)".
 
 ### Dependencies
 
 - No update bot: no Dependabot PRs, no `.github/dependabot.yml`. The repository keeps a single author.
-- Dependabot alerts are enabled in the repository security settings.
+- Dependabot alerts only: the owner turns them on (see "Repository settings (owner)"); Dependabot security updates and version updates stay off.
 - Updates are the recurring backlog item M-01, done under the owner's identity. It respects the Expo, Jest, test-renderer and Node pins, and bumps the pinned action SHAs and the gitleaks version and sha256.
 - Between updates, `pnpm audit` (high blocks CI) catches known vulnerable versions; CodeQL scans the code and the workflows.
+
+### Repository settings (owner)
+
+GitHub settings that no file in the repository can enforce. The owner applies them once, in this order:
+
+1. Security: enable Dependabot alerts (Settings → Advanced Security). Alerts only, no Dependabot PRs.
+2. Actions (Settings → Actions → General):
+   - enable "Require actions to be pinned to a full-length commit SHA";
+   - optionally allow only selected actions: `actions/*`, `github/codeql-action/*`, `pnpm/action-setup`, `googleapis/release-please-action`;
+   - require approval to run workflows for all outside contributors (the repository is public).
+3. After F-04 is merged into `dev`: add the eleven required checks (source GitHub Actions) and "Require code scanning results" to `protect-main-dev`, for both `dev` and `main` (see "CI workflows and required checks").
+4. Before the first release:
+   - Pull requests (Settings → General): set the default squash commit message to "Pull request title" (title = PR title, body blank) and disable "Allow rebase merging". The current default uses the commit message for a single-commit PR, which bypasses the checked PR title, and a `* <message>` list body can exceed commitlint's `body-max-line-length` (100) when the release PR's `commits` job lints `main..dev`.
+   - Ruleset: `protect-main-dev` requires linear history, which blocks the merge commits of release PRs and back-merges. Remove `required_linear_history`, remove `rebase` from the allowed merge methods, and split the ruleset per branch with the merge methods of the branching table: `dev` allows squash and merge (merge only for back-merges from `main`), `main` allows merge, plus squash for hotfixes and the release-please PR. Both rulesets keep the required checks and the code scanning rule of step 3.
+   - Secrets: store `RELEASE_PLEASE_TOKEN` as an Actions secret (see "Releases").
 
 ## 11. Evolution paths
 
