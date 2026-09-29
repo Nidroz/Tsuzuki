@@ -6,6 +6,9 @@ const config: ExpoConfig = {
   version: '0.1.0', // x-release-please-version
   scheme: 'tsuzuki',
   orientation: 'portrait',
+  // follows the system light/dark setting; expo-system-ui applies it natively (its config plugin
+  // is applied automatically by prebuild)
+  userInterfaceStyle: 'automatic',
   plugins: ['expo-router'],
 };
 

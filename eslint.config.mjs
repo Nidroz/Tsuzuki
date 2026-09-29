@@ -135,8 +135,19 @@ export default defineConfig(
 
   {
     // expo-router routes/layouts and tool configs are loaded through their default export
-    files: ['app/**', '*.config.{ts,mjs,js,cjs}'],
+    // tailwind reads src/ui/theme/tailwind.config.ts through its default export too
+    files: ['app/**', '*.config.{ts,mjs,js,cjs}', 'src/ui/theme/tailwind.config.ts'],
     rules: { 'import-x/no-default-export': 'off' },
+  },
+
+  {
+    // these two files stay CommonJS: Expo, Metro and Babel load them synchronously with require()
+    files: ['babel.config.js', 'metro.config.js'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { require: 'readonly', module: 'readonly', __dirname: 'readonly' },
+    },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
 
   {
