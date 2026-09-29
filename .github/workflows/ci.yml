@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [dev, main]
+  # re-checks the squashed result and warms the dependency cache that pull requests restore
+  push:
+    branches: [dev]
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      - name: Lint
+        run: pnpm lint
+      - name: Check formatting
+        run: pnpm format:check
+
+  typecheck:
+    name: typecheck
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      - name: Typecheck
+        run: pnpm typecheck
+
+  test:
+    name: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      # coverage thresholds are enforced by the jest config
+      - name: Test
+        run: pnpm test
+
+  tooling:
+    name: tooling
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      - name: Test the tooling
+        run: pnpm test:tooling
+
+  rls:
+    name: rls
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      # the supabase cli is the dev dependency locked by the lockfile
+      - name: Start the local database
+        id: start-database
+        run: pnpm exec supabase db start
+      - name: Test the RLS policies
+        run: pnpm test:rls
+      # only once the start was attempted: pnpm exec would otherwise try to install (verifyDepsBeforeRun)
+      - name: Stop the local database
+        if: always() && steps.start-database.outcome != 'skipped'
+        run: pnpm exec supabase stop --no-backup
+
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: 8.30.1
+      # sha256 of gitleaks_8.30.1_linux_x64.tar.gz, from the release's checksums file
+      GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # gitleaks scans commits, not only the checked out tree
+          fetch-depth: 0
+      - name: Install gitleaks
+        run: |
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          bin_dir="${RUNNER_TEMP}/gitleaks"
+          mkdir -p "$bin_dir"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --output "${RUNNER_TEMP}/${archive}" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          printf '%s  %s\n' "$GITLEAKS_SHA256" "${RUNNER_TEMP}/${archive}" | sha256sum --check --strict
+          tar --extract --gzip --file "${RUNNER_TEMP}/${archive}" --directory "$bin_dir" gitleaks
+          echo "$bin_dir" >> "$GITHUB_PATH"
+      # a pull request scans its own commits; a push to dev scans the full history
+      - name: Scan for secrets
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          args=(git --no-banner --redact --verbose --exit-code 1)
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            # fail closed: an empty sha would turn the range into an empty scan
+            : "${BASE_SHA:?missing base sha}" "${HEAD_SHA:?missing head sha}"
+            args+=("--log-opts=${BASE_SHA}..${HEAD_SHA}")
+          fi
+          gitleaks "${args[@]}"
+      # the audit reads only the lockfile: no install
+      - name: Set up
+        uses: ./.github/actions/setup
+        with:
+          install: 'false'
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
