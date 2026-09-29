@@ -61,7 +61,7 @@ Details:
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
 - commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
 - release-please config.
-- CI runs on PRs to both `dev` and `main`; release PRs to `main` also run the E2E suite.
+- CI runs on PRs to both `dev` and `main`. The E2E gate on release PRs moved to R-01.
 - Document required checks to enable in branch protection for `dev` and `main`.
 - **Acceptance**: a PR with a failing test, a lint warning, a fake secret or a commit message with a co-author trailer is blocked.
 
@@ -153,6 +153,7 @@ Details:
 
 ### R-01 E2E suite complete
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
+- Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
 ## Maintenance (recurring, never ticked)
 
