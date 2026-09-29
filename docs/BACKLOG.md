@@ -56,7 +56,7 @@ Details:
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
 - CodeQL workflow. No dependency update bot: updates are the recurring item M-01, with Dependabot alerts only.
-- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase start`, then `pnpm test:rls`).
+- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase db start`, database only, then `pnpm test:rls`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
 - commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
@@ -168,6 +168,6 @@ Details:
   - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
   - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
   - Node major unchanged.
-- Bump the pinned GitHub Action SHAs (with their version comments) and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
+- Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
 - Respect pnpm's `minimumReleaseAge`.
 - `pnpm check` and `pnpm test:rls` green; code review approved (CONTRIBUTING.md section 8).
