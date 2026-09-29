@@ -19,4 +19,7 @@ pnpm test:rls              # runs the pgTAP tests in supabase/tests
 pnpm exec supabase stop
 ```
 
+CI (the `rls` job of `.github/workflows/ci.yml`) runs the same pgTAP tests with the locked CLI on a fresh runner.
+It starts only the database with `pnpm exec supabase db start`, which applies the migrations, then runs `pnpm test:rls`.
+
 `supabase/tests/database/000-rls-enabled.test.sql` is a lasting guard: it fails as soon as a table in `public` has row level security disabled.
