@@ -57,10 +57,12 @@ jobs:
           persist-credentials: false
       - name: Set up
         uses: ./.github/actions/setup
+      # linted as it lands on dev: github appends " (#<number>)" to the squash commit title
       - name: Lint the pull request title
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
-        run: printf '%s\n' "$PR_TITLE" | pnpm exec commitlint --verbose
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: printf '%s (#%s)\n' "$PR_TITLE" "$PR_NUMBER" | pnpm exec commitlint --verbose
 
   # every commit of the pull request, so commits made without the commit-msg hook are still caught
   commits:
