@@ -72,6 +72,7 @@ Details:
 - When extending the lint layer rules, split `eslint.config.mjs`: the layer tables move to their own module in `tools/eslint/`.
 - Add a lint zone preventing production code (`app/`, `src/`) from importing the test infrastructure in `test/`.
 - Close the layer rule gaps found by the F-03 regression tests: files directly under `src/` outside the four layers get no layer rules, `EventSource` is not in the banned network globals, and `jest.mock(...)` / `jest.requireActual(...)` specifiers are not checked by the package bans; add a regression case for each.
+- Tooling tests (low priority): detect computed forms like `t['skip']()`, stored references and `.only` on non-runner names in the test hygiene rules.
 - Decide how `tsuzuki/file-name-case` treats dotfiles and dot-folders (e.g. `.prettierrc.mjs`, `.storybook/`, rejected today) and Expo API route files (`+api`), before the first one is added.
 - **Acceptance**: every primitive has component tests incl. accessibility labels; no `className` outside `src/ui/` (lint rule or check script).
 
