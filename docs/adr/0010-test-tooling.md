@@ -35,6 +35,6 @@ Options considered:
 - Core purity is checked twice: lint rejects React Native imports, and the `core` project fails at runtime if one slips through. Core tests stay reusable when `src/core/` moves to `packages/core` for the web app.
 - Two runners (Jest and `node:test`) to maintain; tooling tests are not part of Jest coverage.
 - `test-renderer` stays on 1.2.x until the Expo SDK moves to React 19.3.
-- The Supabase CLI version is locked with the other dependencies, so local and CI pgTAP runs use the same binary; Renovate updates it.
+- The Supabase CLI version is locked with the other dependencies, so local and CI pgTAP runs use the same binary; the recurring dependency update (M-01) updates it.
 - Maestro is an external install and is not versioned with the repository.
 - Moving to a newer Jest waits for the Expo test stack.
