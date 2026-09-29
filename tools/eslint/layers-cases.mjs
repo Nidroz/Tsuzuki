@@ -34,6 +34,7 @@ export const MESSAGES = {
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',
   classNameGuard: 'className is used only inside src/ui',
+  styleGuard: 'routes and features never style directly',
 };
 
 export const APP_INDEX_FROM_SRC_LAYER = '../../app/index';

@@ -10,6 +10,7 @@ import {
   JIKAN_GUARDS,
   LAYERS_RULE,
   LITERAL_IMPORT_GUARD,
+  STYLE_GUARDS,
   jestModuleBans,
 } from './syntax-guards.mjs';
 
@@ -84,12 +85,14 @@ export const SRC_OUTSIDE_LAYERS = {
 };
 
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
-// complete option set for no-restricted-imports and no-restricted-syntax
+// complete option set for no-restricted-imports and no-restricted-syntax; bansStyles marks the
+// screen layers (routes and features), which compose src/ui primitives instead of styling
 export const layerRules = ({
   banned: layerBanned,
   typeOnly,
   allowJikan = false,
   usesNativeWind = false,
+  bansStyles = false,
 }) => {
   const banned = [CANONICAL_PATHS, ...layerBanned];
   return {
@@ -123,6 +126,7 @@ export const layerRules = ({
       ...jestModuleBans(banned),
       ...(allowJikan ? [] : JIKAN_GUARDS),
       ...(usesNativeWind ? [] : CLASS_NAME_GUARDS),
+      ...(bansStyles ? STYLE_GUARDS : []),
     ],
   };
 };
@@ -146,8 +150,12 @@ export const LAYERS = [
     banned: [nativewind, supabase],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
-  { files: ['src/features/**'], banned: [nativewind, supabase, network, expoInternals] },
-  { files: ['app/**'], banned: [nativewind, supabase, network, expoInternals] },
+  {
+    files: ['src/features/**'],
+    banned: [nativewind, supabase, network, expoInternals],
+    bansStyles: true,
+  },
+  { files: ['app/**'], banned: [nativewind, supabase, network, expoInternals], bansStyles: true },
 ];
 
 const layerZone = (target, from, message) => ({

@@ -10,6 +10,7 @@ import * as dotfileCases from './layers-dotfile-cases.mjs';
 import * as jestCases from './layers-jest-cases.mjs';
 import * as jestChainCases from './layers-jest-chain-cases.mjs';
 import * as networkCases from './layers-network-cases.mjs';
+import * as styleCases from './layers-style-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
 import {
   EXISTING,
@@ -32,6 +33,7 @@ const TABLES = [
   jestCases,
   jestChainCases,
   classNameCases,
+  styleCases,
   dotfileCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
