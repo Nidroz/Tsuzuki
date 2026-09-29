@@ -69,7 +69,7 @@ describe('baseBranchViolation', () => {
       ['dev with a letter suffix', 'devx'],
       ['main itself', 'main'],
       ['a release-please branch for dev', 'release-please--branches--dev'],
-      ['a renovate branch', 'renovate/x'],
+      ['a bot branch', 'bot/x'],
     ];
     for (const [name, headRef] of heads) {
       it(`rejects ${name} (${headRef})`, () => {
@@ -101,7 +101,7 @@ describe('baseBranchViolation', () => {
 
   describe('bases other than main', () => {
     const bases = ['dev', 'feature-base'];
-    const heads = ['feat/x', 'main', 'dev', 'hotfix/x', 'renovate/x'];
+    const heads = ['feat/x', 'main', 'dev', 'hotfix/x', 'bot/x'];
     for (const baseRef of bases) {
       for (const headRef of heads) {
         it(`allows ${headRef} to ${baseRef}`, () => {
