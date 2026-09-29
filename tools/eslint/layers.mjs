@@ -1,9 +1,9 @@
 // layer rule tables for eslint.config.mjs: banned imports per layer, import-x/no-restricted-paths
-// zones and network guards (CONTRIBUTING.md section 4)
+// zones, network guards and the className guards (CONTRIBUTING.md section 4)
 
 const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 
-export const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
+export const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
 export const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
 
 // banned package groups; F-05/F-06 extend this table
@@ -64,15 +64,67 @@ const JIKAN_GUARDS = [
   { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
 ];
 
-// every file's no-restricted-syntax guards; a block that sets its own options must re-include them
-export const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS];
+// className and its variants (contentContainerClassName, ...) as JSX props or object keys (spread
+// props, createElement props, destructuring); the word as a string value stays allowed
+const CLASS_NAME_MESSAGE = `className is used only inside src/ui, the only layer that uses NativeWind (${LAYERS_RULE}).`;
+const CLASS_NAME_PATTERN = '/^(?:[a-z][A-Za-z]*C|c)lassName$/';
+const CLASS_NAME_GUARDS = [
+  { selector: `JSXAttribute[name.name=${CLASS_NAME_PATTERN}]`, message: CLASS_NAME_MESSAGE },
+  {
+    selector: `Property:matches([computed=false][key.name=${CLASS_NAME_PATTERN}], [key.value=${CLASS_NAME_PATTERN}])`,
+    message: CLASS_NAME_MESSAGE,
+  },
+];
+
+// every file's no-restricted-syntax guards outside src/ui and tools/; a block that sets its own
+// options must re-include them
+export const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS, ...CLASS_NAME_GUARDS];
+
+// tools/ holds the lint rules and their case tables, which name className as data: no className
+// guard there, NativeWind never runs in it
+export const TOOLING_FILES = ['tools/**'];
+export const TOOLING_SYNTAX_GUARDS = [...JIKAN_GUARDS];
+
+// every file under src/ belongs to a layer, so each file gets the rules of exactly one layer
+const SRC_LAYER_FOLDERS = ['src/core', 'src/features', 'src/ui', 'src/platform'];
+export const SRC_OUTSIDE_LAYERS = {
+  files: ['src/**'],
+  ignores: SRC_LAYER_FOLDERS.map((folder) => `${folder}/**`),
+  rules: {
+    'no-restricted-syntax': [
+      'error',
+      ...BASE_SYNTAX_GUARDS,
+      {
+        selector: 'Program',
+        message: `every file under src/ belongs to one of the four layers: ${SRC_LAYER_FOLDERS.join(', ')} (${LAYERS_RULE}).`,
+      },
+    ],
+  },
+};
 
 // esquery regex literals cannot contain "/", even escaped
 const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
 
+// every jest function that loads or mocks a module by its specifier: its first argument follows the
+// package bans of the layer, like an import
+const JEST_MODULE_METHODS = [
+  'mock',
+  'doMock',
+  'requireActual',
+  'requireMock',
+  'unstable_mockModule',
+  'createMockFromModule',
+];
+const JEST_MODULE_CALL = `CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.object.name='jest'][callee.property.name=/^(?:${JEST_MODULE_METHODS.join('|')})$/]`;
+
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax
-export const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
+export const layerRules = ({
+  banned: layerBanned,
+  typeOnly,
+  allowJikan = false,
+  allowClassName = false,
+}) => {
   const banned = [CANONICAL_PATHS, ...layerBanned];
   return {
     'no-restricted-imports': 'off',
@@ -89,7 +141,8 @@ export const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }
         ],
       },
     ],
-    // static imports are covered above; these guards cover import() calls, always runtime imports
+    // static imports are covered above; these guards cover import() calls, always runtime imports,
+    // and the jest module calls (package bans only)
     'no-restricted-syntax': [
       'error',
       LITERAL_IMPORT_GUARD,
@@ -99,7 +152,14 @@ export const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }
           message,
         })),
       ),
+      ...layerBanned.flatMap(({ regexes, message }) =>
+        regexes.map((regex) => ({
+          selector: `${JEST_MODULE_CALL}[arguments.0.value=${toSelectorRegex(regex)}]`,
+          message,
+        })),
+      ),
       ...(allowJikan ? [] : JIKAN_GUARDS),
+      ...(allowClassName ? [] : CLASS_NAME_GUARDS),
     ],
   };
 };
@@ -117,7 +177,7 @@ export const LAYERS = [
     allowJikan: true,
   },
   { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind] },
-  { files: ['src/ui/**'], banned: [supabase, network, expoInternals] },
+  { files: ['src/ui/**'], banned: [supabase, network, expoInternals], allowClassName: true },
   {
     files: ['src/platform/**'],
     banned: [nativewind, supabase],
@@ -202,5 +262,12 @@ export const LAYER_ZONES = [
     ['./app/*/**', './app/!(_layout).*', './app/_layout.!(tsx)'],
     IMPLEMENTATION_FOLDERS,
     'only app/_layout.tsx (the composition root) wires repository and catalog provider implementations',
+  ),
+  // every file of app/ and src/ except the colocated jest tests; the "**" keeps each pattern a glob
+  // on windows, where the backslash before "!(" escapes it (see above)
+  layerZone(
+    ['./app/**/!(*.test.ts|*.test.tsx)', './src/**/!(*.test.ts|*.test.tsx)'],
+    './test',
+    'production code never imports the test infrastructure in test/: only tests do',
   ),
 ];

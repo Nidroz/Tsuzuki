@@ -36,7 +36,20 @@ export const PROBES = {
   ui: 'src/ui/probe.ts',
   platform: 'src/platform/probe.ts',
   features: 'src/features/probe.ts',
+  // files under src/ outside the four layers
   srcRoot: 'src/probe.ts',
+  srcOther: 'src/utils/probe.ts',
+  // colocated jest tests inside the layers
+  featuresTest: 'src/features/probe.test.ts',
+  hooksTest: 'src/core/hooks/probe.test.ts',
+  uiTest: 'src/ui/probe.test.ts',
+  platformTest: 'src/platform/probe.test.ts',
+  // components (.tsx) inside and outside src/ui
+  featuresComponent: 'src/features/probe.tsx',
+  hooksComponent: 'src/core/hooks/probe.tsx',
+  platformComponent: 'src/platform/probe.tsx',
+  uiComponent: 'src/ui/probe.tsx',
+  testMobileComponent: 'test/mobile/probe.tsx',
   layoutTs: 'app/_layout.ts',
   nestedLayout: 'app/(tabs)/_layout.tsx',
   nestedRoute: 'app/media/[kind]/[id].tsx',

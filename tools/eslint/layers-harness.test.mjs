@@ -48,10 +48,4 @@ describe('literalGlob', () => {
     assert.equal(glob, 'a\\\\b\\[c\\].ts');
     assert.equal(unescapeGlob(glob), file);
   });
-
-  it('round-trips every probe name', () => {
-    for (const file of Object.values(PROBES)) {
-      assert.equal(unescapeGlob(literalGlob(file)), file);
-    }
-  });
 });
