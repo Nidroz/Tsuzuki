@@ -85,7 +85,7 @@ tsuzuki/
 │   ├── ci/                           # base branch policy for the PR policy workflow
 │   ├── commitlint/                   # commitlint.config.mjs tests
 │   ├── jest/                         # jest.config.mjs tests (tsconfig alias mapping)
-│   └── eslint/                       # rule tables for eslint.config.mjs (layers.mjs, test-hygiene.mjs), their regression tests and case tables (layers-*-cases.mjs)
+│   └── eslint/                       # rule tables for eslint.config.mjs (layers.mjs, syntax-guards.mjs, test-hygiene.mjs and helpers), their regression tests and case tables (layers-*-cases.mjs)
 │       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
 ├── .github/
@@ -99,9 +99,9 @@ Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint; their t
 - Only the root layout `app/_layout.tsx`, the composition root, wires the repository and catalog provider implementations (`src/core/repositories/supabase/`, `src/core/repositories/local/`, `src/core/catalog/jikan/`). Every other route, nested layouts included, and every feature goes through `src/core/hooks/`. Everything else in `src/core/` (domain, schemas, query, errors, i18n, hooks, and the interface files at the root of `repositories/` and `catalog/`) and in `test/core/` depends only on the repository and `CatalogProvider` interfaces, never on the implementation folders.
 - Routes, features and UI components have no direct network access: `app/`, `src/features/` and `src/ui/` never use `fetch`, `XMLHttpRequest`, `WebSocket`, `EventSource`, `expo/fetch` or Expo internals (`expo/src/…`, `expo/build/…`). Network access lives in `src/core/` (catalog adapters and repositories), with `src/platform/` for mobile SDKs.
 - Every file under `src/` belongs to one of the four layers (`src/core/`, `src/features/`, `src/ui/`, `src/platform/`), so each file gets the rules of exactly one layer.
-- Jest module calls (`jest.mock`, `doMock`, `requireActual`, `requireMock`, `unstable_mockModule`, `createMockFromModule`) take a string literal and follow the package bans of their layer, like imports.
+- Jest module calls (`jest.mock`, `doMock`, `requireActual`, `unmock`, `setMock`…) take a string literal and follow the package bans and canonical paths of their layer, like imports; `jest` is imported from `@jest/globals` under its own name and its methods are called by name: aliases and computed access are rejected.
 - Production code (non-test files in `app/` and `src/`) never imports the test infrastructure in `test/`: only tests do.
-- `className` and its variants (`*ClassName` props and object keys) are used only inside `src/ui/`, the only layer that uses NativeWind. `tools/` is exempt: its rule tables name `className` as data and NativeWind never runs there.
+- `className` and its variants (`*ClassName` props and object keys) are used only inside `src/ui/`, the only layer that uses NativeWind.
 - Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
 - Expo Router API routes (`+api`) are not used: server logic lives in Supabase Edge Functions. `tsuzuki/file-name-case` rejects them, and accepts dotfiles and dot-folders outside `app/` whose name after the leading dot is kebab-case (`.prettierrc.mjs`, `.github/`).
 - Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.

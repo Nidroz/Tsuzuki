@@ -21,10 +21,10 @@ const JEST_MODULE_METHODS = [
   'unstable_mockModule',
   'createMockFromModule',
 ];
-const JEST_IMPORT = "import { jest } from '@jest/globals';\n\n";
+export const JEST_IMPORT = "import { jest } from '@jest/globals';\n\n";
 
 // probes are [label, code] pairs
-const jestCall = (method, specifier) => [
+export const jestCall = (method, specifier) => [
   `jest.${method}('${specifier}')`,
   `${JEST_IMPORT}jest.${method}('${specifier}');\n`,
 ];
@@ -49,7 +49,7 @@ const nonLiteralForms = (specifier) => ({
   ],
   spread: [`...['${specifier}']`, `...['${specifier}']`, ''],
 });
-const nonLiteralCall = (method, form, specifier) => {
+export const nonLiteralCall = (method, form, specifier) => {
   const [label, argument, declaration] = nonLiteralForms(specifier)[form];
   return [`jest.${method}(${label})`, `${JEST_IMPORT}${declaration}jest.${method}(${argument});\n`];
 };
@@ -69,6 +69,7 @@ const PRODUCTION_FILES = [
   PROBES.features,
   PROBES.featuresComponent,
   PROBES.ui,
+  PROBES.uiComponent,
   PROBES.platform,
   PROBES.srcRoot,
   EXISTING.index,
@@ -188,8 +189,8 @@ export const ALLOWED = {
 
   'production code never imports test/': [
     // colocated tests use the test infrastructure
-    ...[PROBES.featuresTest, PROBES.uiTest, PROBES.platformTest].flatMap((file) =>
-      allowed(file, importsFrom(file, RENDER_ROUTER)),
+    ...[PROBES.featuresTest, PROBES.uiTest, PROBES.uiTestComponent, PROBES.platformTest].flatMap(
+      (file) => allowed(file, importsFrom(file, RENDER_ROUTER)),
     ),
     ...allowed(PROBES.hooksTest, importsFrom(PROBES.hooksTest, FIXED_CLOCK)),
     // test/ itself is unaffected

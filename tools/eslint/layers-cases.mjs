@@ -28,10 +28,12 @@ export const MESSAGES = {
   typeOnly: 'src/platform imports src/core with "import type" only',
   literal: 'import() takes a string literal',
   jestLiteral: 'jest module calls take a string literal',
+  jestName: 'jest is imported and used under its own name',
+  jestByName: 'jest methods are called by name',
   jikan: 'the catalog provider is reached only through its adapter',
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',
-  className: 'className is used only inside src/ui',
+  classNameGuard: 'className is used only inside src/ui',
 };
 
 export const APP_INDEX_FROM_SRC_LAYER = '../../app/index';

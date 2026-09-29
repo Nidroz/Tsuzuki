@@ -98,7 +98,7 @@ export const fileNameCase = {
       invalidSegment: `folder "{{segment}}" is not kebab-case; app/ also allows expo-router groups "(name)" and dynamic segments "[param]" / "[...param]" (${RULE}).`,
       invalidFileName: `file name "{{segment}}" breaks the naming rule: kebab-case base, PascalCase only for components (.tsx outside app/), expo-router names (index, _layout, +not-found, [param], ...) inside app/, lowercase kebab suffixes and extension (${RULE}).`,
       testInApp: `"{{segment}}" is a test inside app/: every file in app/ is a route, route tests live in test/app/ (${TESTING_RULE}).`,
-      apiRoute: `"{{segment}}" is an API route: expo-router API routes (+api) are not used: server logic lives in Supabase Edge Functions, under supabase/ (${LAYERS_RULE}).`,
+      apiRoute: `"{{segment}}" is an API route; expo-router API routes (+api) are not used: server logic lives in Supabase Edge Functions, under supabase/ (${LAYERS_RULE}).`,
     },
   },
   create(context) {

@@ -24,11 +24,28 @@ const OBJECT_KEYS = [
   ],
   ["{ 'className' } string key", "export const props = { 'className': 'p-4' };\n"],
 ];
+// a computed key written as a literal names the prop as surely as a plain key
+const COMPUTED_JSX_PROPS = [
+  [
+    'JSX spread { [`className`] } key',
+    `${BOX}export const Probe = () => <Box {...{ [\`className\`]: 'p-4' }} />;\n`,
+  ],
+];
+const COMPUTED_KEYS = [
+  [
+    '{ [`contentContainerClassName`] } template key',
+    "export const props = { [`contentContainerClassName`]: 'p-4' };\n",
+  ],
+  ["{ ['className'] } string key", "export const props = { ['className']: 'p-4' };\n"],
+];
 // the word as data is not a styling prop
 const CLASS_NAME_VALUES = [
   ["'className' as a value", "export const prop = 'className';\n"],
   ["'className' as a property value", "export const label = { name: 'className' };\n"],
+  ['`className` as a template value', 'export const prop = `className`;\n'],
 ];
+// node-only tooling and root tool configs: NativeWind never runs there, yet they get the guard too
+const TOOLING_MODULES = [PROBES.tools, PROBES.toolsTest, PROBES.rootConfig];
 
 const COMPONENTS_OUTSIDE_UI = [
   PROBES.featuresComponent,
@@ -48,9 +65,12 @@ const MODULES_OUTSIDE_UI = [
 
 export const REJECTED = {
   'className outside src/ui': [
-    ...rejected(COMPONENTS_OUTSIDE_UI, SYNTAX, MESSAGES.className, JSX_PROPS),
-    ...rejected(MODULES_OUTSIDE_UI, SYNTAX, MESSAGES.className, [OBJECT_KEY]),
-    ...rejected(PROBES.features, SYNTAX, MESSAGES.className, OBJECT_KEYS.slice(1)),
+    ...rejected(COMPONENTS_OUTSIDE_UI, SYNTAX, MESSAGES.classNameGuard, JSX_PROPS),
+    ...rejected(MODULES_OUTSIDE_UI, SYNTAX, MESSAGES.classNameGuard, [OBJECT_KEY]),
+    ...rejected(PROBES.features, SYNTAX, MESSAGES.classNameGuard, OBJECT_KEYS.slice(1)),
+    ...rejected(PROBES.featuresComponent, SYNTAX, MESSAGES.classNameGuard, COMPUTED_JSX_PROPS),
+    ...rejected(PROBES.features, SYNTAX, MESSAGES.classNameGuard, COMPUTED_KEYS),
+    ...rejected(TOOLING_MODULES, SYNTAX, MESSAGES.classNameGuard, [OBJECT_KEY]),
   ],
 };
 
@@ -58,9 +78,17 @@ export const REJECTED = {
 export const ALLOWED = {
   'className outside src/ui': [
     ...allowed(PROBES.uiComponent, JSX_PROPS),
-    ...allowed(PROBES.ui, OBJECT_KEYS),
+    ...allowed(PROBES.uiComponent, COMPUTED_JSX_PROPS),
+    ...allowed(PROBES.ui, [...OBJECT_KEYS, ...COMPUTED_KEYS]),
     ...allowed(
-      [PROBES.features, PROBES.hooks, PROBES.platform, PROBES.featuresComponent, EXISTING.index],
+      [
+        PROBES.features,
+        PROBES.hooks,
+        PROBES.platform,
+        PROBES.featuresComponent,
+        EXISTING.index,
+        ...TOOLING_MODULES,
+      ],
       CLASS_NAME_VALUES,
     ),
   ],

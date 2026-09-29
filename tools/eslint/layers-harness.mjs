@@ -43,6 +43,7 @@ export const PROBES = {
   featuresTest: 'src/features/probe.test.ts',
   hooksTest: 'src/core/hooks/probe.test.ts',
   uiTest: 'src/ui/probe.test.ts',
+  uiTestComponent: 'src/ui/probe.test.tsx',
   platformTest: 'src/platform/probe.test.ts',
   // components (.tsx) inside and outside src/ui
   featuresComponent: 'src/features/probe.tsx',
@@ -54,6 +55,17 @@ export const PROBES = {
   nestedLayout: 'app/(tabs)/_layout.tsx',
   nestedRoute: 'app/media/[kind]/[id].tsx',
   notFound: 'app/+not-found.tsx',
+  // dotfiles and dot-folders: plain modules (.mjs), since typescript leaves ts dotfiles out of the
+  // project
+  featuresDotfile: 'src/features/.probe.mjs',
+  coreDotfile: 'src/core/.probe.mjs',
+  hooksDotFolder: 'src/core/hooks/.probe/probe.mjs',
+  // the deepest dot-folder nesting a globstar target covers (tools/eslint/glob-dot-names.mjs)
+  hooksNestedDotFolders: 'src/core/hooks/.a/.b/probe.mjs',
+  // node-only tooling and root tool configs
+  tools: 'tools/probe.mjs',
+  toolsTest: 'tools/probe.test.mjs',
+  rootConfig: 'probe.config.mjs',
 };
 
 export const EXISTING = { layout: 'app/_layout.tsx', index: 'app/index.tsx' };

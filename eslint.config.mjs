@@ -17,8 +17,6 @@ import {
   NETWORK_GLOBALS,
   NETWORK_MESSAGE,
   SRC_OUTSIDE_LAYERS,
-  TOOLING_FILES,
-  TOOLING_SYNTAX_GUARDS,
   layerRules,
 } from './tools/eslint/layers.mjs';
 import { tsuzukiPlugin } from './tools/eslint/plugin/index.mjs';
@@ -160,11 +158,6 @@ export default defineConfig(
       'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS],
     },
   },
-  {
-    // node-only tooling: its rule tables name className as data, so only the jikan guard applies
-    files: TOOLING_FILES,
-    rules: { 'no-restricted-syntax': ['error', ...TOOLING_SYNTAX_GUARDS] },
-  },
   { files: TS_FILES, rules: { '@typescript-eslint/consistent-type-imports': 'error' } },
 
   {
@@ -247,11 +240,11 @@ export default defineConfig(
 
   {
     // test hygiene of the node:test tooling suites (tools/eslint/test-hygiene.mjs); the
-    // no-restricted-syntax options replace the tools/ ones here: the tools/ guards are re-included
+    // no-restricted-syntax options replace the base ones here: the base guards are re-included
     files: TOOLING_TEST_FILES,
     rules: {
       'no-restricted-properties': ['error', ...TEST_HYGIENE_PROPERTIES],
-      'no-restricted-syntax': ['error', ...TOOLING_SYNTAX_GUARDS, ...TEST_HYGIENE_SYNTAX],
+      'no-restricted-syntax': ['error', ...BASE_SYNTAX_GUARDS, ...TEST_HYGIENE_SYNTAX],
     },
   },
 );
