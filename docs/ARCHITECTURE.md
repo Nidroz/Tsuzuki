@@ -84,6 +84,7 @@ tsuzuki/
 ├── tools/                            # repository tooling, tested with node:test
 │   ├── ci/                           # base branch policy for the PR policy workflow
 │   ├── commitlint/                   # commitlint.config.mjs tests
+│   ├── jest/                         # jest.config.mjs tests (tsconfig alias mapping)
 │   └── eslint/                       # layer rule regression tests
 │       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
@@ -450,7 +451,7 @@ Rules and thresholds are in `CONTRIBUTING.md` §6; tooling choices in [ADR-0010]
 | --- | --- | --- | --- |
 | `src/core/**`, `test/core/**` | Jest 29, project `core` | `pnpm test` | Node environment with Node export conditions, the app Babel transform (jest-expo's transform entry) and path aliases, no React Native preset: a React Native import in core fails at runtime as well as in lint. A few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP mocked with MSW (`msw/node`, unhandled requests are errors) |
 | `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render` |
-| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, layer rule regressions (ESLint Node API), local ESLint plugin rules, base branch policy (`tools/ci/`) |
+| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, Jest config tsconfig alias mapping, layer rule regressions (ESLint Node API), local ESLint plugin rules, base branch policy (`tools/ci/`) |
 | `supabase/tests/` | pgTAP | `pnpm test:rls` | `supabase test db` against the local stack; Supabase CLI as a devDependency locked by the lockfile. A guard test asserts RLS is enabled on every table in `public` |
 | `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. Maestro and adb are installed by the developer |
 
