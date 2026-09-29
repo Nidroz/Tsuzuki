@@ -103,6 +103,11 @@ const JEST_NAME_MESSAGE = `jest is imported and used under its own name: import 
 const JEST_NAME_GUARDS = [
   // export * and export * as g hand jest to another module under a name the guards do not follow
   { selector: `ExportAllDeclaration[source.value='${JEST_GLOBALS}']`, message: JEST_NAME_MESSAGE },
+  // export { 'jest' as j } from: a string name has no identifier for the value guard below
+  {
+    selector: `ExportNamedDeclaration[source.value='${JEST_GLOBALS}'] > ExportSpecifier[local.value='${JEST}']`,
+    message: JEST_NAME_MESSAGE,
+  },
   {
     selector: `ImportDeclaration[source.value='${JEST_GLOBALS}'] > :matches(ImportSpecifier:matches([imported.name='${JEST}'], [imported.value='${JEST}']):not([local.name='${JEST}']), ImportNamespaceSpecifier, ImportDefaultSpecifier)`,
     message: JEST_NAME_MESSAGE,
@@ -146,7 +151,8 @@ const JEST_BY_NAME_GUARDS = [
   },
   // any member read on a returned jest, called or not, plain, optional or computed, directly or
   // through one wrapper: jest.resetModules().mock('x'), jest.resetModules()?.['mock']('x'),
-  // (jest.resetModules?.()).mock('x'). a returned jest kept in a variable stays out of reach
+  // (jest.resetModules?.()).mock('x'). out of reach of syntax: a returned jest kept in a variable,
+  // behind a sequence ((0, jest.resetModules()).mock) or called through .call/.apply/.bind
   {
     selector: `:matches(MemberExpression > ${JEST_RETURNING_CALL}.object, MemberExpression > :matches(${TRANSPARENT_WRAPPERS.join(', ')}).object > ${JEST_RETURNING_CALL}.expression)`,
     message: JEST_BY_NAME_MESSAGE,

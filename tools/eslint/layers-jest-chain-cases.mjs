@@ -58,6 +58,28 @@ const CHAINED_MODULE_CALLS = [
     "jest.enableAutomock().dontMock('@supabase/supabase-js')",
     `${JEST_IMPORT}jest.enableAutomock().dontMock('@supabase/supabase-js');\n`,
   ],
+  // one wrapper between the returned jest and the member read on it, one case per wrapper node
+  [
+    "(jest.resetModules?.()).mock('@supabase/supabase-js')",
+    `${JEST_IMPORT}(jest.resetModules?.()).mock('@supabase/supabase-js');\n`,
+  ],
+  [
+    "jest.resetModules()!.mock('@supabase/supabase-js')",
+    `${JEST_IMPORT}jest.resetModules()!.mock('@supabase/supabase-js');\n`,
+  ],
+  [
+    "(jest.resetModules() as typeof jest).mock('@supabase/supabase-js')",
+    `${JEST_IMPORT}(jest.resetModules() as typeof jest).mock('@supabase/supabase-js');\n`,
+  ],
+  [
+    "(jest.resetModules() satisfies typeof jest).mock('@supabase/supabase-js')",
+    `${JEST_IMPORT}(jest.resetModules() satisfies typeof jest).mock('@supabase/supabase-js');\n`,
+  ],
+  // an angle-bracket assertion parses in the .ts probes only, not in .tsx
+  [
+    "(<typeof jest>jest.resetModules()).mock('@supabase/supabase-js')",
+    `${JEST_IMPORT}(<typeof jest>jest.resetModules()).mock('@supabase/supabase-js');\n`,
+  ],
 ];
 // any member access on a returned jest is rejected, whatever the method read on it
 const HARMLESS_CHAINS = [
@@ -73,6 +95,7 @@ const HARMLESS_CHAINS = [
 const REEXPORTS = [
   ["export * from '@jest/globals'", "export * from '@jest/globals';\n"],
   ["export * as g from '@jest/globals'", "export * as g from '@jest/globals';\n"],
+  ["export { 'jest' as j } from '@jest/globals'", "export { 'jest' as j } from '@jest/globals';\n"],
 ];
 
 export const REJECTED = {
