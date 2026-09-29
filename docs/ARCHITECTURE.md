@@ -414,7 +414,7 @@ release-please (`release-please.yml`) runs on push to `main`. Config: `release-p
 
 ### Dependencies
 
-- No update bot: no Renovate, no Dependabot PRs, no `.github/dependabot.yml`. The repository keeps a single author.
+- No update bot: no Dependabot PRs, no `.github/dependabot.yml`. The repository keeps a single author.
 - Dependabot alerts are enabled in the repository security settings.
 - Updates are the recurring backlog item M-01, done under the owner's identity. It respects the Expo, Jest, test-renderer and Node pins, and bumps the pinned action SHAs and the gitleaks version and sha256.
 - Between updates, `pnpm audit` (high blocks CI) catches known vulnerable versions; CodeQL scans the code and the workflows.
