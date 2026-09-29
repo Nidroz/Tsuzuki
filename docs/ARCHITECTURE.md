@@ -82,11 +82,15 @@ tsuzuki/
 │   ├── app/                          # route tests (renderRouterAsync); kept out of app/, where every .tsx is a route
 │   └── mobile/                       # mobile project setup and its tests, renderRouterAsync helper
 ├── tools/                            # repository tooling, tested with node:test
+│   ├── ci/                           # base branch policy for the PR policy workflow
 │   ├── commitlint/                   # commitlint.config.mjs tests
 │   └── eslint/                       # layer rule regression tests
 │       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
-└── .github/workflows/
+├── .github/
+│   ├── actions/setup/                # composite action: pnpm install --frozen-lockfile, store cached on the lockfile hash
+│   └── workflows/                    # ci.yml, pr-policy.yml, codeql.yml, release-please.yml (see §10)
+└── release-please-config.json, .release-please-manifest.json
 ```
 
 Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint.
@@ -326,7 +330,7 @@ Baseline: OWASP MASVS L1. Rules are in `CONTRIBUTING.md` §7. Summary:
 | Malicious provider payload | Zod parsing at the adapter boundary, rendering as text only |
 | Malicious deep link | Route params validated with Zod; no write triggered by a link |
 | Account takeover | Email confirmation, strong password policy, Supabase rate limits + captcha on auth endpoints |
-| Vulnerable dependency | Renovate, `pnpm audit` (high blocks CI), CodeQL |
+| Vulnerable dependency | Dependabot alerts, recurring dependency update (M-01), `pnpm audit` (high blocks CI), CodeQL |
 | Personal data in logs | No PII logging; Sentry `beforeSend` scrubbing |
 
 ## 10. Environments and CI/CD
@@ -341,26 +345,79 @@ Baseline: OWASP MASVS L1. Rules are in `CONTRIBUTING.md` §7. Summary:
 
 | Branch | Role | Receives | Merge method |
 | --- | --- | --- | --- |
-| `dev` | Development/integration, deployed to staging; every PR targets it explicitly (`--base dev`) | PRs from `feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*` | Squash |
-| `main` | Production, always releasable, GitHub default branch | Release PRs from `dev`, hotfix PRs | Merge commit |
+| `dev` | Development/integration, deployed to staging; every PR targets it explicitly (`--base dev`) | PRs from `feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`; back-merges from `main` | Squash; merge commit for back-merges from `main` only |
+| `main` | Production, always releasable, GitHub default branch | Release PRs from `dev`, hotfix PRs, the release-please PR | Merge commit for release PRs; squash for hotfix and release-please PRs |
 | `hotfix/*` | Urgent production fix | Branched from `main`, merged into `main`, then `main` merged back into `dev` | Squash into `main` |
+| `release-please--branches--main` | Release PR `chore(main): release X.Y.Z` (version + changelog) | Opened and updated by release-please on `main` | Squash into `main` |
 
 ```mermaid
 flowchart LR
-    PR[PR to dev] --> Q[lint + typecheck]
+    PR[PR to dev] --> P[PR policy<br/>base branch + title + commits]
+    P --> Q[lint + typecheck + tooling tests]
     Q --> T[unit + component tests + coverage]
     T --> S[RLS tests + gitleaks + audit + CodeQL]
     S --> D[merge dev]
     D --> ST[staging migrations<br/>+ EAS preview build]
     ST --> R[release PR<br/>dev to main]
-    R --> TAG[release-please tag vX.Y.Z]
+    R --> RP[release-please PR<br/>on main]
+    RP --> TAG[tag vX.Y.Z<br/>+ GitHub release]
     TAG --> PROD[prod migrations<br/>+ production build + submit]
+    TAG --> BM[main merged back<br/>into dev]
 ```
 
-- Both `dev` and `main` are protected: PR only, no direct push, no force push, required status checks (lint, typecheck, test, rls, security).
-- A release PR from `dev` to `main` also requires the E2E suite and the owner's approval.
-- release-please runs on `main` and generates the version and changelog from conventional commits. After each release or hotfix, `main` is merged back into `dev` so they never diverge.
+- Both `dev` and `main` are protected by the `protect-main-dev` ruleset: PR only, no direct push, no force push, required status checks and code scanning results (see "CI workflows and required checks").
+- A release PR from `dev` to `main` also requires the owner's approval and the E2E suite (from R-01). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 - JS-only fixes can ship with EAS Update on the matching runtime version; native changes require a store build.
+
+### CI workflows and required checks
+
+- All workflows run on `ubuntu-24.04` and use `pull_request`, never `pull_request_target`.
+- `permissions: {}` at workflow level; each job grants only what it needs.
+- Checkout with `persist-credentials: false`; concurrency groups; a timeout on every job.
+- Third-party actions are pinned by full commit SHA with a version comment.
+- Jobs that install dependencies use the local composite action `.github/actions/setup/`: `pnpm install --frozen-lockfile`, pnpm store cached on the lockfile hash.
+
+| Workflow | File | Triggers | Jobs |
+| --- | --- | --- | --- |
+| CI | `ci.yml` | PR to `dev` or `main`; push to `dev` (warms the cache, re-checks the squashed result) | `lint`, `typecheck`, `test`, `tooling`, `rls`, `security` |
+| PR policy | `pr-policy.yml` | PR to `dev` or `main`: opened, edited, synchronize, reopened | `base-branch`, `pr-title`, `commits` |
+| CodeQL | `codeql.yml` | PR and push to `dev` or `main`; weekly schedule | `codeql (actions)`, `codeql (javascript-typescript)` |
+| Release | `release-please.yml` | Push to `main` | release-please (see "Releases") |
+
+| Required check | Workflow | Verifies |
+| --- | --- | --- |
+| `lint` | CI | ESLint (zero warnings) + Prettier check |
+| `typecheck` | CI | `tsc --noEmit` |
+| `test` | CI | Jest with coverage thresholds |
+| `tooling` | CI | `pnpm test:tooling` |
+| `rls` | CI | `pnpm exec supabase db start` (database only, Supabase CLI locked by the lockfile), `pnpm test:rls`, then stop |
+| `security` | CI | gitleaks v8.30.1 binary pinned by sha256 over the PR commit range (full history on push to `dev`), then `pnpm audit --audit-level high` |
+| `base-branch` | PR policy | `tools/ci/base-branch.mjs`: a PR to `main` must come from this repository and from `dev`, `hotfix/*` or `release-please--branches--main*`; work branches (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) and any other branch are rejected. PRs to `dev` are unrestricted |
+| `pr-title` | PR policy | commitlint on the PR title with `commitlint.config.mjs`: squash merges use the title as the commit message, and release-please reads it |
+| `commits` | PR policy | commitlint over every PR commit (`--from <base> --to <head>`, full history checkout), single-author rule included, so commits made with `--no-verify` are still caught. Merge commits written by git are exempt only while they carry no co-author trailer |
+| `codeql (actions)`, `codeql (javascript-typescript)` | CodeQL | CodeQL analysis, build mode none. Free because the repository is public |
+
+The `protect-main-dev` ruleset requires all eleven checks above on both `dev` and `main`, with source GitHub Actions, plus the rule "Require code scanning results" (CodeQL: security alerts High or higher, other alerts Errors). The E2E suite becomes a release PR requirement from R-01.
+
+### Releases
+
+release-please (`release-please.yml`) runs on push to `main`. Config: `release-please-config.json` + `.release-please-manifest.json`, release type `node`, tags `vX.Y.Z` without component, `bump-minor-pre-major`, `CHANGELOG.md`; the version is also written into `app.config.ts` through a marker.
+
+1. A release PR from `dev` to `main` is merged with a merge commit.
+2. release-please opens or updates `chore(main): release X.Y.Z` on `main`. Hotfixes squashed into `main` feed the same PR.
+3. Merging the release-please PR creates the tag `vX.Y.Z` and the GitHub release.
+4. After each release or hotfix, `main` is merged back into `dev` with a merge commit, so they never diverge (automated in F-10).
+
+- `chore` and `docs` commits alone produce no release.
+- Token: a fine-grained personal access token scoped to this repository only (Contents, Pull requests, Issues: read and write), stored by the owner as the Actions secret `RELEASE_PLEASE_TOKEN` before the first release. A PR created with `GITHUB_TOKEN` would not trigger the required checks, and its tag would not trigger the F-10 release workflows. With the owner's token the release commits keep the single author.
+- Ruleset change before the first release: `protect-main-dev` currently requires linear history on both branches, which blocks the merge commits of release PRs and back-merges. The owner removes `required_linear_history` and splits the ruleset per branch, with the merge methods of the branching table: `dev` allows squash and merge (merge only for back-merges from `main`), `main` allows merge, plus squash for hotfixes and the release-please PR.
+
+### Dependencies
+
+- No update bot: no Renovate, no Dependabot PRs, no `.github/dependabot.yml`. The repository keeps a single author.
+- Dependabot alerts are enabled in the repository security settings.
+- Updates are the recurring backlog item M-01, done under the owner's identity. It respects the Expo, Jest, test-renderer and Node pins, and bumps the pinned action SHAs and the gitleaks version and sha256.
+- Between updates, `pnpm audit` (high blocks CI) catches known vulnerable versions; CodeQL scans the code and the workflows.
 
 ## 11. Evolution paths
 
@@ -376,7 +433,7 @@ Rules and thresholds are in `CONTRIBUTING.md` §6; tooling choices in [ADR-0010]
 | --- | --- | --- | --- |
 | `src/core/**`, `test/core/**` | Jest 29, project `core` | `pnpm test` | Node environment with Node export conditions, the app Babel transform (jest-expo's transform entry) and path aliases, no React Native preset: a React Native import in core fails at runtime as well as in lint. A few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP mocked with MSW (`msw/node`, unhandled requests are errors) |
 | `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render` |
-| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, layer rule regressions (ESLint Node API), local ESLint plugin rules |
+| `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, layer rule regressions (ESLint Node API), local ESLint plugin rules, base branch policy (`tools/ci/`) |
 | `supabase/tests/` | pgTAP | `pnpm test:rls` | `supabase test db` against the local stack; Supabase CLI as a devDependency locked by the lockfile. A guard test asserts RLS is enabled on every table in `public` |
 | `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. Maestro and adb are installed by the developer |
 
