@@ -4,7 +4,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 
 ## Phase 0 — Setup (owner)
 
-- [x] Create the GitHub repository `tsuzuki` (private) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
+- [x] Create the GitHub repository `tsuzuki` (public) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
 - [ ] Create Supabase projects `tsuzuki-staging` and `tsuzuki-prod`
 - [ ] Create the Expo account/project and link EAS
 - [ ] Sentry project
@@ -162,7 +162,7 @@ Details:
 Details:
 
 ### M-01 Dependency update
-- Done by the agents under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
+- Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
 - Respect the pins:
   - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
   - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
@@ -170,4 +170,4 @@ Details:
   - Node major unchanged.
 - Bump the pinned GitHub Action SHAs (with their version comments) and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
 - Respect pnpm's `minimumReleaseAge`.
-- `pnpm check` and `pnpm test:rls` green; review until APPROVED.
+- `pnpm check` and `pnpm test:rls` green; code review approved (CONTRIBUTING.md section 8).
