@@ -10,6 +10,14 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import { defineConfig, globalIgnores, includeIgnoreFile } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
+import {
+  BASE_SYNTAX_GUARDS,
+  LAYER_ZONES,
+  LAYERS,
+  NETWORK_GLOBALS,
+  NETWORK_MESSAGE,
+  layerRules,
+} from './tools/eslint/layers.mjs';
 import { tsuzukiPlugin } from './tools/eslint/plugin/index.mjs';
 
 const ROOT = import.meta.dirname;
@@ -19,76 +27,11 @@ const JS_FILES = ['**/*.{js,mjs,cjs}'];
 const JEST_FILES = ['**/*.test.{ts,tsx}'];
 // matches the installed jest major, so version-dependent rules skip auto-detection
 const JEST_VERSION = 29;
-const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 // a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
 const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 
 // ignore patterns are resolved against this config's folder (the repo root), not the ignore file's
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
-
-const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket'];
-const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
-
-// banned package groups; F-05/F-06 extend this table
-const BANNED = {
-  reactNative: {
-    regexes: [
-      '^react-native($|/)',
-      '^react-native-',
-      '^@react-native(-[^/]+)?/',
-      '^@[^/]+/react-native',
-    ],
-    message: `src/core stays platform-agnostic: no React Native (${LAYERS_RULE}).`,
-  },
-  expo: {
-    regexes: ['^expo($|/)', '^expo-', '^@expo/'],
-    message: `src/core stays platform-agnostic: no Expo module (${LAYERS_RULE}).`,
-  },
-  nativewind: {
-    regexes: ['^nativewind($|/)', '^react-native-css-interop'],
-    message: `NativeWind is used only inside src/ui (${LAYERS_RULE}).`,
-  },
-  supabase: {
-    regexes: ['^@supabase/'],
-    message: `the Supabase client is imported only in src/core/repositories/supabase (${LAYERS_RULE}).`,
-  },
-  network: { regexes: ['^expo/fetch(?:$|[./])'], message: NETWORK_MESSAGE },
-  // expo/src and expo/build reach modules such as fetch without their public specifier
-  expoInternals: {
-    regexes: ['^expo/(?:src|build)(?:$|/)'],
-    message: `deep imports of Expo internals bypass the rules on routes, features and UI components: use public entry points (${LAYERS_RULE}).`,
-  },
-};
-
-// the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
-const CANONICAL_PATHS = {
-  regexes: ['(?:^|/)node_modules(?:/|$)', '(?:^|/)(?!\\.\\.(?:/|$))[^/]+/\\.\\.(?:/|$)'],
-  message: `import paths are written canonically, with no ".." after a segment and no node_modules path, so layer rules can check them (${LAYERS_RULE}).`,
-};
-
-// platform may import core only as types, except typed errors (owner decision)
-const PLATFORM_CORE_TYPE_ONLY = {
-  regexes: [
-    '^@core(?:$|/(?!errors(?:/|$)))',
-    '^(?:\\.{1,2}/)+(?:src/)?core(?:$|/(?!errors(?:/|$)))',
-  ],
-  message: `src/platform imports src/core with "import type" only, except @core/errors (${LAYERS_RULE}).`,
-};
-
-// a non-literal import() source would bypass every import rule; metro bundles only literal sources
-const LITERAL_IMPORT_GUARD = {
-  selector: "ImportExpression:not([source.type='Literal'])",
-  message: `import() takes a string literal so layer rules can check it (${LAYERS_RULE}).`,
-};
-
-const JIKAN_MESSAGE = `the catalog provider is reached only through its adapter in src/core/catalog/jikan (${LAYERS_RULE}).`;
-const JIKAN_GUARDS = [
-  { selector: 'Literal[value=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
-  { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
-];
-
-// every file's no-restricted-syntax guards; a block that sets its own options must re-include them
-const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS];
 
 // node:test tooling suites (the test:tooling script): tests are never skipped, focused or left todo
 // (CONTRIBUTING.md section 6); jest tests get jest/no-disabled-tests and jest/no-focused-tests
@@ -169,66 +112,6 @@ const TEST_HYGIENE_SYNTAX = [
   },
 ];
 
-// esquery regex literals cannot contain "/", even escaped
-const toSelectorRegex = (regex) => `/${regex.replaceAll('/', '\\x2F')}/i`;
-
-// flat config replaces (never merges) rule options for overlapping files, so each layer gets one
-// complete option set for no-restricted-imports and no-restricted-syntax
-const layerRules = ({ banned: layerBanned, typeOnly, allowJikan = false }) => {
-  const banned = [CANONICAL_PATHS, ...layerBanned];
-  return {
-    'no-restricted-imports': 'off',
-    '@typescript-eslint/no-restricted-imports': [
-      'error',
-      {
-        patterns: [
-          ...banned.flatMap(({ regexes, message }) => regexes.map((regex) => ({ regex, message }))),
-          ...(typeOnly?.regexes ?? []).map((regex) => ({
-            regex,
-            message: typeOnly.message,
-            allowTypeImports: true,
-          })),
-        ],
-      },
-    ],
-    // static imports are covered above; these guards cover import() calls, always runtime imports
-    'no-restricted-syntax': [
-      'error',
-      LITERAL_IMPORT_GUARD,
-      ...[...banned, ...(typeOnly ? [typeOnly] : [])].flatMap(({ regexes, message }) =>
-        regexes.map((regex) => ({
-          selector: `ImportExpression[source.value=${toSelectorRegex(regex)}]`,
-          message,
-        })),
-      ),
-      ...(allowJikan ? [] : JIKAN_GUARDS),
-    ],
-  };
-};
-
-const { reactNative, expo, nativewind, supabase, network, expoInternals } = BANNED;
-const LAYERS = [
-  {
-    files: ['src/core/**', 'test/core/**'],
-    ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**'],
-    banned: [reactNative, expo, nativewind, supabase],
-  },
-  {
-    files: ['src/core/catalog/jikan/**'],
-    banned: [reactNative, expo, nativewind, supabase],
-    allowJikan: true,
-  },
-  { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind] },
-  { files: ['src/ui/**'], banned: [supabase, network, expoInternals] },
-  {
-    files: ['src/platform/**'],
-    banned: [nativewind, supabase],
-    typeOnly: PLATFORM_CORE_TYPE_ONLY,
-  },
-  { files: ['src/features/**'], banned: [nativewind, supabase, network, expoInternals] },
-  { files: ['app/**'], banned: [nativewind, supabase, network, expoInternals] },
-];
-
 // every rule is an error: presets that ship warnings are promoted so editors match --max-warnings 0
 const promoteWarnings = (configs) =>
   [configs].flat().map((config) => ({
@@ -254,44 +137,6 @@ const reactHooksDuplicates = Object.fromEntries(
     .filter((name) => name in eslintReact.rules)
     .map((name) => [`@eslint-react/${name}`, 'off']),
 );
-
-const layerZone = (target, from, message) => ({
-  target,
-  from,
-  message: `${message} (${LAYERS_RULE}).`,
-});
-
-// every catalog provider adapter and repository implementation folder: a new provider next to
-// jikan/ must be added here
-const IMPLEMENTATION_FOLDERS = [
-  './src/core/catalog/jikan',
-  './src/core/repositories/supabase',
-  './src/core/repositories/local',
-];
-
-const CORE_ROOT = './src/core';
-
-// globs for every file under root except the excluded folders (leaves under root): at each level
-// on the way down to them, the files of that folder plus every sibling folder. targets are
-// minimatch globs on absolute paths; on windows the resolved target puts a backslash before each
-// segment, which escapes a leading "!(": each pattern keeps another glob character to stay a glob
-const targetsExcept = (root, excluded) => {
-  const children = new Map();
-  for (const folder of excluded) {
-    if (!folder.startsWith(`${root}/`)) {
-      throw new Error(`${folder} is not under ${root}`);
-    }
-    const segments = folder.slice(`${root}/`.length).split('/');
-    segments.forEach((segment, index) => {
-      const parent = [root, ...segments.slice(0, index)].join('/');
-      children.set(parent, new Set([...(children.get(parent) ?? []), segment]));
-    });
-  }
-  return [...children].flatMap(([folder, names]) => [
-    `${folder}/*.*`,
-    `${folder}/!(${[...names].join('|')})/**`,
-  ]);
-};
 
 export default defineConfig(
   includeIgnoreFile(ignoreFiles.filter((file, index) => index === 0 || existsSync(file))),
@@ -355,48 +200,7 @@ export default defineConfig(
         'error',
         {
           basePath: ROOT,
-          zones: [
-            layerZone(
-              './src/core',
-              ['./src/platform', './src/features', './src/ui', './app'],
-              'src/core is platform-agnostic and imports no other layer',
-            ),
-            // the implementation folders themselves are left out of the targets
-            layerZone(
-              [...targetsExcept(CORE_ROOT, IMPLEMENTATION_FOLDERS), './test/core/**'],
-              IMPLEMENTATION_FOLDERS,
-              'src/core uses repository and catalog provider interfaces; only the implementation folders themselves (and app/_layout.tsx) touch implementations',
-            ),
-            layerZone(
-              './src/ui',
-              ['./src/core', './src/features', './src/platform', './app'],
-              'src/ui depends only on itself (theme and components)',
-            ),
-            layerZone(
-              './src/platform',
-              ['./src/features', './src/ui', './app'],
-              'src/platform depends only on src/core',
-            ),
-            layerZone(
-              './src/features',
-              ['./app'],
-              'app/ is the composition root: nothing imports it',
-            ),
-            layerZone(
-              './src/features',
-              IMPLEMENTATION_FOLDERS,
-              'src/features uses src/core hooks, never repository or catalog provider implementations',
-            ),
-            // targets are minimatch globs on absolute paths: every nested file (nested layouts
-            // included), every root file not named _layout.*, and every _layout.* variant except
-            // _layout.tsx. on windows the resolved target puts a backslash before each segment, which
-            // escapes a leading "!(": every pattern needs another glob character to stay a glob
-            layerZone(
-              ['./app/*/**', './app/!(_layout).*', './app/_layout.!(tsx)'],
-              IMPLEMENTATION_FOLDERS,
-              'only app/_layout.tsx (the composition root) wires repository and catalog provider implementations',
-            ),
-          ],
+          zones: LAYER_ZONES,
         },
       ],
     },
