@@ -82,7 +82,20 @@ const BANNED = [
   ),
   ["computed it['skip']", "it['skip']('x', () => {});"],
   ["computed describe['only']", "describe['only']('x', () => {});"],
+  ['computed it[`only`] (template key)', "it[`only`]('x', () => {});"],
+  ['computed test[`skip`] (template key)', "test[`skip`]('x', () => {});"],
   ['destructured skip', "const { skip } = it;\nskip('x', () => {});"],
+  ['destructured only', "const { only } = describe;\nonly('x', () => {});"],
+  ["stored test['only']", "const focus = test['only'];\nfocus('x', () => {});"],
+  // .only focuses on any object: a renamed runner, a subtest runner or a helper
+  ['.only on a renamed runner', "const suite2 = suite;\nsuite2.only('x', () => {});"],
+  ['.only on any object', "export const focus = (foo) => foo.only('x', () => {});"],
+  [
+    '.only stored from any object',
+    'export const focus = (foo) => {\n  const run = foo.only;\n  return run;\n};',
+  ],
+  ['computed .only on any object', "export const focus = (foo) => foo['only']('x', () => {});"],
+  ['t.test.only() in a test body', "it('x', (t) => {\n  t.test.only('y', () => {});\n});"],
   // options objects
   ...RUNNERS.flatMap((runner) =>
     MODIFIERS.map((key) => [
@@ -95,6 +108,14 @@ const BANNED = [
   ['it with { skip: false }', "it('x', { skip: false }, () => {});"],
   ['it with { timeout, only }', "it('x', { timeout: 10, only: true }, () => {});"],
   ['shorthand { only }', "const only = true;\nit('x', { only }, () => {});"],
+  // computed keys: a string ({ ['only']: true }) or an expression-free template ({ [`only`]: true })
+  ["it with { ['only']: true }", "it('x', { ['only']: true }, () => {});"],
+  ["describe with { ['skip']: true }", "describe('x', { ['skip']: true }, () => {});"],
+  ["test with { ['todo']: 'reason' }", "test('x', { ['todo']: 'later' }, () => {});"],
+  ['it with { [`only`]: true }', "it('x', { [`only`]: true }, () => {});"],
+  ['describe with { [`skip`]: true }', "describe('x', { [`skip`]: true }, () => {});"],
+  ["test with { [`todo`]: 'reason' }", "test('x', { [`todo`]: 'later' }, () => {});"],
+  ['{ [`skip`]: true } through a variable', "const o = { [`skip`]: true };\nit('x', o, () => {});"],
   // options built outside the runner call
   ['{ skip: true } through a variable', "const o = { skip: true };\nit('x', o, () => {});"],
   [
@@ -107,6 +128,12 @@ const BANNED = [
   ['t.skip?.() in a test body', "it('x', (t) => {\n  t.skip?.();\n});"],
   ['context.todo() in a test body', "test('x', (context) => {\n  context.todo();\n});"],
   ['t.runOnly(true) in a suite', "describe('x', (t) => {\n  t.runOnly(true);\n});"],
+  ['t.test.skip() in a test body', "it('x', (t) => {\n  t.test.skip('y', () => {});\n});"],
+  // computed forms of the test context methods
+  ["t['skip']() in a test body", "it('x', (t) => {\n  t['skip']();\n});"],
+  ["t['todo']() in a test body", "it('x', (t) => {\n  t['todo']();\n});"],
+  ["t['runOnly'](true) in a suite", "describe('x', (t) => {\n  t['runOnly'](true);\n});"],
+  ['t[`skip`]() in a test body', "it('x', (t) => {\n  t[`skip`]();\n});"],
   // node:test imported under another name escapes the runner names above
   ['renamed import of it', "import { it as check } from 'node:test';\n\ncheck('x', () => {});"],
   [
@@ -154,6 +181,20 @@ const ALLOWED = [
   ['test context methods', "it('x', (t) => {\n  t.plan(1);\n  t.diagnostic('y');\n});"],
   ['member call not named skip', 'export const rest = (list) => list.skipWhile?.((item) => item);'],
   ["'skip' as an argument", "export const hasSkip = (array) => array.includes('skip');"],
+  // skip and todo are banned on runners and as calls, not as plain data on other objects
+  ['options.skip read', 'export const isSkipped = (options) => options.skip === true;'],
+  ['list.todo read', 'export const pending = (list) => list.todo;'],
+  ["options['skip'] read", "export const isSkipped = (options) => options['skip'] === true;"],
+  ['skip destructured from options', 'export const isSkipped = ({ skip: value }) => value;'],
+  [
+    "['skip'] destructured from options",
+    "export const isSkipped = ({ ['skip']: value }) => value;",
+  ],
+  [
+    '[`skip`] destructured from options',
+    'export const isSkipped = ({ [`skip`]: value }) => value;',
+  ],
+  ['only as a plain word in a member name', 'export const pick = (list) => list.onlyFirst;'],
   [
     'named node:test imports',
     "import { describe, it } from 'node:test';\n\ndescribe('x', () => {\n  it('y', () => {});\n});",

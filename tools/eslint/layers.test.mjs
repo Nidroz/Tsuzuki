@@ -4,14 +4,15 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as classNameCases from './layers-class-name-cases.mjs';
+import * as layerCases from './layers-cases.mjs';
+import * as dotfileCases from './layers-dotfile-cases.mjs';
+import * as jestCases from './layers-jest-cases.mjs';
+import * as jestChainCases from './layers-jest-chain-cases.mjs';
+import * as networkCases from './layers-network-cases.mjs';
+import * as testCodeCases from './layers-test-code-cases.mjs';
 import {
-  ALLOWED,
-  APP_INDEX_FROM_SRC_LAYER,
-  MESSAGES,
-  REJECTED,
-  valueImport,
-} from './layers-cases.mjs';
-import {
+  EXISTING,
   PROBES,
   ROOT,
   assertNoLayerViolation,
@@ -22,8 +23,21 @@ import {
   lint,
 } from './layers-harness.mjs';
 
+const { APP_INDEX_FROM_SRC_LAYER, MESSAGES, valueImport } = layerCases;
+// the case tables, split by topic; a group name is unique across tables
+const TABLES = [
+  layerCases,
+  networkCases,
+  testCodeCases,
+  jestCases,
+  jestChainCases,
+  classNameCases,
+  dotfileCases,
+];
+const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
+
 describe('layer rules: rejected', () => {
-  for (const [group, cases] of Object.entries(REJECTED)) {
+  for (const [group, cases] of groups('REJECTED')) {
     describe(group, () => {
       for (const { name, file, code, ruleId, fragment } of cases) {
         it(name, async () => {
@@ -35,7 +49,7 @@ describe('layer rules: rejected', () => {
 });
 
 describe('layer rules: allowed (positive controls)', () => {
-  for (const [group, cases] of Object.entries(ALLOWED)) {
+  for (const [group, cases] of groups('ALLOWED')) {
     describe(group, () => {
       for (const { name, file, code } of cases) {
         it(name, async () => {
@@ -47,6 +61,33 @@ describe('layer rules: allowed (positive controls)', () => {
 });
 
 describe('test harness', () => {
+  it('names every case group once per table', () => {
+    for (const table of ['REJECTED', 'ALLOWED']) {
+      const names = groups(table).map(([group]) => group);
+      assert.deepEqual(names, [...new Set(names)], `duplicate ${table} group`);
+    }
+  });
+
+  it('uses every probe in at least one case', () => {
+    const files = new Set(
+      [...groups('REJECTED'), ...groups('ALLOWED')].flatMap(([, cases]) =>
+        cases.map(({ file }) => file),
+      ),
+    );
+    const unused = [...Object.values(PROBES), ...Object.values(EXISTING)].filter(
+      (file) => !files.has(file),
+    );
+    assert.deepEqual(unused, []);
+  });
+
+  it('resolves the test infrastructure in test/ to real files', () => {
+    const source = path.join(ROOT, PROBES.features);
+    assert.deepEqual(hybridResolver.resolve('../../test/mobile/render-router', source), {
+      found: true,
+      path: path.join(ROOT, 'test', 'mobile', 'render-router.ts'),
+    });
+  });
+
   it('resolves aliases and relative paths in src/ and app/ to synthetic targets', () => {
     const source = path.join(ROOT, PROBES.hooks);
     assert.deepEqual(hybridResolver.resolve('@core/repositories/local/x', source), {

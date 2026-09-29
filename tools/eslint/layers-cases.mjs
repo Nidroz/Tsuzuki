@@ -1,15 +1,14 @@
-// case tables for layers.test.mjs: every rejected case names the exact rule and a fragment of its
-// message, so an unrelated error cannot satisfy it
+// case tables for layers.test.mjs, and the helpers of the other layers-*-cases.mjs tables: every
+// rejected case names the exact rule and a fragment of its message, so an unrelated error cannot
+// satisfy it
 
 import path from 'node:path';
 
 import { EXISTING, PROBES } from './layers-harness.mjs';
 
-const PATHS = 'import-x/no-restricted-paths';
-const IMPORTS = '@typescript-eslint/no-restricted-imports';
-const SYNTAX = 'no-restricted-syntax';
-const GLOBALS = 'no-restricted-globals';
-const PROPERTIES = 'no-restricted-properties';
+export const PATHS = 'import-x/no-restricted-paths';
+export const IMPORTS = '@typescript-eslint/no-restricted-imports';
+export const SYNTAX = 'no-restricted-syntax';
 
 export const MESSAGES = {
   core: 'src/core is platform-agnostic and imports no other layer',
@@ -28,11 +27,14 @@ export const MESSAGES = {
   canonical: 'import paths are written canonically',
   typeOnly: 'src/platform imports src/core with "import type" only',
   literal: 'import() takes a string literal',
+  jestLiteral: 'jest module calls take a string literal',
+  jestName: 'jest is imported and used under its own name',
+  jestByName: 'jest methods are called by name',
   jikan: 'the catalog provider is reached only through its adapter',
+  outsideLayers: 'every file under src/ belongs to one of the four layers',
+  testInfrastructure: 'production code never imports the test infrastructure in test/',
+  classNameGuard: 'className is used only inside src/ui',
 };
-
-// assembled at runtime: a literal would trip the jikan guard on this file itself
-const JIKAN_URL = `https://api.${['jikan', 'moe'].join('.')}/v4`;
 
 export const APP_INDEX_FROM_SRC_LAYER = '../../app/index';
 
@@ -49,24 +51,16 @@ const typeImport = (specifier) =>
 const dynamicImport = (specifier) => `export const load = () => import('${specifier}');\n`;
 
 // probes are [label, code] pairs
-const values = (...specifiers) => specifiers.map((s) => [`import '${s}'`, valueImport(s)]);
+export const values = (...specifiers) => specifiers.map((s) => [`import '${s}'`, valueImport(s)]);
 const types = (...specifiers) => specifiers.map((s) => [`import type '${s}'`, typeImport(s)]);
-const dynamics = (...specifiers) => specifiers.map((s) => [`import('${s}')`, dynamicImport(s)]);
+export const dynamics = (...specifiers) =>
+  specifiers.map((s) => [`import('${s}')`, dynamicImport(s)]);
 
-const NETWORK_CALLS = {
-  fetch: ['fetch()', "export const load = () => fetch('https://example.com');\n"],
-  globalFetch: ['globalThis.fetch()', "export const load = () => globalThis.fetch('/x');\n"],
-  xhr: ['new XMLHttpRequest()', 'export const request = new XMLHttpRequest();\n'],
-  webSocket: ['new WebSocket()', "export const socket = new WebSocket('wss://example.com');\n"],
-};
-
-const JIKAN_PROBES = [
-  ['jikan url string', `export const url = '${JIKAN_URL}';\n`],
-  ['jikan url template', `export const url = (id: number) => \`${JIKAN_URL}/\${String(id)}\`;\n`],
-];
+// a module with nothing to report: only its path can break a rule
+const PLAIN_MODULE = ['plain module', 'export const value = 1;\n'];
 
 // relative specifier from a probe to a root-relative module, e.g. "../repositories/local/x"
-const relativeFrom = (file, target) => {
+export const relativeFrom = (file, target) => {
   const specifier = path.posix.relative(path.posix.dirname(file), target);
   return specifier.startsWith('.') ? specifier : `./${specifier}`;
 };
@@ -79,7 +73,7 @@ const implementationImports = (file) => [
   ...dynamics(...IMPLEMENTATIONS),
 ];
 
-const rejected = (files, ruleId, fragment, probes) =>
+export const rejected = (files, ruleId, fragment, probes) =>
   [files].flat().flatMap((file) =>
     probes.map(([label, code]) => ({
       name: `${label} in ${file}`,
@@ -90,7 +84,7 @@ const rejected = (files, ruleId, fragment, probes) =>
     })),
   );
 
-const allowed = (files, probes) =>
+export const allowed = (files, probes) =>
   [files]
     .flat()
     .flatMap((file) =>
@@ -116,7 +110,6 @@ const INTERFACE_SIDE_FILES = [
   PROBES.coreTestSource,
 ];
 const INTERFACES = ['@core/repositories/library-repository', '@core/catalog/catalog-provider'];
-const SCREEN_FILES = [EXISTING.index, PROBES.features, PROBES.ui];
 
 export const REJECTED = {
   zones: [
@@ -164,22 +157,12 @@ export const REJECTED = {
     ...rejected(PROBES.features, SYNTAX, MESSAGES.supabase, dynamics('@supabase/supabase-js')),
   ],
 
-  network: [
-    ...rejected(SCREEN_FILES, IMPORTS, MESSAGES.network, values('expo/fetch')),
-    ...rejected(SCREEN_FILES, SYNTAX, MESSAGES.network, dynamics('expo/fetch')),
-    ...rejected(
-      SCREEN_FILES,
-      IMPORTS,
-      MESSAGES.expoInternals,
-      values('expo/src/winter/fetch', 'expo/build/winter/fetch'),
-    ),
-    ...rejected(SCREEN_FILES, GLOBALS, MESSAGES.network, [
-      NETWORK_CALLS.fetch,
-      NETWORK_CALLS.xhr,
-      NETWORK_CALLS.webSocket,
-    ]),
-    ...rejected(SCREEN_FILES, PROPERTIES, MESSAGES.network, [NETWORK_CALLS.globalFetch]),
-  ],
+  'src outside the four layers': rejected(
+    [PROBES.srcRoot, PROBES.srcOther],
+    SYNTAX,
+    MESSAGES.outsideLayers,
+    [PLAIN_MODULE],
+  ),
 
   'type-only core imports from platform': [
     ...rejected(PROBES.platform, IMPORTS, MESSAGES.typeOnly, [
@@ -203,26 +186,6 @@ export const REJECTED = {
     ]),
     ...rejected(PROBES.features, SYNTAX, MESSAGES.literal, [
       ['import(`template`)', 'export const load = () => import(`@core/x`);\n'],
-    ]),
-  ],
-
-  'jikan guard': [
-    ...rejected(
-      [
-        PROBES.core,
-        PROBES.supabase,
-        PROBES.features,
-        PROBES.ui,
-        PROBES.platform,
-        EXISTING.index,
-        PROBES.srcRoot,
-      ],
-      SYNTAX,
-      MESSAGES.jikan,
-      JIKAN_PROBES,
-    ),
-    ...rejected(PROBES.features, SYNTAX, MESSAGES.jikan, [
-      ['uppercase jikan url', `export const url = '${JIKAN_URL.toUpperCase()}';\n`],
     ]),
   ],
 };
@@ -268,14 +231,23 @@ export const ALLOWED = {
     ...allowed(PROBES.ui, values('nativewind')),
     ...allowed(PROBES.supabase, values('@supabase/supabase-js')),
   ],
-  network: [
-    ...allowed(PROBES.core, Object.values(NETWORK_CALLS)),
-    ...allowed(PROBES.platform, [...Object.values(NETWORK_CALLS), ...values('expo/fetch')]),
-  ],
+  'src outside the four layers': allowed(
+    [
+      PROBES.core,
+      PROBES.hooks,
+      PROBES.jikan,
+      PROBES.supabase,
+      PROBES.features,
+      PROBES.featuresTest,
+      PROBES.ui,
+      PROBES.uiComponent,
+      PROBES.platform,
+    ],
+    [PLAIN_MODULE],
+  ),
   'type-only core imports from platform': allowed(PROBES.platform, [
     ...types('@core/domain/x', '../core/domain/x', '@core/repositories/library-repository'),
     ...values('@core/errors/app-error', '../core/errors/app-error', '@core/errors'),
   ]),
   'literal import()': allowed(PROBES.features, dynamics('@core/hooks/use-library')),
-  'jikan guard': allowed(PROBES.jikan, JIKAN_PROBES),
 };
