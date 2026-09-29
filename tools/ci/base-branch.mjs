@@ -5,20 +5,26 @@ const POLICY = 'see CONTRIBUTING.md section 2';
 
 export const PROTECTED_BASE = 'main';
 
-// heads allowed to target main, and only from this repository (a fork branch named dev is rejected)
+// heads allowed to target main, and only from this repository (a fork branch named dev is rejected).
+// release-please names its branch after the target branch, optionally followed by the component
 export const MAIN_HEADS = {
   release: 'dev',
   hotfixPrefix: 'hotfix/',
-  releasePleasePrefix: 'release-please--branches--main',
+  releasePlease: 'release-please--branches--main',
+  releasePleaseComponentPrefix: 'release-please--branches--main--components--',
 };
 
 const isMissing = (value) => typeof value !== 'string' || value.trim() === '';
 
+// a prefix alone is not a branch: something must follow it
+const hasPrefixAndSuffix = (headRef, prefix) =>
+  headRef.startsWith(prefix) && headRef.length > prefix.length;
+
 const isAllowedMainHead = (headRef) =>
   headRef === MAIN_HEADS.release ||
-  (headRef.startsWith(MAIN_HEADS.hotfixPrefix) &&
-    headRef.length > MAIN_HEADS.hotfixPrefix.length) ||
-  headRef.startsWith(MAIN_HEADS.releasePleasePrefix);
+  hasPrefixAndSuffix(headRef, MAIN_HEADS.hotfixPrefix) ||
+  headRef === MAIN_HEADS.releasePlease ||
+  hasPrefixAndSuffix(headRef, MAIN_HEADS.releasePleaseComponentPrefix);
 
 // returns null when the pull request may target its base branch, else the violation message.
 // fails closed: any missing input is a violation
@@ -37,5 +43,5 @@ export const baseBranchViolation = ({ baseRef, headRef, headRepo, repository }) 
   if (isAllowedMainHead(headRef)) {
     return null;
   }
-  return `${headRef} cannot target ${PROTECTED_BASE}: work branches target ${MAIN_HEADS.release}; only ${MAIN_HEADS.release}, ${MAIN_HEADS.hotfixPrefix}* and release-please branches target ${PROTECTED_BASE} (${POLICY})`;
+  return `${headRef} cannot target ${PROTECTED_BASE}: work branches target ${MAIN_HEADS.release}; only ${MAIN_HEADS.release}, ${MAIN_HEADS.hotfixPrefix}*, ${MAIN_HEADS.releasePlease} and ${MAIN_HEADS.releasePleaseComponentPrefix}* target ${PROTECTED_BASE} (${POLICY})`;
 };

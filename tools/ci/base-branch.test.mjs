@@ -13,6 +13,7 @@ const POLICY_SUFFIX = '(see CONTRIBUTING.md section 2)';
 const MISSING_PREFIX = 'missing pull request metadata:';
 const INPUT_KEYS = ['baseRef', 'headRef', 'headRepo', 'repository'];
 const RELEASE_PLEASE_HEAD = 'release-please--branches--main';
+const RELEASE_PLEASE_COMPONENT_PREFIX = `${RELEASE_PLEASE_HEAD}--components--`;
 const ERROR_PREFIX = '::error::';
 const SUCCESS_EXIT_CODE = 0;
 const FAILURE_EXIT_CODE = 1;
@@ -33,7 +34,8 @@ describe('base branch policy constants', () => {
     assert.deepEqual(MAIN_HEADS, {
       release: 'dev',
       hotfixPrefix: 'hotfix/',
-      releasePleasePrefix: RELEASE_PLEASE_HEAD,
+      releasePlease: RELEASE_PLEASE_HEAD,
+      releasePleaseComponentPrefix: RELEASE_PLEASE_COMPONENT_PREFIX,
     });
   });
 });
@@ -45,7 +47,7 @@ describe('baseBranchViolation', () => {
       'hotfix/x',
       'hotfix/a/b',
       RELEASE_PLEASE_HEAD,
-      `${RELEASE_PLEASE_HEAD}--components--tsuzuki`,
+      `${RELEASE_PLEASE_COMPONENT_PREFIX}tsuzuki`,
     ];
     for (const headRef of heads) {
       it(`allows ${headRef}`, () => {
@@ -70,6 +72,13 @@ describe('baseBranchViolation', () => {
       ['main itself', 'main'],
       ['a release-please branch for dev', 'release-please--branches--dev'],
       ['a bot branch', 'bot/x'],
+      ['a release-please branch for another base', 'release-please--branches--mainline'],
+      ['a release-please branch with a stray suffix', 'release-please--branches--main-x'],
+      [
+        'a release-please component prefix with an empty component',
+        RELEASE_PLEASE_COMPONENT_PREFIX,
+      ],
+      ['a release-please singular component typo', 'release-please--branches--main--component--x'],
     ];
     for (const [name, headRef] of heads) {
       it(`rejects ${name} (${headRef})`, () => {
@@ -79,6 +88,12 @@ describe('baseBranchViolation', () => {
         assert.ok(message.endsWith(POLICY_SUFFIX), message);
       });
     }
+
+    it('lists every head allowed to target main', () => {
+      const message = baseBranchViolation(pullRequest({ headRef: 'feat/x' }));
+      const allowed = `only dev, hotfix/*, ${RELEASE_PLEASE_HEAD} and ${RELEASE_PLEASE_COMPONENT_PREFIX}* target ${PROTECTED_BASE}`;
+      assert.ok(message.includes(allowed), message);
+    });
   });
 
   describe('forks', () => {
