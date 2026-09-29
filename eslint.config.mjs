@@ -22,6 +22,11 @@ import {
   layerRules,
 } from './tools/eslint/layers.mjs';
 import { tsuzukiPlugin } from './tools/eslint/plugin/index.mjs';
+import {
+  TEST_HYGIENE_PROPERTIES,
+  TEST_HYGIENE_SYNTAX,
+  TOOLING_TEST_FILES,
+} from './tools/eslint/test-hygiene.mjs';
 
 const ROOT = import.meta.dirname;
 const TS_FILES = ['**/*.{ts,tsx}'];
@@ -35,85 +40,6 @@ const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 
 // ignore patterns are resolved against this config's folder (the repo root), not the ignore file's
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
-
-// node:test tooling suites (the test:tooling script): tests are never skipped, focused or left todo
-// (CONTRIBUTING.md section 6); jest tests get jest/no-disabled-tests and jest/no-focused-tests
-const TOOLING_TEST_FILES = ['tools/**/*.test.mjs'];
-const TEST_HYGIENE_MESSAGE =
-  'tests are never skipped, focused or left todo (CONTRIBUTING.md section 6).';
-const TEST_RUNNERS = ['it', 'test', 'describe', 'suite'];
-// runner methods and option keys alike; only also focuses a RuleTester case
-const TEST_MODIFIERS = ['skip', 'only', 'todo'];
-const FOCUS_KEY = 'only';
-// test context methods that skip, todo or focus from inside a test body (t.skip(), t.runOnly(true))
-const TEST_CONTEXT_MODIFIERS = ['skip', 'todo', 'runOnly'];
-// node:test exports that may be imported, each under its own name only: an alias, a namespace or
-// the default export (the runner itself) would escape the runner names above
-const NODE_TEST_SOURCE = 'node:test';
-const NODE_TEST_IMPORTS = [
-  'after',
-  'afterEach',
-  'assert',
-  'before',
-  'beforeEach',
-  'describe',
-  'it',
-  'mock',
-  'run',
-  'snapshot',
-  'suite',
-  'test',
-];
-
-// esquery regex matching exactly one of the names
-const oneOf = (names) => `/^(?:${names.join('|')})$/`;
-// a non-computed identifier key or a string key
-const propertyKey = (pattern) =>
-  `Property:matches([computed=false][key.name=${pattern}], [key.value=${pattern}])`;
-
-// object/property pairs also catch computed (it['skip']) and destructured ({ skip } = it) forms
-const TEST_HYGIENE_PROPERTIES = [
-  ...TEST_RUNNERS.flatMap((object) =>
-    TEST_MODIFIERS.map((property) => ({
-      object,
-      property,
-      message: `${object}.${property}: ${TEST_HYGIENE_MESSAGE}`,
-    })),
-  ),
-  {
-    object: 'RuleTester',
-    property: FOCUS_KEY,
-    message: `RuleTester.only: ${TEST_HYGIENE_MESSAGE}`,
-  },
-];
-
-const NODE_TEST_IMPORT = `ImportDeclaration[source.value='${NODE_TEST_SOURCE}']`;
-// esquery cannot compare two fields: one [imported][local] pair per allowed name
-const PLAIN_NODE_TEST_SPECIFIER = NODE_TEST_IMPORTS.map(
-  (name) => `[imported.name='${name}'][local.name='${name}']`,
-).join(', ');
-
-const TEST_HYGIENE_SYNTAX = [
-  // in any object literal, whatever its value: runner options and RuleTester cases, however they
-  // are built (inline or through a variable); { skip: false } is one edit away from skipping
-  {
-    selector: `ObjectExpression > ${propertyKey(oneOf(TEST_MODIFIERS))}`,
-    message: `skip, only and todo options: ${TEST_HYGIENE_MESSAGE}`,
-  },
-  // whatever the test context is called; optional calls (t.skip?.()) are call expressions too
-  {
-    selector: `CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.property.name=${oneOf(TEST_CONTEXT_MODIFIERS)}]`,
-    message: `skip, todo and runOnly calls: ${TEST_HYGIENE_MESSAGE}`,
-  },
-  {
-    selector: `${NODE_TEST_IMPORT} > :matches(ImportDefaultSpecifier, ImportNamespaceSpecifier)`,
-    message: `${NODE_TEST_SOURCE} default and namespace imports: ${TEST_HYGIENE_MESSAGE}`,
-  },
-  {
-    selector: `${NODE_TEST_IMPORT} > ImportSpecifier:not(${PLAIN_NODE_TEST_SPECIFIER})`,
-    message: `${NODE_TEST_SOURCE} imports are unrenamed (${NODE_TEST_IMPORTS.join(', ')}): ${TEST_HYGIENE_MESSAGE}`,
-  },
-];
 
 // every rule is an error: presets that ship warnings are promoted so editors match --max-warnings 0
 const promoteWarnings = (configs) =>
@@ -320,6 +246,7 @@ export default defineConfig(
   },
 
   {
+    // test hygiene of the node:test tooling suites (tools/eslint/test-hygiene.mjs); the
     // no-restricted-syntax options replace the tools/ ones here: the tools/ guards are re-included
     files: TOOLING_TEST_FILES,
     rules: {

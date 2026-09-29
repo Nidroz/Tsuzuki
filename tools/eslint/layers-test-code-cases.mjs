@@ -32,6 +32,31 @@ const everyJestMethod = (specifier) =>
   JEST_MODULE_METHODS.map((method) => jestCall(method, specifier));
 const jestMocks = (...specifiers) => specifiers.map((specifier) => jestCall('mock', specifier));
 
+// a first argument that is not a plain string literal hides the specifier from the package bans
+const SPLIT_AT = 3;
+const nonLiteralForms = (specifier) => ({
+  template: [`\`${specifier}\``, `\`${specifier}\``, ''],
+  identifier: [`name = '${specifier}'`, 'name', `const name = '${specifier}';\n`],
+  concatenation: [
+    `'${specifier.slice(0, SPLIT_AT)}' + '${specifier.slice(SPLIT_AT)}'`,
+    `'${specifier.slice(0, SPLIT_AT)}' + '${specifier.slice(SPLIT_AT)}'`,
+    '',
+  ],
+  interpolation: [
+    `\`\${prefix}${specifier.slice(SPLIT_AT)}\``,
+    `\`\${prefix}${specifier.slice(SPLIT_AT)}\``,
+    `const prefix = '${specifier.slice(0, SPLIT_AT)}';\n`,
+  ],
+  spread: [`...['${specifier}']`, `...['${specifier}']`, ''],
+});
+const nonLiteralCall = (method, form, specifier) => {
+  const [label, argument, declaration] = nonLiteralForms(specifier)[form];
+  return [`jest.${method}(${label})`, `${JEST_IMPORT}${declaration}jest.${method}(${argument});\n`];
+};
+const nonLiteralCalls = (method, forms, specifier) =>
+  forms.map((form) => nonLiteralCall(method, form, specifier));
+const EVERY_FORM = ['template', 'identifier', 'concatenation', 'interpolation', 'spread'];
+
 const CORE_TESTS = [PROBES.hooksTest, PROBES.coreTest];
 
 // shared test helpers; test/mobile/render-router.ts and test/core/fixed-clock.ts exist on disk
@@ -87,6 +112,27 @@ export const REJECTED = {
     ]),
   ],
 
+  'jest module calls take a string literal': [
+    ...rejected(PROBES.featuresTest, SYNTAX, MESSAGES.jestLiteral, [
+      ...nonLiteralCalls('mock', EVERY_FORM, '@supabase/supabase-js'),
+      ...nonLiteralCalls('doMock', ['template', 'identifier'], 'nativewind'),
+    ]),
+    ...rejected(CORE_TESTS, SYNTAX, MESSAGES.jestLiteral, [
+      ...JEST_MODULE_METHODS.map((method) => nonLiteralCall(method, 'template', 'react-native')),
+      ...nonLiteralCalls('requireActual', ['identifier', 'concatenation'], 'expo-constants'),
+      ...nonLiteralCalls('mock', ['interpolation'], 'react-native'),
+    ]),
+    ...rejected(PROBES.uiTest, SYNTAX, MESSAGES.jestLiteral, [
+      ...nonLiteralCalls('requireMock', ['template', 'identifier'], '@supabase/supabase-js'),
+      ...nonLiteralCalls('mock', ['concatenation'], 'expo/fetch'),
+    ]),
+    ...rejected(PROBES.platformTest, SYNTAX, MESSAGES.jestLiteral, [
+      ...nonLiteralCalls('unstable_mockModule', ['template'], 'nativewind'),
+      ...nonLiteralCalls('createMockFromModule', ['identifier'], '@supabase/supabase-js'),
+      ...nonLiteralCalls('mock', ['concatenation'], 'nativewind'),
+    ]),
+  ],
+
   'production code never imports test/': [
     ...PRODUCTION_FILES.flatMap((file) =>
       rejected(file, PATHS, MESSAGES.testInfrastructure, importsFrom(file, RENDER_ROUTER)),
@@ -112,6 +158,32 @@ export const ALLOWED = {
     ...allowed(PROBES.uiTest, jestMocks('react-native', 'nativewind')),
     ...allowed(PROBES.platformTest, jestMocks('react-native', 'expo-secure-store')),
     ...allowed(CORE_TESTS, jestMocks('@core/domain/x')),
+  ],
+
+  'jest module calls take a string literal': [
+    ...allowed(
+      [PROBES.featuresTest, ...CORE_TESTS, PROBES.uiTest, PROBES.platformTest],
+      [
+        // plain string literals are covered by the package ban controls above; these are the other
+        // jest calls and the other objects that must stay unaffected
+        ['jest.fn()', `${JEST_IMPORT}export const probe = jest.fn();\n`],
+        ['jest.useFakeTimers()', `${JEST_IMPORT}jest.useFakeTimers();\n`],
+        [
+          "jest.mock('@core/domain/x', factory)",
+          `${JEST_IMPORT}jest.mock('@core/domain/x', () => ({ probe: jest.fn() }));\n`,
+        ],
+        [
+          "jest.requireActual<Probe>('@core/domain/x')",
+          `${JEST_IMPORT}type Probe = { probe: number };\n` +
+            "export const actual = jest.requireActual<Probe>('@core/domain/x');\n",
+        ],
+        [
+          'other.mock(name)',
+          "const other = { mock: (name: string) => name };\nconst name = 'react-native';\n" +
+            'other.mock(name);\n',
+        ],
+      ],
+    ),
   ],
 
   'production code never imports test/': [

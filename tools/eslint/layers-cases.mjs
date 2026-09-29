@@ -27,6 +27,7 @@ export const MESSAGES = {
   canonical: 'import paths are written canonically',
   typeOnly: 'src/platform imports src/core with "import type" only',
   literal: 'import() takes a string literal',
+  jestLiteral: 'jest module calls take a string literal',
   jikan: 'the catalog provider is reached only through its adapter',
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',

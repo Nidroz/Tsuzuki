@@ -1,5 +1,6 @@
-// layer rule tables for eslint.config.mjs: banned imports per layer, import-x/no-restricted-paths
-// zones, network guards and the className guards (CONTRIBUTING.md section 4)
+// layer rule tables for eslint.config.mjs: banned imports and jest module calls per layer,
+// import-x/no-restricted-paths zones, network guards and the className guards (CONTRIBUTING.md
+// section 4)
 
 const LAYERS_RULE = 'CONTRIBUTING.md section 4';
 
@@ -117,6 +118,14 @@ const JEST_MODULE_METHODS = [
 ];
 const JEST_MODULE_CALL = `CallExpression[callee.type='MemberExpression'][callee.computed=false][callee.object.name='jest'][callee.property.name=/^(?:${JEST_MODULE_METHODS.join('|')})$/]`;
 
+// any other first argument (template literal, identifier, concatenation, spread) would hide the
+// specifier from the package bans below, like a non-literal import() source; a string value only
+// exists on a string literal
+const JEST_LITERAL_GUARD = {
+  selector: `${JEST_MODULE_CALL}:not([arguments.0.type='Literal'][arguments.0.value=/^/])`,
+  message: `jest module calls take a string literal so layer rules can check them: ${JEST_MODULE_METHODS.join(', ')} (${LAYERS_RULE}).`,
+};
+
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax
 export const layerRules = ({
@@ -142,10 +151,11 @@ export const layerRules = ({
       },
     ],
     // static imports are covered above; these guards cover import() calls, always runtime imports,
-    // and the jest module calls (package bans only)
+    // and the jest module calls (package bans only, on a string literal first argument)
     'no-restricted-syntax': [
       'error',
       LITERAL_IMPORT_GUARD,
+      JEST_LITERAL_GUARD,
       ...[...banned, ...(typeOnly ? [typeOnly] : [])].flatMap(({ regexes, message }) =>
         regexes.map((regex) => ({
           selector: `ImportExpression[source.value=${toSelectorRegex(regex)}]`,
