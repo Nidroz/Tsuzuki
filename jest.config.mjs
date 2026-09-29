@@ -58,20 +58,40 @@ const coverageThreshold = {
   }),
 };
 
+// tsc rejects a "paths" pattern or target with more than one wildcard: such an entry fails here
+// too, so every wildcard replaced below is the only one of its entry
+const WILDCARD = '*';
+
+const withOneWildcardAtMost = (entry) => {
+  if (entry.split(WILDCARD).length > 2) {
+    throw new Error(
+      `tsconfig.json paths entry "${entry}" has more than one "${WILDCARD}": tsconfig allows one at most`,
+    );
+  }
+  return entry;
+};
+
 // tsconfig "paths" as jest moduleNameMapper entries: "@core/*" -> "<rootDir>/src/core/$1"
+export const aliasesFromPaths = (paths) =>
+  Object.fromEntries(
+    Object.entries(paths).map(([alias, targets]) => [
+      `^${withOneWildcardAtMost(alias)
+        .replaceAll(/[.+?^${}()|[\]\\]/g, '\\$&')
+        .replaceAll(WILDCARD, '(.*)')}$`,
+      targets.map(
+        (target) =>
+          `<rootDir>/${path.posix.normalize(withOneWildcardAtMost(target)).replaceAll(WILDCARD, '$1')}`,
+      ),
+    ]),
+  );
+
 const aliasesFromTsconfig = () => {
   const tsconfigPath = path.join(ROOT, 'tsconfig.json');
   const { config, error } = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
   if (error) {
     throw new Error(ts.flattenDiagnosticMessageText(error.messageText, '\n'));
   }
-  const paths = config.compilerOptions?.paths ?? {};
-  return Object.fromEntries(
-    Object.entries(paths).map(([alias, targets]) => [
-      `^${alias.replaceAll(/[.+?^${}()|[\]\\]/g, '\\$&').replace('*', '(.*)')}$`,
-      targets.map((target) => `<rootDir>/${path.posix.normalize(target).replace('*', '$1')}`),
-    ]),
-  );
+  return aliasesFromPaths(config.compilerOptions?.paths ?? {});
 };
 
 // test files of each project, relative to the root. testMatch is built from these lists and the

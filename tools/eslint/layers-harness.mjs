@@ -45,8 +45,9 @@ export const PROBES = {
 
 export const EXISTING = { layout: 'app/_layout.tsx', index: 'app/index.tsx' };
 
-// allowDefaultProject takes minimatch globs: escape the characters of expo-router file names
-const literalGlob = (file) => file.replace(/[[\]()*?!+@{}]/g, '\\$&');
+// allowDefaultProject takes minimatch globs: escape the characters of expo-router file names, and
+// the backslash itself (the escape character), so the glob matches the name literally
+export const literalGlob = (file) => file.replaceAll(/[\\[\]()*?!+@{}]/g, '\\$&');
 
 const probeProjectService = {
   languageOptions: {

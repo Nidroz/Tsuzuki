@@ -4,7 +4,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 
 ## Phase 0 — Setup (owner)
 
-- [x] Create the GitHub repository `tsuzuki` (private) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
+- [x] Create the GitHub repository `tsuzuki` (public) with `main` (default branch, production) and `dev` (development), both protected (PR only, no force push; required checks added after F-04)
 - [ ] Create Supabase projects `tsuzuki-staging` and `tsuzuki-prod`
 - [ ] Create the Expo account/project and link EAS
 - [ ] Sentry project
@@ -15,7 +15,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-01 Initialize the Expo project
 - [x] F-02 Linting, formatting and git hooks
 - [x] F-03 Test tooling
-- [ ] F-04 CI pipeline
+- [x] F-04 CI pipeline
 - [ ] F-05 Theme and UI primitives
 - [ ] F-06 Internationalization
 - [ ] F-07 Navigation shell
@@ -55,13 +55,13 @@ Details:
 
 ### F-04 CI pipeline
 - `.github/workflows/ci.yml` on PR: install (cached), lint, typecheck, test + coverage, RLS tests (Supabase CLI in CI), gitleaks, `pnpm audit --audit-level high`.
-- CodeQL workflow. Renovate config (grouped, weekly, automerge off, `baseBranches: ["dev"]`); hold `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it), and keep `jest`, `@jest/globals` and `jest-expo` on the major the Expo SDK supports.
-- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase start`, then `pnpm test:rls`).
+- CodeQL workflow. No dependency update bot: updates are the recurring item M-01, with Dependabot alerts only.
+- CI also runs `pnpm test:tooling` (part of `pnpm check`) and `pnpm test:rls` with the Supabase CLI from the dev dependency locked by the lockfile (`pnpm exec supabase db start`, database only, then `pnpm test:rls`).
 - Workflow check failing any PR from a work branch (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) that targets `main`.
 - Commit message check on every commit of the PR: commitlint plus the same co-author trailer / generated footer rule as the `commit-msg` hook, so commits made with `--no-verify` are still caught (`commitlint --from <base> --to <head>`, checkout with `fetch-depth: 0`, same `commitlint.config.mjs`).
 - commitlint on the PR title: squash merges use it as the commit message and release-please depends on it.
 - release-please config.
-- CI runs on PRs to both `dev` and `main`; release PRs to `main` also run the E2E suite.
+- CI runs on PRs to both `dev` and `main`. The E2E gate on release PRs moved to R-01.
 - Document required checks to enable in branch protection for `dev` and `main`.
 - **Acceptance**: a PR with a failing test, a lint warning, a fake secret or a commit message with a co-author trailer is blocked.
 
@@ -72,6 +72,7 @@ Details:
 - When extending the lint layer rules, split `eslint.config.mjs`: the layer tables move to their own module in `tools/eslint/`.
 - Add a lint zone preventing production code (`app/`, `src/`) from importing the test infrastructure in `test/`.
 - Close the layer rule gaps found by the F-03 regression tests: files directly under `src/` outside the four layers get no layer rules, `EventSource` is not in the banned network globals, and `jest.mock(...)` / `jest.requireActual(...)` specifiers are not checked by the package bans; add a regression case for each.
+- Tooling tests (low priority): detect computed forms like `t['skip']()`, stored references and `.only` on non-runner names in the test hygiene rules.
 - Decide how `tsuzuki/file-name-case` treats dotfiles and dot-folders (e.g. `.prettierrc.mjs`, `.storybook/`, rejected today) and Expo API route files (`+api`), before the first one is added.
 - **Acceptance**: every primitive has component tests incl. accessibility labels; no `className` outside `src/ui/` (lint rule or check script).
 
@@ -152,3 +153,21 @@ Details:
 
 ### R-01 E2E suite complete
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
+- Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
+
+## Maintenance (recurring, never ticked)
+
+- [ ] M-01 Dependency update (recurring)
+
+Details:
+
+### M-01 Dependency update
+- Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
+- Respect the pins:
+  - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
+  - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
+  - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
+  - Node major unchanged.
+- Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
+- Respect pnpm's `minimumReleaseAge`.
+- `pnpm check` and `pnpm test:rls` green; code review approved (CONTRIBUTING.md section 8).
