@@ -15,7 +15,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-01 Initialize the Expo project
 - [x] F-02 Linting, formatting and git hooks
 - [x] F-03 Test tooling
-- [ ] F-04 CI pipeline
+- [x] F-04 CI pipeline
 - [ ] F-05 Theme and UI primitives
 - [ ] F-06 Internationalization
 - [ ] F-07 Navigation shell
