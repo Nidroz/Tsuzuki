@@ -32,6 +32,13 @@ runs:
       if: inputs.install == 'true'
       shell: bash
       env:
-        # CI never needs the git hooks
+        # no git hooks in ci
         HUSKY: '0'
       run: pnpm install --frozen-lockfile
+
+    # the restored cache may come from an older lockfile: pruning keeps the store that
+    # pnpm/action-setup saves in its post step (after the job's steps) to what this lockfile needs
+    - name: Prune the pnpm store
+      if: inputs.install == 'true'
+      shell: bash
+      run: pnpm store prune

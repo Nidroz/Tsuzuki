@@ -6,9 +6,9 @@ on:
 
 permissions: {}
 
-# a release run is never cancelled: it could stop between the tag and the release
+# a running release is never cancelled: it could stop between the tag and the release
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 defaults:
