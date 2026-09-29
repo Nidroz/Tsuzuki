@@ -1,0 +1,42 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+# a release run is never cancelled: it could stop between the tag and the release
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  release-please:
+    name: release-please
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # the job itself needs no GITHUB_TOKEN permission: it works with the token below
+    permissions: {}
+    steps:
+      # the token is compared, never exposed to the shell
+      - name: Check the release token
+        env:
+          HAS_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN != '' }}
+        run: |
+          if [[ "$HAS_TOKEN" != 'true' ]]; then
+            echo '::error::the RELEASE_PLEASE_TOKEN secret is not set'
+            exit 1
+          fi
+      # a fine-grained personal access token, not GITHUB_TOKEN: a release PR opened with GITHUB_TOKEN
+      # would not trigger the required checks, and its tag would not trigger later workflows
+      - name: Release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
