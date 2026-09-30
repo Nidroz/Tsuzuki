@@ -16,6 +16,8 @@ import {
 } from './syntax-guards.mjs';
 import { TEXT_GUARDS } from './text-guards.mjs';
 
+const I18N_RULE = 'docs/adr/0011-internationalization-i18next.md';
+
 export const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
 export const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
 
@@ -41,7 +43,13 @@ const BANNED = {
   // owner decision: i18n libraries stay behind the public api of src/core/i18n
   i18n: {
     regexes: ['^i18next($|/)', '^react-i18next($|/)'],
-    message: `i18next and react-i18next are imported only in src/core/i18n: every other file translates through @core/i18n (${LAYERS_RULE}).`,
+    message: `i18next and react-i18next are imported only in src/core/i18n: every other file translates through @core/i18n (${I18N_RULE}).`,
+  },
+  // same shape as uiInternals below, for src/core/i18n. known false positive: a core/i18n folder
+  // under app/ or a feature, imported relatively
+  i18nInternals: {
+    regexes: ['^@core/i18n(?!/index$)(?:$|/)', '^(?:\\.{1,2}/)+(?:src/)?core/i18n(?:$|/)'],
+    message: `routes, features and src/platform import src/core/i18n through @core/i18n/index only: the barrel is the public API of the i18n module, and its internals (such as createI18n and resources) are not (${I18N_RULE}).`,
   },
   supabase: {
     regexes: ['^@supabase/'],
@@ -68,11 +76,13 @@ const CANONICAL_PATHS = {
   message: `import paths are written canonically, with no ".." after a segment and no node_modules path, so layer rules can check them (${LAYERS_RULE}).`,
 };
 
-// platform may import core only as types, except typed errors (owner decision)
+// platform may import core only as types, except typed errors (owner decision). a type import that
+// matches a pattern allowing types skips every other one: in src/core/i18n, only the barrel does
 const PLATFORM_CORE_TYPE_ONLY = {
   regexes: [
-    '^@core(?:$|/(?!errors(?:/|$)))',
-    '^(?:\\.{1,2}/)+(?:src/)?core(?:$|/(?!errors(?:/|$)))',
+    '^@core(?:$|/(?!(?:errors|i18n)(?:/|$)))',
+    '^(?:\\.{1,2}/)+(?:src/)?core(?:$|/(?!(?:errors|i18n)(?:/|$)))',
+    '^@core/i18n/index$',
   ],
   message: `src/platform imports src/core with "import type" only, except @core/errors (${LAYERS_RULE}).`,
 };
@@ -148,10 +158,27 @@ export const layerRules = ({
   };
 };
 
-const { reactNative, expo, nativewind, i18n, supabase, network, expoInternals, uiInternals } =
-  BANNED;
+const {
+  reactNative,
+  expo,
+  nativewind,
+  i18n,
+  i18nInternals,
+  supabase,
+  network,
+  expoInternals,
+  uiInternals,
+} = BANNED;
 const SCREEN_LAYER_FOLDERS = ['src/features', 'app'];
-const SCREEN_BANS = [nativewind, supabase, network, expoInternals, uiInternals, i18n];
+const SCREEN_BANS = [
+  nativewind,
+  supabase,
+  network,
+  expoInternals,
+  uiInternals,
+  i18n,
+  i18nInternals,
+];
 // test code inside the screen layers: jest tests and the data next to them hold literal text
 const SCREEN_TEST_CODE = SCREEN_LAYER_FOLDERS.flatMap((folder) =>
   ['*.test.{ts,tsx}', '__tests__/**', '__fixtures__/**'].map((glob) => `${folder}/**/${glob}`),
@@ -172,7 +199,8 @@ export const LAYERS = [
   { files: ['src/ui/**'], banned: [supabase, network, expoInternals, i18n], usesNativeWind: true },
   {
     files: ['src/platform/**'],
-    banned: [nativewind, supabase, i18n],
+    // the i18n internals are banned as types too: the barrel is the only spelling
+    banned: [nativewind, supabase, i18n, i18nInternals],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
   {

@@ -37,6 +37,7 @@ export const MESSAGES = {
   styleGuard: 'routes and features never style directly',
   uiBarrel: 'routes and features import src/ui through @ui/index only',
   i18n: 'i18next and react-i18next are imported only in src/core/i18n',
+  i18nBarrel: 'import src/core/i18n through @core/i18n/index only',
   literalText: 'routes and features show no hard-coded user-facing text',
 };
 

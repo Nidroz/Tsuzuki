@@ -7,6 +7,7 @@ import assert from 'node:assert/strict';
 import * as classNameCases from './layers-class-name-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
+import * as i18nBarrelCases from './layers-i18n-barrel-cases.mjs';
 import * as i18nCases from './layers-i18n-cases.mjs';
 import * as jestCases from './layers-jest-cases.mjs';
 import * as jestChainCases from './layers-jest-chain-cases.mjs';
@@ -39,6 +40,7 @@ const TABLES = [
   styleCases,
   uiBarrelCases,
   i18nCases,
+  i18nBarrelCases,
   textCases,
   dotfileCases,
 ];
