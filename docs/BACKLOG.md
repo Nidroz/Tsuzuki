@@ -88,7 +88,7 @@ Details:
 - Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
 - If typed routes are enabled, add `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `tsconfig.json` `include` (removed in F-05 because `expo start` strips them while typed routes are off).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
-- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
+- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state; switching the language in settings updates the UI (picker test, plus the owner's manual check on a device).
 
 ### F-08 Supabase schema v1
 - Tune the local Supabase config created in F-03 (auth, email confirmation, redirect URLs, seed), first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
@@ -103,13 +103,13 @@ Details:
 - Query client with key factory, stale times, persisted cache (MMKV) busted on app version.
 - Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV; the Maestro smoke flow targets the development build app id instead of Expo Go.
 - Persist theme and language preferences with the storage adapter.
-- With the first core hook (here or in C-04): add `@testing-library/react` and a jsdom test environment for core hook tests (`@testing-library/react-native` is banned in `src/core/`).
 - **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test); the app runs in a development build.
 
 ### F-10 Environments, Sentry and EAS
 - `app.config.ts` reading env (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `SENTRY_DSN`), validated with Zod at startup; `.env.example`.
 - `eas.json` profiles: development, preview, production; channels matching `ARCHITECTURE.md` §10.
 - Sentry with `beforeSend` PII scrubbing.
+- `expo-localization` config plugin with `supportedLocales` (`en`, `fr`), so the OS per-app language setting lists the app languages (deferred from F-06).
 - ESLint `no-console` everywhere except the Sentry adapter.
 - Workflows: EAS preview build + staging migrations on merge to `dev`; production build, prod migrations and store submission on release tag from `main`; back-merge `main` → `dev` after each release.
 - **Acceptance**: preview build installs on a device; a test proves PII scrubbing.

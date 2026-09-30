@@ -78,7 +78,7 @@ Root configuration files belong to the area they configure. A change to one of t
 
 ## 5. Code standards
 
-- TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. No `any`, no non-null `!`, no `@ts-ignore` / `@ts-expect-error` without a backlog ID: `// @ts-expect-error(F-05): upstream type is wrong`. The only exception is an intentional type-level assertion in a test file (`*.test.ts`, `*.test.tsx`), marked `// @ts-expect-error(type-test): raw numbers are not tokens`.
+- TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. No `any`, no non-null `!`, no `@ts-ignore` / `@ts-expect-error` without a backlog ID of an open item: `// @ts-expect-error(X-00): upstream type is wrong` (`X-00` stands for a real open ID). The only exception is an intentional type-level assertion in a test file (`*.test.ts`, `*.test.tsx`), marked `// @ts-expect-error(type-test): raw numbers are not tokens`.
 - Every external input is parsed with Zod at the boundary (provider responses, Supabase rows, deep link params, forms). Inside the app, types are trusted.
 - Domain logic (business rules BR-xx from `SPEC.md`) lives in pure functions in `src/core/domain/`, never in components.
 - Functional components + hooks only. No default exports except where expo-router requires them.
@@ -87,7 +87,7 @@ Root configuration files belong to the area they configure. A change to one of t
 - No hard-coded user-facing strings: always `t('key')`.
 - Errors: typed error classes in `src/core/errors/`; never swallow an error silently; user-facing errors are translated.
 - Keep files under ~300 lines; split when they grow.
-- A `TODO` must reference a backlog ID from `docs/BACKLOG.md`: `// TODO(F-05): handle season rollover`. If no backlog item fits, add one first: a TODO never points to nothing.
+- A `TODO` must reference a backlog ID from `docs/BACKLOG.md`: `// TODO(X-00): handle season rollover`. If no backlog item fits, add one first: a TODO never points to nothing.
 
 ## 6. Testing (blocking in CI)
 
