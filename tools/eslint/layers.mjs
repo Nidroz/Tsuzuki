@@ -47,7 +47,8 @@ const BANNED = {
     message: `deep imports of Expo internals bypass the rules on routes, features and UI components: use public entry points (${LAYERS_RULE}).`,
   },
   // any @ui specifier other than exactly @ui/index, and any relative path into src/ui, the barrel
-  // included: a relative path whose first folder after its ./ and ../ segments is ui or src/ui
+  // included: a relative path whose first folder after its ./ and ../ segments is ui or src/ui.
+  // known false positive: a folder literally named ui under app/ or a feature, imported relatively
   uiInternals: {
     regexes: ['^@ui(?!/index$)(?:$|/)', '^(?:\\.{1,2}/)+(?:src/)?ui(?:$|/)'],
     message: `routes and features import src/ui through @ui/index only: the barrel is the public API of the design system, and its internals (such as useThemeColors, which returns raw values) are not (${LAYERS_RULE}).`,

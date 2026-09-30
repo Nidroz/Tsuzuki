@@ -86,6 +86,14 @@ const SPREAD_STYLE_PROPS = [
     "<Box {...{ testID: 'x', style: x }} /> among other props",
     `${BOX}declare const x: object;\nexport const Probe = () => <Box {...{ testID: 'x', style: x }} />;\n`,
   ],
+  [
+    '<Box {...(flag && { style: x })} /> conditional spread',
+    `${BOX}declare const x: object;\ndeclare const flag: boolean;\nexport const Probe = () => <Box {...(flag && { style: x })} />;\n`,
+  ],
+  [
+    '<Box {...(flag ? { style: x } : {})} /> ternary spread',
+    `${BOX}declare const x: object;\ndeclare const flag: boolean;\nexport const Probe = () => <Box {...(flag ? { style: x } : {})} />;\n`,
+  ],
 ];
 // spread props without a style key
 const SPREAD_PROPS = [

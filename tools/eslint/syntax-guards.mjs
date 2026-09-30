@@ -41,6 +41,13 @@ const REACT_NATIVE = 'react-native';
 const STYLE_SHEET = 'StyleSheet';
 const STYLE_SHEET_PATTERN = `/^${STYLE_SHEET}$/`;
 const STYLE_PROP_PATTERN = '/^(?:[a-z][A-Za-z]*S|s)tyle$/';
+// object literals spread as JSX props: directly, or as an operand of && / || / ?? or a ternary
+const SPREAD_OBJECTS = [
+  'JSXSpreadAttribute > ObjectExpression',
+  'JSXSpreadAttribute > LogicalExpression > ObjectExpression',
+  'JSXSpreadAttribute > ConditionalExpression > ObjectExpression',
+];
+
 export const STYLE_GUARDS = [
   {
     selector: `ImportDeclaration[source.value='${REACT_NATIVE}'] > ImportSpecifier:matches([imported.name='${STYLE_SHEET}'], [imported.value='${STYLE_SHEET}'])`,
@@ -63,10 +70,10 @@ export const STYLE_GUARDS = [
     selector: `JSXAttribute[name.name=${STYLE_PROP_PATTERN}][value.type='JSXExpressionContainer']`,
     message: STYLE_MESSAGE,
   },
-  // the same props in an object literal spread as props, however the key is spelled statically:
-  // <Box {...{ style: x }} />, <Box {...{ style }} />
+  // the same props in an object literal spread as props, directly or behind a condition, however
+  // the key is spelled statically: <Box {...{ style }} />, <Box {...(flag && { style: x })} />
   {
-    selector: `JSXSpreadAttribute > ObjectExpression > ${propertyKey(STYLE_PROP_PATTERN)}`,
+    selector: `:matches(${SPREAD_OBJECTS.join(', ')}) > ${propertyKey(STYLE_PROP_PATTERN)}`,
     message: STYLE_MESSAGE,
   },
 ];
