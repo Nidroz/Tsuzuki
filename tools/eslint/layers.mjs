@@ -46,6 +46,12 @@ const BANNED = {
     regexes: ['^expo/(?:src|build)(?:$|/)'],
     message: `deep imports of Expo internals bypass the rules on routes, features and UI components: use public entry points (${LAYERS_RULE}).`,
   },
+  // any @ui specifier other than exactly @ui/index, and any relative path into src/ui, the barrel
+  // included: a relative path whose first folder after its ./ and ../ segments is ui or src/ui
+  uiInternals: {
+    regexes: ['^@ui(?!/index$)(?:$|/)', '^(?:\\.{1,2}/)+(?:src/)?ui(?:$|/)'],
+    message: `routes and features import src/ui through @ui/index only: the barrel is the public API of the design system, and its internals (such as useThemeColors, which returns raw values) are not (${LAYERS_RULE}).`,
+  },
 };
 
 // the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
@@ -131,7 +137,7 @@ export const layerRules = ({
   };
 };
 
-const { reactNative, expo, nativewind, supabase, network, expoInternals } = BANNED;
+const { reactNative, expo, nativewind, supabase, network, expoInternals, uiInternals } = BANNED;
 export const LAYERS = [
   {
     files: ['src/core/**', 'test/core/**'],
@@ -152,10 +158,14 @@ export const LAYERS = [
   },
   {
     files: ['src/features/**'],
-    banned: [nativewind, supabase, network, expoInternals],
+    banned: [nativewind, supabase, network, expoInternals, uiInternals],
     bansStyles: true,
   },
-  { files: ['app/**'], banned: [nativewind, supabase, network, expoInternals], bansStyles: true },
+  {
+    files: ['app/**'],
+    banned: [nativewind, supabase, network, expoInternals, uiInternals],
+    bansStyles: true,
+  },
 ];
 
 const layerZone = (target, from, message) => ({

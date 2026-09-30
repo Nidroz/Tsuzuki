@@ -60,6 +60,45 @@ const STYLE_PROPS = [
   ],
 ];
 
+// an object literal spread as props is a style prop too, however its key is spelled statically
+const SPREAD_STYLE_PROPS = [
+  [
+    '<Box {...{ style: x }} />',
+    `${BOX}declare const x: object;\nexport const Probe = () => <Box {...{ style: x }} />;\n`,
+  ],
+  [
+    '<Box {...{ contentContainerStyle: y }} />',
+    `${BOX}declare const y: object;\nexport const Probe = () => <Box {...{ contentContainerStyle: y }} />;\n`,
+  ],
+  [
+    "<Box {...{ 'style': x }} />",
+    `${BOX}declare const x: object;\nexport const Probe = () => <Box {...{ 'style': x }} />;\n`,
+  ],
+  [
+    "<Box {...{ ['style']: x }} />",
+    `${BOX}declare const x: object;\nexport const Probe = () => <Box {...{ ['style']: x }} />;\n`,
+  ],
+  [
+    '<Box {...{ style }} /> shorthand',
+    `${BOX}declare const style: object;\nexport const Probe = () => <Box {...{ style }} />;\n`,
+  ],
+  [
+    "<Box {...{ testID: 'x', style: x }} /> among other props",
+    `${BOX}declare const x: object;\nexport const Probe = () => <Box {...{ testID: 'x', style: x }} />;\n`,
+  ],
+];
+// spread props without a style key
+const SPREAD_PROPS = [
+  [
+    "<Box {...{ testID: 'x' }} />",
+    `${BOX}export const Probe = () => <Box {...{ testID: 'x' }} />;\n`,
+  ],
+  [
+    '<Box {...props} />',
+    `${BOX}declare const props: object;\nexport const Probe = () => <Box {...props} />;\n`,
+  ],
+];
+
 // a string literal is a mode, not a style (expo-status-bar: <StatusBar style="auto" />)
 const STRING_STYLE_PROPS = [
   [
@@ -107,6 +146,7 @@ export const REJECTED = {
   'direct styling in routes and features': [
     ...rejected(ROUTE_AND_FEATURE_MODULES, SYNTAX, MESSAGES.styleGuard, STYLE_SHEET_MODULES),
     ...rejected(ROUTE_AND_FEATURE_COMPONENTS, SYNTAX, MESSAGES.styleGuard, STYLE_PROPS),
+    ...rejected(ROUTE_AND_FEATURE_COMPONENTS, SYNTAX, MESSAGES.styleGuard, SPREAD_STYLE_PROPS),
   ],
 };
 
@@ -115,6 +155,8 @@ export const ALLOWED = {
   'direct styling in routes and features': [
     ...allowed(STYLING_MODULES, STYLE_SHEET_MODULES),
     ...allowed(STYLING_COMPONENTS, STYLE_PROPS),
+    ...allowed(STYLING_COMPONENTS, SPREAD_STYLE_PROPS),
+    ...allowed(ROUTE_AND_FEATURE_COMPONENTS, SPREAD_PROPS),
     ...allowed(ROUTE_AND_FEATURE_COMPONENTS, STRING_STYLE_PROPS),
     ...allowed([...ROUTE_AND_FEATURE_MODULES, PROBES.featuresTestComponent], STYLE_WORDS),
   ],

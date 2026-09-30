@@ -32,9 +32,10 @@ export const CLASS_NAME_GUARDS = [
 
 // direct styling in routes and features: StyleSheet reached from react-native (named import,
 // re-export, destructuring or a member read on any object, such as a namespace import), any member
-// read on a StyleSheet (StyleSheet.create), and style or *Style JSX props given an expression. a
-// string literal is a mode, not a style (<StatusBar style="auto" />), and plain object keys stay
-// allowed (navigation options such as tabBarStyle)
+// read on a StyleSheet (StyleSheet.create), and style or *Style JSX props given an expression,
+// directly or in an object literal spread as props. a string literal is a mode, not a style
+// (<StatusBar style="auto" />), and other object keys stay allowed (navigation options such as
+// tabBarStyle)
 const STYLE_MESSAGE = `routes and features never style directly (StyleSheet, style props): they compose src/ui primitives, which own the styling with theme tokens (${LAYERS_RULE}).`;
 const REACT_NATIVE = 'react-native';
 const STYLE_SHEET = 'StyleSheet';
@@ -60,6 +61,12 @@ export const STYLE_GUARDS = [
   },
   {
     selector: `JSXAttribute[name.name=${STYLE_PROP_PATTERN}][value.type='JSXExpressionContainer']`,
+    message: STYLE_MESSAGE,
+  },
+  // the same props in an object literal spread as props, however the key is spelled statically:
+  // <Box {...{ style: x }} />, <Box {...{ style }} />
+  {
+    selector: `JSXSpreadAttribute > ObjectExpression > ${propertyKey(STYLE_PROP_PATTERN)}`,
     message: STYLE_MESSAGE,
   },
 ];

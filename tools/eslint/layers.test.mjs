@@ -12,6 +12,7 @@ import * as jestChainCases from './layers-jest-chain-cases.mjs';
 import * as networkCases from './layers-network-cases.mjs';
 import * as styleCases from './layers-style-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
+import * as uiBarrelCases from './layers-ui-barrel-cases.mjs';
 import {
   EXISTING,
   PROBES,
@@ -34,6 +35,7 @@ const TABLES = [
   jestChainCases,
   classNameCases,
   styleCases,
+  uiBarrelCases,
   dotfileCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
