@@ -2,24 +2,41 @@ import { describe, expect, it } from '@jest/globals';
 
 import { compareCatalogs, pluralCategoriesOf } from './i18n-catalog-parity';
 
+// the checker compares keys, placeholders and plural categories, never wording: the texts are
+// neutral markers of the language and form they stand for
 const REFERENCE = {
   home: { title: 'Home', greeting: 'Hello {{name}}' },
   library: { items_one: '{{count}} item', items_other: '{{count}} items' },
 };
 
 const COMPLETE_FRENCH = {
-  home: { title: 'Accueil', greeting: 'Bonjour {{name}}' },
+  home: { title: 'fr title', greeting: 'fr greeting {{name}}' },
   library: {
-    items_one: '{{count}} élément',
-    items_many: '{{count}} d’éléments',
-    items_other: '{{count}} éléments',
+    items_one: '{{count}} fr-one',
+    items_many: '{{count}} fr-many',
+    items_other: '{{count}} fr-other',
   },
 };
 
 describe('pluralCategoriesOf', () => {
-  it('gives the categories Intl.PluralRules selects for each language', () => {
+  it('gives the cardinal categories Intl.PluralRules selects for each language', () => {
     expect([...pluralCategoriesOf('en')].sort()).toStrictEqual(['one', 'other']);
     expect([...pluralCategoriesOf('fr')].sort()).toStrictEqual(['many', 'one', 'other']);
+    expect([...pluralCategoriesOf('fr', 'cardinal')].sort()).toStrictEqual([
+      'many',
+      'one',
+      'other',
+    ]);
+  });
+
+  it('gives the ordinal categories Intl.PluralRules selects for each language', () => {
+    expect([...pluralCategoriesOf('en', 'ordinal')].sort()).toStrictEqual([
+      'few',
+      'one',
+      'other',
+      'two',
+    ]);
+    expect([...pluralCategoriesOf('fr', 'ordinal')].sort()).toStrictEqual(['one', 'other']);
   });
 });
 
@@ -34,7 +51,7 @@ describe('compareCatalogs', () => {
   });
 
   it('reports a missing key with its full nested path', () => {
-    const candidate = { ...COMPLETE_FRENCH, home: { greeting: 'Bonjour {{name}}' } };
+    const candidate = { ...COMPLETE_FRENCH, home: { greeting: 'fr greeting {{name}}' } };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
       'fr: missing key "home.title"',
@@ -53,8 +70,8 @@ describe('compareCatalogs', () => {
   it('reports an extra key', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      home: { ...COMPLETE_FRENCH.home, subtitle: 'Sous-titre' },
-      stale: 'Ancien',
+      home: { ...COMPLETE_FRENCH.home, subtitle: 'fr subtitle' },
+      stale: 'fr stale',
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
@@ -66,8 +83,8 @@ describe('compareCatalogs', () => {
   it('reports a key moved to another object as missing and extra', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      home: { greeting: 'Bonjour {{name}}' },
-      library: { ...COMPLETE_FRENCH.library, title: 'Accueil' },
+      home: { greeting: 'fr greeting {{name}}' },
+      library: { ...COMPLETE_FRENCH.library, title: 'fr title' },
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
@@ -88,7 +105,7 @@ describe('compareCatalogs', () => {
     ['a number', 42],
     ['a boolean', true],
     ['null', null],
-    ['an array', ['Accueil']],
+    ['an array', ['fr title']],
   ])('reports a value that is not a string: %s', (_label, value) => {
     const candidate = { ...COMPLETE_FRENCH, home: { ...COMPLETE_FRENCH.home, title: value } };
 
@@ -100,7 +117,7 @@ describe('compareCatalogs', () => {
   it('reports a text replaced by an object as missing, with the keys of the object as extra', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      home: { ...COMPLETE_FRENCH.home, title: { short: 'Accueil' } },
+      home: { ...COMPLETE_FRENCH.home, title: { short: 'fr title' } },
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
@@ -113,9 +130,9 @@ describe('compareCatalogs', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
       library: {
-        items_one: '{{n}} élément',
-        items_many: '{{n}} d’éléments',
-        items_other: '{{n}} éléments',
+        items_one: '{{n}} fr-one',
+        items_many: '{{n}} fr-many',
+        items_other: '{{n}} fr-other',
       },
     };
 
@@ -127,7 +144,7 @@ describe('compareCatalogs', () => {
   it('reports a missing and an added placeholder', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      home: { title: 'Accueil {{name}}', greeting: 'Bonjour' },
+      home: { title: 'fr title {{name}}', greeting: 'fr greeting' },
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
@@ -139,11 +156,11 @@ describe('compareCatalogs', () => {
   it('reads placeholders with spaces or a format as their name', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      home: { ...COMPLETE_FRENCH.home, greeting: 'Bonjour {{ name }}' },
+      home: { ...COMPLETE_FRENCH.home, greeting: 'fr greeting {{ name }}' },
       library: {
-        items_one: '{{count, number}} élément',
-        items_many: '{{count, number}} d’éléments',
-        items_other: '{{count, number}} éléments',
+        items_one: '{{count, number}} fr-one',
+        items_many: '{{count, number}} fr-many',
+        items_other: '{{count, number}} fr-other',
       },
     };
 
@@ -153,7 +170,7 @@ describe('compareCatalogs', () => {
   it('accepts a plural form without the count when another form of the key has it', () => {
     const candidate = {
       ...COMPLETE_FRENCH,
-      library: { ...COMPLETE_FRENCH.library, items_one: 'Un élément' },
+      library: { ...COMPLETE_FRENCH.library, items_one: 'fr-one without count' },
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([]);
@@ -163,7 +180,7 @@ describe('compareCatalogs', () => {
     // english has no many form: a french catalog copied from it misses one
     const candidate = {
       ...COMPLETE_FRENCH,
-      library: { items_one: '{{count}} élément', items_other: '{{count}} éléments' },
+      library: { items_one: '{{count}} fr-one', items_other: '{{count}} fr-other' },
     };
 
     expect(compareCatalogs(REFERENCE, candidate, 'fr')).toStrictEqual([
@@ -188,7 +205,7 @@ describe('compareCatalogs', () => {
   });
 
   it('reports a plural key translated as a single text', () => {
-    const candidate = { ...COMPLETE_FRENCH, library: { items: '{{count}} éléments' } };
+    const candidate = { ...COMPLETE_FRENCH, library: { items: '{{count}} fr-other' } };
 
     // the forms follow the order Intl.PluralRules lists the categories in
     expect(compareCatalogs(REFERENCE, candidate, 'fr').sort()).toStrictEqual([
@@ -199,11 +216,21 @@ describe('compareCatalogs', () => {
     ]);
   });
 
+  // a known limit: the suffix alone makes a key plural, so a text key named like a plural form
+  // fails loudly with its other forms missing instead of passing unchecked
+  it('reads a text key ending in a plural category as a plural form', () => {
+    const reference = { onboarding: { step_one: 'First step' } };
+
+    expect(compareCatalogs(reference, reference, 'en')).toStrictEqual([
+      'en: missing key "onboarding.step_other"',
+    ]);
+  });
+
   it('checks keys nested at any depth', () => {
     const reference = { a: { b: { c: { d: 'Deep {{value}}' } } } };
 
     expect(
-      compareCatalogs(reference, { a: { b: { c: { d: 'Profond {{value}}' } } } }, 'fr'),
+      compareCatalogs(reference, { a: { b: { c: { d: 'fr deep {{value}}' } } } }, 'fr'),
     ).toStrictEqual([]);
     expect(compareCatalogs(reference, { a: { b: { c: {} } } }, 'fr')).toStrictEqual([
       'fr: missing key "a.b.c.d"',

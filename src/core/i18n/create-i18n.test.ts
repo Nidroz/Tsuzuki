@@ -21,11 +21,11 @@ const FIXTURES: Resources = {
   },
   fr: {
     translation: {
-      greeting: 'Bonjour {{name}}',
-      items_one: '{{count}} élément',
-      items_many: '{{count}} d’éléments',
-      items_other: '{{count}} éléments',
-      nested: { deep: { key: 'Valeur imbriquée' } },
+      greeting: 'fr greeting {{name}}',
+      items_one: '{{count}} fr-one',
+      items_many: '{{count}} fr-many',
+      items_other: '{{count}} fr-other',
+      nested: { deep: { key: 'fr nested' } },
     },
   },
 };
@@ -51,7 +51,7 @@ describe('createI18n', () => {
     // the singleton is never initialized: its flag is not even set
     expect(i18next.isInitialized).not.toBe(true);
     expect(translate(english, 'greeting', { name: 'Ada' })).toBe('Hello Ada');
-    expect(translate(french, 'greeting', { name: 'Ada' })).toBe('Bonjour Ada');
+    expect(translate(french, 'greeting', { name: 'Ada' })).toBe('fr greeting Ada');
   });
 
   it('keeps each instance on its own language', async () => {
@@ -62,7 +62,7 @@ describe('createI18n', () => {
 
     expect(english.language).toBe('en');
     expect(translate(english, 'greeting', { name: 'Ada' })).toBe('Hello Ada');
-    expect(translate(other, 'greeting', { name: 'Ada' })).toBe('Bonjour Ada');
+    expect(translate(other, 'greeting', { name: 'Ada' })).toBe('fr greeting Ada');
   });
 
   it('is initialized when it returns, with no pending work', () => {
@@ -71,7 +71,7 @@ describe('createI18n', () => {
     expect(french.isInitialized).toBe(true);
     expect(french.language).toBe('fr');
     expect(french.resolvedLanguage).toBe('fr');
-    expect(translate(french, 'nested.deep.key')).toBe('Valeur imbriquée');
+    expect(translate(french, 'nested.deep.key')).toBe('fr nested');
     expect(jest.getTimerCount()).toBe(0);
   });
 
@@ -100,13 +100,13 @@ describe('createI18n', () => {
   });
 
   it.each([
-    [0, '0 élément'],
-    [1, '1 élément'],
-    [1.5, '1.5 élément'],
-    [2, '2 éléments'],
-    [1000, '1000 éléments'],
-    [1_000_000, '1000000 d’éléments'],
-    [2_000_000, '2000000 d’éléments'],
+    [0, '0 fr-one'],
+    [1, '1 fr-one'],
+    [1.5, '1.5 fr-one'],
+    [2, '2 fr-other'],
+    [1000, '1000 fr-other'],
+    [1_000_000, '1000000 fr-many'],
+    [2_000_000, '2000000 fr-many'],
   ])('picks the french plural form for %s (one, many, other)', (count, expected) => {
     expect(translate(createFixtureI18n('fr'), 'items', { count })).toBe(expected);
   });

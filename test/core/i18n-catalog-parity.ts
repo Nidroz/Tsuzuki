@@ -1,16 +1,35 @@
 // a pure checker of a translation catalog against the reference catalog (en.json): the parity test
 // (src/core/i18n/catalogs.test.ts) runs it on the real catalogs, so a missing, extra or broken
 // translation fails a test. catalogs are nested objects of strings, keys joined with "." as
-// i18next reads them, plural forms written with i18next suffixes (items_one, items_other)
+// i18next reads them, plural forms written with i18next suffixes:
+// - cardinal forms `items_<category>`, one per category of Intl.PluralRules(language). i18next
+//   also looks up `items_zero` for a count of 0 in every language: that form is optional, allowed
+//   next to any cardinal plural key, and required only where the language has a zero category
+// - ordinal forms `place_ordinal_<category>`, one per category of
+//   Intl.PluralRules(language, { type: 'ordinal' }); i18next has no optional zero ordinal form
+// limits:
+// - the suffix alone makes a key plural: a text key named `step_one` or `intro_other` is read as
+//   a plural form and fails with its other forms missing. name such keys without a trailing
+//   `_<category>` (firstStep)
+// - the checker follows i18next's default separators ("." for nesting, "_" for plural forms)
+//   and knows nothing of contexts: a context key (`friend_male`) is compared as an ordinary key
 
 const KEY_SEPARATOR = '.';
 const PLURAL_SEPARATOR = '_';
+const ORDINAL_MARKER = 'ordinal';
+const ZERO_CATEGORY = 'zero';
 // every cldr plural category, the suffixes i18next looks up with Intl.PluralRules
-const PLURAL_SUFFIX = /_(?:zero|one|two|few|many|other)$/;
+const CATEGORY = '(?:zero|one|two|few|many|other)';
+const ORDINAL_SUFFIX = new RegExp(
+  `${PLURAL_SEPARATOR}${ORDINAL_MARKER}${PLURAL_SEPARATOR}${CATEGORY}$`,
+);
+const CARDINAL_SUFFIX = new RegExp(`${PLURAL_SEPARATOR}${CATEGORY}$`);
 // {{name}}, {{ name }} and {{name, format}}: the name only
 const PLACEHOLDER = /\{\{\s*([^\s,}]+)[^}]*\}\}/g;
 
 type Leaves = ReadonlyMap<string, unknown>;
+type PluralType = 'cardinal' | 'ordinal';
+type PluralForm = { readonly base: string; readonly type: PluralType };
 
 const isPlainObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -27,8 +46,27 @@ const flatten = (catalog: unknown, prefix = ''): Leaves => {
   );
 };
 
-// the key a plural form belongs to (items for items_one), or the key itself
-const baseKey = (key: string): string => key.replace(PLURAL_SUFFIX, '');
+// the key a plural form belongs to and its plural type (items, cardinal for items_one; place,
+// ordinal for place_ordinal_one), or undefined for a key that is not a plural form
+const pluralFormOf = (key: string): PluralForm | undefined => {
+  for (const [type, suffix] of [
+    ['ordinal', ORDINAL_SUFFIX],
+    ['cardinal', CARDINAL_SUFFIX],
+  ] as const) {
+    const match = suffix.exec(key);
+    if (match !== null) {
+      return { base: key.slice(0, match.index), type };
+    }
+  }
+  return undefined;
+};
+
+const baseKey = (key: string): string => pluralFormOf(key)?.base ?? key;
+
+const formKey = ({ base, type }: PluralForm, category: string): string =>
+  type === 'ordinal'
+    ? `${base}${PLURAL_SEPARATOR}${ORDINAL_MARKER}${PLURAL_SEPARATOR}${category}`
+    : `${base}${PLURAL_SEPARATOR}${category}`;
 
 const placeholdersOf = (value: unknown): ReadonlySet<string> =>
   new Set(
@@ -37,7 +75,7 @@ const placeholdersOf = (value: unknown): ReadonlySet<string> =>
       : [],
   );
 
-// the placeholders of every form of each key: a plural form may leave out {{count}} ("un élément")
+// the placeholders of every form of each key: a plural form may leave out {{count}} ("one item")
 // as long as another form of the key uses it
 const placeholdersByBaseKey = (leaves: Leaves): ReadonlyMap<string, ReadonlySet<string>> => {
   const byBase = new Map<string, Set<string>>();
@@ -62,9 +100,14 @@ const describeSet = (names: ReadonlySet<string>): string =>
 const sameSet = (left: ReadonlySet<string>, right: ReadonlySet<string>): boolean =>
   left.size === right.size && [...left].every((name) => right.has(name));
 
-/** the plural categories Intl.PluralRules selects for the language, e.g. one, many, other for fr */
-export const pluralCategoriesOf = (language: string): readonly string[] =>
-  new Intl.PluralRules(language).resolvedOptions().pluralCategories;
+/**
+ * the plural categories Intl.PluralRules selects for the language, e.g. one, many, other for
+ * cardinal numbers in fr, or one, two, few, other for ordinal numbers in en
+ */
+export const pluralCategoriesOf = (
+  language: string,
+  type: PluralType = 'cardinal',
+): readonly string[] => new Intl.PluralRules(language, { type }).resolvedOptions().pluralCategories;
 
 /**
  * the problems of `candidate`, the catalog of `language`, against `reference`: a missing key, an
@@ -82,14 +125,23 @@ export const compareCatalogs = (
   }
   const referenceLeaves = flatten(reference);
   const candidateLeaves = flatten(candidate);
-  const categories = pluralCategoriesOf(language);
+  const referenceForms = [...referenceLeaves.keys()].map((key) => ({
+    key,
+    form: pluralFormOf(key),
+  }));
 
   // a plural key of the reference needs one form per plural category of the language
   const expectedKeys = new Set(
-    [...referenceLeaves.keys()].flatMap((key) =>
-      PLURAL_SUFFIX.test(key)
-        ? categories.map((category) => `${baseKey(key)}${PLURAL_SEPARATOR}${category}`)
-        : [key],
+    referenceForms.flatMap(({ key, form }) =>
+      form === undefined
+        ? [key]
+        : pluralCategoriesOf(language, form.type).map((category) => formKey(form, category)),
+    ),
+  );
+  // the zero form of a cardinal plural key may be present or not
+  const optionalKeys = new Set(
+    referenceForms.flatMap(({ form }) =>
+      form?.type === 'cardinal' ? [formKey(form, ZERO_CATEGORY)] : [],
     ),
   );
 
@@ -100,7 +152,7 @@ export const compareCatalogs = (
     }
   }
   for (const [key, value] of candidateLeaves) {
-    if (!expectedKeys.has(key)) {
+    if (!expectedKeys.has(key) && !optionalKeys.has(key)) {
       problems.push(`${language}: extra key "${key}"`);
     } else if (typeof value !== 'string') {
       problems.push(`${language}: "${key}" is not a string`);
