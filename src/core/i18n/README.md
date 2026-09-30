@@ -25,6 +25,6 @@ Routes and features import `@core/i18n/index` only, never `i18next` directly.
 
 - Every user-facing string is `t('feature.key')`. Add each key to `en.json` and `fr.json` in the same change.
 - `fr.json` mirrors `en.json` exactly: same keys, same nesting, same interpolation variables. A key missing from `fr.json` would silently show the English text, since English is the fallback language.
-- Plurals use i18next suffixes chosen by `Intl.PluralRules`, and each catalog carries every category of its language: English `_one` / `_other`, French `_one` / `_many` / `_other` (`_many` is used for large round numbers, e.g. "1 000 000 d’objets").
+- Plurals use i18next suffixes chosen by `Intl.PluralRules`, and each catalog carries every category of its language: English `_one` / `_other`, French `_one` / `_many` / `_other` (`_many` is used for large round numbers such as 1 000 000).
 - Formatting (numbers, dates) always passes an explicit locale: through `useTranslation()` in components, or `formatNumber(value, language)` / `formatDate(value, language)`. Never call `toLocaleString()` without a locale: output would depend on the machine.
 - A key missing from every catalog calls the provider's `onMissingKey` (a development warning in the app); a missing plural key is reported once per plural category of the active language.

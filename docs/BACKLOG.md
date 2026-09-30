@@ -79,7 +79,7 @@ Details:
 ### F-06 Internationalization
 - i18n in `src/core/i18n/` with `en.json` and `fr.json`, device locale detection via platform adapter, EN fallback, setting override.
 - Formatting (dates, numbers) always passes an explicit locale, so tests do not depend on the machine locale.
-- **Acceptance**: switching language in settings updates the UI; a missing key fails a test.
+- **Acceptance**: switching language in settings updates the UI; a missing key fails a test. Without a settings screen yet, the switch is proven by provider and route tests; the settings picker check moved to F-07.
 
 ### F-07 Navigation shell
 - Tabs: Discover, Search, Library, Favorites, Settings, with placeholder screens using primitives.
@@ -158,6 +158,9 @@ Details:
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
+### R-02 Performance pass
+- Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
+
 ## Maintenance (recurring, never ticked)
 
 - [ ] M-01 Dependency update (recurring)
@@ -168,7 +171,7 @@ Details:
 - Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
 - Respect the pins:
   - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
-  - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
+  - `jest`, `@jest/globals` and `jest-environment-jsdom` below 30, on the major the Expo SDK test stack supports.
   - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
   - Node major unchanged.
 - Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
