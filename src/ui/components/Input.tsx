@@ -5,8 +5,10 @@ import { useThemeColors } from '../theme/theme-context';
 import { cx } from './layout/layout-classes';
 import { Text } from './Text';
 
-const FIELD =
-  'min-h-touch rounded-md border bg-surface px-md py-sm text-body text-text focus:border-focus';
+const FIELD = 'min-h-touch rounded-md border bg-surface px-md py-sm text-body text-text';
+// the focus border would hide the danger border while the field is focused
+const BORDER = 'border-border focus:border-focus';
+const ERROR_BORDER = 'border-danger';
 
 export type InputKeyboardType = 'default' | 'email-address' | 'number-pad' | 'numeric' | 'url';
 export type InputReturnKeyType = 'done' | 'go' | 'next' | 'search' | 'send';
@@ -24,7 +26,7 @@ export interface InputProps {
   returnKeyType?: InputReturnKeyType;
   onSubmitEditing?: () => void;
   autoCapitalize?: TextInputProps['autoCapitalize'];
-  /** the error text gets `${testID}-error` */
+  /** the error text gets `${testID}-error`, its live region `${testID}-error-region` */
   testID?: string;
 }
 
@@ -54,9 +56,12 @@ export function Input({
 
   return (
     <View className="gap-xs">
-      <Text variant="label">{label}</Text>
+      {/* the field carries the label: screen readers would read it twice */}
+      <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+        <Text variant="label">{label}</Text>
+      </View>
       <TextInput
-        className={cx(FIELD, hasError ? 'border-danger' : 'border-border')}
+        className={cx(FIELD, hasError ? ERROR_BORDER : BORDER)}
         value={value}
         onChangeText={onChangeText}
         placeholderTextColor={colors.textMuted}
@@ -71,8 +76,13 @@ export function Input({
         {...(autoCapitalize !== undefined && { autoCapitalize })}
         testID={testID}
       />
-      {hasError ? (
-        <View accessibilityLiveRegion="polite">
+      {/* talkback reads a live region when its content changes, not when it mounts with it: the
+          region stays mounted and the error appears inside it */}
+      <View
+        accessibilityLiveRegion="polite"
+        {...(testID !== undefined && { testID: `${testID}-error-region` })}
+      >
+        {hasError ? (
           <Text
             variant="caption"
             tone="danger"
@@ -80,8 +90,8 @@ export function Input({
           >
             {error}
           </Text>
-        </View>
-      ) : null}
+        ) : null}
+      </View>
     </View>
   );
 }

@@ -23,14 +23,15 @@ const spyOnAnnounce = () => {
 
 describe('ErrorState', () => {
   // the container is not an accessibility element (its retry button must stay reachable), so role
-  // queries do not match it: the alert role and the live region are asserted as props
-  it('has the alert role and an assertive live region', async () => {
+  // queries do not match it: the alert role is asserted as a prop. it has no live region: the
+  // explicit announcement covers both platforms, and a live region would read it twice on android
+  it('has the alert role and no live region', async () => {
     await renderWithTheme(<ErrorState title={TITLE} testID={TEST_ID} />);
 
     const alert = screen.getByTestId(TEST_ID);
 
     expect(alert).toHaveProp('accessibilityRole', 'alert');
-    expect(alert).toHaveProp('accessibilityLiveRegion', 'assertive');
+    expect(alert).not.toHaveProp('accessibilityLiveRegion');
     expect(classesOf(alert)).toEqual(
       expect.arrayContaining(['flex-1', 'items-center', 'justify-center']),
     );
@@ -63,9 +64,10 @@ describe('ErrorState', () => {
     expect(onPress).toHaveBeenCalledTimes(1);
   });
 
-  describe('on ios', () => {
+  // android live regions stay silent on mount, so both platforms announce the error themselves
+  describe.each(['ios', 'android'] as const)('on %s', (os) => {
     it('announces its title alone when it has no message', async () => {
-      jest.replaceProperty(Platform, 'OS', 'ios');
+      jest.replaceProperty(Platform, 'OS', os);
       const announce = spyOnAnnounce();
 
       await renderWithTheme(<ErrorState title={TITLE} />);
@@ -75,7 +77,7 @@ describe('ErrorState', () => {
     });
 
     it('announces its title then its message on a new line', async () => {
-      jest.replaceProperty(Platform, 'OS', 'ios');
+      jest.replaceProperty(Platform, 'OS', os);
       const announce = spyOnAnnounce();
 
       await renderWithTheme(<ErrorState title={TITLE} message={MESSAGE} />);
@@ -85,7 +87,7 @@ describe('ErrorState', () => {
     });
 
     it('announces again when its title or message changes, not when other props change', async () => {
-      jest.replaceProperty(Platform, 'OS', 'ios');
+      jest.replaceProperty(Platform, 'OS', os);
       const announce = spyOnAnnounce();
       const { rerender } = await renderWithTheme(<ErrorState title={TITLE} />);
 
@@ -123,7 +125,7 @@ describe('ErrorState', () => {
     });
 
     it('keeps the retry button reachable', async () => {
-      jest.replaceProperty(Platform, 'OS', 'ios');
+      jest.replaceProperty(Platform, 'OS', os);
       spyOnAnnounce();
 
       await renderWithTheme(
@@ -136,21 +138,6 @@ describe('ErrorState', () => {
 
       expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessible', true);
       expect(screen.getByRole('button', { name: RETRY_LABEL })).toBeOnTheScreen();
-    });
-  });
-
-  describe('on android', () => {
-    it('leaves the announcement to the live region', async () => {
-      jest.replaceProperty(Platform, 'OS', 'android');
-      const announce = spyOnAnnounce();
-      const { rerender } = await renderWithTheme(
-        <ErrorState title={TITLE} message={MESSAGE} testID={TEST_ID} />,
-      );
-
-      await rerender(<ErrorState title={OTHER_TITLE} message={OTHER_MESSAGE} testID={TEST_ID} />);
-
-      expect(announce).not.toHaveBeenCalled();
-      expect(screen.getByTestId(TEST_ID)).toHaveProp('accessibilityLiveRegion', 'assertive');
     });
   });
 });

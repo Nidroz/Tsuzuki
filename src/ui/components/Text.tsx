@@ -25,6 +25,10 @@ const TONE: Readonly<Record<TextTone, string>> = {
   onDanger: 'text-on-danger',
 };
 
+// react native swaps textAlign left and right in right-to-left layouts, whatever
+// I18nManager.doLeftAndRightSwapInRTL says (that flag covers layout edges): the ios text layout
+// (RCTAttributedTextUtils.mm) and the android one (TextLayoutManager.kt) align "left" to the start
+// of the paragraph, so start and end hold
 const ALIGN: Readonly<Record<TextAlign, string>> = {
   start: 'text-left',
   center: 'text-center',

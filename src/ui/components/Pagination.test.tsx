@@ -2,21 +2,12 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent } from '@testing-library/react-native';
 
 import { renderWithTheme } from '../../../test/mobile/render-with-theme';
-import { Pagination, type PaginationLabels } from './Pagination';
+import { PAGINATION_LABELS as LABELS } from './__fixtures__/pagination-labels';
+import { Pagination } from './Pagination';
 import { pageWindow } from './pagination/page-window';
 
 const TEST_ID = 'pagination';
 const ELLIPSIS_GLYPH = '…';
-
-const LABELS: PaginationLabels = {
-  previous: 'Previous page',
-  next: 'Next page',
-  jumpTo: 'Go to page',
-  jumpSubmit: 'Go',
-  page: (page) => `Page ${String(page)}`,
-  currentPage: (page, pageCount) => `Page ${String(page)} of ${String(pageCount)}, current page`,
-  ellipsis: 'More pages',
-};
 
 interface RenderOptions {
   page: number;
@@ -228,91 +219,6 @@ describe('Pagination', () => {
 
       expect(currentPageButton(5, 5)).toBeSelected();
       expect(nextButton()).toBeDisabled();
-    });
-  });
-
-  describe('jump to page', () => {
-    it('labels the numeric field and its submit button', async () => {
-      await renderPagination({ page: 1, pageCount: 10 });
-
-      expect(jumpInput()).toHaveProp('keyboardType', 'number-pad');
-      expect(jumpInput()).toHaveProp('returnKeyType', 'go');
-      expect(jumpSubmit()).toBeEnabled();
-    });
-
-    it('requests the typed page and clears the field', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 1, pageCount: 10 });
-
-      await user.type(jumpInput(), '7');
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).toHaveBeenCalledTimes(1);
-      expect(onPageChange).toHaveBeenCalledWith(7);
-      expect(jumpInput()).toHaveDisplayValue('');
-    });
-
-    it('requests the typed page from the keyboard submit key', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 1, pageCount: 10 });
-
-      await user.type(jumpInput(), '4', { submitEditing: true });
-
-      expect(onPageChange).toHaveBeenCalledWith(4);
-    });
-
-    it('clamps a page after the last one to the last page', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 1, pageCount: 10 });
-
-      await user.type(jumpInput(), '99');
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).toHaveBeenCalledWith(10);
-    });
-
-    it('clamps page 0 to the first page', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 5, pageCount: 10 });
-
-      await user.type(jumpInput(), '0');
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).toHaveBeenCalledWith(1);
-    });
-
-    it.each(['abc', '-2', '2.5', ''])('ignores %p and keeps the text', async (text) => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 1, pageCount: 10 });
-
-      if (text !== '') {
-        await user.type(jumpInput(), text);
-      }
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).not.toHaveBeenCalled();
-      expect(jumpInput()).toHaveDisplayValue(text);
-    });
-
-    it('does not request the current page, and clears the field', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 3, pageCount: 10 });
-
-      await user.type(jumpInput(), '3');
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).not.toHaveBeenCalled();
-      expect(jumpInput()).toHaveDisplayValue('');
-    });
-
-    it('does not request the clamped current page for a page past the end', async () => {
-      const user = userEvent.setup();
-      const { onPageChange } = await renderPagination({ page: 10, pageCount: 10 });
-
-      await user.type(jumpInput(), '25');
-      await user.press(jumpSubmit());
-
-      expect(onPageChange).not.toHaveBeenCalled();
     });
   });
 

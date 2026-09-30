@@ -25,7 +25,6 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.1.1",
-    "babel-preset-expo": "~57.0.13",
     "expo": "~57.0.25",
     "expo-constants": "~57.0.19",
     "expo-linking": "~57.0.11",
@@ -51,6 +50,7 @@
     "@react-native/jest-preset": "0.86.3",
     "@testing-library/react-native": "^14.0.1",
     "@types/react": "~19.2.18",
+    "babel-preset-expo": "~57.0.13",
     "eslint": "^10.11.0",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-import-x": "^4.17.1",

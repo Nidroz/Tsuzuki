@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { screen, userEvent } from '@testing-library/react-native';
+import { isHiddenFromAccessibility, screen, userEvent } from '@testing-library/react-native';
 import { AccessibilityInfo, Platform } from 'react-native';
 
 import { classesOf } from '../../../test/mobile/class-names';
@@ -13,8 +13,39 @@ const OTHER_ERROR = 'Email is required';
 const PLACEHOLDER = 'you@example.test';
 const TEST_ID = 'email';
 const ERROR_TEST_ID = `${TEST_ID}-error`;
+const ERROR_REGION_TEST_ID = `${TEST_ID}-error-region`;
+const FOCUS_BORDER = 'focus:border-focus';
 
 const field = () => screen.getByLabelText(LABEL);
+// the visible label, found in the whole tree: screen readers do not reach it
+const visibleLabel = () => screen.getByText(LABEL, { includeHiddenElements: true });
+const errorRegion = () => screen.getByTestId(ERROR_REGION_TEST_ID);
+
+interface HostNode {
+  readonly props: Readonly<Record<string, unknown>>;
+  readonly parent: HostNode | null;
+}
+
+// the element and its ancestors, from the element up to the root
+const selfAndAncestors = (element: HostNode): HostNode[] => {
+  const chain: HostNode[] = [];
+  for (let current: HostNode | null = element; current !== null; current = current.parent) {
+    chain.push(current);
+  }
+  return chain;
+};
+
+// hidden for voiceover (aria-hidden or accessibilityElementsHidden) and for talkback (aria-hidden or
+// importantForAccessibility="no-hide-descendants"), on the element or one of its ancestors
+const hiddenOnBothPlatforms = (element: HostNode) => {
+  const props = selfAndAncestors(element).map((node) => node.props);
+  const ariaHidden = props.some((node) => node['aria-hidden'] === true);
+  return {
+    ios: ariaHidden || props.some((node) => node.accessibilityElementsHidden === true),
+    android:
+      ariaHidden || props.some((node) => node.importantForAccessibility === 'no-hide-descendants'),
+  };
+};
 
 // the react native jest preset already mocks announceForAccessibility: spyOn hands back that shared
 // mock, whose calls survive restoreMocks, so they are cleared here
@@ -30,9 +61,22 @@ describe('Input', () => {
       <Input label={LABEL} value="" onChangeText={jest.fn()} testID={TEST_ID} />,
     );
 
-    expect(screen.getByText(LABEL)).toBeOnTheScreen();
+    expect(visibleLabel()).toBeOnTheScreen();
     expect(field()).toBe(screen.getByTestId(TEST_ID));
     expect(field()).toHaveAccessibleName(LABEL);
+  });
+
+  // the field already carries the label: screen readers would read it twice
+  it('hides its visible label from screen readers on both platforms', async () => {
+    await renderWithTheme(
+      <Input label={LABEL} value="" onChangeText={jest.fn()} testID={TEST_ID} />,
+    );
+
+    expect(hiddenOnBothPlatforms(visibleLabel())).toStrictEqual({ ios: true, android: true });
+    expect(isHiddenFromAccessibility(visibleLabel())).toBe(true);
+    expect(screen.queryByText(LABEL)).not.toBeOnTheScreen();
+    expect(screen.getAllByLabelText(LABEL)).toStrictEqual([field()]);
+    expect(isHiddenFromAccessibility(field())).toBe(false);
   });
 
   it('shows its value', async () => {
@@ -81,7 +125,36 @@ describe('Input', () => {
     );
 
     expect(screen.queryByTestId(ERROR_TEST_ID)).not.toBeOnTheScreen();
+    expect(errorRegion()).toBeEmptyElement();
     expect(classesOf(field())).toContain('border-border');
+    expect(classesOf(field())).toContain(FOCUS_BORDER);
+  });
+
+  // talkback reads a live region when its content changes, not when it mounts with its content
+  it('mounts its polite live region before any error and keeps it when the error clears', async () => {
+    const { rerender } = await renderWithTheme(
+      <Input label={LABEL} value="" onChangeText={jest.fn()} testID={TEST_ID} />,
+    );
+
+    const region = errorRegion();
+
+    expect(region).toHaveProp('accessibilityLiveRegion', 'polite');
+    expect(region).toBeEmptyElement();
+
+    await rerender(
+      <Input label={LABEL} value="" onChangeText={jest.fn()} error={ERROR} testID={TEST_ID} />,
+    );
+
+    expect(errorRegion()).toBe(region);
+    expect(region).toContainElement(screen.getByTestId(ERROR_TEST_ID));
+    expect(region).toHaveTextContent(ERROR, { exact: true });
+
+    await rerender(<Input label={LABEL} value="x" onChangeText={jest.fn()} testID={TEST_ID} />);
+
+    expect(errorRegion()).toBe(region);
+    expect(region).toHaveProp('accessibilityLiveRegion', 'polite');
+    expect(region).toBeEmptyElement();
+    expect(screen.queryByTestId(ERROR_TEST_ID)).not.toBeOnTheScreen();
   });
 
   it('shows the error in the danger tone, in a polite live region, with a danger border', async () => {
@@ -93,9 +166,25 @@ describe('Input', () => {
 
     expect(message).toHaveTextContent(ERROR);
     expect(classesOf(message)).toEqual(expect.arrayContaining(['text-caption', 'text-danger']));
-    expect(message.parent).toHaveProp('accessibilityLiveRegion', 'polite');
+    expect(errorRegion()).toContainElement(message);
+    expect(errorRegion()).toHaveProp('accessibilityLiveRegion', 'polite');
     expect(classesOf(field())).toContain('border-danger');
     expect(classesOf(field())).not.toContain('border-border');
+  });
+
+  // the focus border would hide the danger border while the field is focused
+  it('drops the focus border while an error is shown', async () => {
+    const { rerender } = await renderWithTheme(
+      <Input label={LABEL} value="" onChangeText={jest.fn()} error={ERROR} />,
+    );
+
+    expect(classesOf(field())).toContain('border-danger');
+    expect(classesOf(field())).not.toContain(FOCUS_BORDER);
+
+    await rerender(<Input label={LABEL} value="" onChangeText={jest.fn()} />);
+
+    expect(classesOf(field())).toContain(FOCUS_BORDER);
+    expect(classesOf(field())).not.toContain('border-danger');
   });
 
   it('reads the error again as the field hint', async () => {
@@ -195,7 +284,7 @@ describe('Input', () => {
         'bg-surface',
         'text-body',
         'text-text',
-        'focus:border-focus',
+        FOCUS_BORDER,
       ]),
     );
   });

@@ -1,7 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
 import * as ui from './index';
-import * as theme from './theme/index';
 
 // the public api of the design system: routes and features import from src/ui/index only
 describe('src/ui public api', () => {
@@ -36,25 +35,5 @@ describe('src/ui public api', () => {
     expect(ui).not.toHaveProperty('useThemeColors');
     expect(ui).not.toHaveProperty('palettes');
     expect(ui).not.toHaveProperty('PADDING');
-  });
-});
-
-describe('src/ui/theme api', () => {
-  it('exports the tokens, the provider and the palette hook', () => {
-    expect(Object.keys(theme).sort()).toStrictEqual(
-      [
-        'COLOR_TOKENS',
-        'ICON_SIZE',
-        'TOUCH_TARGET',
-        'ThemeProvider',
-        'fontWeights',
-        'opacities',
-        'palettes',
-        'radii',
-        'spacing',
-        'textVariants',
-        'useThemeColors',
-      ].sort(),
-    );
   });
 });

@@ -28,7 +28,7 @@ export interface BoxProps {
   flex?: boolean;
   surface?: SurfaceToken;
   radius?: RadiusToken;
-  /** draws a hairline border in the border color */
+  /** draws a 1px border in the border color */
   bordered?: boolean;
   testID?: string;
 }
