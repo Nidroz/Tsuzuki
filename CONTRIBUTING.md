@@ -78,7 +78,7 @@ Root configuration files belong to the area they configure. A change to one of t
 
 ## 5. Code standards
 
-- TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. No `any`, no non-null `!`, no `@ts-ignore` / `@ts-expect-error` without a backlog ID: `// @ts-expect-error(F-05): upstream type is wrong`.
+- TypeScript `strict` + `noUncheckedIndexedAccess` + `exactOptionalPropertyTypes`. No `any`, no non-null `!`, no `@ts-ignore` / `@ts-expect-error` without a backlog ID: `// @ts-expect-error(F-05): upstream type is wrong`. The only exception is an intentional type-level assertion in a test file (`*.test.ts`, `*.test.tsx`), marked `// @ts-expect-error(type-test): raw numbers are not tokens`.
 - Every external input is parsed with Zod at the boundary (provider responses, Supabase rows, deep link params, forms). Inside the app, types are trusted.
 - Domain logic (business rules BR-xx from `SPEC.md`) lives in pure functions in `src/core/domain/`, never in components.
 - Functional components + hooks only. No default exports except where expo-router requires them.
