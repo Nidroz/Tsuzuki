@@ -1,9 +1,17 @@
-import { describe, expect, it } from '@jest/globals';
+import { useTranslation } from '@core/i18n/index';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+// react native testing library 14's act is async; expo-router re-exports it typed as react's act
+import { act } from '@testing-library/react-native';
 import { Spinner } from '@ui/index';
+import type * as Localization from 'expo-localization';
+import type * as React from 'react';
 import { screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
 import RootLayout from '../../app/_layout';
+import IndexScreen from '../../app/index';
+import en from '../../src/core/i18n/en.json';
+import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
 
 const ROOT_PATHNAME = '/';
@@ -11,6 +19,48 @@ const STUB_TEXT = 'stub index route';
 // the native stack header is a native view: in tests it only shows up as this react-native-screens
 // host component, whose `hidden` prop mirrors the headerShown option (its title is not rendered text)
 const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
+
+// only the tag of a device locale is read
+type DeviceLocale = Pick<Localization.Locale, 'languageTag'>;
+
+const localesOf = (...tags: string[]): readonly DeviceLocale[] =>
+  tags.map((languageTag) => ({ languageTag }));
+
+// the device locales, which a test may change while the app runs: like expo-localization's
+// useLocales, the mock re-renders its users on a change
+const mockDeviceLocales = {
+  current: localesOf('en-US'),
+  listeners: new Set<() => void>(),
+  subscribe: (listener: () => void) => {
+    mockDeviceLocales.listeners.add(listener);
+    return () => {
+      mockDeviceLocales.listeners.delete(listener);
+    };
+  },
+  set: (locales: readonly DeviceLocale[]) => {
+    mockDeviceLocales.current = locales;
+    for (const listener of mockDeviceLocales.listeners) {
+      listener();
+    }
+  },
+};
+
+// the device locales reach the layout through the platform adapter (src/platform/locale.ts), which
+// reads useLocales. the factory runs when the layout is imported, before the store above is
+// initialized: it reads it lazily
+jest.mock('expo-localization', () => {
+  const { useSyncExternalStore } = jest.requireActual<typeof React>('react');
+  return {
+    ...jest.requireActual<typeof Localization>('expo-localization'),
+    useLocales: () =>
+      useSyncExternalStore(mockDeviceLocales.subscribe, () => mockDeviceLocales.current),
+  };
+});
+
+// the store outlives each test: every test starts on an english device
+beforeEach(() => {
+  mockDeviceLocales.set(localesOf('en-US'));
+});
 
 // the index route is a stub: this test covers the layout alone
 function StubIndexScreen() {
@@ -24,7 +74,18 @@ function ThemedIndexScreen() {
   return <Spinner accessibilityLabel={SPINNER_LABEL} />;
 }
 
+const MISSING_KEY = 'missing.key';
+
+// asks for a key of no catalog
+function MissingKeyIndexScreen() {
+  const { t } = useTranslation();
+  // @ts-expect-error(type-test): the key is in no catalog, which typecheck rejects before run time
+  return <Text>{t(MISSING_KEY)}</Text>;
+}
+
 const renderLayout = () => renderRouterAsync({ _layout: RootLayout, index: StubIndexScreen });
+
+const renderHome = () => renderRouterAsync({ _layout: RootLayout, index: IndexScreen });
 
 describe('root layout', () => {
   it('renders the index route of the stack at the root pathname', async () => {
@@ -48,4 +109,90 @@ describe('root layout', () => {
 
     expect(screen.getByRole('progressbar', { name: SPINNER_LABEL })).toBeOnTheScreen();
   });
+
+  describe('with the system language preference', () => {
+    it.each([
+      ['a french device', ['fr-FR'], fr.home.title],
+      ['a canadian french device', ['fr-CA', 'en-CA'], fr.home.title],
+      ['an english device', ['en-US'], en.home.title],
+      ['a device in an unsupported language, falling back to english', ['de-DE'], en.home.title],
+      [
+        'a device preferring an unsupported language, then french',
+        ['de-DE', 'fr-FR'],
+        fr.home.title,
+      ],
+      [
+        'a device with invalid locale tags, falling back to english',
+        ['', 'not a tag'],
+        en.home.title,
+      ],
+    ])('shows the routes in the language of %s', async (_label, tags, title) => {
+      mockDeviceLocales.set(localesOf(...tags));
+
+      await renderHome();
+
+      expect(screen.getByText(title)).toBeOnTheScreen();
+    });
+
+    it('switches the language when the device languages change while the app runs', async () => {
+      await renderHome();
+      expect(screen.getByText(en.home.title)).toBeOnTheScreen();
+
+      await act(() => {
+        mockDeviceLocales.set(localesOf('fr-FR'));
+      });
+
+      expect(screen.getByText(fr.home.title)).toBeOnTheScreen();
+      expect(screen.queryByText(en.home.title)).not.toBeOnTheScreen();
+    });
+  });
+
+  it('warns in development about a key found in no catalog', async () => {
+    mockDeviceLocales.set(localesOf('fr-FR'));
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    await renderRouterAsync({ _layout: RootLayout, index: MissingKeyIndexScreen });
+
+    expect(screen.getByText(MISSING_KEY)).toBeOnTheScreen();
+    expect(consoleWarn).toHaveBeenCalledWith(`missing translation key "${MISSING_KEY}" (fr)`);
+  });
+
+  it('warns in development when Intl.PluralRules is missing, as the layout module loads', () => {
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    loadLayoutWithoutPluralRules({ dev: true });
+
+    expect(consoleWarn.mock.calls).toStrictEqual([
+      ['Intl.PluralRules is missing: plural forms fall back to a one/other rule'],
+    ]);
+  });
+
+  it('logs nothing in a release build when Intl.PluralRules is missing', () => {
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    loadLayoutWithoutPluralRules({ dev: false });
+
+    expect(consoleWarn).not.toHaveBeenCalled();
+  });
 });
+
+// loads a fresh copy of the layout module, so its top level runs again, without the plural rules
+// and in a development or release build; both globals are restored afterwards
+function loadLayoutWithoutPluralRules({ dev }: { readonly dev: boolean }) {
+  const { PluralRules } = Intl;
+  const wasDev = __DEV__;
+  Reflect.deleteProperty(Intl, 'PluralRules');
+  Reflect.set(globalThis, '__DEV__', dev);
+  try {
+    jest.isolateModules(() => {
+      jest.requireActual('../../app/_layout');
+    });
+  } finally {
+    Reflect.set(globalThis, '__DEV__', wasDev);
+    Object.defineProperty(Intl, 'PluralRules', {
+      configurable: true,
+      writable: true,
+      value: PluralRules,
+    });
+  }
+}
