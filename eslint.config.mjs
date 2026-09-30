@@ -33,7 +33,7 @@ const JS_FILES = ['**/*.{js,mjs,cjs}'];
 const JEST_FILES = ['**/*.test.{ts,tsx}'];
 // matches the installed jest major, so version-dependent rules skip auto-detection
 const JEST_VERSION = 29;
-// a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
+// a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (X-00) as a placeholder
 const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
 // jest test files only: a permanent type-level assertion is marked (type-test) instead of an id
 const TYPE_TEST_DIRECTIVE_FORMAT = '^\\(type-test\\): \\S';
@@ -166,7 +166,7 @@ export default defineConfig(
 
   {
     rules: {
-      // syntax: // @ts-expect-error(F-05): upstream type is wrong (a backlog id from docs/BACKLOG.md);
+      // syntax: // @ts-expect-error(X-00): upstream type is wrong (X-00: an open docs/BACKLOG.md id);
       // jest test files only also accept // @ts-expect-error(type-test): reason (see JEST_FILES)
       '@typescript-eslint/ban-ts-comment': banTsComment(TS_DIRECTIVE_FORMAT),
       'capitalized-comments': [

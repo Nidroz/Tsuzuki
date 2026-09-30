@@ -17,7 +17,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-03 Test tooling
 - [x] F-04 CI pipeline
 - [x] F-05 Theme and UI primitives
-- [ ] F-06 Internationalization
+- [x] F-06 Internationalization
 - [ ] F-07 Navigation shell
 - [ ] F-08 Supabase schema v1
 - [ ] F-09 Platform adapters and query client
@@ -79,7 +79,7 @@ Details:
 ### F-06 Internationalization
 - i18n in `src/core/i18n/` with `en.json` and `fr.json`, device locale detection via platform adapter, EN fallback, setting override.
 - Formatting (dates, numbers) always passes an explicit locale, so tests do not depend on the machine locale.
-- **Acceptance**: switching language in settings updates the UI; a missing key fails a test.
+- **Acceptance**: switching language in settings updates the UI; a missing key fails a test. Without a settings screen yet, the switch is proven by provider and route tests; the settings picker check moved to F-07.
 
 ### F-07 Navigation shell
 - Tabs: Discover, Search, Library, Favorites, Settings, with placeholder screens using primitives.
@@ -88,7 +88,8 @@ Details:
 - Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
 - If typed routes are enabled, add `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `tsconfig.json` `include` (removed in F-05 because `expo start` strips them while typed routes are off).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
-- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
+- Lint follow-ups from F-06: reject `.` and empty segments in aliased import paths (`@core/./i18n/x`, `@core//i18n/x` bypass the barrel rules today), and split `BANNED` / `CANONICAL_PATHS` out of `tools/eslint/layers.mjs` (at 300 lines).
+- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state; switching the language in settings updates the UI (picker test, plus the owner's manual check on a device).
 
 ### F-08 Supabase schema v1
 - Tune the local Supabase config created in F-03 (auth, email confirmation, redirect URLs, seed), first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
@@ -103,13 +104,13 @@ Details:
 - Query client with key factory, stale times, persisted cache (MMKV) busted on app version.
 - Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV; the Maestro smoke flow targets the development build app id instead of Expo Go.
 - Persist theme and language preferences with the storage adapter.
-- With the first core hook (here or in C-04): add `@testing-library/react` and a jsdom test environment for core hook tests (`@testing-library/react-native` is banned in `src/core/`).
 - **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test); the app runs in a development build.
 
 ### F-10 Environments, Sentry and EAS
 - `app.config.ts` reading env (`EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_ANON_KEY`, `SENTRY_DSN`), validated with Zod at startup; `.env.example`.
 - `eas.json` profiles: development, preview, production; channels matching `ARCHITECTURE.md` §10.
 - Sentry with `beforeSend` PII scrubbing.
+- `expo-localization` config plugin with `supportedLocales` (`en`, `fr`), so the OS per-app language setting lists the app languages (deferred from F-06).
 - ESLint `no-console` everywhere except the Sentry adapter.
 - Workflows: EAS preview build + staging migrations on merge to `dev`; production build, prod migrations and store submission on release tag from `main`; back-merge `main` → `dev` after each release.
 - **Acceptance**: preview build installs on a device; a test proves PII scrubbing.
@@ -158,6 +159,9 @@ Details:
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
+### R-02 Performance pass
+- Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
+
 ## Maintenance (recurring, never ticked)
 
 - [ ] M-01 Dependency update (recurring)
@@ -168,7 +172,7 @@ Details:
 - Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
 - Respect the pins:
   - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
-  - `jest` and `@jest/globals` below 30, on the major the Expo SDK test stack supports.
+  - `jest`, `@jest/globals` and `jest-environment-jsdom` below 30, on the major the Expo SDK test stack supports.
   - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
   - Node major unchanged.
 - Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`.

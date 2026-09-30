@@ -36,14 +36,18 @@ const jestGlob = (platform, pattern) => {
 const absoluteTestPath = (platform, file) =>
   jestGlob(platform, `${ROOT_DIR_TAG}/${file}`).replaceAll('\\', '/');
 
-const testMatchOf = (name) => {
+const projectOf = (name) => {
   const project = config.projects.find(({ displayName }) => displayName === name);
   assert.ok(project, `jest project "${name}" must exist`);
-  return project.testMatch;
+  return project;
 };
 
+const testMatchOf = (name) => projectOf(name).testMatch;
+
+// core tests are split by extension: .ts in node, .tsx (react rendering) in jsdom
 const PROJECT_SAMPLES = {
-  core: ['src/core/a.test.ts', 'src/core/domain/b.test.tsx', 'test/core/c.test.ts'],
+  core: ['src/core/a.test.ts', 'src/core/domain/b.test.ts', 'test/core/c.test.ts'],
+  'core-dom': ['src/core/i18n/A.test.tsx', 'src/core/hooks/use-b.test.tsx', 'test/core/c.test.tsx'],
   mobile: [
     'src/features/search/a.test.tsx',
     'src/ui/a.test.tsx',
@@ -78,6 +82,51 @@ describe('testMatch', () => {
       }
     });
   }
+});
+
+// a .tsx core test renders react in jsdom, without the msw/node server that does not load there
+describe('core projects', () => {
+  it('runs .ts core tests in node with the msw setup', () => {
+    const core = projectOf('core');
+    assert.equal(core.testEnvironment, 'node');
+    assert.deepEqual(core.setupFilesAfterEnv, ['<rootDir>/test/core/setup.ts']);
+  });
+
+  it('runs .tsx core tests in jsdom with the setup that stubs the network', () => {
+    const coreDom = projectOf('core-dom');
+    assert.equal(coreDom.testEnvironment, 'jsdom');
+    assert.deepEqual(coreDom.setupFilesAfterEnv, ['<rootDir>/test/core/setup-dom.ts']);
+  });
+
+  it('gives both the same transform, aliases and determinism options, without a preset', () => {
+    const core = projectOf('core');
+    const coreDom = projectOf('core-dom');
+    for (const option of [
+      'transform',
+      'transformIgnorePatterns',
+      'moduleNameMapper',
+      'fakeTimers',
+      'restoreMocks',
+    ]) {
+      assert.deepEqual(coreDom[option], core[option], option);
+      assert.notEqual(core[option], undefined, option);
+    }
+    assert.equal(core.preset, undefined);
+    assert.equal(coreDom.preset, undefined);
+  });
+});
+
+// jest 29 reads testTimeout from the root config only: set in a project, it is silently ignored
+const JEST_DEFAULT_TIMEOUT_MS = 5000;
+
+describe('testTimeout', () => {
+  it('is set at the root, above the 5 s default, and in no project', () => {
+    assert.equal(typeof config.testTimeout, 'number');
+    assert.ok(config.testTimeout > JEST_DEFAULT_TIMEOUT_MS, `testTimeout is ${config.testTimeout}`);
+    for (const { displayName, testTimeout } of config.projects) {
+      assert.equal(testTimeout, undefined, displayName);
+    }
+  });
 });
 
 // jest instruments a file when it matches a positive pattern and no negated one

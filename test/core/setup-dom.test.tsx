@@ -1,13 +1,21 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import { render, screen } from '@testing-library/react';
 
-import { takeUnexpectedConsoleMessages } from '../core/fail-on-console';
-import { FIXED_NOW } from '../core/fixed-clock';
-import { NO_NETWORK_MESSAGE } from '../core/no-network';
+import { takeUnexpectedConsoleMessages } from './fail-on-console';
+import { FIXED_NOW } from './fixed-clock';
+import { NO_NETWORK_MESSAGE } from './no-network';
 
 const DELAY_MS = 1000;
 const ANY_URL = 'https://example.test/any';
+const RENDERED_TEXT = 'rendered in jsdom';
 
-describe('mobile test setup', () => {
+describe('core-dom test setup', () => {
+  it('runs in a dom, where react renders with the testing library', () => {
+    render(<p>{RENDERED_TEXT}</p>);
+
+    expect(screen.getByText(RENDERED_TEXT).tagName).toBe('P');
+  });
+
   it('starts every test on the fixed clock with fake timers', () => {
     const callback = jest.fn();
     setTimeout(callback, DELAY_MS);
@@ -24,7 +32,7 @@ describe('mobile test setup', () => {
     expect(new Date(FIXED_NOW).getTimezoneOffset()).toBe(0);
   });
 
-  it('throws on any network access', () => {
+  it('throws on any network access, jsdom included', () => {
     expect(() => fetch(ANY_URL)).toThrow(`fetch was called: ${NO_NETWORK_MESSAGE}`);
     expect(() => new XMLHttpRequest()).toThrow(`XMLHttpRequest was called: ${NO_NETWORK_MESSAGE}`);
     expect(() => new WebSocket(ANY_URL)).toThrow(`WebSocket was called: ${NO_NETWORK_MESSAGE}`);

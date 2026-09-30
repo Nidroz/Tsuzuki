@@ -31,6 +31,8 @@ export const PROBES = {
   repositoryInterface: 'src/core/repositories/library-repository.ts',
   catalogInterface: 'src/core/catalog/catalog-provider.ts',
   jikan: 'src/core/catalog/jikan/probe.ts',
+  i18n: 'src/core/i18n/probe.ts',
+  i18nTest: 'src/core/i18n/probe.test.ts',
   supabase: 'src/core/repositories/supabase/probe.ts',
   local: 'src/core/repositories/local/probe.ts',
   ui: 'src/ui/probe.ts',
@@ -42,6 +44,8 @@ export const PROBES = {
   // colocated jest tests inside the layers
   featuresTest: 'src/features/probe.test.ts',
   featuresTestComponent: 'src/features/probe.test.tsx',
+  // test data next to the code, outside the jest tests
+  featuresFixture: 'src/features/__fixtures__/probe.tsx',
   hooksTest: 'src/core/hooks/probe.test.ts',
   uiTest: 'src/ui/probe.test.ts',
   uiTestComponent: 'src/ui/probe.test.tsx',

@@ -103,7 +103,7 @@ export const backlogReference = {
     ],
     defaultOptions: [{ backlogFile: DEFAULT_BACKLOG_FILE }],
     messages: {
-      missingId: `{{marker}} must cite a backlog id: "{{marker}}(F-05): text", with an item of docs/BACKLOG.md (${RULE}).`,
+      missingId: `{{marker}} must cite a backlog id: "{{marker}}(X-00): text", where X-00 is an open item of docs/BACKLOG.md (${RULE}).`,
       unknownId: `{{id}} is not an item of {{backlogFile}}: cite an existing backlog id, or add the item first (${RULE}).`,
       completedId: `{{id}} is ticked in {{backlogFile}}: this reference is stale, finish the work or cite an open item (${RULE}).`,
       backlogUnreadable: `cannot read the backlog {{backlogFile}} to check backlog ids ({{reason}}) (${RULE}).`,
