@@ -18,6 +18,7 @@ const CORE_DIR = 'src/core';
 const CORE_LINES_THRESHOLD = 90;
 const CORE_BRANCHES_THRESHOLD = 90;
 const GLOBAL_LINES_THRESHOLD = 70;
+const TEST_TIMEOUT_MS = 60_000;
 
 const SOURCE_EXTENSION = /\.tsx?$/;
 // tool configs (src/ui/theme/tailwind.config.ts) are read by their tools, never by the app
@@ -101,7 +102,12 @@ const aliasesFromTsconfig = () => {
 // no path segment may start with one of {}()+?.^$: on windows jest turns the slash before it into
 // a backslash that escapes it, and the pattern matches nothing (src\{ui,core}), so folder
 // alternatives are spelled out one pattern each (tools/jest/jest-config-globs.test.mjs)
-const CORE_TESTS = ['src/core/**/*.test.{ts,tsx}', 'test/core/**/*.test.{ts,tsx}'];
+// core tests are split by extension: a .tsx test renders react (core hooks and providers, with
+// @testing-library/react) and runs in jsdom, a .ts test runs in node. a per-file environment
+// docblock would keep the node project's setup, whose msw/node server does not load under jsdom
+// (its export conditions resolve msw/node to nothing, and jsdom lacks the fetch globals msw needs)
+const CORE_TESTS = ['src/core/**/*.test.ts', 'test/core/**/*.test.ts'];
+const CORE_DOM_TESTS = ['src/core/**/*.test.tsx', 'test/core/**/*.test.tsx'];
 const MOBILE_TESTS = [
   'src/features/**/*.test.{ts,tsx}',
   'src/ui/**/*.test.{ts,tsx}',
@@ -109,7 +115,7 @@ const MOBILE_TESTS = [
   'test/app/**/*.test.{ts,tsx}',
   'test/mobile/**/*.test.{ts,tsx}',
 ];
-const PROJECT_TESTS = { core: CORE_TESTS, mobile: MOBILE_TESTS };
+const PROJECT_TESTS = { core: CORE_TESTS, 'core-dom': CORE_DOM_TESTS, mobile: MOBILE_TESTS };
 const TEST_ROOTS = ['app', 'src', 'test'];
 const TEST_FILE = /\.test\.tsx?$/;
 
@@ -169,27 +175,44 @@ const shared = {
   errorOnDeprecated: true,
 };
 
+// both core projects: the app's babel transform and path aliases, no react native preset
+const sharedCore = {
+  ...shared,
+  transform: { '\\.(?:[jt]sx?|mjs)$': babelTransform },
+  // pnpm stores packages under node_modules/.pnpm/<name>@<version>/node_modules/<name>
+  transformIgnorePatterns: [`/node_modules/(?!(?:\\.pnpm|${CORE_ESM_DEPENDENCIES.join('|')})/)`],
+  moduleNameMapper: aliasesFromTsconfig(),
+};
+
 /** @type {import('jest').Config} */
 const config = {
   // test order within each file is shuffled with a seed printed in the summary (--seed replays it)
   randomize: true,
+  // react native requires its components lazily: the first async test of a file that renders one
+  // (ScrollView, the router) transforms and instruments it inside the test. that takes up to 3 s
+  // with a warm cache and over 30 s with a cold one, as on every ci run, past jest's 5 s default.
+  // a hung test still fails, at this timeout. a global option: jest ignores it in a project
+  testTimeout: TEST_TIMEOUT_MS,
   collectCoverageFrom,
   coverageThreshold,
   coverageReporters: ['text-summary', 'text', 'lcov'],
   projects: [
     {
-      ...shared,
+      ...sharedCore,
       displayName: 'core',
       // node export conditions: msw/node resolves, and a react native import fails at runtime
       testEnvironment: 'node',
       testMatch: toTestMatch(CORE_TESTS),
-      transform: { '\\.(?:[jt]sx?|mjs)$': babelTransform },
-      // pnpm stores packages under node_modules/.pnpm/<name>@<version>/node_modules/<name>
-      transformIgnorePatterns: [
-        `/node_modules/(?!(?:\\.pnpm|${CORE_ESM_DEPENDENCIES.join('|')})/)`,
-      ],
-      moduleNameMapper: aliasesFromTsconfig(),
       setupFilesAfterEnv: ['<rootDir>/test/core/setup.ts'],
+    },
+    {
+      ...sharedCore,
+      displayName: 'core-dom',
+      // browser export conditions, as a web app would resolve core; no msw server: network
+      // globals throw (test/core/setup-dom.ts)
+      testEnvironment: 'jsdom',
+      testMatch: toTestMatch(CORE_DOM_TESTS),
+      setupFilesAfterEnv: ['<rootDir>/test/core/setup-dom.ts'],
     },
     {
       ...shared,
