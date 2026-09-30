@@ -1,6 +1,7 @@
 // layer rule tables for eslint.config.mjs: banned imports and jest module calls per layer,
 // import-x/no-restricted-paths zones and network guards; the no-restricted-syntax guards live in
-// tools/eslint/syntax-guards.mjs (CONTRIBUTING.md section 4)
+// tools/eslint/syntax-guards.mjs (CONTRIBUTING.md section 4) and tools/eslint/text-guards.mjs
+// (CONTRIBUTING.md section 5)
 
 import { withDotNames } from './glob-dot-names.mjs';
 import { toSelectorRegex } from './selectors.mjs';
@@ -13,6 +14,7 @@ import {
   STYLE_GUARDS,
   jestModuleBans,
 } from './syntax-guards.mjs';
+import { TEXT_GUARDS } from './text-guards.mjs';
 
 export const NETWORK_GLOBALS = ['fetch', 'XMLHttpRequest', 'WebSocket', 'EventSource'];
 export const NETWORK_MESSAGE = `routes, features and UI components have no direct network access: it goes through src/core and src/platform (${LAYERS_RULE}).`;
@@ -35,6 +37,11 @@ const BANNED = {
   nativewind: {
     regexes: ['^nativewind($|/)', '^react-native-css-interop'],
     message: `NativeWind is used only inside src/ui (${LAYERS_RULE}).`,
+  },
+  // owner decision: i18n libraries stay behind the public api of src/core/i18n
+  i18n: {
+    regexes: ['^i18next($|/)', '^react-i18next($|/)'],
+    message: `i18next and react-i18next are imported only in src/core/i18n: every other file translates through @core/i18n (${LAYERS_RULE}).`,
   },
   supabase: {
     regexes: ['^@supabase/'],
@@ -93,13 +100,15 @@ export const SRC_OUTSIDE_LAYERS = {
 
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax; bansStyles marks the
-// screen layers (routes and features), which compose src/ui primitives instead of styling
+// screen layers (routes and features), which compose src/ui primitives instead of styling, and
+// bansLiteralText their production code, which shows text through t('key') only
 export const layerRules = ({
   banned: layerBanned,
   typeOnly,
   allowJikan = false,
   usesNativeWind = false,
   bansStyles = false,
+  bansLiteralText = false,
 }) => {
   const banned = [CANONICAL_PATHS, ...layerBanned];
   return {
@@ -134,39 +143,46 @@ export const layerRules = ({
       ...(allowJikan ? [] : JIKAN_GUARDS),
       ...(usesNativeWind ? [] : CLASS_NAME_GUARDS),
       ...(bansStyles ? STYLE_GUARDS : []),
+      ...(bansLiteralText ? TEXT_GUARDS : []),
     ],
   };
 };
 
-const { reactNative, expo, nativewind, supabase, network, expoInternals, uiInternals } = BANNED;
+const { reactNative, expo, nativewind, i18n, supabase, network, expoInternals, uiInternals } =
+  BANNED;
+const SCREEN_LAYER_FOLDERS = ['src/features', 'app'];
+const SCREEN_BANS = [nativewind, supabase, network, expoInternals, uiInternals, i18n];
+// test code inside the screen layers: jest tests and the data next to them hold literal text
+const SCREEN_TEST_CODE = SCREEN_LAYER_FOLDERS.flatMap((folder) =>
+  ['*.test.{ts,tsx}', '__tests__/**', '__fixtures__/**'].map((glob) => `${folder}/**/${glob}`),
+);
 export const LAYERS = [
   {
     files: ['src/core/**', 'test/core/**'],
-    ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**'],
-    banned: [reactNative, expo, nativewind, supabase],
+    ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**', 'src/core/i18n/**'],
+    banned: [reactNative, expo, nativewind, supabase, i18n],
   },
   {
     files: ['src/core/catalog/jikan/**'],
-    banned: [reactNative, expo, nativewind, supabase],
+    banned: [reactNative, expo, nativewind, supabase, i18n],
     allowJikan: true,
   },
-  { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind] },
-  { files: ['src/ui/**'], banned: [supabase, network, expoInternals], usesNativeWind: true },
+  { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind, i18n] },
+  { files: ['src/core/i18n/**'], banned: [reactNative, expo, nativewind, supabase] },
+  { files: ['src/ui/**'], banned: [supabase, network, expoInternals, i18n], usesNativeWind: true },
   {
     files: ['src/platform/**'],
-    banned: [nativewind, supabase],
+    banned: [nativewind, supabase, i18n],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
   {
-    files: ['src/features/**'],
-    banned: [nativewind, supabase, network, expoInternals, uiInternals],
+    files: SCREEN_LAYER_FOLDERS.map((folder) => `${folder}/**`),
+    ignores: SCREEN_TEST_CODE,
+    banned: SCREEN_BANS,
     bansStyles: true,
+    bansLiteralText: true,
   },
-  {
-    files: ['app/**'],
-    banned: [nativewind, supabase, network, expoInternals, uiInternals],
-    bansStyles: true,
-  },
+  { files: SCREEN_TEST_CODE, banned: SCREEN_BANS, bansStyles: true },
 ];
 
 const layerZone = (target, from, message) => ({

@@ -7,11 +7,13 @@ import assert from 'node:assert/strict';
 import * as classNameCases from './layers-class-name-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
+import * as i18nCases from './layers-i18n-cases.mjs';
 import * as jestCases from './layers-jest-cases.mjs';
 import * as jestChainCases from './layers-jest-chain-cases.mjs';
 import * as networkCases from './layers-network-cases.mjs';
 import * as styleCases from './layers-style-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
+import * as textCases from './layers-text-cases.mjs';
 import * as uiBarrelCases from './layers-ui-barrel-cases.mjs';
 import {
   EXISTING,
@@ -36,6 +38,8 @@ const TABLES = [
   classNameCases,
   styleCases,
   uiBarrelCases,
+  i18nCases,
+  textCases,
   dotfileCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
