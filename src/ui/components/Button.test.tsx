@@ -163,7 +163,7 @@ describe('Button', () => {
   });
 
   it('requires a loading label with loading', async () => {
-    // @ts-expect-error(F-05): loading needs a translated loadingLabel for screen readers
+    // @ts-expect-error(type-test): loading needs a translated loadingLabel for screen readers
     await renderWithTheme(<Button label={LABEL} onPress={jest.fn()} loading />);
 
     // without it the visible label is announced

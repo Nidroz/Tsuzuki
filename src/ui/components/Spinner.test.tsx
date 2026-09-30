@@ -32,7 +32,7 @@ describe('Spinner', () => {
   });
 
   it('requires an accessibility label', async () => {
-    // @ts-expect-error(F-05): screen readers need a translated description of what is loading
+    // @ts-expect-error(type-test): screen readers need a translated description of what is loading
     await renderWithTheme(<Spinner testID={TEST_ID} />);
 
     expect(screen.getByTestId(TEST_ID)).toBeOnTheScreen();

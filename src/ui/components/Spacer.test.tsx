@@ -37,7 +37,7 @@ describe('Spacer', () => {
   });
 
   it('accepts spacing tokens only: a raw number is a type error and adds no class', async () => {
-    // @ts-expect-error(F-05): raw numbers are not spacing tokens
+    // @ts-expect-error(type-test): raw numbers are not spacing tokens
     await render(<Spacer size={8} testID={TEST_ID} />);
 
     expect(
@@ -46,7 +46,7 @@ describe('Spacer', () => {
   });
 
   it('takes a size or flex, never both', async () => {
-    // @ts-expect-error(F-05): a spacer is either fixed or flexible
+    // @ts-expect-error(type-test): a spacer is either fixed or flexible
     await render(<Spacer size="md" flex testID={TEST_ID} />);
 
     // flex wins at run time

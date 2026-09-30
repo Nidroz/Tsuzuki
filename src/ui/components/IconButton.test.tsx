@@ -162,9 +162,9 @@ describe('IconButton', () => {
   });
 
   it('requires an accessibility label and a known icon name', async () => {
-    // @ts-expect-error(F-05): an icon-only button needs a translated accessibility label
+    // @ts-expect-error(type-test): an icon-only button needs a translated accessibility label
     await renderWithTheme(<IconButton icon="add" onPress={jest.fn()} testID={TEST_ID} />);
-    // @ts-expect-error(F-05): screens name icons by meaning, never by icon set glyph
+    // @ts-expect-error(type-test): screens name icons by meaning, never by icon set glyph
     const glyphName: IconName = 'heart';
 
     expect(screen.getByTestId(TEST_ID)).toBeOnTheScreen();

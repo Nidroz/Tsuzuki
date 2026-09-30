@@ -235,6 +235,49 @@ ruleTester.run('backlog-reference (fixture backlog)', backlogReference, {
   ],
 });
 
+// "(type-test)" marks a permanent type-level assertion of a jest test file. it is no backlog id:
+// this rule ignores it in every file and never reads the backlog for it. restricting it to jest
+// test files, and its exact format, belong to @typescript-eslint/ban-ts-comment through
+// eslint.config.mjs (tools/eslint/ts-directives.test.mjs)
+const TYPE_TEST_FILES = ['src/ui/probe.test.tsx', 'src/core/probe.ts', 'tools/probe.test.mjs'];
+ruleTester.run('backlog-reference ((type-test) directives)', backlogReference, {
+  assertionOptions,
+  valid: [
+    '// @ts-expect-error(type-test): raw numbers are not tokens',
+    '/// @ts-expect-error(type-test): x',
+    '/* @ts-expect-error(type-test): x */',
+    '/**\n * docs\n * @ts-expect-error(type-test): x */',
+    // malformed variants and @ts-ignore are ban-ts-comment's to reject, not this rule's
+    '// @ts-ignore(type-test): x',
+    '// @ts-expect-error(type-test)',
+    '// @ts-expect-error(type-test):x',
+    '// @ts-expect-error(Type-Test): x',
+    '// @ts-expect-error(type-tests): x',
+  ].flatMap((code) =>
+    TYPE_TEST_FILES.map((filename) => ({
+      code,
+      filename: path.join(ROOT, filename),
+      // a missing backlog proves the rule never reads it for (type-test)
+      options: WITH_MISSING,
+    })),
+  ),
+  invalid: [
+    // a work marker in the reason still cites a backlog id
+    {
+      code: '// @ts-expect-error(type-test): TODO x',
+      filename: path.join(ROOT, 'src/ui/probe.test.tsx'),
+      options: WITH_FIXTURE,
+      errors: [missingId('TODO', at(1, 33, 'TODO'.length))],
+    },
+    {
+      code: '// @ts-expect-error(type-test): FIXME(F-01): x',
+      filename: path.join(ROOT, 'src/ui/probe.test.tsx'),
+      options: WITH_FIXTURE,
+      errors: [completedId('F-01', at(1, 33, 'FIXME'.length))],
+    },
+  ],
+});
+
 // integration with the real backlog: F-01 is ticked for good and Z-99 is no item, for good.
 // R-06 is the last item to close: update when R-06 closes (cite any item still open)
 ruleTester.run('backlog-reference (docs/BACKLOG.md, default option)', backlogReference, {

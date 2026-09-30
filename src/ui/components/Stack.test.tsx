@@ -63,7 +63,7 @@ describe('Stack', () => {
   });
 
   it('accepts spacing tokens only, not raw numbers', async () => {
-    // @ts-expect-error(F-05): raw numbers are not spacing tokens
+    // @ts-expect-error(type-test): raw numbers are not spacing tokens
     await render(<Stack gap={12} testID={TEST_ID} />);
 
     expect(renderedClasses()).toStrictEqual(['flex-col']);

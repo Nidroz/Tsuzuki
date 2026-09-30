@@ -40,7 +40,7 @@ describe('Card', () => {
 
     it('takes no accessibility label: it is no button, its content is read as is', async () => {
       await render(
-        // @ts-expect-error(F-05): a static card is no button, so it takes no accessibility label
+        // @ts-expect-error(type-test): a static card is no button, so it takes no accessibility label
         <Card testID={TEST_ID} accessibilityLabel={LABEL}>
           <Text>{CONTENT}</Text>
         </Card>,
@@ -122,7 +122,7 @@ describe('Card', () => {
 
     it('requires an accessibility label with onPress', async () => {
       await render(
-        // @ts-expect-error(F-05): a pressable card is read as one button and needs a label
+        // @ts-expect-error(type-test): a pressable card is read as one button and needs a label
         <Card testID={TEST_ID} onPress={jest.fn()}>
           <Text>{CONTENT}</Text>
         </Card>,

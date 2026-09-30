@@ -117,7 +117,7 @@ describe('Box', () => {
   });
 
   it('accepts spacing tokens only: a raw number is a type error and adds no class', async () => {
-    // @ts-expect-error(F-05): raw numbers are not spacing tokens
+    // @ts-expect-error(type-test): raw numbers are not spacing tokens
     await render(<Box testID={TEST_ID} padding={16} margin={8} />);
 
     expect(renderedClasses()).toStrictEqual([]);

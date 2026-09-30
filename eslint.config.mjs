@@ -35,6 +35,20 @@ const JEST_FILES = ['**/*.test.{ts,tsx}'];
 const JEST_VERSION = 29;
 // a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (F-05)
 const TS_DIRECTIVE_FORMAT = '^\\([A-Z]-\\d{2}\\): \\S';
+// jest test files only: a permanent type-level assertion is marked (type-test) instead of an id
+const TYPE_TEST_DIRECTIVE_FORMAT = '^\\(type-test\\): \\S';
+const JEST_EXPECT_ERROR_FORMAT = `(?:${TS_DIRECTIVE_FORMAT})|(?:${TYPE_TEST_DIRECTIVE_FORMAT})`;
+
+// one option set for ban-ts-comment: flat config replaces rule options, so the jest override
+// restates them all and only widens the @ts-expect-error format
+const banTsComment = (expectErrorFormat) => [
+  'error',
+  {
+    'ts-expect-error': { descriptionFormat: expectErrorFormat },
+    'ts-ignore': { descriptionFormat: TS_DIRECTIVE_FORMAT },
+    'ts-nocheck': true,
+  },
+];
 
 // ignore patterns are resolved against this config's folder (the repo root), not the ignore file's
 const ignoreFiles = [path.join(ROOT, '.gitignore'), path.join(ROOT, '.git', 'info', 'exclude')];
@@ -152,15 +166,9 @@ export default defineConfig(
 
   {
     rules: {
-      '@typescript-eslint/ban-ts-comment': [
-        'error',
-        {
-          // syntax: // @ts-expect-error(F-05): upstream type is wrong (a backlog id from docs/BACKLOG.md)
-          'ts-expect-error': { descriptionFormat: TS_DIRECTIVE_FORMAT },
-          'ts-ignore': { descriptionFormat: TS_DIRECTIVE_FORMAT },
-          'ts-nocheck': true,
-        },
-      ],
+      // syntax: // @ts-expect-error(F-05): upstream type is wrong (a backlog id from docs/BACKLOG.md);
+      // jest test files only also accept // @ts-expect-error(type-test): reason (see JEST_FILES)
+      '@typescript-eslint/ban-ts-comment': banTsComment(TS_DIRECTIVE_FORMAT),
       'capitalized-comments': [
         'error',
         'never',
@@ -246,6 +254,8 @@ export default defineConfig(
       'jest/unbound-method': 'error',
       // a test is never a route or a tool config: overrides the app/** exception above
       'import-x/no-default-export': 'error',
+      // permanent type-level assertions: // @ts-expect-error(type-test): reason (test files only)
+      '@typescript-eslint/ban-ts-comment': banTsComment(JEST_EXPECT_ERROR_FORMAT),
     },
   },
 
