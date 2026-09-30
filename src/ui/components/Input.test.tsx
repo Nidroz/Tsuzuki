@@ -139,6 +139,8 @@ describe('Input', () => {
     const region = errorRegion();
 
     expect(region).toHaveProp('accessibilityLiveRegion', 'polite');
+    // fabric flattens a view kept only for its live region: its children would move out of it
+    expect(region).toHaveProp('collapsable', false);
     expect(region).toBeEmptyElement();
 
     await rerender(

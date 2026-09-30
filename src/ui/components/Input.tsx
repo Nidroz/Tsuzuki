@@ -80,6 +80,9 @@ export function Input({
           region stays mounted and the error appears inside it */}
       <View
         accessibilityLiveRegion="polite"
+        // fabric flattens a view kept only for its live region and moves its children out of it:
+        // talkback would then never see the error appear inside the region
+        collapsable={false}
         {...(testID !== undefined && { testID: `${testID}-error-region` })}
       >
         {hasError ? (
