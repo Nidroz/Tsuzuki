@@ -165,6 +165,18 @@ const CORE_ESM_DEPENDENCIES = ['@open-draft/deferred-promise', 'rettime', 'until
 // any stylesheet import, matched against the module name as written
 const CSS_MODULE = '\\.css$';
 
+// the intl-pluralrules polyfill (src/platform/intl-polyfills.ts) ships esm only: jest-expo's ignore
+// pattern must let its @formatjs packages through, next to the ones it already transforms
+const PNPM_SEGMENT = '(.pnpm|';
+const [expoIgnoreFirst, ...expoIgnoreRest] = expoPreset.transformIgnorePatterns;
+if (!expoIgnoreFirst?.includes(PNPM_SEGMENT)) {
+  throw new Error('jest-expo changed its transformIgnorePatterns: update the mobile project');
+}
+const mobileTransformIgnorePatterns = [
+  expoIgnoreFirst.replace(PNPM_SEGMENT, `${PNPM_SEGMENT}@formatjs|`),
+  ...expoIgnoreRest,
+];
+
 const shared = {
   rootDir: ROOT,
   cacheDirectory: '<rootDir>/node_modules/.cache/jest',
@@ -221,6 +233,7 @@ const config = {
       testMatch: toTestMatch(MOBILE_TESTS),
       // nativewind compiles src/ui/theme/global.css in metro only: jest gets an empty module
       moduleNameMapper: { [CSS_MODULE]: '<rootDir>/test/mobile/css-stub.ts' },
+      transformIgnorePatterns: mobileTransformIgnorePatterns,
       setupFilesAfterEnv: ['<rootDir>/test/mobile/setup.ts'],
     },
   ],

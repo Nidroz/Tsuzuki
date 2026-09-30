@@ -157,37 +157,58 @@ describe('root layout', () => {
     expect(consoleWarn).toHaveBeenCalledWith(`missing translation key "${MISSING_KEY}" (fr)`);
   });
 
-  it('warns in development when Intl.PluralRules is missing, as the layout module loads', () => {
+  it('installs the plural rules polyfill first, so development logs no missing plural rules', () => {
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    loadLayoutWithoutPluralRules({ dev: true });
+    loadLayoutWithoutPluralRules({ dev: true, polyfill: true });
+
+    expect(consoleWarn).not.toHaveBeenCalled();
+  });
+
+  it('warns in development when Intl.PluralRules is still missing, as the layout module loads', () => {
+    const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    loadLayoutWithoutPluralRules({ dev: true, polyfill: false });
 
     expect(consoleWarn.mock.calls).toStrictEqual([
       ['Intl.PluralRules is missing: plural forms fall back to a one/other rule'],
     ]);
   });
 
-  it('logs nothing in a release build when Intl.PluralRules is missing', () => {
+  it('logs nothing in a release build when Intl.PluralRules is still missing', () => {
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    loadLayoutWithoutPluralRules({ dev: false });
+    loadLayoutWithoutPluralRules({ dev: false, polyfill: false });
 
     expect(consoleWarn).not.toHaveBeenCalled();
   });
 });
 
+const INTL_POLYFILLS = '../../src/platform/intl-polyfills';
+
 // loads a fresh copy of the layout module, so its top level runs again, without the plural rules
-// and in a development or release build; both globals are restored afterwards
-function loadLayoutWithoutPluralRules({ dev }: { readonly dev: boolean }) {
+// and in a development or release build, with the real polyfill or a stub that installs nothing;
+// both globals and the polyfill module are restored afterwards
+function loadLayoutWithoutPluralRules({
+  dev,
+  polyfill,
+}: {
+  readonly dev: boolean;
+  readonly polyfill: boolean;
+}) {
   const { PluralRules } = Intl;
   const wasDev = __DEV__;
   Reflect.deleteProperty(Intl, 'PluralRules');
   Reflect.set(globalThis, '__DEV__', dev);
   try {
     jest.isolateModules(() => {
+      if (!polyfill) {
+        jest.doMock(INTL_POLYFILLS, () => ({}));
+      }
       jest.requireActual('../../app/_layout');
     });
   } finally {
+    jest.dontMock(INTL_POLYFILLS);
     Reflect.set(globalThis, '__DEV__', wasDev);
     Object.defineProperty(Intl, 'PluralRules', {
       configurable: true,

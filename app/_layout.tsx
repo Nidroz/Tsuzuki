@@ -1,3 +1,6 @@
+// first: plural rules must exist before i18next builds its plural resolvers
+import '@platform/intl-polyfills';
+
 import {
   DEFAULT_LANGUAGE_PREFERENCE,
   hasIntlPluralRules,
@@ -16,7 +19,8 @@ const screenOptions = { headerShown: false } as const;
 
 const DEFAULT_THEME_PREFERENCE: ColorSchemePreference = 'system';
 
-// development logs only: a key is not personal data
+// development logs only: a key is not personal data. the polyfill above should make the plural
+// warning unreachable; it stays as a guard
 // TODO(F-10): report missing keys and the missing plural rules to Sentry in release builds
 if (__DEV__ && !hasIntlPluralRules()) {
   console.warn('Intl.PluralRules is missing: plural forms fall back to a one/other rule');
