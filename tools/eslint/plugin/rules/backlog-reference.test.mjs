@@ -1,5 +1,6 @@
 // regression tests for tsuzuki/backlog-reference with eslint's RuleTester (CONTRIBUTING.md section 5)
 
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { describe, it } from 'node:test';
@@ -314,5 +315,14 @@ describe('backlog-reference options schema', () => {
 
   it('accepts a backlog path', () => {
     assert.deepEqual(verify([{ backlogFile: FIXTURE }]), []);
+  });
+});
+
+describe('backlog-reference messages', () => {
+  it('suggests a placeholder id that is not a real backlog item', () => {
+    const backlog = readFileSync(path.join(ROOT, REAL), 'utf8');
+    const suggested = backlogReference.meta.messages.missingId.match(/\(([A-Z]-\d{2})\)/)?.[1];
+    assert.equal(suggested, 'X-00');
+    assert.equal(backlog.includes(suggested), false);
   });
 });
