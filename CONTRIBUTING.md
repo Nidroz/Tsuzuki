@@ -64,6 +64,7 @@ platform → core (interfaces only)
 - Supabase client is imported only in `src/core/repositories/supabase/`.
 - Jikan is imported only in `src/core/catalog/jikan/`.
 - Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); routes, features and UI components (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/` and `src/platform/` (mobile SDKs).
+- Routes and features never style directly (no `StyleSheet`, no `style` / `*Style` props with an expression): they compose `src/ui` primitives and import `src/ui` only through its public barrel `@ui/index`.
 
 ### Root configuration ownership
 
