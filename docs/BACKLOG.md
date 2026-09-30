@@ -17,7 +17,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-03 Test tooling
 - [x] F-04 CI pipeline
 - [x] F-05 Theme and UI primitives
-- [ ] F-06 Internationalization
+- [x] F-06 Internationalization
 - [ ] F-07 Navigation shell
 - [ ] F-08 Supabase schema v1
 - [ ] F-09 Platform adapters and query client
