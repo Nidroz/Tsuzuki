@@ -29,10 +29,23 @@ describe('Chip', () => {
       expect(classesOf(screen.getByText(LABEL))).toContain('text-text');
     });
 
+    it('is one accessible element named by its label, announced as not selected', async () => {
+      await render(<Chip label={LABEL} testID={TEST_ID} />);
+
+      const chip = screen.getByLabelText(LABEL);
+
+      expect(chip).toBe(screen.getByTestId(TEST_ID));
+      expect(chip).toHaveProp('accessible', true);
+      expect(chip).toHaveAccessibleName(LABEL);
+      expect(chip).not.toBeSelected();
+      expect(chip).toContainElement(screen.getByText(LABEL));
+    });
+
     it('is not a button', async () => {
-      await render(<Chip label={LABEL} />);
+      await render(<Chip label={LABEL} testID={TEST_ID} />);
 
       expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+      expect(screen.getByTestId(TEST_ID).props).not.toHaveProperty('accessibilityRole');
     });
 
     it('is drawn in the primary color and marked selected when selected', async () => {
@@ -40,6 +53,8 @@ describe('Chip', () => {
 
       const chip = screen.getByTestId(TEST_ID);
 
+      expect(screen.getByLabelText(LABEL)).toBe(chip);
+      expect(chip).toBeSelected();
       expect(chip).toHaveProp('accessibilityState', { selected: true });
       expect(classesOf(chip)).toStrictEqual([...CHIP_CLASSES, 'border-primary', 'bg-primary']);
       expect(classesOf(screen.getByText(LABEL))).toContain('text-on-primary');

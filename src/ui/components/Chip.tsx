@@ -26,9 +26,17 @@ export function Chip({ label, selected = false, onPress, disabled = false, testI
     </Text>
   );
 
+  // a static chip is one accessible element, so its selected state is announced with its label;
+  // it has no button role since it does nothing when activated
   if (onPress === undefined) {
     return (
-      <View className={className} accessibilityState={{ selected }} testID={testID}>
+      <View
+        className={className}
+        accessible
+        accessibilityLabel={label}
+        accessibilityState={{ selected }}
+        testID={testID}
+      >
         {text}
       </View>
     );
