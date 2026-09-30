@@ -16,10 +16,10 @@ Options considered:
 
 ## Decision
 
-- **Jest 29**, the version the Expo SDK 57 / React Native 0.86 test stack depends on (jest-expo 57, `@react-native/jest-preset` 0.86), with two projects:
+- **Jest 29**, the version the Expo SDK 57 / React Native 0.86 test stack depends on (jest-expo 57, `@react-native/jest-preset` 0.86), with three projects:
   - `core`: `src/core/**` and `test/core/**`. Node environment with Node export conditions, the app's Babel transform (jest-expo's transform entry) and path aliases, no React Native preset; a few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP is mocked with MSW (`msw/node`, `onUnhandledRequest: 'error'`).
   - `mobile`: jest-expo preset and React Native Testing Library 14 for `src/features/`, `src/ui/`, `src/platform/`, `test/app/` and `test/mobile/`. Network globals throw; features and ui are tested with mocked hooks. Route tests render the real route modules through an in-memory route map with `renderRouterAsync`, since expo-router's `renderRouter` does not await React Native Testing Library 14's async `render`.
-  - Core hooks are tested with `@testing-library/react` in a jsdom environment, starting with the first core hook (F-06, the i18n provider).
+  - `core-dom`: the `.test.tsx` files of `src/core/**` and `test/core/**`. Core hooks are tested with `@testing-library/react` in a jsdom environment, starting with the first core hook (F-06, the i18n provider).
 - Tests import from `@jest/globals`; no ambient `@types/jest`.
 - Determinism is enforced by config and setup: `TZ=UTC` set at the top of `jest.config.mjs` (inherited by workers); global fake timers, with the shared setup resetting the clock to `Date.UTC(2026, 0, 1)` before every test so a moved clock cannot leak; unhandled requests rejected; mocks restored after each test; test order randomized within each file by the global Jest option, seed printed on each run; unexpected console errors and warnings recorded and failing the test in `afterEach`, since a throw inside the console call can be swallowed (e.g. by MSW).
 - **Coverage** is collected from `app/` and `src/`, excluding tests, fixtures, mocks and declarations; untested files count as 0 %. Thresholds: global 70 % lines, `src/core/` 90 % lines and branches. Since Jest errors when a threshold path matches no file, the `src/core/` group is declared as soon as `src/core/` contains a source file.

@@ -88,6 +88,7 @@ Details:
 - Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
 - If typed routes are enabled, add `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `tsconfig.json` `include` (removed in F-05 because `expo start` strips them while typed routes are off).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
+- Lint follow-ups from F-06: reject `.` and empty segments in aliased import paths (`@core/./i18n/x`, `@core//i18n/x` bypass the barrel rules today), and split `BANNED` / `CANONICAL_PATHS` out of `tools/eslint/layers.mjs` (at 300 lines).
 - **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state; switching the language in settings updates the UI (picker test, plus the owner's manual check on a device).
 
 ### F-08 Supabase schema v1
