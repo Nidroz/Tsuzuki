@@ -85,6 +85,7 @@ Details:
 - Tabs: Discover, Search, Library, Favorites, Settings, with placeholder screens using primitives.
 - Media detail route `media/[kind]/[id]` with Zod-validated params.
 - Settings: theme and language pickers wired.
+- Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
 - **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
 
@@ -100,6 +101,7 @@ Details:
 - Supabase client factory in `src/core/repositories/supabase/` receiving the storage adapter.
 - Query client with key factory, stale times, persisted cache (MMKV) busted on app version.
 - Switch from Expo Go to a development build (`expo-dev-client`), required by MMKV; the Maestro smoke flow targets the development build app id instead of Expo Go.
+- Persist theme and language preferences with the storage adapter.
 - With the first core hook (here or in C-04): add `@testing-library/react` and a jsdom test environment for core hook tests (`@testing-library/react-native` is banned in `src/core/`).
 - **Acceptance**: unit tests for adapters and key factory; session never written to MMKV (test); the app runs in a development build.
 

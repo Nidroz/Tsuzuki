@@ -64,9 +64,18 @@ tsuzuki/
 │   │   ├── favorites/
 │   │   ├── auth/
 │   │   └── settings/
-│   ├── ui/
-│   │   ├── theme/                    # tokens: colors, spacing, radii, typography
-│   │   └── components/               # Button, Text, Card, Input, Chip, Pagination, Sheet…
+│   ├── ui/                           # the only layer that uses NativeWind
+│   │   ├── index.ts                  # public api: routes and features import from @ui/index
+│   │   ├── theme/
+│   │   │   ├── colors.ts, spacing.ts, radii.ts, typography.ts, sizes.ts   # design tokens
+│   │   │   ├── css-variables.ts      # color token -> css variable (--color-<token>)
+│   │   │   ├── tailwind.config.ts    # tailwind scales built from the tokens
+│   │   │   ├── global.css            # tailwind entry compiled by nativewind in metro
+│   │   │   ├── ThemeProvider.tsx     # system/light/dark, palette variables, status bar
+│   │   │   └── theme-context.ts      # useThemeColors, for props that take a color value
+│   │   └── components/               # primitives: Screen, Box, Stack, Row, Spacer, Text, Button, IconButton, Card, Input, Chip, Spinner, EmptyState, ErrorState, Pagination
+│   │       ├── layout/               # token -> class tables shared by the primitives
+│   │       └── pagination/           # page window logic, PageButton, JumpToPage
 │   └── platform/
 │       ├── storage.ts                # MMKV key-value storage implementing core StorageAdapter
 │       ├── secure-session.ts         # expo-secure-store adapter for supabase-js auth storage
@@ -80,17 +89,18 @@ tsuzuki/
 ├── test/                             # shared test infrastructure (see §12)
 │   ├── core/                         # core project setup, msw server factory, determinism tests; core lint bans apply
 │   ├── app/                          # route tests (renderRouterAsync); kept out of app/, where every .tsx is a route
-│   └── mobile/                       # mobile project setup and its tests, renderRouterAsync helper
+│   └── mobile/                       # mobile project setup and its tests, helpers (renderRouterAsync, renderWithTheme, classesOf), .css stub
 ├── tools/                            # repository tooling, tested with node:test
 │   ├── ci/                           # base branch policy for the PR policy workflow
 │   ├── commitlint/                   # commitlint.config.mjs tests
-│   ├── jest/                         # jest.config.mjs tests (tsconfig alias mapping)
+│   ├── jest/                         # jest.config.mjs tests (tsconfig alias mapping, test globs)
 │   └── eslint/                       # rule tables for eslint.config.mjs (layers.mjs, syntax-guards.mjs, test-hygiene.mjs and helpers), their regression tests and case tables (layers-*-cases.mjs)
 │       └── plugin/                   # local eslint rules: backlog-reference, file-name-case
 ├── docs/  (ARCHITECTURE.md, BACKLOG.md, adr/)
 ├── .github/
 │   ├── actions/setup/                # composite action: pnpm install --frozen-lockfile, store cached on the lockfile hash
 │   └── workflows/                    # ci.yml, pr-policy.yml, codeql.yml, release-please.yml (see §10)
+├── babel.config.js, metro.config.js  # nativewind scoped to src/ui (see below)
 └── release-please-config.json, .release-please-manifest.json
 ```
 
@@ -101,7 +111,10 @@ Layer rules are defined in `CONTRIBUTING.md` §4 and enforced by ESLint; their t
 - Every file under `src/` belongs to one of the four layers (`src/core/`, `src/features/`, `src/ui/`, `src/platform/`), so each file gets the rules of exactly one layer.
 - Jest module calls (`jest.mock`, `doMock`, `requireActual`, `unmock`, `setMock`…) take a string literal and follow the package bans and canonical paths of their layer, like imports; `jest` is imported from `@jest/globals` under its own name and its methods are called by name, directly on `jest`: aliases, computed access, calls chained on a returned `jest` and re-exports of `@jest/globals` are rejected (a returned `jest` stored in a variable is beyond a syntax check).
 - Production code (non-test files in `app/` and `src/`) never imports the test infrastructure in `test/`: only tests do.
-- `className` and its variants (`*ClassName` props and object keys) are used only inside `src/ui/`, the only layer that uses NativeWind.
+- NativeWind is applied to `src/ui/` only (ADR-0007). `babel.config.js` enables its JSX transform through an override scoped to `src/ui/` (applied globally, it would pull `react-native-css-interop`, and React Native with it, into `src/core/`), and `metro.config.js` compiles `src/ui/theme/global.css` with `src/ui/theme/tailwind.config.ts`, whose `content` scans `src/ui/` only. A `className` anywhere else produces no style, and lint rejects it: `className` and its variants (`*ClassName` props and object keys) are used only inside `src/ui/`, and `nativewind` / `react-native-css-interop` imports are banned in every other layer.
+- The tokens in `src/ui/theme/` (colors, spacing, radii, typography, sizes) are the single source of the Tailwind scales. `tailwind.config.ts` replaces Tailwind's default color, spacing, radius, font size, font weight and opacity scales (`theme`, not `theme.extend`), so only token classes exist for them (`p-lg`, `rounded-md`, `text-title`, `bg-surface-muted`) and a raw value cannot slip in; lengths are written in px, mapped 1:1 to dp. Each color is a CSS variable (`rgb(var(--color-<token>) / <alpha-value>)`), so no `dark:` variant is needed. Props that take a color value instead of a class (spinner, placeholder, icon) read the active palette with `useThemeColors`, internal to `src/ui/`.
+- `ThemeProvider` resolves the preference (`system`, `light` or `dark`; `system` follows the device setting) to a scheme, sets the palette variables of that scheme on the whole tree, drives the native appearance through NativeWind and renders the status bar. The preference is held by the composition root (`app/_layout.tsx`, default `system`) until it is persisted (F-09) and exposed by the settings picker (F-07).
+- Routes and features never style directly: no `StyleSheet` from `react-native` and no `style` or `*Style` JSX prop given an expression (a string literal is a mode, as in `<StatusBar style="auto" />`; plain object keys such as navigation `tabBarStyle` stay allowed). They compose `src/ui/` primitives, which take token names only (`padding="lg"`, `surface="surfaceMuted"`, `variant="title"`), never raw values; a new visual need extends a primitive. The guards live in `tools/eslint/syntax-guards.mjs` (`STYLE_GUARDS`).
 - Routes live in the root `app/`. Expo Router uses `src/app/` as the route root whenever it exists, so `src/app/` must never be created.
 - Expo Router API routes (`+api`) are not used: server logic lives in Supabase Edge Functions. `tsuzuki/file-name-case` rejects them, and accepts dotfiles and dot-folders outside `app/` whose name after the leading dot is kebab-case (`.prettierrc.mjs`, `.github/`).
 - Path aliases `@core/*`, `@features/*`, `@ui/*` and `@platform/*` map to the four `src/` layers. They are declared in `tsconfig.json` `paths` and resolved natively by Expo's Metro config, with no Babel plugin.
@@ -455,17 +468,18 @@ Rules and thresholds are in `CONTRIBUTING.md` §6; tooling choices in [ADR-0010]
 | Scope | Runner | Command | Notes |
 | --- | --- | --- | --- |
 | `src/core/**`, `test/core/**` | Jest 29, project `core` | `pnpm test` | Node environment with Node export conditions, the app Babel transform (jest-expo's transform entry) and path aliases, no React Native preset: a React Native import in core fails at runtime as well as in lint. A few ES-module-only MSW dependencies are let through `transformIgnorePatterns`. HTTP mocked with MSW (`msw/node`, unhandled requests are errors) |
-| `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render` |
+| `src/features/`, `src/ui/`, `src/platform/`, `test/app/`, `test/mobile/` | Jest 29, project `mobile` | `pnpm test` | jest-expo preset + React Native Testing Library 14. Network globals throw: features and ui reach data only through hooks, which tests mock. Route tests render the real route modules through an in-memory route map with `renderRouterAsync` (`test/mobile/render-router.ts`), because expo-router's `renderRouter` does not await React Native Testing Library 14's async `render`. `.css` imports map to an empty stub (`test/mobile/css-stub.ts`): NativeWind compiles the stylesheet in Metro only, so `className` is never resolved to styles in Jest. `src/ui/` tests assert the token → class mapping on the host props (`classesOf`), plus behaviour and accessibility; components that read the palette render inside `renderWithTheme` |
 | `tools/**/*.test.mjs` | Node built-in test runner (`node:test`) | `pnpm test:tooling` | commitlint config, Jest config tsconfig alias mapping, layer rule regressions (ESLint Node API), test hygiene rules of the tooling suites (no skipped, focused or todo tests), local ESLint plugin rules, base branch policy (`tools/ci/`) |
 | `supabase/tests/` | pgTAP | `pnpm test:rls` | `supabase test db` against the local stack; Supabase CLI as a devDependency locked by the lockfile. A guard test asserts RLS is enabled on every table in `public` |
-| `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. Maestro and adb are installed by the developer |
+| `e2e/flows/` | Maestro | `pnpm test:e2e` | Expo Go today, development build from F-09. NativeWind adds no native code, and its `react-native-reanimated` / `react-native-worklets` dependencies are pinned to the Expo SDK versions, which Expo Go ships, so the app still runs in Expo Go. Maestro and adb are installed by the developer |
 
 - Tests import Jest APIs from `@jest/globals`; there are no ambient Jest types.
+- Each project's `testMatch` is built from one list of root-relative patterns, and `jest.config.mjs` fails when a test file matches no project or both. No path segment of a pattern starts with a brace group or another glob special character: on Windows Jest turns the slash before it into a backslash that escapes it and the pattern matches nothing (`src\{ui,core}`), so folder alternatives are spelled out one pattern each (`tools/jest/jest-config-globs.test.mjs`).
 - Determinism:
   - `TZ=UTC` is set at the top of `jest.config.mjs`, so workers inherit it.
   - Fake timers are on by default; the shared setup (`test/core/fixed-clock.ts`) resets the clock to `Date.UTC(2026, 0, 1)` before every test, so a test that moves the clock cannot leak into the next.
   - Mocks are restored after each test.
   - Test order is randomized within each file by the global Jest `randomize` option; the seed is printed on each run.
   - Unexpected `console.error` / `console.warn` calls are recorded and fail the test in `afterEach` (throwing inside the console call could be swallowed, e.g. by MSW).
-- Coverage is collected from `app/` and `src/` (tests, fixtures, mocks and declarations excluded); untested files count as 0 %. Thresholds: global 70 % lines, `src/core/` 90 % lines and branches. Jest errors when a threshold path matches no file, so the `src/core/` threshold group is declared with the first source file in `src/core/`.
+- Coverage is collected from `app/` and `src/` (tests, fixtures, mocks, declarations and tool configs such as `tailwind.config.ts` excluded); untested files count as 0 %. Thresholds: global 70 % lines, `src/core/` 90 % lines and branches. Jest errors when a threshold path matches no file, so the `src/core/` threshold group is declared with the first source file in `src/core/`.
 - Core hooks are tested with `@testing-library/react` in a jsdom environment (from the first core hook, F-09 or C-04), since React Native Testing Library is banned in core.
