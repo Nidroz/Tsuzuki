@@ -86,6 +86,7 @@ Details:
 - Media detail route `media/[kind]/[id]` with Zod-validated params.
 - Settings: theme and language pickers wired.
 - Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
+- If typed routes are enabled, add `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `tsconfig.json` `include` (removed in F-05 because `expo start` strips them while typed routes are off).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
 - **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state.
 
