@@ -1,4 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
+import { Spinner } from '@ui/index';
 import { screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
@@ -14,6 +15,13 @@ const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
 // the index route is a stub: this test covers the layout alone
 function StubIndexScreen() {
   return <Text>{STUB_TEXT}</Text>;
+}
+
+const SPINNER_LABEL = 'stub loading';
+
+// a themed primitive: it reads the palette from ThemeProvider and throws outside of it
+function ThemedIndexScreen() {
+  return <Spinner accessibilityLabel={SPINNER_LABEL} />;
 }
 
 const renderLayout = () => renderRouterAsync({ _layout: RootLayout, index: StubIndexScreen });
@@ -33,5 +41,11 @@ describe('root layout', () => {
 
     expect(headers).toHaveLength(1);
     expect(headers[0]?.props).toMatchObject({ hidden: true });
+  });
+
+  it('wraps the routes in the theme provider', async () => {
+    await renderRouterAsync({ _layout: RootLayout, index: ThemedIndexScreen });
+
+    expect(screen.getByRole('progressbar', { name: SPINNER_LABEL })).toBeOnTheScreen();
   });
 });

@@ -34,6 +34,8 @@ export const MESSAGES = {
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',
   classNameGuard: 'className is used only inside src/ui',
+  styleGuard: 'routes and features never style directly',
+  uiBarrel: 'routes and features import src/ui through @ui/index only',
 };
 
 export const APP_INDEX_FROM_SRC_LAYER = '../../app/index';
@@ -52,7 +54,8 @@ const dynamicImport = (specifier) => `export const load = () => import('${specif
 
 // probes are [label, code] pairs
 export const values = (...specifiers) => specifiers.map((s) => [`import '${s}'`, valueImport(s)]);
-const types = (...specifiers) => specifiers.map((s) => [`import type '${s}'`, typeImport(s)]);
+export const types = (...specifiers) =>
+  specifiers.map((s) => [`import type '${s}'`, typeImport(s)]);
 export const dynamics = (...specifiers) =>
   specifiers.map((s) => [`import('${s}')`, dynamicImport(s)]);
 

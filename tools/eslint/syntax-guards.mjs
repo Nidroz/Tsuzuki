@@ -1,7 +1,7 @@
 // no-restricted-syntax guards of the layer rules (tools/eslint/layers.mjs): literal import()
-// sources, the catalog provider url, className outside src/ui, and the jest module calls, which load
-// or mock a module by its specifier like an import, called by name directly on jest (CONTRIBUTING.md
-// section 4)
+// sources, the catalog provider url, className outside src/ui, direct styling in routes and
+// features, and the jest module calls, which load or mock a module by its specifier like an import,
+// called by name directly on jest (CONTRIBUTING.md section 4)
 
 import { memberName, oneOf, propertyKey, toSelectorRegex } from './selectors.mjs';
 
@@ -28,6 +28,54 @@ const CLASS_NAME_PATTERN = '/^(?:[a-z][A-Za-z]*C|c)lassName$/';
 export const CLASS_NAME_GUARDS = [
   { selector: `JSXAttribute[name.name=${CLASS_NAME_PATTERN}]`, message: CLASS_NAME_MESSAGE },
   { selector: propertyKey(CLASS_NAME_PATTERN), message: CLASS_NAME_MESSAGE },
+];
+
+// direct styling in routes and features: StyleSheet reached from react-native (named import,
+// re-export, destructuring or a member read on any object, such as a namespace import), any member
+// read on a StyleSheet (StyleSheet.create), and style or *Style JSX props given an expression,
+// directly or in an object literal spread as props. a string literal is a mode, not a style
+// (<StatusBar style="auto" />), and other object keys stay allowed (navigation options such as
+// tabBarStyle)
+const STYLE_MESSAGE = `routes and features never style directly (StyleSheet, style props): they compose src/ui primitives, which own the styling with theme tokens (${LAYERS_RULE}).`;
+const REACT_NATIVE = 'react-native';
+const STYLE_SHEET = 'StyleSheet';
+const STYLE_SHEET_PATTERN = `/^${STYLE_SHEET}$/`;
+const STYLE_PROP_PATTERN = '/^(?:[a-z][A-Za-z]*S|s)tyle$/';
+// object literals spread as JSX props: directly, or as an operand of && / || / ?? or a ternary
+const SPREAD_OBJECTS = [
+  'JSXSpreadAttribute > ObjectExpression',
+  'JSXSpreadAttribute > LogicalExpression > ObjectExpression',
+  'JSXSpreadAttribute > ConditionalExpression > ObjectExpression',
+];
+
+export const STYLE_GUARDS = [
+  {
+    selector: `ImportDeclaration[source.value='${REACT_NATIVE}'] > ImportSpecifier:matches([imported.name='${STYLE_SHEET}'], [imported.value='${STYLE_SHEET}'])`,
+    message: STYLE_MESSAGE,
+  },
+  {
+    selector: `ExportNamedDeclaration[source.value='${REACT_NATIVE}'] > ExportSpecifier:matches([local.name='${STYLE_SHEET}'], [local.value='${STYLE_SHEET}'])`,
+    message: STYLE_MESSAGE,
+  },
+  // const { StyleSheet } = RN
+  { selector: `ObjectPattern > ${propertyKey(STYLE_SHEET_PATTERN)}`, message: STYLE_MESSAGE },
+  // a member read on any object: RN.StyleSheet, RN['StyleSheet']
+  { selector: `MemberExpression${memberName(STYLE_SHEET_PATTERN)}`, message: STYLE_MESSAGE },
+  // any member read on it, however it got there: StyleSheet.create, StyleSheet['flatten']
+  {
+    selector: `MemberExpression[object.type='Identifier'][object.name='${STYLE_SHEET}']`,
+    message: STYLE_MESSAGE,
+  },
+  {
+    selector: `JSXAttribute[name.name=${STYLE_PROP_PATTERN}][value.type='JSXExpressionContainer']`,
+    message: STYLE_MESSAGE,
+  },
+  // the same props in an object literal spread as props, directly or behind a condition, however
+  // the key is spelled statically: <Box {...{ style }} />, <Box {...(flag && { style: x })} />
+  {
+    selector: `:matches(${SPREAD_OBJECTS.join(', ')}) > ${propertyKey(STYLE_PROP_PATTERN)}`,
+    message: STYLE_MESSAGE,
+  },
 ];
 
 // every jest function that loads or mocks a module by its specifier: its first argument follows the

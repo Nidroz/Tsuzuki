@@ -1,0 +1,7 @@
+/* the tailwind cli that nativewind runs gets no --config flag: @config points it at the theme
+   config, relative to this file */
+@config './tailwind.config.ts';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

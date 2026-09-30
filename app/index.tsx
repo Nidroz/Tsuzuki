@@ -1,10 +1,6 @@
-import { StyleSheet, View } from 'react-native';
+import { Screen } from '@ui/index';
 
 // temporary blank home screen, replaced by the tabs shell in F-07
 export default function IndexScreen() {
-  return <View testID="home-screen" collapsable={false} style={styles.screen} />;
+  return <Screen testID="home-screen" />;
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1 },
-});

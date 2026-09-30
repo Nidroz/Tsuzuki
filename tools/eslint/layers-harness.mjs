@@ -41,6 +41,7 @@ export const PROBES = {
   srcOther: 'src/utils/probe.ts',
   // colocated jest tests inside the layers
   featuresTest: 'src/features/probe.test.ts',
+  featuresTestComponent: 'src/features/probe.test.tsx',
   hooksTest: 'src/core/hooks/probe.test.ts',
   uiTest: 'src/ui/probe.test.ts',
   uiTestComponent: 'src/ui/probe.test.tsx',
