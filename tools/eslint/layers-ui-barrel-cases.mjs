@@ -27,9 +27,10 @@ const DEEP_ALIASES = [
   '@ui/components/layout/layout-classes',
   '@ui/theme',
   '@ui/theme/index',
-  // a "." segment is not caught by the canonical path rule: the barrel rule sees it
+  // a "." segment is reported by the canonical path rule, and the barrel rule sees it too
   '@ui/./components/Box',
 ];
+const CANONICAL_DEEP_ALIASES = DEEP_ALIASES.filter((specifier) => !specifier.includes('/./'));
 const DEEP_RELATIVE_TARGETS = ['src/ui/components/Box', 'src/ui/theme/theme-context'];
 
 // probes are [label, code] pairs
@@ -110,13 +111,14 @@ export const ALLOWED = {
       ],
     ),
     ...allowed(SCREEN_TESTS, [jestCall('mock', BARREL), jestCall('requireActual', BARREL)]),
-    // src/ui imports its own internals, relative or through the alias
+    // src/ui imports its own internals, relative or through the alias, written canonically (a "."
+    // segment is rejected everywhere by the canonical path rule)
     ...UI_FILES.flatMap((file) =>
       allowed(file, [
         ...values(...DEEP_RELATIVE_TARGETS.map((target) => relativeFrom(file, target))),
         ...types(relativeFrom(file, 'src/ui/components/Box')),
-        ...values(...DEEP_ALIASES),
-        ...types(...DEEP_ALIASES),
+        ...values(...CANONICAL_DEEP_ALIASES),
+        ...types(...CANONICAL_DEEP_ALIASES),
         ...dynamics('@ui/components/Box', relativeFrom(file, 'src/ui/theme/theme-context')),
       ]),
     ),

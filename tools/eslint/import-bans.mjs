@@ -58,10 +58,16 @@ export const BANNED = {
   },
 };
 
-// the rules above read the specifier text: "@core/../x" or a node_modules path would slip past them
+// the rules above read the specifier text: "@core/../x", "@core/./x", "@core//x" or a node_modules
+// path would slip past them. the last pattern is a "." or empty segment after the first one (a
+// slash followed by an optional dot, then a slash or the end); a leading "./" or "." stays allowed
 export const CANONICAL_PATHS = {
-  regexes: ['(?:^|/)node_modules(?:/|$)', '(?:^|/)(?!\\.\\.(?:/|$))[^/]+/\\.\\.(?:/|$)'],
-  message: `import paths are written canonically, with no ".." after a segment and no node_modules path, so layer rules can check them (${LAYERS_RULE}).`,
+  regexes: [
+    '(?:^|/)node_modules(?:/|$)',
+    '(?:^|/)(?!\\.\\.(?:/|$))[^/]+/\\.\\.(?:/|$)',
+    '/\\.?(?:/|$)',
+  ],
+  message: `import paths are written canonically, with no ".." after a segment, no "." or empty segment after the first one and no node_modules path, so layer rules can check them (${LAYERS_RULE}).`,
 };
 
 // platform may import core only as types, except typed errors (owner decision). a type import that
