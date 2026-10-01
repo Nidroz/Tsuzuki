@@ -9,7 +9,7 @@ Routes and features import `@core/i18n/index` only, never `i18next` directly.
 
 | File | Role |
 | --- | --- |
-| `en.json`, `fr.json` | The catalogs: one i18next namespace (`translation`), keys nested by feature (`home.title`) |
+| `en.json`, `fr.json` | The catalogs: one i18next namespace (`translation`), keys nested by feature (`tabs.discover`) |
 | `languages.ts` | Supported languages (`en`, `fr`), the English fallback, the language preference (`system`, `en`, `fr`) |
 | `device-language-tags.ts` | Zod schema for the untrusted device language tags: a non-array gives `[]`, invalid entries are dropped |
 | `resolve-language.ts` | `resolveLanguage(preference, deviceTags)`: an explicit preference wins; `system` takes the first device tag whose primary subtag is supported (`fr-CA` gives `fr`), else English |

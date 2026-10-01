@@ -12,10 +12,10 @@ describe('typed translation keys', () => {
   const t = createI18n({ language: 'en' }).getFixedT('en', DEFAULT_NAMESPACE);
 
   it('accepts a key of en.json', () => {
-    const key: TranslationKey = 'home.title';
+    const key: TranslationKey = 'tabs.discover';
 
-    expect(t('home.title')).toBe(en.home.title);
-    expect(t(key)).toBe(en.home.title);
+    expect(t('tabs.discover')).toBe(en.tabs.discover);
+    expect(t(key)).toBe(en.tabs.discover);
   });
 
   it('rejects a key that is not in en.json', () => {
@@ -29,16 +29,16 @@ describe('typed translation keys', () => {
   });
 
   it('rejects a prefix of a key, which names a catalog object and not a text', () => {
-    // @ts-expect-error(type-test): home is an object of the catalog, not a text
-    const prefix: TranslationKey = 'home';
+    // @ts-expect-error(type-test): tabs is an object of the catalog, not a text
+    const prefix: TranslationKey = 'tabs';
 
-    expect(prefix).toBe('home');
+    expect(prefix).toBe('tabs');
   });
 
   it('rejects an unknown key where a key is expected', () => {
     // @ts-expect-error(type-test): a TranslationKey holds only keys of en.json
-    const unknown: TranslationKey = 'home.subtitle';
+    const unknown: TranslationKey = 'tabs.unknown';
 
-    expect(t(unknown)).toBe('home.subtitle');
+    expect(t(unknown)).toBe('tabs.unknown');
   });
 });

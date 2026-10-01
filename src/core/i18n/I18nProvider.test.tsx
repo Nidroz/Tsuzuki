@@ -24,7 +24,7 @@ function TranslationProbe() {
   const { t, language, formatNumber, formatDate } = useTranslation();
   return (
     <>
-      <h1 data-testid={TITLE_TEST_ID}>{t('home.title')}</h1>
+      <h1 data-testid={TITLE_TEST_ID}>{t('tabs.discover')}</h1>
       <p data-testid={LANGUAGE_TEST_ID}>{language}</p>
       <p data-testid={NUMBER_TEST_ID}>{formatNumber(1234.5)}</p>
       <p data-testid={DATE_TEST_ID}>{formatDate(PI_DAY, LONG_DATE_IN_UTC)}</p>
@@ -61,14 +61,14 @@ describe('I18nProvider', () => {
   it('shows its children in english', () => {
     renderProbe('en');
 
-    expect(textOf(TITLE_TEST_ID)).toBe(en.home.title);
+    expect(textOf(TITLE_TEST_ID)).toBe(en.tabs.discover);
     expect(textOf(LANGUAGE_TEST_ID)).toBe('en');
   });
 
   it('shows its children in french', () => {
     renderProbe('fr');
 
-    expect(textOf(TITLE_TEST_ID)).toBe(fr.home.title);
+    expect(textOf(TITLE_TEST_ID)).toBe(fr.tabs.discover);
     expect(textOf(LANGUAGE_TEST_ID)).toBe('fr');
   });
 
@@ -82,7 +82,7 @@ describe('I18nProvider', () => {
       </I18nProvider>,
     );
 
-    expect(textOf(TITLE_TEST_ID)).toBe(fr.home.title);
+    expect(textOf(TITLE_TEST_ID)).toBe(fr.tabs.discover);
     expect(textOf(LANGUAGE_TEST_ID)).toBe('fr');
 
     rerender(
@@ -91,14 +91,14 @@ describe('I18nProvider', () => {
       </I18nProvider>,
     );
 
-    expect(textOf(TITLE_TEST_ID)).toBe(en.home.title);
+    expect(textOf(TITLE_TEST_ID)).toBe(en.tabs.discover);
     expect(textOf(LANGUAGE_TEST_ID)).toBe('en');
   });
 
   it('translates with the new language in the first render that receives it', () => {
     const titles: string[] = [];
     const onRender = ({ t }: Translation) => {
-      titles.push(t('home.title'));
+      titles.push(t('tabs.discover'));
     };
     const { rerender } = render(
       <I18nProvider language="en">
@@ -113,7 +113,7 @@ describe('I18nProvider', () => {
     );
 
     // no render shows the new language with the old texts, or the reverse
-    expect(titles).toStrictEqual([en.home.title, fr.home.title]);
+    expect(titles).toStrictEqual([en.tabs.discover, fr.tabs.discover]);
   });
 
   it('formats numbers and dates in the active language', () => {
