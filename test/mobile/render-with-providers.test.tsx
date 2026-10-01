@@ -13,7 +13,7 @@ const SPINNER_LABEL = 'loading';
 
 function Title() {
   const { t } = useTranslation();
-  return <Text>{t('home.title')}</Text>;
+  return <Text>{t('tabs.discover')}</Text>;
 }
 
 function MissingKeyTitle() {
@@ -26,13 +26,13 @@ describe('renderWithProviders', () => {
   it('translates with the real english catalog by default', async () => {
     await renderWithProviders(<Title />);
 
-    expect(screen.getByText(en.home.title)).toBeOnTheScreen();
+    expect(screen.getByText(en.tabs.discover)).toBeOnTheScreen();
   });
 
   it('translates with the catalog of the given language', async () => {
     await renderWithProviders(<Title />, 'fr');
 
-    expect(screen.getByText(fr.home.title)).toBeOnTheScreen();
+    expect(screen.getByText(fr.tabs.discover)).toBeOnTheScreen();
   });
 
   it('gives the theme to components that read the palette', async () => {

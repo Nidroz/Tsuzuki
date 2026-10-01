@@ -1,4 +1,4 @@
-# smoke flow: the app launches and shows the home screen.
+# smoke flow: the app launches on Discover, and each of the five tabs opens its screen.
 # expo go today; F-09 switches appId to the development build.
 # metro on this machine by default; a phone on the LAN overrides it:
 # maestro test -e METRO_URL=exp://<lan-ip>:8081 e2e/flows
@@ -7,8 +7,39 @@ appId: host.exp.exponent
 - launchApp:
     clearState: true
 - openLink: ${METRO_URL || 'exp://127.0.0.1:8081'}
-# the first bundle can take a while; F-07 adds the tabs check
+# the first bundle can take a while
 - extendedWaitUntil:
     visible:
-      id: home-screen
+      id: discover-screen
     timeout: 60000
+# the tab bar, in order, then back to Discover
+- assertVisible:
+    id: tab-search
+- tapOn:
+    id: tab-search
+- assertVisible:
+    id: search-screen
+- assertVisible:
+    id: tab-library
+- tapOn:
+    id: tab-library
+- assertVisible:
+    id: library-screen
+- assertVisible:
+    id: tab-favorites
+- tapOn:
+    id: tab-favorites
+- assertVisible:
+    id: favorites-screen
+- assertVisible:
+    id: tab-settings
+- tapOn:
+    id: tab-settings
+- assertVisible:
+    id: settings-screen
+- assertVisible:
+    id: tab-discover
+- tapOn:
+    id: tab-discover
+- assertVisible:
+    id: discover-screen

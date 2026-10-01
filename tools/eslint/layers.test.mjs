@@ -4,6 +4,7 @@ import path from 'node:path';
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
+import * as canonicalCases from './layers-canonical-cases.mjs';
 import * as classNameCases from './layers-class-name-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
@@ -43,6 +44,7 @@ const TABLES = [
   i18nBarrelCases,
   textCases,
   dotfileCases,
+  canonicalCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
 
@@ -114,7 +116,7 @@ describe('test harness', () => {
     const source = path.join(ROOT, PROBES.features);
     assert.deepEqual(hybridResolver.resolve(APP_INDEX_FROM_SRC_LAYER, source), {
       found: true,
-      path: path.join(ROOT, 'app', 'index.tsx'),
+      path: path.join(ROOT, 'app', '(tabs)', 'index.tsx'),
     });
     assert.deepEqual(hybridResolver.resolve('react-native-foo', source), { found: false });
     assert.deepEqual(hybridResolver.resolve('../../tools/x', source), { found: false });

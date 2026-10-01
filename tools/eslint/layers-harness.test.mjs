@@ -1,18 +1,19 @@
 // tests of the minimatch escaping of the layer test harness (allowDefaultProject globs)
 
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import { PROBES, literalGlob } from './layers-harness.mjs';
+import { EXISTING, PROBES, ROOT, literalGlob } from './layers-harness.mjs';
 
 const GLOB_SPECIAL_CHARACTERS = ['[', ']', '(', ')', '*', '?', '!', '+', '@', '{', '}', '\\'];
 const BACKSLASH = '\\';
 
-// the escaped globs of the expo-router probe names before the backslash was escaped: kept as is
+// the escaped globs of the expo-router shaped probe names
 const EXPO_ROUTER_GLOBS = {
-  'app/media/[kind]/[id].tsx': 'app/media/\\[kind\\]/\\[id\\].tsx',
-  'app/(tabs)/_layout.tsx': 'app/\\(tabs\\)/_layout.tsx',
-  'app/+not-found.tsx': 'app/\\+not-found.tsx',
+  'app/probe/[kind]/[id].tsx': 'app/probe/\\[kind\\]/\\[id\\].tsx',
+  'app/(probe)/_layout.tsx': 'app/\\(probe\\)/_layout.tsx',
 };
 
 // minimatch reads "\x" as the literal x: unescaping a literal glob gives the file name back
@@ -29,7 +30,7 @@ describe('literalGlob', () => {
     assert.equal(literalGlob('src/core/hooks/probe.ts'), 'src/core/hooks/probe.ts');
   });
 
-  it('gives the same globs as before for the expo-router probe names', () => {
+  it('escapes the expo-router probe names', () => {
     for (const [file, glob] of Object.entries(EXPO_ROUTER_GLOBS)) {
       assert.ok(Object.values(PROBES).includes(file), `${file} must be a probe`);
       assert.equal(literalGlob(file), glob);
@@ -47,5 +48,19 @@ describe('literalGlob', () => {
     const glob = literalGlob(file);
     assert.equal(glob, 'a\\\\b\\[c\\].ts');
     assert.equal(unescapeGlob(glob), file);
+  });
+});
+
+// typescript-eslint rejects a file matched by allowDefaultProject that is also in the project: a
+// probe that became a real file fails every case linting it, a missing existing file lints nothing
+describe('probe and existing files', () => {
+  it('lists probes that do not exist on disk', () => {
+    const onDisk = Object.values(PROBES).filter((file) => existsSync(path.join(ROOT, file)));
+    assert.deepEqual(onDisk, []);
+  });
+
+  it('lists existing files that exist on disk', () => {
+    const missing = Object.values(EXISTING).filter((file) => !existsSync(path.join(ROOT, file)));
+    assert.deepEqual(missing, []);
   });
 });

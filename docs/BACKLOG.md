@@ -18,7 +18,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-04 CI pipeline
 - [x] F-05 Theme and UI primitives
 - [x] F-06 Internationalization
-- [ ] F-07 Navigation shell
+- [x] F-07 Navigation shell
 - [ ] F-08 Supabase schema v1
 - [ ] F-09 Platform adapters and query client
 - [ ] F-10 Environments, Sentry and EAS
@@ -86,10 +86,10 @@ Details:
 - Media detail route `media/[kind]/[id]` with Zod-validated params.
 - Settings: theme and language pickers wired.
 - Navigation theme built from the `src/ui` palette, so navigator backgrounds follow dark mode (no light flash during transitions).
-- If typed routes are enabled, add `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `tsconfig.json` `include` (removed in F-05 because `expo start` strips them while typed routes are off).
+- Typed routes: decided off (`ARCHITECTURE.md` §2), so `tsconfig.json` keeps its `include` unchanged. Enabling them later means adding `.expo/types/**/*.ts` and `expo-env.d.ts` back to the `include` (removed in F-05 because `expo start` strips them while typed routes are off).
 - Maestro smoke flow from F-03 extended: the five tabs are visible.
 - Lint follow-ups from F-06: reject `.` and empty segments in aliased import paths (`@core/./i18n/x`, `@core//i18n/x` bypass the barrel rules today), and split `BANNED` / `CANONICAL_PATHS` out of `tools/eslint/layers.mjs` (at 300 lines).
-- **Acceptance**: navigation E2E smoke flow passes, including the tabs check; invalid deep link params show an error state; switching the language in settings updates the UI (picker test, plus the owner's manual check on a device).
+- **Acceptance**: navigation E2E smoke flow written and reviewed, including the tabs check (execution deferred to R-01); invalid deep link params show an error state; switching the language in settings updates the UI (picker test, plus the owner's manual check on a device).
 
 ### F-08 Supabase schema v1
 - Tune the local Supabase config created in F-03 (auth, email confirmation, redirect URLs, seed), first migration from `ARCHITECTURE.md` §5: enums, `profiles`, `library_entries`, `progress_events`, `updated_at` trigger, progress event trigger, profile creation trigger on sign-up, indexes, RLS policies.
@@ -125,6 +125,11 @@ Details:
 - [ ] C-06 Interactive pagination with prefetch and position restore
 - [ ] C-07 Media detail screen
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
+
+Details:
+
+### C-07 Media detail screen
+- Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
 
 ## Phase 3 — Library (guest first)
 

@@ -1,21 +1,21 @@
 import { useTranslation } from '@core/i18n/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
-import { act } from '@testing-library/react-native';
+import { act, within } from '@testing-library/react-native';
 import { Spinner } from '@ui/index';
 import type * as Localization from 'expo-localization';
 import type * as React from 'react';
 import { screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
 
-import RootLayout from '../../app/_layout';
-import IndexScreen from '../../app/index';
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
+import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 
 const ROOT_PATHNAME = '/';
-const STUB_TEXT = 'stub index route';
+const STUB_TEXT = 'stub discover route';
+const DISCOVER_TAB_TEST_ID = 'tab-discover';
 // the native stack header is a native view: in tests it only shows up as this react-native-screens
 // host component, whose `hidden` prop mirrors the headerShown option (its title is not rendered text)
 const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
@@ -62,88 +62,93 @@ beforeEach(() => {
   mockDeviceLocales.set(localesOf('en-US'));
 });
 
-// the index route is a stub: this test covers the layout alone
-function StubIndexScreen() {
+// the discover route is a stub: this test covers the layouts alone
+function StubDiscoverScreen() {
   return <Text>{STUB_TEXT}</Text>;
 }
 
 const SPINNER_LABEL = 'stub loading';
 
 // a themed primitive: it reads the palette from ThemeProvider and throws outside of it
-function ThemedIndexScreen() {
+function ThemedDiscoverScreen() {
   return <Spinner accessibilityLabel={SPINNER_LABEL} />;
 }
 
 const MISSING_KEY = 'missing.key';
 
 // asks for a key of no catalog
-function MissingKeyIndexScreen() {
+function MissingKeyDiscoverScreen() {
   const { t } = useTranslation();
   // @ts-expect-error(type-test): the key is in no catalog, which typecheck rejects before run time
   return <Text>{t(MISSING_KEY)}</Text>;
 }
 
-const renderLayout = () => renderRouterAsync({ _layout: RootLayout, index: StubIndexScreen });
+const renderLayout = () => renderRouterAsync(appRoutesWithDiscover(StubDiscoverScreen));
 
-const renderHome = () => renderRouterAsync({ _layout: RootLayout, index: IndexScreen });
+const renderApp = () => renderRouterAsync(APP_ROUTES);
+
+// the label of the Discover tab button, in the language the app resolved
+const discoverTabLabel = (label: string) =>
+  within(screen.getByTestId(DISCOVER_TAB_TEST_ID)).getByText(label);
 
 describe('root layout', () => {
-  it('renders the index route of the stack at the root pathname', async () => {
+  it('opens on the discover route of the tabs at the root pathname', async () => {
     const router = await renderLayout();
 
     expect(router.getPathname()).toBe(ROOT_PATHNAME);
     expect(screen.getByText(STUB_TEXT)).toBeOnTheScreen();
   });
 
-  it('hides the stack header so no untranslated route title is shown', async () => {
+  it('hides the stack header above the tabs, which show their own translated header', async () => {
     await renderLayout();
 
     const headers = screen.container.queryAll(({ type }) => type === NATIVE_HEADER_HOST);
 
     expect(headers).toHaveLength(1);
     expect(headers[0]?.props).toMatchObject({ hidden: true });
+    expect(screen.getByRole('heading', { name: en.tabs.discover })).toBeOnTheScreen();
   });
 
   it('wraps the routes in the theme provider', async () => {
-    await renderRouterAsync({ _layout: RootLayout, index: ThemedIndexScreen });
+    await renderRouterAsync(appRoutesWithDiscover(ThemedDiscoverScreen));
 
     expect(screen.getByRole('progressbar', { name: SPINNER_LABEL })).toBeOnTheScreen();
   });
 
   describe('with the system language preference', () => {
     it.each([
-      ['a french device', ['fr-FR'], fr.home.title],
-      ['a canadian french device', ['fr-CA', 'en-CA'], fr.home.title],
-      ['an english device', ['en-US'], en.home.title],
-      ['a device in an unsupported language, falling back to english', ['de-DE'], en.home.title],
+      ['a french device', ['fr-FR'], fr.tabs.discover],
+      ['a canadian french device', ['fr-CA', 'en-CA'], fr.tabs.discover],
+      ['an english device', ['en-US'], en.tabs.discover],
+      ['a device in an unsupported language, falling back to english', ['de-DE'], en.tabs.discover],
       [
         'a device preferring an unsupported language, then french',
         ['de-DE', 'fr-FR'],
-        fr.home.title,
+        fr.tabs.discover,
       ],
       [
         'a device with invalid locale tags, falling back to english',
         ['', 'not a tag'],
-        en.home.title,
+        en.tabs.discover,
       ],
-    ])('shows the routes in the language of %s', async (_label, tags, title) => {
+    ])('shows the routes in the language of %s', async (_label, tags, label) => {
       mockDeviceLocales.set(localesOf(...tags));
 
-      await renderHome();
+      await renderApp();
 
-      expect(screen.getByText(title)).toBeOnTheScreen();
+      expect(discoverTabLabel(label)).toBeOnTheScreen();
     });
 
     it('switches the language when the device languages change while the app runs', async () => {
-      await renderHome();
-      expect(screen.getByText(en.home.title)).toBeOnTheScreen();
+      await renderApp();
+      expect(discoverTabLabel(en.tabs.discover)).toBeOnTheScreen();
 
       await act(() => {
         mockDeviceLocales.set(localesOf('fr-FR'));
       });
 
-      expect(screen.getByText(fr.home.title)).toBeOnTheScreen();
-      expect(screen.queryByText(en.home.title)).not.toBeOnTheScreen();
+      expect(discoverTabLabel(fr.tabs.discover)).toBeOnTheScreen();
+      expect(screen.queryByText(en.tabs.discover)).not.toBeOnTheScreen();
     });
   });
 
@@ -151,7 +156,7 @@ describe('root layout', () => {
     mockDeviceLocales.set(localesOf('fr-FR'));
     const consoleWarn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    await renderRouterAsync({ _layout: RootLayout, index: MissingKeyIndexScreen });
+    await renderRouterAsync(appRoutesWithDiscover(MissingKeyDiscoverScreen));
 
     expect(screen.getByText(MISSING_KEY)).toBeOnTheScreen();
     expect(consoleWarn).toHaveBeenCalledWith(`missing translation key "${MISSING_KEY}" (fr)`);

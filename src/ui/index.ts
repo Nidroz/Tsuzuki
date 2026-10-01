@@ -26,6 +26,8 @@ export {
   parsePageInput,
 } from './components/pagination/page-window';
 export type { PageWindowItem, PageWindowParams } from './components/pagination/page-window';
+export { RadioGroup } from './components/RadioGroup';
+export type { RadioGroupProps, RadioOption } from './components/RadioGroup';
 export { Row } from './components/Row';
 export type { RowProps } from './components/Row';
 export { Screen } from './components/Screen';
@@ -36,6 +38,8 @@ export { Spinner } from './components/Spinner';
 export type { SpinnerProps, SpinnerSize } from './components/Spinner';
 export { Stack } from './components/Stack';
 export type { StackProps } from './components/Stack';
+export { TabBarIcon } from './components/TabBarIcon';
+export type { TabBarIconProps, TabIconName } from './components/TabBarIcon';
 export { Text } from './components/Text';
 export type { TextAlign, TextProps, TextTone } from './components/Text';
 export type { ColorScheme, ColorToken } from './theme/colors';

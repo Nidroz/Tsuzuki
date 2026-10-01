@@ -1,5 +1,71 @@
 {
-  "home": {
-    "title": "Votre bibliothèque commence ici"
+  "tabs": {
+    "discover": "Découvrir",
+    "search": "Recherche",
+    "library": "Bibliothèque",
+    "favorites": "Favoris",
+    "settings": "Réglages"
+  },
+  "discovery": {
+    "placeholder": {
+      "title": "Bientôt disponible",
+      "message": "Les meilleurs anime et manga et la saison en cours apparaîtront ici."
+    }
+  },
+  "search": {
+    "placeholder": {
+      "title": "Bientôt disponible",
+      "message": "Recherchez des anime et des manga par titre."
+    }
+  },
+  "library": {
+    "placeholder": {
+      "title": "Bientôt disponible",
+      "message": "Les anime et manga que vous suivez apparaîtront ici."
+    }
+  },
+  "favorites": {
+    "placeholder": {
+      "title": "Bientôt disponible",
+      "message": "Vos titres favoris apparaîtront ici."
+    }
+  },
+  "settings": {
+    "theme": {
+      "title": "Thème",
+      "options": {
+        "system": "Système",
+        "light": "Clair",
+        "dark": "Sombre"
+      }
+    },
+    "language": {
+      "title": "Langue",
+      "options": {
+        "system": "Système",
+        "en": "English",
+        "fr": "Français"
+      }
+    }
+  },
+  "media": {
+    "kind": {
+      "anime": "Anime",
+      "manga": "Manga"
+    }
+  },
+  "mediaDetail": {
+    "title": "Détails",
+    "placeholder": "{{kind}} n° {{id}} : détails bientôt disponibles",
+    "invalidLink": {
+      "title": "Ce lien n'est pas valide",
+      "message": "Il ne mène à aucun anime ni manga.",
+      "action": "Aller à Découvrir"
+    }
+  },
+  "notFound": {
+    "title": "Page introuvable",
+    "message": "Ce lien ne mène nulle part dans Tsuzuki.",
+    "action": "Aller à Découvrir"
   }
 }

@@ -163,12 +163,12 @@ describe('createI18n', () => {
   });
 
   it.each<[Language, string]>([
-    ['en', en.home.title],
-    ['fr', fr.home.title],
+    ['en', en.tabs.discover],
+    ['fr', fr.tabs.discover],
   ])('translates with the bundled catalogs by default (%s)', (language, title) => {
     const onMissingKey = jest.fn<MissingKeyHandler>();
 
-    expect(createI18n({ language, onMissingKey }).t('home.title')).toBe(title);
+    expect(createI18n({ language, onMissingKey }).t('tabs.discover')).toBe(title);
     expect(onMissingKey).not.toHaveBeenCalled();
   });
 });

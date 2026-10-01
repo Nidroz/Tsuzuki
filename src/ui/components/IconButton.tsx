@@ -1,29 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ComponentProps } from 'react';
 import { Pressable } from 'react-native';
 
 import { ICON_SIZE } from '../theme/sizes';
 import { useThemeColors } from '../theme/theme-context';
+import { GLYPHS, type IconName } from './icons';
 import { cx } from './layout/layout-classes';
 
-type IoniconsGlyph = ComponentProps<typeof Ionicons>['name'];
-
-// the icons the app uses, by meaning: screens never name an icon set glyph, so the set can change
-// here alone
-const GLYPHS = {
-  add: 'add',
-  remove: 'remove',
-  favorite: 'heart',
-  'favorite-outline': 'heart-outline',
-  search: 'search',
-  close: 'close',
-  'chevron-back': 'chevron-back',
-  'chevron-forward': 'chevron-forward',
-  settings: 'settings-outline',
-  refresh: 'refresh',
-} as const satisfies Record<string, IoniconsGlyph>;
-
-export type IconName = keyof typeof GLYPHS;
+export type { IconName };
 
 export interface IconButtonProps {
   icon: IconName;

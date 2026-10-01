@@ -27,7 +27,7 @@ const DEEP_ALIASES = [
   '@core/i18n/en.json',
   '@core/i18n/index.ts',
   '@core/i18n',
-  // a "." segment is not caught by the canonical path rule: the barrel rule sees it
+  // a "." segment is reported by the canonical path rule, and the barrel rule sees it too
   '@core/i18n/./create-i18n',
 ];
 const DEEP_RELATIVE_TARGETS = ['src/core/i18n/create-i18n', 'src/core/i18n/i18n-context'];
@@ -74,7 +74,7 @@ const deepDynamicImports = (file) =>
 // run one after the other: switching files costs more than linting one
 const FORM_FILES = [PROBES.features, PROBES.platform];
 const SAMPLE_FILES = [
-  PROBES.notFound,
+  EXISTING.notFound,
   PROBES.nestedRoute,
   PROBES.featuresTestComponent,
   PROBES.featuresFixture,
@@ -127,7 +127,7 @@ export const ALLOWED = {
       ...dynamics(BARREL),
     ]),
     ...allowed(
-      [PROBES.notFound, PROBES.featuresTestComponent],
+      [EXISTING.notFound, PROBES.featuresTestComponent],
       [...values(BARREL), ...types(BARREL)],
     ),
     ...allowed(EXISTING.layout, values(BARREL)),

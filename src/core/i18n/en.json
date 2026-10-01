@@ -1,5 +1,71 @@
 {
-  "home": {
-    "title": "Your library starts here"
+  "tabs": {
+    "discover": "Discover",
+    "search": "Search",
+    "library": "Library",
+    "favorites": "Favorites",
+    "settings": "Settings"
+  },
+  "discovery": {
+    "placeholder": {
+      "title": "Coming soon",
+      "message": "Top anime, top manga and the current season will appear here."
+    }
+  },
+  "search": {
+    "placeholder": {
+      "title": "Coming soon",
+      "message": "Search anime and manga by title."
+    }
+  },
+  "library": {
+    "placeholder": {
+      "title": "Coming soon",
+      "message": "The anime and manga you follow will appear here."
+    }
+  },
+  "favorites": {
+    "placeholder": {
+      "title": "Coming soon",
+      "message": "Your favorite titles will appear here."
+    }
+  },
+  "settings": {
+    "theme": {
+      "title": "Theme",
+      "options": {
+        "system": "System",
+        "light": "Light",
+        "dark": "Dark"
+      }
+    },
+    "language": {
+      "title": "Language",
+      "options": {
+        "system": "System",
+        "en": "English",
+        "fr": "Français"
+      }
+    }
+  },
+  "media": {
+    "kind": {
+      "anime": "Anime",
+      "manga": "Manga"
+    }
+  },
+  "mediaDetail": {
+    "title": "Details",
+    "placeholder": "{{kind}} #{{id}}: details coming soon",
+    "invalidLink": {
+      "title": "This link is not valid",
+      "message": "It does not lead to an anime or a manga.",
+      "action": "Go to Discover"
+    }
+  },
+  "notFound": {
+    "title": "Page not found",
+    "message": "This link leads nowhere in Tsuzuki.",
+    "action": "Go to Discover"
   }
 }
