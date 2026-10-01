@@ -18,7 +18,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-04 CI pipeline
 - [x] F-05 Theme and UI primitives
 - [x] F-06 Internationalization
-- [ ] F-07 Navigation shell
+- [x] F-07 Navigation shell
 - [ ] F-08 Supabase schema v1
 - [ ] F-09 Platform adapters and query client
 - [ ] F-10 Environments, Sentry and EAS
@@ -125,6 +125,11 @@ Details:
 - [ ] C-06 Interactive pagination with prefetch and position restore
 - [ ] C-07 Media detail screen
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
+
+Details:
+
+### C-07 Media detail screen
+- Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
 
 ## Phase 3 — Library (guest first)
 
