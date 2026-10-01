@@ -27,6 +27,19 @@ const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
 // a cold deep link: the app starts on the url
 const openLink = (url: string) => renderRouterAsync(APP_ROUTES, { initialUrl: url });
 
+// back button props of the visible headers: the route name of the screen below ("(tabs)") must
+// never show as a back title or in the ios back history menu
+const visibleBackButtons = () =>
+  screen.container
+    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
+    .map(({ props }) => props as Record<string, unknown>)
+    .filter(({ hidden }) => hidden !== true)
+    .map(({ backTitle, backButtonDisplayMode, backTitleVisible, disableBackButtonMenu }) => ({
+      backTitle,
+      minimal: backButtonDisplayMode === 'minimal' || backTitleVisible === false,
+      disableBackButtonMenu,
+    }));
+
 const headerTitles = () =>
   screen.container
     .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
@@ -87,5 +100,12 @@ describe('media detail route', () => {
     expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
     // dismissed to the tabs below, not pushed: one Discover, no invalid link left to go back to
     expect(appRouter.canGoBack()).toBe(false);
+  });
+  it('shows no untranslated back title or back menu over the tabs', async () => {
+    await openLink('/media/anime/1');
+
+    expect(visibleBackButtons()).toStrictEqual([
+      { backTitle: undefined, minimal: true, disableBackButtonMenu: true },
+    ]);
   });
 });

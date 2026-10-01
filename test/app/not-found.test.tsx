@@ -26,6 +26,19 @@ const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
 
 const openLink = (url: string) => renderRouterAsync(APP_ROUTES, { initialUrl: url });
 
+// back button props of the visible headers: the route name of the screen below ("(tabs)") must
+// never show as a back title or in the ios back history menu
+const visibleBackButtons = () =>
+  screen.container
+    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
+    .map(({ props }) => props as Record<string, unknown>)
+    .filter(({ hidden }) => hidden !== true)
+    .map(({ backTitle, backButtonDisplayMode, backTitleVisible, disableBackButtonMenu }) => ({
+      backTitle,
+      minimal: backButtonDisplayMode === 'minimal' || backTitleVisible === false,
+      disableBackButtonMenu,
+    }));
+
 const headerTitles = () =>
   screen.container
     .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
@@ -68,5 +81,12 @@ describe('not found route', () => {
     expect(screen.getByTestId('discover-screen')).toBeOnTheScreen();
     expect(screen.queryByTestId(NOT_FOUND_TEST_ID)).not.toBeOnTheScreen();
     expect(appRouter.canGoBack()).toBe(false);
+  });
+  it('shows no untranslated back title or back menu over the tabs', async () => {
+    await openLink('/nowhere');
+
+    expect(visibleBackButtons()).toStrictEqual([
+      { backTitle: undefined, minimal: true, disableBackButtonMenu: true },
+    ]);
   });
 });

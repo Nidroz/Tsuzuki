@@ -26,6 +26,13 @@ export const unstable_settings = { initialRouteName: '(tabs)' };
 // the tabs navigator shows the header of each tab itself
 const TABS_OPTIONS = { headerShown: false } as const;
 
+// every screen of the root stack: the back button shows no title and no history menu, which would
+// show the untranslated route name of the screen below (the "(tabs)" group, on ios)
+const ROOT_SCREEN_OPTIONS = {
+  headerBackButtonDisplayMode: 'minimal',
+  headerBackButtonMenuEnabled: false,
+} as const;
+
 // development logs only: a key is not personal data. the polyfill above should make the plural
 // warning unreachable; it stays as a guard
 // TODO(F-10): report missing keys and the missing plural rules to Sentry in release builds
@@ -42,15 +49,11 @@ const warnMissingKey: MissingKeyHandler | undefined = __DEV__
 // the root stack, inside I18nProvider because its header titles are translated
 function RootStack() {
   const { t } = useTranslation();
-  // a minimal back button: no untranslated back title shows
-  const mediaOptions = useMemo(
-    () => ({ title: t('mediaDetail.title'), headerBackButtonDisplayMode: 'minimal' as const }),
-    [t],
-  );
+  const mediaOptions = useMemo(() => ({ title: t('mediaDetail.title') }), [t]);
   const notFoundOptions = useMemo(() => ({ title: t('notFound.title') }), [t]);
 
   return (
-    <Stack>
+    <Stack screenOptions={ROOT_SCREEN_OPTIONS}>
       <Stack.Screen name="(tabs)" options={TABS_OPTIONS} />
       <Stack.Screen name="media/[kind]/[id]" options={mediaOptions} />
       <Stack.Screen name="+not-found" options={notFoundOptions} />
