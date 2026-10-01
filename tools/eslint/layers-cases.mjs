@@ -41,7 +41,8 @@ export const MESSAGES = {
   literalText: 'routes and features show no hard-coded user-facing text',
 };
 
-export const APP_INDEX_FROM_SRC_LAYER = '../../app/index';
+// the Discover route (app/(tabs)/index.tsx), from a file at the root of a src/ layer
+export const APP_INDEX_FROM_SRC_LAYER = '../../app/(tabs)/index';
 
 const IMPLEMENTATIONS = [
   '@core/catalog/jikan/jikan-catalog-provider',
@@ -102,7 +103,7 @@ const APP_ROUTES = [
   PROBES.nestedLayout,
   EXISTING.index,
   PROBES.nestedRoute,
-  PROBES.notFound,
+  EXISTING.notFound,
 ];
 const CORE_FILES = [PROBES.core, PROBES.coreTest, PROBES.hooks];
 // every src/core and test/core file outside the implementation folders

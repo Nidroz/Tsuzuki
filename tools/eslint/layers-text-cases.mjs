@@ -19,9 +19,9 @@ import {
 // literal is text does not depend on the file: every probe on one route and one feature component,
 // every probe that is no text on one file, one probe of each kind on the other production files,
 // and one probe on the existing routes, linted with their project (the slowest to lint)
-const FULL_COMPONENTS = [PROBES.notFound, PROBES.featuresComponent];
-const SAMPLE_COMPONENTS = [PROBES.nestedLayout, PROBES.nestedRoute];
-const EXISTING_ROUTES = [EXISTING.layout, EXISTING.index];
+const FULL_COMPONENTS = [PROBES.nestedRoute, PROBES.featuresComponent];
+const SAMPLE_COMPONENTS = [PROBES.nestedLayout];
+const EXISTING_ROUTES = [EXISTING.layout, EXISTING.index, EXISTING.notFound];
 // src/ui renders the text it is given, src/core and src/platform are not screen layers, and tests
 // and fixtures hold literal data and assertions: whether the guards apply is decided per file, so
 // one probe of each kind on a file of each of these config entries and globs
@@ -49,14 +49,14 @@ export const REJECTED = {
 export const ALLOWED = {
   'no hard-coded text in routes and features': [
     ...allowed(PROBES.featuresComponent, NO_TEXT),
-    ...allowed([PROBES.notFound, ...SAMPLE_COMPONENTS], SAMPLE_NO_TEXT),
+    ...allowed([PROBES.nestedRoute, ...SAMPLE_COMPONENTS], SAMPLE_NO_TEXT),
     ...allowed(EXISTING_ROUTES, SAMPLE_NO_TEXT.slice(0, 1)),
     ...allowed(OUT_OF_SCOPE_COMPONENTS, SAMPLE_TEXT),
     ...allowed(OUT_OF_SCOPE_MODULES, SAMPLE_MODULE_TEXT),
   ],
   // documents a limit, not a rule: a syntax check sees the literal only where it is written
   'no hard-coded text: stored strings (currently allowed)': allowed(
-    [PROBES.notFound, PROBES.featuresComponent],
+    [PROBES.nestedRoute, PROBES.featuresComponent],
     STORED_TEXT,
   ),
   // documents a limit, not a rule: raising the bounds must update these cases on purpose

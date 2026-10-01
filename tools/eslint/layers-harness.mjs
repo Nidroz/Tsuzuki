@@ -19,8 +19,9 @@ export const LAYER_RULE_IDS = [
   'no-restricted-properties',
 ];
 
-// virtual probe paths, relative to the root. existing files (app/_layout.tsx, app/index.tsx) are
-// linted with their project and must not be listed
+// virtual probe paths, relative to the root: none of them may exist, since allowDefaultProject must
+// not match a file of the project. existing files (EXISTING below) are linted with their project and
+// must not be listed
 export const PROBES = {
   core: 'src/core/probe.ts',
   coreTest: 'test/core/probe.test.ts',
@@ -57,9 +58,9 @@ export const PROBES = {
   uiComponent: 'src/ui/probe.tsx',
   testMobileComponent: 'test/mobile/probe.tsx',
   layoutTs: 'app/_layout.ts',
-  nestedLayout: 'app/(tabs)/_layout.tsx',
-  nestedRoute: 'app/media/[kind]/[id].tsx',
-  notFound: 'app/+not-found.tsx',
+  // the shapes of app/(tabs)/_layout.tsx and app/media/[kind]/[id].tsx, under names no route uses
+  nestedLayout: 'app/(probe)/_layout.tsx',
+  nestedRoute: 'app/probe/[kind]/[id].tsx',
   // dotfiles and dot-folders: plain modules (.mjs), since typescript leaves ts dotfiles out of the
   // project
   featuresDotfile: 'src/features/.probe.mjs',
@@ -73,7 +74,13 @@ export const PROBES = {
   rootConfig: 'probe.config.mjs',
 };
 
-export const EXISTING = { layout: 'app/_layout.tsx', index: 'app/index.tsx' };
+// real files, linted with injected code: the root layout, the Discover route (the path /) and the
+// not-found route, which only means something at the root of app/
+export const EXISTING = {
+  layout: 'app/_layout.tsx',
+  index: 'app/(tabs)/index.tsx',
+  notFound: 'app/+not-found.tsx',
+};
 
 // allowDefaultProject takes minimatch globs: escape the characters of expo-router file names, and
 // the backslash itself (the escape character), so the glob matches the name literally

@@ -116,7 +116,7 @@ describe('test harness', () => {
     const source = path.join(ROOT, PROBES.features);
     assert.deepEqual(hybridResolver.resolve(APP_INDEX_FROM_SRC_LAYER, source), {
       found: true,
-      path: path.join(ROOT, 'app', 'index.tsx'),
+      path: path.join(ROOT, 'app', '(tabs)', 'index.tsx'),
     });
     assert.deepEqual(hybridResolver.resolve('react-native-foo', source), { found: false });
     assert.deepEqual(hybridResolver.resolve('../../tools/x', source), { found: false });

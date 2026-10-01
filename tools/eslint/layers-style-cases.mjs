@@ -142,7 +142,7 @@ const ROUTE_AND_FEATURE_COMPONENTS = [
   EXISTING.index,
   PROBES.nestedLayout,
   PROBES.nestedRoute,
-  PROBES.notFound,
+  EXISTING.notFound,
   PROBES.featuresComponent,
   PROBES.featuresTestComponent,
 ];

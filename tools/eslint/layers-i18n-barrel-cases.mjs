@@ -74,7 +74,7 @@ const deepDynamicImports = (file) =>
 // run one after the other: switching files costs more than linting one
 const FORM_FILES = [PROBES.features, PROBES.platform];
 const SAMPLE_FILES = [
-  PROBES.notFound,
+  EXISTING.notFound,
   PROBES.nestedRoute,
   PROBES.featuresTestComponent,
   PROBES.featuresFixture,
@@ -127,7 +127,7 @@ export const ALLOWED = {
       ...dynamics(BARREL),
     ]),
     ...allowed(
-      [PROBES.notFound, PROBES.featuresTestComponent],
+      [EXISTING.notFound, PROBES.featuresTestComponent],
       [...values(BARREL), ...types(BARREL)],
     ),
     ...allowed(EXISTING.layout, values(BARREL)),
