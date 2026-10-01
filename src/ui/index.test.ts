@@ -17,11 +17,13 @@ describe('src/ui public api', () => {
         'IconButton',
         'Input',
         'Pagination',
+        'RadioGroup',
         'Row',
         'Screen',
         'Spacer',
         'Spinner',
         'Stack',
+        'TabBarIcon',
         'Text',
         'ThemeProvider',
         'clampPage',
@@ -34,6 +36,9 @@ describe('src/ui public api', () => {
   it('does not expose internals such as the theme context or the class tables', () => {
     expect(ui).not.toHaveProperty('useThemeColors');
     expect(ui).not.toHaveProperty('palettes');
+    expect(ui).not.toHaveProperty('navigationThemeFor');
+    expect(ui).not.toHaveProperty('GLYPHS');
+    expect(ui).not.toHaveProperty('TAB_GLYPHS');
     expect(ui).not.toHaveProperty('PADDING');
   });
 });
