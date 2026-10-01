@@ -120,6 +120,7 @@ describe('root layout', () => {
       ['a french device', ['fr-FR'], fr.tabs.discover],
       ['a canadian french device', ['fr-CA', 'en-CA'], fr.tabs.discover],
       ['an english device', ['en-US'], en.tabs.discover],
+      ['a device in an unsupported language, falling back to english', ['de-DE'], en.tabs.discover],
       [
         'a device preferring an unsupported language, then french',
         ['de-DE', 'fr-FR'],

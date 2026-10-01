@@ -5,16 +5,11 @@ import { userEvent, within } from '@testing-library/react-native';
 import { screen } from 'expo-router/testing-library';
 import type { ComponentType, ReactNode } from 'react';
 
-import TabsLayout from '../../app/(tabs)/_layout';
-import FavoritesRoute from '../../app/(tabs)/favorites';
-import DiscoverRoute from '../../app/(tabs)/index';
-import LibraryRoute from '../../app/(tabs)/library';
-import SearchRoute from '../../app/(tabs)/search';
-import SettingsRoute from '../../app/(tabs)/settings';
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
 import { providersFor } from '../mobile/render-with-providers';
+import { APP_ROUTES } from './app-routes';
 
 // the tab bar order, with the path and the screen of each tab
 const TABS = [
@@ -27,14 +22,10 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]['id'];
 
-const ROUTES = {
-  '(tabs)/_layout': TabsLayout,
-  '(tabs)/index': DiscoverRoute,
-  '(tabs)/search': SearchRoute,
-  '(tabs)/library': LibraryRoute,
-  '(tabs)/favorites': FavoritesRoute,
-  '(tabs)/settings': SettingsRoute,
-};
+// the tabs group of the app routes, without the root layout
+const ROUTES = Object.fromEntries(
+  Object.entries(APP_ROUTES).filter(([name]) => name.startsWith('(tabs)/')),
+);
 
 const CATALOGS = { en, fr } as const;
 
