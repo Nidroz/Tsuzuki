@@ -1,6 +1,6 @@
 # e2e
 
-Maestro end-to-end flows in `flows/`. Today: a smoke flow (`flows/smoke.yaml`) checking that the app launches and shows the home screen. The critical flows from `CONTRIBUTING.md` §6 follow: search → add → +1 → favorite, sign in, guest → account merge.
+Maestro end-to-end flows in `flows/`. Today: a smoke flow (`flows/smoke.yaml`) checking that the app launches on the Discover screen, then pressing each tab of the tab bar (Search, Library, Favorites, Settings, back to Discover) and checking that its screen shows. The critical flows from `CONTRIBUTING.md` §6 follow: search → add → +1 → favorite, sign in, guest → account merge.
 
 ## Prerequisites
 
@@ -26,5 +26,4 @@ maestro test -e METRO_URL=exp://<lan-ip>:8081 e2e/flows
 
 ## Next
 
-- F-07 adds the tabs check to the smoke flow.
 - F-09 switches the flows from Expo Go to the development build.
