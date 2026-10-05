@@ -1,6 +1,6 @@
 # ADR-0011: Internationalization with i18next in the core
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-30
 
 ## Context
