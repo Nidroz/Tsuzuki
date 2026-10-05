@@ -1,6 +1,6 @@
 # ADR-0010: Test tooling split by runtime
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-09-28
 
 ## Context

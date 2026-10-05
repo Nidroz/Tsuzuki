@@ -12,3 +12,14 @@ allowBuilds:
   msw: false
   # denied: the native binary comes from optional platform packages, the postinstall is only a fallback
   unrs-resolver: false
+
+# high advisories without a patched version, in dev tooling only (never in the app bundle).
+# re-check at each dependency-update chore (M-01); remove once a patch exists
+auditConfig:
+  ignoreGhsas:
+    # node-forge, via expo > @expo/cli > @expo/code-signing-certificates: used only by the expo cli
+    # on the developer machine and in ci, on the repository's own inputs; the app never imports it
+    - GHSA-86w9-cpqp-85rv
+    # braces, via metro > metro-file-map > micromatch: used only by the metro bundler at build time,
+    # on glob patterns from the repository's own config, never on user input; not in the app bundle
+    - GHSA-vfj7-8cjw-p6xm
