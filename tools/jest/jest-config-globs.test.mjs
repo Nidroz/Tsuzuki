@@ -159,6 +159,7 @@ const NOT_COVERED = [
   'src/core/__fixtures__/a.ts',
   'src/core/__mocks__/a.ts',
   'test/core/fixed-clock.ts',
+  'src/core/repositories/supabase/database.types.ts',
 ];
 
 describe('collectCoverageFrom', () => {

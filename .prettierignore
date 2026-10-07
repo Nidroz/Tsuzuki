@@ -7,5 +7,5 @@ pnpm-lock.yaml
 # shell hooks are not a prettier language; husky generates .husky/_
 .husky/
 
-# formatting of migrations and edge functions is decided in F-08
-supabase/
+# sql and toml have no prettier parser here (no plugin added); revisit when edge functions arrive (A-06)
+/supabase/

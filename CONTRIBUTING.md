@@ -18,6 +18,7 @@ Read first: `SPEC.md` (what we build), `docs/ARCHITECTURE.md` (how), `docs/BACKL
 - Because `main` is the default branch, every PR must set its base explicitly: `gh pr create --base dev` (or `--base main` for hotfixes only). A feature PR targeting `main` is a blocker.
 - Conventional Commits, enforced by commitlint: `feat(library): add +1 progress button`.
 - Small, focused commits. Never commit generated files, secrets or `.env*` files (except `.env.example`).
+- Single exception for generated files: the database types `src/core/repositories/supabase/database.types.ts` are committed. Regenerate them with `pnpm db:types` in the same commit as the migration; CI fails when they drift.
 - Never `git push --force`, never push to `dev` or `main`, never merge. The owner pushes, opens and merges PRs unless explicitly told otherwise.
 
 ## 3. Commands
@@ -32,6 +33,7 @@ Read first: `SPEC.md` (what we build), `docs/ARCHITECTURE.md` (how), `docs/BACKL
 | `pnpm test` | Jest unit + component tests with coverage thresholds |
 | `pnpm test:tooling` | Node test runner tests of the repository tooling (commitlint rule, lint layer rules, local ESLint plugin) |
 | `pnpm test:rls` | pgTAP tests for RLS policies (needs `pnpm exec supabase start`) |
+| `pnpm db:types` | Regenerate the committed database types from the local database (needs `pnpm exec supabase start`) |
 | `pnpm test:e2e` | Maestro flows |
 | `pnpm check` | lint + format check + typecheck + unit/component tests + tooling tests (see below) — run before declaring any task done |
 | `pnpm exec supabase migration new <name>` | Create a migration (never edit an applied one) |

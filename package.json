@@ -19,6 +19,7 @@
     "test": "jest --coverage",
     "test:tooling": "node --test \"tools/**/*.test.mjs\"",
     "test:rls": "supabase test db",
+    "db:types": "supabase gen types typescript --local --schema public > src/core/repositories/supabase/database.types.ts && prettier --write src/core/repositories/supabase/database.types.ts",
     "test:e2e": "maestro test e2e/flows",
     "check": "pnpm lint && pnpm format:check && pnpm typecheck && pnpm test && pnpm test:tooling",
     "prepare": "husky"
