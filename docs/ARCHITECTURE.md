@@ -255,40 +255,52 @@ Implemented in `src/core/repositories/supabase/`. The OAuth browser step (`expo-
 
 ## 5. Data model (Supabase)
 
+The migrations in `supabase/migrations/` are the source of truth; this excerpt shows the design.
+
 ```sql
+create type public.media_kind as enum ('anime', 'manga');
+create type public.library_status as enum ('current', 'planned', 'completed', 'paused', 'dropped');
+
 -- profiles: one row per auth user
 create table public.profiles (
   id uuid primary key references auth.users on delete cascade,
-  username text unique check (char_length(username) between 3 and 30),
-  preferences jsonb not null default '{}'::jsonb,  -- theme, language, showAdult
+  preferences jsonb not null default '{}'::jsonb,  -- theme, language, showAdult; shape validated with Zod on read
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint profiles_preferences_object_check check (jsonb_typeof(preferences) = 'object'),
+  constraint profiles_preferences_size_check check (octet_length(preferences::text) <= 4096)
 );
-
-create type media_kind as enum ('anime', 'manga');
-create type library_status as enum ('current', 'planned', 'completed', 'paused', 'dropped');
 
 create table public.library_entries (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users on delete cascade default auth.uid(),
-  media_kind media_kind not null,
-  mal_id integer not null check (mal_id > 0),
+  user_id uuid not null default auth.uid() references auth.users on delete cascade,
+  media_kind public.media_kind not null,
+  mal_id integer not null,  -- the integer type caps it at MAL_ID_MAX (src/core/domain/media.ts)
   -- per-user snapshot of the media, refreshed when the detail screen is viewed
   media_title text not null,
   media_image_url text,
   media_format text not null,
-  media_total_units integer check (media_total_units > 0),
+  media_total_units integer,
   media_is_adult boolean not null default false,
-  status library_status not null default 'planned',
-  progress integer not null default 0 check (progress >= 0),
-  score smallint check (score between 1 and 10),
-  notes text check (char_length(notes) <= 2000),
+  status public.library_status not null default 'planned',
+  progress integer not null default 0,
+  score smallint,
+  notes text,
   is_favorite boolean not null default false,
   started_at date,
   finished_at date,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (user_id, media_kind, mal_id)
+  constraint library_entries_mal_id_check check (mal_id > 0),
+  constraint library_entries_media_title_check check (char_length(media_title) between 1 and 500),
+  constraint library_entries_media_image_url_check
+    check (media_image_url like 'https://%' and char_length(media_image_url) <= 2048),
+  constraint library_entries_media_format_check check (char_length(media_format) between 1 and 32),
+  constraint library_entries_media_total_units_check check (media_total_units > 0),
+  constraint library_entries_progress_check check (progress >= 0),           -- BR-01 floor only
+  constraint library_entries_score_check check (score between 1 and 10),     -- BR-07
+  constraint library_entries_notes_check check (char_length(notes) <= 2000), -- BR-07
+  constraint library_entries_user_media_key unique (user_id, media_kind, mal_id)
 );
 
 create index library_entries_user_status_idx on public.library_entries (user_id, status);
@@ -304,31 +316,69 @@ create table public.progress_events (
   to_progress integer not null,
   created_at timestamptz not null default now()
 );
+
+create index progress_events_entry_idx on public.progress_events (entry_id);
+create index progress_events_user_created_idx on public.progress_events (user_id, created_at desc);
 ```
 
 - The media snapshot is stored **per user** in `library_entries` instead of a shared `media` table: a shared table writable by clients would let any user alter titles or image URLs seen by everyone.
-- `updated_at` is maintained by a trigger; `progress_events` rows are inserted by a trigger on progress change, never by the client.
-- There is no database check `progress <= media_total_units`: BR-01 is enforced in the domain on user edits, and a snapshot refresh must never fail when the provider total drops below the saved progress. The UI shows progress above total gracefully. To be finalized in F-08.
+- `profiles` has no `username` in v1: no requirement uses it, and a unique username would let callers probe which names exist.
+- The only progress check in the database is `progress >= 0`. There is no `progress <= media_total_units` check: BR-01's upper bound is enforced in the domain on user edits, and a snapshot refresh must never fail when the provider total drops below the saved progress. The UI shows progress above total gracefully.
+- `updated_at` is set by a `before update` trigger on `profiles` and `library_entries`; client values are overwritten.
+- `progress_events` rows are written by an `after update of progress` trigger on `library_entries`, only when the progress value changes. There is no insert trigger: logging an insert or a guest merge would invent history.
+- A `profiles` row is created by a trigger on `auth.users` insert, which never reads `raw_user_meta_data` (user-controlled at sign-up). `profiles` has no insert or delete policy.
+- Every foreign key to `auth.users` cascades, so deleting the auth user removes the profile, the library entries and the progress events (account deletion, A-06).
 - Guest merge (BR-08) goes through a Postgres function (`security invoker`, so RLS applies) doing last-write-wins on a client-provided timestamp, since the `updated_at` trigger overwrites client values. To be finalized in A-04.
 
+### Functions
+
+All functions live in schema `private`, which the API does not expose and on which `anon` and `authenticated` have no usage. Each one sets `search_path = ''`, uses fully qualified names, and has `execute` revoked from `public`, `anon` and `authenticated`. `private.log_progress_event` and `private.handle_new_user` are `security definer`: clients have no insert grant or policy on `progress_events`, and the auth server's role has no grant on `profiles`. `private.set_updated_at` is `security invoker`.
+
 ### Row Level Security
+
+One policy per command, `to authenticated` only:
 
 ```sql
 alter table public.profiles enable row level security;
 alter table public.library_entries enable row level security;
 alter table public.progress_events enable row level security;
 
-create policy "own profile" on public.profiles
-  for all to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
+-- no insert or delete policy: created by trigger, removed by cascade
+create policy profiles_select_own on public.profiles
+  for select to authenticated using (id = (select auth.uid()));
+create policy profiles_update_own on public.profiles
+  for update to authenticated using (id = (select auth.uid())) with check (id = (select auth.uid()));
 
-create policy "own entries" on public.library_entries
-  for all to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy library_entries_select_own on public.library_entries
+  for select to authenticated using (user_id = (select auth.uid()));
+create policy library_entries_insert_own on public.library_entries
+  for insert to authenticated with check (user_id = (select auth.uid()));
+create policy library_entries_update_own on public.library_entries
+  for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+create policy library_entries_delete_own on public.library_entries
+  for delete to authenticated using (user_id = (select auth.uid()));
 
-create policy "read own events" on public.progress_events
+-- read only: rows are written by the progress trigger
+create policy progress_events_select_own on public.progress_events
   for select to authenticated using (user_id = (select auth.uid()));
 ```
 
-No policy grants anything to `anon`. Every policy has pgTAP tests (owner allowed, other user denied, anon denied).
+### Grants
+
+Least privilege, fail closed:
+
+- `anon` has no grant on any table, sequence or function of the schemas `public` and `private` (extension objects aside), and no policy. The Supabase-managed schemas (`graphql_public`, `extensions`) keep their platform grants.
+- Default privileges for role `postgres` in schema `public` revoke tables, sequences and functions from `anon` and `authenticated`, so a future object without explicit grants is unreachable instead of exposed.
+- Per-schema default privileges cannot remove the global `PUBLIC` execute on new functions, so every function needs its own `revoke execute`; the pgTAP guard `010-privileges` fails when one is missing.
+- `service_role` keeps the Supabase defaults (Edge Functions only).
+
+| Table | `authenticated` |
+| --- | --- |
+| `profiles` | `select`; `update (preferences)` |
+| `library_entries` | `select`, `delete`; `insert` and `update` on every column except `id`, `user_id`, `created_at`, `updated_at`. `media_kind` and `mal_id` stay writable because PostgREST upserts list every payload column in `DO UPDATE SET` |
+| `progress_events` | `select` only |
+
+pgTAP (`supabase/tests/database/`) covers owner CRUD, cross-user denial, anon denial, the constraints (BR-01, BR-07) and the triggers. `000-rls-enabled` and `010-privileges` are lasting guards over every table and function. The generated types `src/core/repositories/supabase/database.types.ts` are committed and regenerated with `pnpm db:types`.
 
 ## 6. Caching and performance
 
@@ -436,7 +486,7 @@ flowchart LR
 | `typecheck` | CI | `tsc --noEmit` |
 | `test` | CI | Jest with coverage thresholds |
 | `tooling` | CI | `pnpm test:tooling` |
-| `rls` | CI | `pnpm exec supabase db start` (database only, Supabase CLI locked by the lockfile), `pnpm test:rls`, then stop |
+| `rls` | CI | `pnpm exec supabase db start` (database only, Supabase CLI locked by the lockfile), `pnpm test:rls`, then checks that the committed database types match the migrations (`pnpm db:types`, then `git diff --exit-code`), then stop |
 | `security` | CI | gitleaks v8.30.1 binary pinned by sha256 over the PR commit range (full history on push to `dev`), then `pnpm audit --audit-level high` |
 | `base-branch` | PR policy | `tools/ci/base-branch.mjs`: a PR to `main` must come from this repository and from `dev`, `hotfix/*` or a release-please branch, which is exactly `release-please--branches--main` or `release-please--branches--main--components--<component>` (look-alike names are rejected); work branches (`feat/*`, `fix/*`, `chore/*`, `docs/*`, `test/*`) and any other branch are rejected. PRs to `dev` are unrestricted |
 | `pr-title` | PR policy | commitlint on the PR title with `commitlint.config.mjs`: squash merges use the title as the commit message, and release-please reads it. The job lints `<title> (#<number>)`, the header GitHub gives the squash commit on `dev`, so a title that fits only without the suffix cannot land a header over 100 characters that would block every later release PR's `commits` job (`main..dev`) |
