@@ -19,7 +19,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-05 Theme and UI primitives
 - [x] F-06 Internationalization
 - [x] F-07 Navigation shell
-- [ ] F-08 Supabase schema v1
+- [x] F-08 Supabase schema v1
 - [ ] F-09 Platform adapters and query client
 - [ ] F-10 Environments, Sentry and EAS
 
@@ -142,12 +142,17 @@ Details:
 
 ## Phase 4 — Accounts and sync
 
-- [ ] A-01 Email auth (sign up with confirmation, sign in, reset password)
+- [ ] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [ ] A-02 Google and Apple sign-in (PKCE)
 - [ ] A-03 Supabase library repository + repository switch on auth state
 - [ ] A-04 Guest → account merge (BR-08)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
+
+Details:
+
+### A-03 Supabase library repository
+- The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
 
 ## Phase 5 — Release
 
@@ -166,6 +171,9 @@ Details:
 
 ### R-02 Performance pass
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
+
+### R-04 MASVS L1 security review
+- Per-user quotas or rate limiting on writes: an authenticated user can insert unlimited `library_entries` and grow `progress_events` without bound by toggling progress (F-08 review). Decide a cap (row limit trigger or Edge Function) and add the threat to `ARCHITECTURE.md` §9.
 
 ## Maintenance (recurring, never ticked)
 

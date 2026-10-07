@@ -104,6 +104,9 @@ jobs:
         run: pnpm exec supabase db start
       - name: Test the RLS policies
         run: pnpm test:rls
+      # the committed database types must match the migrations
+      - name: Check the generated database types
+        run: pnpm db:types && git diff --exit-code -- src/core/repositories/supabase/database.types.ts
       # only once the start was attempted: pnpm exec would otherwise try to install (verifyDepsBeforeRun)
       - name: Stop the local database
         if: always() && steps.start-database.outcome != 'skipped'

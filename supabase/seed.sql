@@ -1,0 +1,3 @@
+-- intentionally empty: the seed holds no users and no personal data.
+-- test users are created inside the pgTAP files in supabase/tests, each in its own rolled-back
+-- transaction.
