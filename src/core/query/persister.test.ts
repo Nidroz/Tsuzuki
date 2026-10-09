@@ -12,6 +12,7 @@ import {
   createPersistOptions,
   createQueryPersister,
 } from './persister';
+import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
 import { createQueryClient } from './query-client';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
@@ -41,8 +42,13 @@ const save = async (
   queryClient: QueryClient,
   storage: StorageAdapter,
   appVersion = APP_VERSION,
+  cacheSchemaVersion = CACHE_SCHEMA_VERSION,
 ): Promise<void> => {
-  const options = createPersistOptions({ persister: createQueryPersister(storage), appVersion });
+  const options = createPersistOptions({
+    persister: createQueryPersister(storage),
+    appVersion,
+    cacheSchemaVersion,
+  });
   await persistQueryClientSave({ ...options, queryClient });
   jest.advanceTimersByTime(PERSIST_THROTTLE_MS);
 };
@@ -58,11 +64,11 @@ const restore = async (storage: StorageAdapter): Promise<QueryClient> => {
 };
 
 describe('createPersistOptions', () => {
-  it('keeps the cache for the max age and busts it by app version', () => {
+  it('keeps the cache for the max age and busts it by app and cache schema version', () => {
     const persister = createQueryPersister(createMemoryStorage());
     const options = createPersistOptions({ persister, appVersion: APP_VERSION });
     expect(options.maxAge).toBe(PERSISTED_CACHE_MAX_AGE);
-    expect(options.buster).toBe(APP_VERSION);
+    expect(options.buster).toBe(`${APP_VERSION}+${String(CACHE_SCHEMA_VERSION)}`);
     expect(options.persister).toBe(persister);
   });
 });
@@ -84,6 +90,17 @@ describe('createQueryPersister', () => {
     const source = createQueryClient();
     source.setQueryData(MEDIA_KEY, MEDIA);
     await save(source, storage, PREVIOUS_APP_VERSION);
+
+    const restored = await restore(storage);
+    expect(restored.getQueryData(MEDIA_KEY)).toBeUndefined();
+    expect(storage.values.has(QUERY_CACHE_STORAGE_KEY)).toBe(false);
+  });
+
+  it('drops a cache written with another cache schema version of the same app version', async () => {
+    const storage = createMemoryStorage();
+    const source = createQueryClient();
+    source.setQueryData(MEDIA_KEY, MEDIA);
+    await save(source, storage, APP_VERSION, CACHE_SCHEMA_VERSION - 1);
 
     const restored = await restore(storage);
     expect(restored.getQueryData(MEDIA_KEY)).toBeUndefined();

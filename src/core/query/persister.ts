@@ -7,6 +7,7 @@ import type {
 import { z } from 'zod';
 
 import type { StorageAdapter } from '../repositories/storage-adapter';
+import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
 /** storage key of the persisted query cache. */
@@ -93,16 +94,22 @@ export const createQueryPersister = (storage: StorageAdapter): Persister => {
 interface PersistOptionsInput {
   persister: Persister;
   appVersion: string;
+  // overridable for tests only; the app uses CACHE_SCHEMA_VERSION
+  cacheSchemaVersion?: number;
 }
 
-/** persistence options: a new app version drops the cache, only successful queries are kept. */
+/**
+ * persistence options: a new app version or cache schema version drops the cache,
+ * only successful queries are kept.
+ */
 export const createPersistOptions = ({
   persister,
   appVersion,
+  cacheSchemaVersion = CACHE_SCHEMA_VERSION,
 }: PersistOptionsInput): Omit<PersistQueryClientOptions, 'queryClient'> => ({
   persister,
   maxAge: PERSISTED_CACHE_MAX_AGE,
-  buster: appVersion,
+  buster: `${appVersion}+${String(cacheSchemaVersion)}`,
   dehydrateOptions: {
     shouldDehydrateQuery: (query) => query.state.status === QUERY_STATUS_PERSISTED,
   },
