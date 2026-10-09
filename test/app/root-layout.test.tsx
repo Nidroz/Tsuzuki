@@ -1,16 +1,20 @@
 import { useTranslation } from '@core/i18n/index';
+import { LANGUAGE_PREFERENCE_KEY } from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, within } from '@testing-library/react-native';
+import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import { Spinner } from '@ui/index';
 import type * as Localization from 'expo-localization';
 import type * as React from 'react';
 import { screen } from 'expo-router/testing-library';
 import { Text } from 'react-native';
+import { createMMKV } from 'react-native-mmkv';
 
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
+import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 
 const ROOT_PATHNAME = '/';
@@ -57,9 +61,17 @@ jest.mock('expo-localization', () => {
   };
 });
 
-// the store outlives each test: every test starts on an english device
+// the layout opens its storage when it is imported: the shared instance lets a test seed it
+jest.mock('react-native-mmkv', () =>
+  jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+
+const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+
+// the stores outlive each test: every test starts on an english device with nothing stored
 beforeEach(() => {
   mockDeviceLocales.set(localesOf('en-US'));
+  appStorage.clearAll();
 });
 
 // the discover route is a stub: this test covers the layouts alone
@@ -149,6 +161,26 @@ describe('root layout', () => {
 
       expect(discoverTabLabel(fr.tabs.discover)).toBeOnTheScreen();
       expect(screen.queryByText(en.tabs.discover)).not.toBeOnTheScreen();
+    });
+  });
+
+  describe('with a stored language preference', () => {
+    it('shows the routes in the stored language from the first render', async () => {
+      appStorage.set(LANGUAGE_PREFERENCE_KEY, 'fr');
+
+      await renderApp();
+
+      expect(discoverTabLabel(fr.tabs.discover)).toBeOnTheScreen();
+      expect(screen.queryByText(en.tabs.discover)).not.toBeOnTheScreen();
+    });
+
+    it('falls back to the device language when the stored value is invalid', async () => {
+      mockDeviceLocales.set(localesOf('fr-FR'));
+      appStorage.set(LANGUAGE_PREFERENCE_KEY, 'klingon');
+
+      await renderApp();
+
+      expect(discoverTabLabel(fr.tabs.discover)).toBeOnTheScreen();
     });
   });
 

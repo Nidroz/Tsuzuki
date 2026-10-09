@@ -1,15 +1,19 @@
+import { LANGUAGE_PREFERENCE_KEY, THEME_PREFERENCE_KEY } from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import { userEvent, within } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { useTheme } from 'expo-router';
 import { screen } from 'expo-router/testing-library';
 import type * as Nativewind from 'nativewind';
 import { Text } from 'react-native';
+import { createMMKV } from 'react-native-mmkv';
 
 import DiscoverRoute from '../../app/(tabs)/index';
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
+import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { appRoutesWithDiscover } from './app-routes';
 
 type ColorScheme = 'light' | 'dark';
@@ -38,6 +42,13 @@ jest.mock('nativewind', () => {
   };
 });
 
+// the layout opens its storage when it is imported: the shared instance lets a test seed and read it
+jest.mock('react-native-mmkv', () =>
+  jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+
+const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+
 const NAVIGATION_SCHEME_TEST_ID = 'navigation-scheme';
 
 // the real Discover route, plus the scheme of the navigation theme navigators read (react
@@ -60,8 +71,32 @@ const tabLabel = (id: keyof typeof en.tabs, label: string) =>
 const navigationScheme = () => screen.getByTestId(NAVIGATION_SCHEME_TEST_ID);
 
 describe('settings route', () => {
+  // the storage outlives each test: every test starts with nothing stored
   beforeEach(() => {
     mockDeviceScheme.mockReturnValue('light');
+    appStorage.clearAll();
+  });
+
+  it('opens with the stored theme applied and checked', async () => {
+    appStorage.set(THEME_PREFERENCE_KEY, 'dark');
+    const user = userEvent.setup();
+    await renderApp();
+
+    expect(navigationScheme()).toHaveTextContent('dark');
+    await user.press(screen.getByTestId('tab-settings'));
+    expect(screen.getByTestId('theme-picker-dark')).toBeChecked();
+  });
+
+  it('stores the theme and language selected', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.press(screen.getByTestId('tab-settings'));
+
+    await user.press(screen.getByTestId('theme-picker-dark'));
+    await user.press(screen.getByTestId('language-picker-fr'));
+
+    expect(appStorage.getString(THEME_PREFERENCE_KEY)).toBe('dark');
+    expect(appStorage.getString(LANGUAGE_PREFERENCE_KEY)).toBe('fr');
   });
 
   it('opens from its tab with the system theme and language checked', async () => {
