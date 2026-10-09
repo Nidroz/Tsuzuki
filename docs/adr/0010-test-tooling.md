@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-28
+- Amended: 2026-10-09. E2E flows run against the EAS development build instead of Expo Go since F-09 (Expo Go cannot load the MMKV native module), and target the development variant's app id `io.github.nidroz.tsuzuki.dev` since F-10 (ADR-0012).
 
 ## Context
 

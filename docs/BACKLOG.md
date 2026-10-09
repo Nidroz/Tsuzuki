@@ -21,7 +21,8 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-07 Navigation shell
 - [x] F-08 Supabase schema v1
 - [x] F-09 Platform adapters and query client
-- [ ] F-10 Environments, Sentry and EAS
+- [x] F-10 Environments, Sentry and EAS
+- [ ] F-11 Release pipeline and error reporting hardening (F-10 review follow-ups)
 
 Details:
 
@@ -116,6 +117,13 @@ Details:
 - Serialize reads and writes per key inside the chunked session storage (`src/platform/secure-session.ts`, F-09 review): overwriting a session is not atomic, and supabase-js takes no lock by default, so a read during an overwrite can see mixed chunks, find an invalid session and remove it (silent sign-out). Queue the calls per key, with a test of a read interleaved with an overwrite.
 - Cache buster beyond the app version (F-09 review): an EAS update keeps the app version, so a restored query cache could hold data in an older shape. Build the buster from `APP_VERSION` plus a core `CACHE_SCHEMA_VERSION` (or the update id), with a test that changing it drops the cache.
 - **Acceptance**: preview build installs on a device; a test proves PII scrubbing.
+
+### F-11 Release pipeline and error reporting hardening (F-10 review follow-ups)
+- `release.yml`: deploy to production only when the `v*` tag points to a commit on `main` (ancestor check of `origin/main`), and document a tag ruleset restricting who can create `v*` tags.
+- EAS build quota: the preview build runs on every non-documentation push to `dev`. Add a path filter or batch the builds, and record the quota in ADR-0012.
+- `tools/expo/resolve-ts-imports.cjs`: force the `module-typescript` format only for imports from the app config and its TypeScript imports, not for every `.ts` file resolved in the process; retry with `.ts` only on `ERR_MODULE_NOT_FOUND` and rethrow the original error when the retry fails.
+- `src/platform/sentry-scrub.ts`: drop `request.env`; scrub free-text `notes=...`, single-quoted `{'notes': '...'}` and phone numbers, or record them as accepted limitations in `ARCHITECTURE.md` §9.
+- `src/platform/secure-session.ts`: a write issues about 63 keychain deletes (95 with a legacy header). Delete only the previous generation's chunks, read from its header, and sweep every key only when the header was missing or invalid.
 
 ## Phase 2 — Catalog
 
