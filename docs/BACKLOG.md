@@ -20,7 +20,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-06 Internationalization
 - [x] F-07 Navigation shell
 - [x] F-08 Supabase schema v1
-- [ ] F-09 Platform adapters and query client
+- [x] F-09 Platform adapters and query client
 - [ ] F-10 Environments, Sentry and EAS
 
 Details:
@@ -113,6 +113,8 @@ Details:
 - `expo-localization` config plugin with `supportedLocales` (`en`, `fr`), so the OS per-app language setting lists the app languages (deferred from F-06).
 - ESLint `no-console` everywhere except the Sentry adapter.
 - Workflows: EAS preview build + staging migrations on merge to `dev`; production build, prod migrations and store submission on release tag from `main`; back-merge `main` → `dev` after each release.
+- Serialize reads and writes per key inside the chunked session storage (`src/platform/secure-session.ts`, F-09 review): overwriting a session is not atomic, and supabase-js takes no lock by default, so a read during an overwrite can see mixed chunks, find an invalid session and remove it (silent sign-out). Queue the calls per key, with a test of a read interleaved with an overwrite.
+- Cache buster beyond the app version (F-09 review): an EAS update keeps the app version, so a restored query cache could hold data in an older shape. Build the buster from `APP_VERSION` plus a core `CACHE_SCHEMA_VERSION` (or the update id), with a test that changing it drops the cache.
 - **Acceptance**: preview build installs on a device; a test proves PII scrubbing.
 
 ## Phase 2 — Catalog
@@ -173,6 +175,7 @@ Details:
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
 
 ### R-04 MASVS L1 security review
+- Review the unencrypted MMKV instance (F-09, owner decision): it holds the persisted query cache and the preferences, never the session. Decide whether user data in the cache (library notes from A-03) needs MMKV encryption with a key kept in secure-store.
 - Per-user quotas or rate limiting on writes: an authenticated user can insert unlimited `library_entries` and grow `progress_events` without bound by toggling progress (F-08 review). Decide a cap (row limit trigger or Edge Function) and add the threat to `ARCHITECTURE.md` §9.
 
 ## Maintenance (recurring, never ticked)

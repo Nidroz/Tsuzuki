@@ -33,8 +33,9 @@ Tsuzuki is a mobile app (Android + iOS) to track anime, manga, manhwa and manhua
 ## Getting started
 
 ```bash
-# prerequisites: Node 22.22.1+ (see .nvmrc), Corepack, Docker (local Supabase), EAS CLI
-# the Supabase CLI is a dev dependency locked by the lockfile: run it with `pnpm exec supabase`
+# prerequisites: Node 22.22.1+ (see .nvmrc), Corepack, Docker (local Supabase)
+# the Supabase and EAS CLIs are dev dependencies locked by the lockfile: run them with
+# `pnpm exec supabase` and `pnpm exec eas` (no global install)
 corepack enable                   # provides the pnpm version pinned in package.json
 pnpm install
 cp .env.example .env.local        # fill in the Supabase URL and anon key (from F-10)
@@ -42,6 +43,31 @@ pnpm exec supabase start          # local Supabase stack (Docker)
 pnpm exec supabase db reset       # apply migrations + seed (from F-08)
 pnpm start                        # Expo dev server
 ```
+
+### Development build
+
+The app uses native modules (MMKV, secure storage) that Expo Go does not include: it runs in a development build of its own, built in the cloud by EAS (no Android SDK needed).
+
+One-time setup:
+
+```bash
+pnpm exec eas login               # sign in with your Expo account
+pnpm exec eas init                # creates the EAS project and prints its id
+```
+
+`app.config.ts` is dynamic, so `eas init` cannot write the id there: paste the printed project id into `EAS_PROJECT_ID` in `app.config.ts`.
+
+Build and install:
+
+```bash
+pnpm exec eas build --profile development --platform android
+```
+
+1. When the build finishes, open its link (or scan the QR code of the build page) on the phone.
+2. Allow installing apps from this source when Android asks, then install the APK.
+3. Run `pnpm start` and open the project from the development build (scan the QR code printed in the terminal).
+
+JavaScript changes reload from Metro without a new build. Rebuild only when native code or native config changes: after adding a native dependency, or editing a config plugin or the native settings of `app.config.ts`. EAS cloud builds count against a monthly free-tier quota.
 
 ## Scripts
 

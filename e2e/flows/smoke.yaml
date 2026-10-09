@@ -1,12 +1,15 @@
 # smoke flow: the app launches on Discover, and each of the five tabs opens its screen.
-# expo go today; F-09 switches appId to the development build.
-# metro on this machine by default; a phone on the LAN overrides it:
-# maestro test -e METRO_URL=exp://<lan-ip>:8081 e2e/flows
-appId: host.exp.exponent
+# runs in the development build (app id io.github.nidroz.tsuzuki), opened on the project with
+# the dev-client deep link tsuzuki://expo-development-client/?url=<url-encoded metro url>;
+# disableOnboarding=1 skips the dev menu onboarding popup that would cover the screen.
+# metro on this machine by default, reached from the device after adb reverse tcp:8081 tcp:8081;
+# a phone on the LAN overrides it:
+# maestro test -e METRO_URL=http://<lan-ip>:8081 e2e/flows
+appId: io.github.nidroz.tsuzuki
 ---
 - launchApp:
     clearState: true
-- openLink: ${METRO_URL || 'exp://127.0.0.1:8081'}
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
 # the first bundle can take a while
 - extendedWaitUntil:
     visible:
