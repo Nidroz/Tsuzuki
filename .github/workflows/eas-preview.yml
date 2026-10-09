@@ -1,0 +1,78 @@
+name: EAS preview
+
+on:
+  push:
+    branches: [dev]
+    # documentation alone changes neither the database nor the app
+    paths-ignore: ['docs/**', '**/*.md']
+
+permissions: {}
+
+# a running deployment is never cancelled: it could stop a migration halfway. later pushes wait
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  staging:
+    name: staging
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # secrets and variables of the staging project; deploys from dev only (ARCHITECTURE.md section 10)
+    environment: staging
+    permissions:
+      contents: read
+    steps:
+      # the secrets are compared, never exposed to the shell
+      - name: Check the environment secrets and variables
+        env:
+          HAS_EXPO_TOKEN: ${{ secrets.EXPO_TOKEN != '' }}
+          HAS_SUPABASE_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN != '' }}
+          HAS_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD != '' }}
+          HAS_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF != '' }}
+        run: |
+          missing=0
+          for entry in "EXPO_TOKEN:$HAS_EXPO_TOKEN" "SUPABASE_ACCESS_TOKEN:$HAS_SUPABASE_TOKEN" \
+            "SUPABASE_DB_PASSWORD:$HAS_DB_PASSWORD" "SUPABASE_PROJECT_REF:$HAS_PROJECT_REF"; do
+            if [[ "${entry#*:}" != 'true' ]]; then
+              echo "::error::${entry%%:*} is not set in the staging environment"
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up
+        uses: ./.github/actions/setup
+      # migrations first: they stay compatible with the binaries already installed. the supabase cli
+      # is the dev dependency locked by the lockfile
+      - name: Link the staging project
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+        run: pnpm exec supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      - name: Apply the migrations
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: pnpm exec supabase db push
+      # eas-cli is the dev dependency locked by the lockfile. it evaluates app.config.ts with the
+      # plain text variables of the profile's eas environment (preview), which hold the app env; the
+      # build runs on eas and uploads the source maps with the eas secret SENTRY_AUTH_TOKEN
+      - name: Build the Android preview
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: pnpm exec eas build --profile preview --platform android --non-interactive --no-wait
+      # off until the repository variable IOS_BUILDS_ENABLED is 'true'
+      - name: Build the iOS preview
+        if: vars.IOS_BUILDS_ENABLED == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: pnpm exec eas build --profile preview --platform ios --non-interactive --no-wait
