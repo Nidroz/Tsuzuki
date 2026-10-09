@@ -111,7 +111,7 @@ describe('app.config.ts', () => {
     });
 
     assert.match(config.error, /Invalid app env: supabaseUrl/);
-    assert.equal(config.error.includes(insecureUrl), false);
+    assert.doesNotMatch(config.error, /placeholder\.supabase\.co/);
   });
 
   it('fails on a secret supabase key, without printing it', () => {

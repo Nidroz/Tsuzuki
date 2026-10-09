@@ -14,7 +14,7 @@ const jwt = (payload: unknown): string =>
   ].join('.');
 
 const SUPABASE_URL = 'https://abcdefgh.supabase.co';
-const PUBLISHABLE_KEY = 'sb_publishable_AbC123_x-Y';
+const PUBLISHABLE_KEY = 'sb_publishable_AbC123_x-Y'; // gitleaks:allow
 const SECRET_KEY = 'sb_secret_AbC123';
 const SENTRY_DSN = 'https://0123abcdef@o12345.ingest.de.sentry.io/678';
 

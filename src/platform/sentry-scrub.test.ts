@@ -6,10 +6,10 @@ import { scrubBreadcrumb, scrubEvent, scrubRecord, scrubText, stripQuery } from 
 // fake personal data and credentials: each one must be absent from every scrubbed payload
 const EMAIL = 'jane.doe+anime@example.com';
 const JWT =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWlkIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.c2lnbmF0dXJlLXZhbHVl';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLWlkIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.c2lnbmF0dXJlLXZhbHVl'; // gitleaks:allow
 const OPAQUE_TOKEN = 'opaque-refresh-token-1234';
-const PUBLISHABLE_KEY = 'sb_publishable_AbCdEf123-xyz';
-const SECRET_KEY = 'sb_secret_ZyXwV987_abc';
+const PUBLISHABLE_KEY = 'sb_publishable_AbCdEf123-xyz'; // gitleaks:allow
+const SECRET_KEY = 'sb_secret_ZyXwV987_abc'; // gitleaks:allow
 const COOKIE = 'sb-access-token=cookie-session-value';
 const NOTE = 'rewatch episode 3 with my sister';
 const USER_ID = 'user-id-42';
