@@ -1,11 +1,12 @@
 # smoke flow: the app launches on Discover, and each of the five tabs opens its screen.
-# runs in the development build (app id io.github.nidroz.tsuzuki), opened on the project with
-# the dev-client deep link tsuzuki://expo-development-client/?url=<url-encoded metro url>;
+# runs in the development build (development variant, app id io.github.nidroz.tsuzuki.dev,
+# ADR-0012), opened on the project with the dev-client deep link
+# tsuzuki://expo-development-client/?url=<url-encoded metro url>;
 # disableOnboarding=1 skips the dev menu onboarding popup that would cover the screen.
 # metro on this machine by default, reached from the device after adb reverse tcp:8081 tcp:8081;
 # a phone on the LAN overrides it:
 # maestro test -e METRO_URL=http://<lan-ip>:8081 e2e/flows
-appId: io.github.nidroz.tsuzuki
+appId: io.github.nidroz.tsuzuki.dev
 ---
 - launchApp:
     clearState: true

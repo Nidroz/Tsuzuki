@@ -1,0 +1,57 @@
+name: Back-merge
+
+on:
+  push:
+    # every release and hotfix ships through a release-please tag
+    tags: ['v*']
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  back-merge:
+    name: back-merge
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # the job needs no GITHUB_TOKEN permission and no checkout: it works with the token below
+    permissions: {}
+    steps:
+      # the token is compared, never exposed to the shell
+      - name: Check the release token
+        env:
+          HAS_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN != '' }}
+        run: |
+          if [[ "$HAS_TOKEN" != 'true' ]]; then
+            echo '::error::the RELEASE_PLEASE_TOKEN secret is not set'
+            exit 1
+          fi
+      # the owner's token, not GITHUB_TOKEN: a pull request opened with GITHUB_TOKEN would not
+      # trigger the required checks. the owner merges it with a merge commit
+      - name: Open the pull request from main to dev
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # commits of main missing from dev
+          ahead="$(gh api "repos/${REPOSITORY}/compare/dev...main" --jq '.ahead_by')"
+          if [[ "$ahead" == '0' ]]; then
+            echo 'dev already contains main: nothing to merge back'
+            exit 0
+          fi
+          open="$(gh pr list --repo "$REPOSITORY" --base dev --head main --state open \
+            --json number --jq 'length')"
+          if [[ "$open" != '0' ]]; then
+            echo 'a pull request from main to dev is already open'
+            exit 0
+          fi
+          gh pr create --repo "$REPOSITORY" --base dev --head main \
+            --title "chore: merge main back into dev after ${TAG}" \
+            --body "Merges main back into dev after the release ${TAG}: merge commit, never squash."

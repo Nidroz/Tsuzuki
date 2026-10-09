@@ -16,6 +16,7 @@ import {
   LAYERS,
   NETWORK_GLOBALS,
   NETWORK_MESSAGE,
+  NO_CONSOLE,
   SRC_OUTSIDE_LAYERS,
   layerRules,
 } from './tools/eslint/layers.mjs';
@@ -157,8 +158,9 @@ export default defineConfig(
   },
 
   {
-    // these two files stay CommonJS: Expo, Metro and Babel load them synchronously with require()
-    files: ['babel.config.js', 'metro.config.js'],
+    // these files stay CommonJS: Expo, Metro and Babel load them synchronously with require(), and
+    // the .cjs modules are required by the app config
+    files: ['babel.config.js', 'metro.config.js', '**/*.cjs'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: { require: 'readonly', module: 'readonly', __dirname: 'readonly' },
@@ -197,6 +199,7 @@ export default defineConfig(
     rules: layerRules(layer),
   })),
   SRC_OUTSIDE_LAYERS,
+  NO_CONSOLE,
 
   {
     files: ['app/**', 'src/features/**', 'src/ui/**'],

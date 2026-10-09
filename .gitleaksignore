@@ -1,0 +1,6 @@
+# fake test values flagged in the commits that added them, before the inline gitleaks:allow
+# markers existed (later commits carry the markers). format: commit:file:rule:line
+ab925ec83993b8ad7603ecccf69a097dc9d421eb:src/core/schemas/app-env.test.ts:generic-api-key:17
+924245e469c942e1ae9682d9bfc4821c6ce06ceb:src/platform/sentry-scrub.test.ts:jwt:9
+924245e469c942e1ae9682d9bfc4821c6ce06ceb:src/platform/sentry-scrub.test.ts:generic-api-key:11
+924245e469c942e1ae9682d9bfc4821c6ce06ceb:src/platform/sentry-scrub.test.ts:generic-api-key:12

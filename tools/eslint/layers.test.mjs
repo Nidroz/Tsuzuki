@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 
 import * as canonicalCases from './layers-canonical-cases.mjs';
 import * as classNameCases from './layers-class-name-cases.mjs';
+import * as consoleCases from './layers-console-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
 import * as i18nBarrelCases from './layers-i18n-barrel-cases.mjs';
@@ -45,6 +46,7 @@ const TABLES = [
   textCases,
   dotfileCases,
   canonicalCases,
+  consoleCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
 

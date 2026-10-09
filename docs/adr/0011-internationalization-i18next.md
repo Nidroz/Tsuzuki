@@ -2,6 +2,7 @@
 
 - Status: Accepted
 - Date: 2026-09-30
+- Amended: 2026-10-09. The `expo-localization` config plugin, with `supportedLocales` `en` and `fr`, is added in F-10, so the OS per-app language setting lists the app languages.
 
 ## Context
 

@@ -221,18 +221,33 @@ describe('ThemeProvider', () => {
     expect(rootBackgrounds()).toStrictEqual([palettes.dark.background]);
   });
 
-  it('warns in development when the root view background cannot be set', async () => {
+  it('reports a failure to set the root view background to onError', async () => {
     const failure = new Error('no root view');
     mockSetBackgroundColor.mockRejectedValue(failure);
-    const warn = jest.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const onError = jest.fn<(error: unknown) => void>();
 
-    await renderProvider('dark');
+    await render(
+      <ThemeProvider preference="dark" onError={onError}>
+        <Text>{CHILD_TEXT}</Text>
+      </ThemeProvider>,
+    );
     // lets the rejection handler run
     await act(async () => {
       await Promise.resolve();
     });
 
-    expect(warn).toHaveBeenCalledWith('could not set the root view background color', failure);
+    expect(onError).toHaveBeenCalledWith(failure);
+  });
+
+  it('drops a failure to set the root view background without onError', async () => {
+    mockSetBackgroundColor.mockRejectedValue(new Error('no root view'));
+
+    await renderProvider('dark');
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText(CHILD_TEXT)).toBeOnTheScreen();
   });
 
   it('sets the appearance once per preference, not on every render', async () => {

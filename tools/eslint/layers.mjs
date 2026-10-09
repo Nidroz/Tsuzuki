@@ -147,6 +147,22 @@ export const LAYERS = [
   { files: SCREEN_TEST_CODE, banned: SCREEN_BANS, bansStyles: true },
 ];
 
+// production code logs nothing: errors go through the core ErrorReporter port (ADR-0012). the
+// sentry adapter is the only exception, its reporter writes to the console in development, where
+// sentry is off. test code is exempt: the console check of the jest setups calls console on purpose
+export const CONSOLE_ALLOWED_FILES = ['src/platform/sentry.ts'];
+const TEST_CODE = [
+  '**/*.test.{ts,tsx}',
+  '**/__tests__/**',
+  '**/__fixtures__/**',
+  '**/__mocks__/**',
+];
+export const NO_CONSOLE = {
+  files: ['app/**', 'src/**'],
+  ignores: [...TEST_CODE, ...CONSOLE_ALLOWED_FILES],
+  rules: { 'no-console': 'error' },
+};
+
 const layerZone = (target, from, message) => ({
   target,
   from,
