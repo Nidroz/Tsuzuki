@@ -18,8 +18,11 @@ import {
 } from '@core/preferences/index';
 import { createPersistOptions, createQueryPersister } from '@core/query/persister';
 import { createQueryClient } from '@core/query/query-client';
+import { parseAppEnv } from '@core/schemas/app-env';
+import { readAppEnv } from '@platform/app-env';
 import { APP_VERSION } from '@platform/app-version';
 import { useDeviceLanguageTags } from '@platform/locale';
+import { createErrorReporter, initSentry } from '@platform/sentry';
 import { createStorage } from '@platform/storage';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ThemeProvider } from '@ui/index';
@@ -39,24 +42,48 @@ const ROOT_SCREEN_OPTIONS = {
   headerBackButtonMenuEnabled: false,
 } as const;
 
-// development logs only: a key is not personal data. the polyfill above should make the plural
-// warning unreachable; it stays as a guard
-// TODO(F-10): report missing keys and the missing plural rules to Sentry in release builds
-if (__DEV__ && !hasIntlPluralRules()) {
-  console.warn('Intl.PluralRules is missing: plural forms fall back to a one/other rule');
+// the build-time env, validated again at startup: a missing or invalid env throws here, before
+// anything else is created (fail closed, ADR-0012). the supabase client is wired from it with its
+// first consumer (the auth or library repositories)
+const appEnv = readAppEnv(parseAppEnv);
+
+// sentry in release builds with a dsn, the console in development (ADR-0012)
+const reporter = createErrorReporter(initSentry(appEnv));
+
+const I18N_SOURCE = 'i18n';
+const THEME_SOURCE = 'theme';
+
+// a key and a language are not personal data. the polyfill above should make the plural report
+// unreachable; it stays as a guard
+if (!hasIntlPluralRules()) {
+  reporter.captureError(
+    new Error('Intl.PluralRules is missing: plural forms fall back to a one/other rule'),
+    { source: I18N_SOURCE },
+  );
 }
 
-const warnMissingKey: MissingKeyHandler | undefined = __DEV__
-  ? (language, key) => {
-      console.warn(`missing translation key "${key}" (${language})`);
-    }
-  : undefined;
+// each missing key is reported once per language: a missing key is looked up on every render
+const reportedMissingKeys = new Set<string>();
+const reportMissingKey: MissingKeyHandler = (language, key) => {
+  const id = `${language}:${key}`;
+  if (reportedMissingKeys.has(id)) return;
+  reportedMissingKeys.add(id);
+  reporter.captureError(new Error(`missing translation key "${key}" (${language})`), {
+    source: I18N_SOURCE,
+    tags: { language, key },
+  });
+};
+
+// a failure to paint the native root view background (ui ThemeProvider)
+const reportThemeError = (error: unknown) => {
+  reporter.captureError(error, { source: THEME_SOURCE });
+};
 
 // the app's single key-value storage: it holds the preferences and the persisted query cache.
 // module level, so the persist options stay one stable object for PersistQueryClientProvider
 const storage = createStorage();
 
-// a new app version drops the persisted cache
+// a new app version or cache schema version drops the persisted cache
 const persistOptions = createPersistOptions({
   persister: createQueryPersister(storage),
   appVersion: APP_VERSION,
@@ -109,8 +136,8 @@ export default function RootLayout() {
         onThemeChange={changeTheme}
         onLanguageChange={changeLanguage}
       >
-        <I18nProvider language={language} onMissingKey={warnMissingKey}>
-          <ThemeProvider preference={themePreference}>
+        <I18nProvider language={language} onMissingKey={reportMissingKey}>
+          <ThemeProvider preference={themePreference} onError={reportThemeError}>
             <RootStack />
           </ThemeProvider>
         </I18nProvider>

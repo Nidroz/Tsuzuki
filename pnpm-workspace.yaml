@@ -22,6 +22,9 @@ overrides:
   'filelist>minimatch': 5.1.9
 
 allowBuilds:
+  # denied: the sentry-cli binary comes from optional platform packages, the postinstall is only a
+  # fallback download
+  '@sentry/cli': false
   # denied: optional dtrace probes of bunyan (logger of eas-cli), unused; the build only compiles them
   dtrace-provider: false
   # denied: postinstall only copies the browser service worker; tests use msw/node

@@ -17,6 +17,7 @@ export const LAYER_RULE_IDS = [
   'no-restricted-syntax',
   'no-restricted-globals',
   'no-restricted-properties',
+  'no-console',
 ];
 
 // virtual probe paths, relative to the root: none of them may exist, since allowDefaultProject must
@@ -74,12 +75,14 @@ export const PROBES = {
   rootConfig: 'probe.config.mjs',
 };
 
-// real files, linted with injected code: the root layout, the Discover route (the path /) and the
-// not-found route, which only means something at the root of app/
+// real files, linted with injected code: the root layout, the Discover route (the path /), the
+// not-found route, which only means something at the root of app/, and the sentry adapter, the
+// only production file allowed to use console
 export const EXISTING = {
   layout: 'app/_layout.tsx',
   index: 'app/(tabs)/index.tsx',
   notFound: 'app/+not-found.tsx',
+  sentry: 'src/platform/sentry.ts',
 };
 
 // allowDefaultProject takes minimatch globs: escape the characters of expo-router file names, and

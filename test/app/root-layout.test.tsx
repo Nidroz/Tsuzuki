@@ -191,7 +191,11 @@ describe('root layout', () => {
     await renderRouterAsync(appRoutesWithDiscover(MissingKeyDiscoverScreen));
 
     expect(screen.getByText(MISSING_KEY)).toBeOnTheScreen();
-    expect(consoleWarn).toHaveBeenCalledWith(`missing translation key "${MISSING_KEY}" (fr)`);
+    // the error reporter writes to the console in development, where sentry is off
+    expect(consoleWarn).toHaveBeenCalledWith(
+      '[i18n]',
+      new Error(`missing translation key "${MISSING_KEY}" (fr)`),
+    );
   });
 
   it('installs the plural rules polyfill first, so development logs no missing plural rules', () => {
@@ -208,7 +212,10 @@ describe('root layout', () => {
     loadLayoutWithoutPluralRules({ dev: true, polyfill: false });
 
     expect(consoleWarn.mock.calls).toStrictEqual([
-      ['Intl.PluralRules is missing: plural forms fall back to a one/other rule'],
+      [
+        '[i18n]',
+        new Error('Intl.PluralRules is missing: plural forms fall back to a one/other rule'),
+      ],
     ]);
   });
 
