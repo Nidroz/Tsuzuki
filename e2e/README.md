@@ -10,7 +10,7 @@ Maestro and the Android tools are installed by the developer, not by pnpm.
 - Java 17 or later, with `JAVA_HOME` set.
 - Android SDK platform-tools, with `adb` on `PATH`.
 - An Android emulator, or a USB device with USB debugging on.
-- The development build APK of the app (`io.github.nidroz.tsuzuki`) installed on the emulator or device, built with EAS: see "Development build" in the [README](../README.md#development-build). Expo Go cannot run the app (native modules).
+- The development build APK of the app (development variant, `io.github.nidroz.tsuzuki.dev`, ADR-0012) installed on the emulator or device, built with EAS: see "Development build" in the [README](../README.md#development-build). Expo Go cannot run the app (native modules).
 - iOS flows need macOS (Xcode simulator).
 
 ## Run
