@@ -6,10 +6,28 @@ overrides:
   react-native-reanimated: 4.5.1
   react-native-worklets: 0.10.1
   '@react-native/metro-config': 0.86.3
+  # eas-cli (dev tooling, run by the developer only, never in the app bundle) pins versions with
+  # high advisories (pnpm audit) although patched releases exist in the same major: they are
+  # forced below. re-check at M-01; remove once eas-cli ships the fix
+  # GHSA-28wg-ghj8-5hjv, GHSA-2v37-7h3g-55p8, GHSA-xwg4-73v4-xw9w: eas-cli pins nanoid 3.3.8
+  'eas-cli>nanoid': 3.3.20
+  # GHSA-r292-9mhp-454m: eas-cli pins tar 7.5.19
+  'eas-cli>tar': 7.5.22
+  # GHSA-6h2x-m376-mqjq: eas-cli and @expo/eas-json pin joi 17.11.0
+  'eas-cli>joi': 17.13.8
+  '@expo/eas-json>joi': 17.13.8
+  # GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74: minimatch 5 below 5.1.8 via eas-cli and
+  # filelist (jake, through @oclif/core)
+  'eas-cli>minimatch': 5.1.9
+  'filelist>minimatch': 5.1.9
 
 allowBuilds:
+  # denied: optional dtrace probes of bunyan (logger of eas-cli), unused; the build only compiles them
+  dtrace-provider: false
   # denied: postinstall only copies the browser service worker; tests use msw/node
   msw: false
+  # denied: postinstall only warns about mismatched dependency versions (via eas-cli)
+  protobufjs: false
   # denied: the native binary comes from optional platform packages, the postinstall is only a fallback
   unrs-resolver: false
 
