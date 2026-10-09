@@ -4,13 +4,8 @@ import type { ExpoConfig } from 'expo/config';
 const APP_ID = 'io.github.nidroz.tsuzuki';
 
 // the eas project id is public (it is sent with every build and update), not a secret. this config
-// is dynamic, so `eas init` cannot write it here: paste the id it prints in place of undefined
-// (see README, development build)
-const EAS_PROJECT_ID: string | undefined = undefined;
-
-// eas reads the project id from extra.eas.projectId; the key is left out until the id exists
-const easExtra = (projectId: string | undefined): Pick<ExpoConfig, 'extra'> =>
-  projectId === undefined ? {} : { extra: { eas: { projectId } } };
+// is dynamic, so `eas init` cannot write it here: it was printed by `eas init` and pasted by hand
+const EAS_PROJECT_ID = '04d653a0-d0e2-4be0-a49e-8069e679ed05';
 
 const config: ExpoConfig = {
   name: 'Tsuzuki',
@@ -29,7 +24,8 @@ const config: ExpoConfig = {
     // backup keeps excluding the secure-store data, whose keys cannot be restored on another device
     ['expo-secure-store', { faceIDPermission: false, configureAndroidBackup: true }],
   ],
-  ...easExtra(EAS_PROJECT_ID),
+  // eas reads the project id from extra.eas.projectId
+  extra: { eas: { projectId: EAS_PROJECT_ID } },
 };
 
 // expo loads the app config from the default export
