@@ -44,3 +44,8 @@ auditConfig:
     # braces, via metro > metro-file-map > micromatch: used only by the metro bundler at build time,
     # on glob patterns from the repository's own config, never on user input; not in the app bundle
     - GHSA-vfj7-8cjw-p6xm
+
+# the sentry gradle step runs node_modules/@sentry/cli/bin/sentry-cli from the project root; with
+# pnpm, @sentry/cli is only a dependency of @sentry/react-native, so it is hoisted to the root
+publicHoistPattern:
+  - '@sentry/cli'
