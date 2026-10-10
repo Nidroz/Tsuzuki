@@ -102,6 +102,50 @@ describe('app.config.ts', () => {
     assert.match(config.error, /Invalid app env: .*supabaseUrl/);
   });
 
+  it('picks the variant from APP_VARIANT alone off the eas build worker, without extra.env', () => {
+    const config = loadConfig({ APP_VARIANT: 'preview' });
+
+    assert.equal(config.error, undefined);
+    assert.equal(config.name, 'Tsuzuki (Preview)');
+    assert.equal(config.ios, `${APP_ID}.preview`);
+    assert.equal(config.android, `${APP_ID}.preview`);
+    assert.equal('env' in config.extra, false);
+  });
+
+  it('validates the env with the development variant when APP_VARIANT is missing', () => {
+    const config = loadConfig(VALID_ENV);
+
+    assert.equal(config.error, undefined);
+    assert.equal(config.android, `${APP_ID}.dev`);
+    assert.equal(config.extra.env.variant, 'development');
+    assert.equal(config.extra.env.supabaseUrl, VALID_ENV.EXPO_PUBLIC_SUPABASE_URL);
+  });
+
+  it('fails on an eas build with APP_VARIANT only, naming the missing fields', () => {
+    const config = loadConfig({ EAS_BUILD: 'true', APP_VARIANT: 'preview' });
+
+    assert.match(config.error, /Invalid app env: supabaseUrl, supabaseAnonKey$/);
+  });
+
+  for (const env of [{}, VALID_ENV]) {
+    const label = env === VALID_ENV ? 'with' : 'without';
+    it(`fails on an invalid APP_VARIANT ${label} the supabase env, without printing it`, () => {
+      const config = loadConfig({ ...env, APP_VARIANT: 'staging' });
+
+      assert.equal(config.error?.endsWith('Invalid app env: variant'), true, config.error);
+      assert.equal(config.error.includes('staging'), false);
+    });
+  }
+
+  it('fails on a partial local env off the eas build worker', () => {
+    const config = loadConfig({
+      APP_VARIANT: 'preview',
+      EXPO_PUBLIC_SUPABASE_URL: VALID_ENV.EXPO_PUBLIC_SUPABASE_URL,
+    });
+
+    assert.match(config.error, /Invalid app env: supabaseAnonKey$/);
+  });
+
   it('fails on an http supabase url, naming the field but not its value', () => {
     const insecureUrl = 'http://placeholder.supabase.co';
     const config = loadConfig({

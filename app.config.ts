@@ -4,7 +4,13 @@ import './tools/expo/resolve-ts-imports.cjs';
 import type { ExpoConfig } from 'expo/config';
 
 // relative import: the app config is loaded by the expo cli, which does not resolve path aliases
-import { parseAppEnv, type AppEnv, type AppVariant } from './src/core/schemas/app-env';
+import { AppEnvError } from './src/core/errors/app-env-error';
+import {
+  APP_VARIANTS,
+  parseAppEnv,
+  type AppEnv,
+  type AppVariant,
+} from './src/core/schemas/app-env';
 
 // one identifier for both stores, owned by the project's github namespace
 const APP_ID = 'io.github.nidroz.tsuzuki';
@@ -29,28 +35,58 @@ const VARIANTS: Readonly<Record<AppVariant, { idSuffix: string; nameSuffix: stri
   production: { idSuffix: '', nameSuffix: '' },
 };
 
-// the variant of local tooling runs without any env (jest, lint, `expo config` without .env.local)
+// the variant of local tooling runs without APP_VARIANT (jest, lint, `expo config` without .env.local)
 const FALLBACK_VARIANT: AppVariant = 'development';
 
-// the build-time env read by this config: every value is public and ships in the app
-const ENV_NAMES = [
-  'APP_VARIANT',
+// the build-time env of the eas environment, read by this config: every value is public and ships
+// in the app. APP_VARIANT is read on its own (readVariant)
+const SERVER_ENV_NAMES = [
   'EXPO_PUBLIC_SUPABASE_URL',
   'EXPO_PUBLIC_SUPABASE_ANON_KEY',
   'SENTRY_DSN',
 ] as const;
 
-// validation is strict on eas cloud builds and whenever any env value is set; with no env at all,
-// extra.env is left out and the app fails closed at startup (src/platform/app-env.ts)
+const VARIANT_FIELD = 'variant';
+
+const isAppVariant = (value: string): value is AppVariant =>
+  (APP_VARIANTS as readonly string[]).includes(value);
+
+// a valid APP_VARIANT selects the variant even without any other env: the eas cli evaluates this
+// config locally with the build profile env only, and picks the credentials by app id. a missing or
+// empty value falls back; an invalid one throws, naming the field but not its value
+const readVariant = (): AppVariant => {
+  const value = process.env.APP_VARIANT;
+  if (value === undefined || value === '') {
+    return FALLBACK_VARIANT;
+  }
+  if (!isAppVariant(value)) {
+    throw new AppEnvError([VARIANT_FIELD]);
+  }
+  return value;
+};
+
+// the full env is always validated on the eas build worker. elsewhere (expo start, the local eas cli
+// evaluation, jest, lint) it is validated only when a supabase or sentry value is set, so a partial
+// or invalid local env still fails, with the variant falling back when APP_VARIANT is missing.
+// without any of them, extra.env is left out and the app fails closed at startup
+// (src/platform/app-env.ts)
 const readAppEnv = (): AppEnv | undefined => {
-  const isEasBuild = process.env.EAS_BUILD === 'true';
-  const hasEnv = ENV_NAMES.some((name) => process.env[name] !== undefined);
-  if (!isEasBuild && !hasEnv) {
+  // throws an error naming the invalid fields, never their values: the build or `expo start` stops
+  if (process.env.EAS_BUILD === 'true') {
+    return parseAppEnv({
+      variant: process.env.APP_VARIANT,
+      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+      sentryDsn: process.env.SENTRY_DSN,
+    });
+  }
+  const variant = readVariant();
+  const hasServerEnv = SERVER_ENV_NAMES.some((name) => process.env[name] !== undefined);
+  if (!hasServerEnv) {
     return undefined;
   }
-  // throws an error naming the invalid fields, never their values: the build or `expo start` stops
   return parseAppEnv({
-    variant: process.env.APP_VARIANT,
+    variant,
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     sentryDsn: process.env.SENTRY_DSN,
@@ -58,7 +94,7 @@ const readAppEnv = (): AppEnv | undefined => {
 };
 
 const env = readAppEnv();
-const variant = VARIANTS[env?.variant ?? FALLBACK_VARIANT];
+const variant = VARIANTS[env?.variant ?? readVariant()];
 const appId = `${APP_ID}${variant.idSuffix}`;
 
 const config: ExpoConfig = {
