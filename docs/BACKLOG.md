@@ -123,6 +123,8 @@ Details:
 - EAS build quota: the preview build runs on every non-documentation push to `dev`. Add a path filter or batch the builds, and record the quota in ADR-0012.
 - `tools/expo/resolve-ts-imports.cjs`: force the `module-typescript` format only for imports from the app config and its TypeScript imports, not for every `.ts` file resolved in the process; retry with `.ts` only on `ERR_MODULE_NOT_FOUND` and rethrow the original error when the retry fails.
 - `src/platform/sentry-scrub.ts`: drop `request.env`; scrub free-text `notes=...`, single-quoted `{'notes': '...'}` and phone numbers, or record them as accepted limitations in `ARCHITECTURE.md` §9.
+- OTA updates: off the EAS build worker, `app.config.ts` leaves `extra.env` out when no Supabase or Sentry value is set, so a local `eas update` or `expo export` without its EAS environment would publish an update that fails closed at startup. Require `--environment` for updates (script or workflow) and document it in `ARCHITECTURE.md` §10.
+- `.gitleaksignore`: remove the four fingerprints of the F-10 branch commits, which are not in `dev` after the squash merge.
 - `src/platform/secure-session.ts`: a write issues about 63 keychain deletes (95 with a legacy header). Delete only the previous generation's chunks, read from its header, and sweep every key only when the header was missing or invalid.
 
 ## Phase 2 — Catalog
