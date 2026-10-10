@@ -17,7 +17,7 @@ const EAS_PROJECT_ID = '04d653a0-d0e2-4be0-a49e-8069e679ed05';
 // sentry organization and project slugs and the eu data region url: public, not secrets. the auth
 // token for the source map upload is never written here: the sentry build step reads
 // SENTRY_AUTH_TOKEN, a secret of the eas environments preview and production (ADR-0012)
-const SENTRY_ORGANIZATION = 'nidroz';
+const SENTRY_ORGANIZATION = 'nidro-team';
 const SENTRY_PROJECT = 'tsuzuki';
 const SENTRY_URL = 'https://de.sentry.io/';
 
