@@ -3,8 +3,30 @@ name: EAS preview
 on:
   push:
     branches: [dev]
-    # documentation alone changes neither the database nor the app
-    paths-ignore: ['docs/**', '**/*.md']
+    # the eas build quota is limited (ADR-0012): only a change to the migrations or to the app
+    # bundle and its native config runs this workflow. same lists, in the same order, as
+    # tools/ci/eas-preview-scope.mjs (MIGRATION_PATHS, BUILD_PATHS, then IGNORED_PATHS negated),
+    # which then decides whether the preview builds run
+    paths:
+      - 'supabase/migrations/**'
+      - 'app/**'
+      - 'src/**'
+      - 'assets/**'
+      - 'tools/expo/**'
+      - 'app.config.ts'
+      - 'eas.json'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'babel.config.js'
+      - 'metro.config.js'
+      - 'tsconfig.json'
+      - '!**/*.md'
+      - '!**/*.test.ts'
+      - '!**/*.test.tsx'
+      - '!**/*.test.mjs'
+  # a manual run applies the migrations and builds, whatever changed
+  workflow_dispatch:
 
 permissions: {}
 
@@ -44,14 +66,33 @@ jobs:
             fi
           done
           exit "$missing"
+      # the whole history: the pushed range is diffed below
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up
         uses: ./.github/actions/setup
+      # the commit before the push comes through the environment, never interpolated in the script.
+      # a manual run, a new branch (zero sha) or a previous commit missing from the history builds.
+      # only the builds are gated: a skipped build is harmless because the next app-path push builds
+      # the whole current tree, while a pending run cancelled by the concurrency group can drop
+      # changes from the diff, which is why the migrations are never gated
+      - name: Select the build steps
+        id: scope
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT_NAME" == 'push' ]] && git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            git diff --name-only "$BEFORE" "$GITHUB_SHA" | node tools/ci/check-eas-preview-scope.mjs
+          else
+            FORCE_ALL=true node tools/ci/check-eas-preview-scope.mjs < /dev/null
+          fi
       # migrations first: they stay compatible with the binaries already installed. the supabase cli
-      # is the dev dependency locked by the lockfile
+      # is the dev dependency locked by the lockfile. db push applies only the pending migrations, so
+      # it runs on every run
       - name: Link the staging project
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -67,12 +108,13 @@ jobs:
       # plain text variables of the profile's eas environment (preview), which hold the app env; the
       # build runs on eas and uploads the source maps with the eas secret SENTRY_AUTH_TOKEN
       - name: Build the Android preview
+        if: steps.scope.outputs.build == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: pnpm exec eas build --profile preview --platform android --non-interactive --no-wait
       # off until the repository variable IOS_BUILDS_ENABLED is 'true'
       - name: Build the iOS preview
-        if: vars.IOS_BUILDS_ENABLED == 'true'
+        if: steps.scope.outputs.build == 'true' && vars.IOS_BUILDS_ENABLED == 'true'
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: pnpm exec eas build --profile preview --platform ios --non-interactive --no-wait
