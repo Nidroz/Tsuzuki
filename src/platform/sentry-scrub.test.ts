@@ -157,6 +157,17 @@ describe('scrubEvent', () => {
     });
   });
 
+  it('drops the request environment', () => {
+    const event = leakyEvent();
+    const scrubbed = scrubEvent({
+      ...event,
+      request: { ...event.request, env: { REMOTE_ADDR: IP_ADDRESS } },
+    });
+
+    expect(scrubbed.request).not.toHaveProperty('env');
+    expect(leakedSecrets(scrubbed)).toStrictEqual([]);
+  });
+
   it('does not mutate the original event', () => {
     const event = leakyEvent();
 
@@ -273,6 +284,38 @@ describe('scrubText', () => {
   });
 
   it.each([
+    ['/library?notes=rewatch%20with%20my%20sister&id=1', '/library?notes=[Filtered]&id=1'],
+    ['form body userNotes=rewatch+episode+3', 'form body userNotes=[Filtered]'],
+    [
+      `py repr {'notes': '${NOTE}', 'progress': 3}`,
+      "py repr {'notes': '[Filtered]', 'progress': 3}",
+    ],
+    [`js literal {notes: '${NOTE}', id: 1}`, "js literal {notes: '[Filtered]', id: 1}"],
+    [`log notes: "${NOTE}" saved`, 'log notes: "[Filtered]" saved'],
+    [`mixed {'notes': "l'episode 3", 'id': 1}`, `mixed {'notes': "[Filtered]", 'id': 1}`],
+    [`still json {"notes" : "${NOTE}"}`, 'still json {"notes" : "[Filtered]"}'],
+    ['log line notes=rewatch with my sister', 'log line notes=[Filtered]'],
+    ['form notes=rewatch with my sister&id=1\nnext line', 'form notes=[Filtered]&id=1\nnext line'],
+  ])('redacts the free-text note in %j', (input, expected) => {
+    expect(scrubText(input)).toBe(expected);
+  });
+
+  it.each([
+    ['call +33 6 12 34 56 78 now', 'call [phone] now'],
+    ['call 06 12 34 56 78 now', 'call [phone] now'],
+    ['call (555) 123-4567 now', 'call [phone] now'],
+  ])('redacts the phone number in %j', (input, expected) => {
+    expect(scrubText(input)).toBe(expected);
+  });
+
+  it.each(['created at 1728734400000', 'media 4815162342 synced'])(
+    'keeps the plain digit run in %j',
+    (input) => {
+      expect(scrubText(input)).toBe(input);
+    },
+  );
+
+  it.each([
     ['/auth?redirect=john%40example.com&x=1', '/auth?redirect=[email]&x=1'],
     ['twice encoded john%2540example.com', 'twice encoded [email]'],
   ])('redacts the percent-encoded email in %j', (input, expected) => {
@@ -304,6 +347,8 @@ describe('scrubText', () => {
     ['an unterminated json string', `{"notes":"${'\\'.repeat(100_000)}`],
     ['a long key run', `${'token_'.repeat(20_000)}x`],
     ['a long percent run', '%40'.repeat(30_000)],
+    ['an unterminated mixed-quote member run', "'a': \"\\'".repeat(12_500)],
+    ['a long bare key run', `${'notes:'.repeat(16_000)}x`],
   ])('scrubs %s in linear time', (_, input) => {
     expect(typeof scrubText(input)).toBe('string');
   });
