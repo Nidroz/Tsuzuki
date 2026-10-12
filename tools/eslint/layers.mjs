@@ -240,6 +240,14 @@ export const LAYER_ZONES = [
     IMPLEMENTATION_FOLDERS,
     'only app/_layout.tsx (the composition root) wires repository and catalog provider implementations',
   ),
+  // every file of app/ (app/_layout.tsx included) and src/features: the composition root wires the
+  // provider adapters, never their http client. plain folder targets, not globs: the windows
+  // backslash escape above does not apply, and a folder target already covers dot names
+  layerZone(
+    ['./app', './src/features'],
+    './src/core/catalog/http',
+    'routes and features reach the catalog through src/core hooks; the catalog http client is used only by provider adapters',
+  ),
   // every file of app/ and src/ except the colocated jest tests; the "**" keeps each pattern a glob
   // on windows, where the backslash before "!(" escapes it (see above)
   layerZone(

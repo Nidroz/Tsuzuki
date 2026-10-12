@@ -130,7 +130,7 @@ Details:
 ## Phase 2 — Catalog
 
 - [x] C-01 `CatalogProvider` interface + normalized types + content filter domain function
-- [ ] C-02 Rate limiter (token bucket, dedup, backoff) 
+- [x] C-02 Rate limiter (token bucket, dedup, backoff)
 - [ ] C-03 Jikan adapter: search, detail, top, season, genres, with Zod schemas and recorded fixtures
 - [ ] C-04 Search screen: debounced bar, recent searches, results list
 - [ ] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
@@ -142,11 +142,19 @@ Details:
 
 ### C-03 Jikan adapter
 - Bump `CACHE_SCHEMA_VERSION` whenever a persisted normalized catalog shape changes after a release (C-01 review).
+- Send every request through one `createCatalogHttpClient({ rateLimit: JIKAN_RATE_LIMIT })` per provider instance (`getJson`), never a direct `fetch`; the adapter factory creates that client itself, the composition root never builds one (lint keeps `src/core/catalog/http/` out of `app/` and `src/features/`); build deterministic https URLs (stable parameter order, from `normalizeSearchParams` for search) so equivalent requests share one dedup key; pass the caller's `AbortSignal` through; map a Zod failure to `CatalogResponseError` (C-02).
+- Monotonic clock for the rate limiter (owner decision, C-02 review): the limiter and the retry deadline read `Date.now`, clamped only when it jumps backwards; a forward wall-clock jump (NTP step, manual change) of 1.5 s or more refills the buckets at once (5 grants in one real second were measured with a +2 s jump), and 15 s or more releases the 10-token burst and shortens a running pause. Use `performance.now()` (Hermes, browsers, Node, Jest fake timers) for the limiter and the deadline, keep `Date.now` for `Retry-After` dates, drop `clampToClock`; or record the caveat in `ARCHITECTURE.md` §6.
+- Release the body of a non-2xx response in `src/core/catalog/http/catalog-http-client.ts` (C-02 review): it is never read or cancelled, harmless on React Native (the XHR-based fetch buffers it) but it holds the connection on undici and browsers (future web app). Abort the attempt controller in the `finally`, or cancel `response.body` before throwing `CatalogHttpError`.
+- Widen the lint zone of `src/core/catalog/http/` (C-02 review): only `app/` and `src/features/` are barred today, while `ARCHITECTURE.md` §2 says only provider adapters use the client; also target the rest of `src/core/` (`targetsExcept(CORE_ROOT, [...IMPLEMENTATION_FOLDERS, './src/core/catalog/http'])`) and `test/core/`, with cases in `tools/eslint/layers-cases.mjs`, or narrow the wording.
+- Focused regression tests for interleavings so far covered only by fuzzing in the C-02 review: an abort landing after the dedup task settled but before the caller settles (`in-flight-dedup.test.ts`); the abort of a waiter in the middle of the limiter queue keeping FIFO order (`rate-limiter.test.ts`); a caller joining a url whose shared operation sleeps in backoff (`catalog-http-client-abort.test.ts`).
 
 ### C-05 Filters sheet
 - `MEDIA_FORMATS_BY_KIND` includes the `unknown` fallback: leave it out of the format chips, or add a searchable formats list in `src/core/domain/media.ts` (C-01 review).
 - `SearchParams.formats` accepts any `MediaFormat` for either kind (`{ kind: 'manga', formats: ['tv'] }` typechecks): validate formats per kind, or make `SearchParams` a union keyed on `kind` (C-01 review).
 - Type `ADULT_GENRE_NAMES` in `src/core/domain/content-filter.ts` `as const`, like the other constant arrays (C-01 review).
+
+### C-06 Interactive pagination
+- Prefetches share the FIFO queue of the catalog rate limiter with the requests of the visible screen (C-02): give visible requests priority, or skip a prefetch while requests are queued, so a prefetch never delays the page the user opens.
 
 ### C-07 Media detail screen
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
@@ -173,6 +181,9 @@ Details:
 
 ### A-03 Supabase library repository
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
+
+### A-05 Offline write queue and replay
+- Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
 
 ## Phase 5 — Release
 

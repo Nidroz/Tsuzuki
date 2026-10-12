@@ -18,6 +18,7 @@ export const MESSAGES = {
   app: 'app/ is the composition root: nothing imports it',
   features: 'src/features uses src/core hooks, never repository or catalog provider',
   root: 'only app/_layout.tsx (the composition root) wires',
+  catalogHttp: 'the catalog http client is used only by provider adapters',
   reactNative: 'src/core stays platform-agnostic: no React Native',
   expo: 'src/core stays platform-agnostic: no Expo module',
   nativewind: 'NativeWind is used only inside src/ui',
@@ -117,6 +118,13 @@ const INTERFACE_SIDE_FILES = [
   PROBES.coreTestSource,
 ];
 const INTERFACES = ['@core/repositories/library-repository', '@core/catalog/catalog-provider'];
+const CATALOG_HTTP_CLIENT = '@core/catalog/http/catalog-http-client';
+// the catalog http client in its alias and relative forms
+const catalogHttpImports = (file) =>
+  values(
+    CATALOG_HTTP_CLIENT,
+    relativeFrom(file, CATALOG_HTTP_CLIENT.replace(/^@core\//, 'src/core/')),
+  );
 
 export const REJECTED = {
   zones: [
@@ -137,6 +145,14 @@ export const REJECTED = {
       rejected(file, PATHS, MESSAGES.coreInterfaces, implementationImports(file)),
     ),
     ...rejected(APP_ROUTES, PATHS, MESSAGES.root, values(...IMPLEMENTATIONS)),
+    // the composition root included
+    ...[PROBES.features, EXISTING.layout, EXISTING.index].flatMap((file) =>
+      rejected(file, PATHS, MESSAGES.catalogHttp, catalogHttpImports(file)),
+    ),
+    ...rejected(PROBES.features, PATHS, MESSAGES.catalogHttp, [
+      ...types(CATALOG_HTTP_CLIENT),
+      ...dynamics(CATALOG_HTTP_CLIENT),
+    ]),
   ],
 
   'package bans': [
@@ -223,6 +239,8 @@ export const ALLOWED = {
     ]),
     ...allowed(PROBES.features, values('@core/hooks/use-library')),
     ...allowed(EXISTING.layout, values(...IMPLEMENTATIONS)),
+    // a provider adapter uses the catalog http client
+    ...allowed(PROBES.jikan, catalogHttpImports(PROBES.jikan)),
   ],
   // documents current behavior, not a rule: the owner decided not to restrict imports between
   // implementation folders in F-03. restricting them later must update these cases on purpose
