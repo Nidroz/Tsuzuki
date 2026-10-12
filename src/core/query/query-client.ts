@@ -12,7 +12,8 @@ export const createQueryClient = (): QueryClient =>
       queries: {
         // at least the persister max age, or restored queries are garbage collected right away
         gcTime: PERSISTED_CACHE_MAX_AGE,
-        // provider retries and backoff belong to the shared rate limiter (C-02), not to the cache
+        // retries and backoff belong to the catalog http client in src/core/catalog/http/,
+        // not to the cache
         retry: false,
       },
     },
