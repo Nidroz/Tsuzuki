@@ -15,6 +15,8 @@ let mockNextWriteFailure: Error | undefined;
 let mockNextReadFailure: Error | undefined;
 // writes and deletes of these exact keys reject, changing nothing (a crash at that point)
 const mockFailingKeys = new Set<string>();
+// every key a delete was asked for, in call order
+const mockDeletes: string[] = [];
 
 jest.mock('expo-secure-store', () => ({
   // stands in for the keychain constant (the factory runs before this file's constants exist)
@@ -45,6 +47,7 @@ jest.mock('expo-secure-store', () => ({
   },
   deleteItemAsync: (key: string, options?: SecureStoreOptions) => {
     mockOptions.push(options);
+    mockDeletes.push(key);
     if (mockFailingKeys.has(key)) return Promise.reject(new Error(`delete of ${key} failed`));
     mockStore.delete(key);
     return Promise.resolve();
@@ -95,6 +98,7 @@ beforeEach(() => {
   mockNextWriteFailure = undefined;
   mockNextReadFailure = undefined;
   mockFailingKeys.clear();
+  mockDeletes.length = 0;
   captureError.mockReset();
 });
 
@@ -379,6 +383,103 @@ describe('createSecureSessionStorage crash safety', () => {
     gate.release();
     await expect(write.promise).rejects.toThrow('keychain unavailable');
     expect(await storage.getItem(KEY)).toBe(OLD_VALUE);
+  });
+});
+
+describe('createSecureSessionStorage cleanup scope', () => {
+  const OLD_VALUE = 'a'.repeat(MAX_CHUNK_BYTES * 2 + 1);
+  const NEW_VALUE = 'b'.repeat(MAX_CHUNK_BYTES + 1);
+  // a chunk no header points to, planted outside any write
+  const STRAY = `${KEY}.1.${String(MAX_CHUNKS - 1)}`;
+  const LEGACY_STRAY = `${KEY}.${String(MAX_CHUNKS - 1)}`;
+
+  it('deletes only the chunks of the previous value when the key is clean', async () => {
+    const storage = createStorage();
+    await storage.setItem(KEY, OLD_VALUE);
+    mockStore.set(STRAY, 'stray');
+    mockDeletes.length = 0;
+
+    await storage.setItem(KEY, NEW_VALUE);
+
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, `${KEY}.0.1`, `${KEY}.0.2`]);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.1.0`, `${KEY}.1.1`, STRAY]);
+    expect(await storage.getItem(KEY)).toBe(NEW_VALUE);
+  });
+
+  it('sweeps every chunk key of both generations when the header is missing', async () => {
+    mockStore.set(STRAY, 'stray');
+
+    await createStorage().setItem(KEY, 'short');
+
+    // the other generation whole, the written one past its single chunk; no f-09 key
+    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 2 - 1);
+    expect(mockDeletes).not.toContain(LEGACY_STRAY);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
+  });
+
+  it('sweeps the f-09 chunk keys too when the header is invalid', async () => {
+    mockStore.set(KEY, 'corrupt');
+    mockStore.set(STRAY, 'stray');
+    mockStore.set(LEGACY_STRAY, 'stray');
+
+    await createStorage().setItem(KEY, 'short');
+
+    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 3 - 1);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
+  });
+
+  it('sweeps the f-09 chunks of a legacy count header, then goes back to a targeted cleanup', async () => {
+    mockStore.set(KEY, '3');
+    mockStore.set(`${KEY}.0`, 'old');
+    mockStore.set(`${KEY}.2`, 'old');
+    mockStore.set(LEGACY_STRAY, 'old');
+    const storage = createStorage();
+
+    await storage.setItem(KEY, 'first');
+
+    expect(mockDeletes).toContain(LEGACY_STRAY);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
+
+    mockDeletes.length = 0;
+    await storage.setItem(KEY, 'second');
+
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
+    expect(await storage.getItem(KEY)).toBe('second');
+  });
+
+  it('sweeps once after a failed cleanup, then cleans only the previous value again', async () => {
+    const storage = createStorage();
+    await storage.setItem(KEY, OLD_VALUE);
+    mockFailingKeys.add(`${KEY}.0.2`);
+    await storage.setItem(KEY, NEW_VALUE);
+    mockFailingKeys.clear();
+    mockDeletes.length = 0;
+
+    await storage.setItem(KEY, 'swept');
+
+    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 2 - 1);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
+
+    mockDeletes.length = 0;
+    await storage.setItem(KEY, 'clean');
+
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
+    expect(await storage.getItem(KEY)).toBe('clean');
+  });
+
+  it('keeps the cleanup state per key', async () => {
+    const OTHER_KEY = 'other-key';
+    const storage = createStorage();
+    await storage.setItem(KEY, 'value');
+    await storage.setItem(OTHER_KEY, 'value');
+    mockFailingKeys.add(`${OTHER_KEY}.0.0`);
+    await storage.setItem(OTHER_KEY, 'changed');
+    mockFailingKeys.clear();
+    mockDeletes.length = 0;
+
+    await storage.setItem(KEY, 'changed');
+
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
   });
 });
 

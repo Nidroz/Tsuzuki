@@ -128,9 +128,14 @@ const readValue = async (key: string): Promise<string | null> => {
 const generationKeys = (key: string, generation: Generation, start: number): string[] =>
   range(start, MAX_CHUNKS).map((index) => chunkKey(key, generation, index));
 
+// the chunks of the value a valid header pointed to: after a write lands, the only stale chunks a
+// clean key holds (the other generation was emptied by the write that made it stale)
+const previousChunkKeys = (key: string, previous: Header): string[] =>
+  range(0, previous.count).map((index) => chunkKey(key, previous.generation, index));
+
 // every chunk key outside the current value (all of them without one): the other generation, the
 // current generation past its count and, when asked, the f-09 chunks
-const staleChunkKeys = (key: string, current: Header | undefined, legacy: boolean): string[] => [
+const allStaleChunkKeys = (key: string, current: Header | undefined, legacy: boolean): string[] => [
   ...(current
     ? [
         ...generationKeys(key, otherGeneration(current.generation), 0),
@@ -141,21 +146,34 @@ const staleChunkKeys = (key: string, current: Header | undefined, legacy: boolea
 ];
 
 /**
- * deletes chunks no header points to. the value is already whole (or already removed), so a
- * failure is reported, not thrown: the next write or removal deletes them again
+ * deletes chunks no header points to and resolves whether every deletion succeeded. the value is
+ * already whole (or already removed), so a failure is reported, not thrown: the next write or
+ * removal sweeps every chunk key
  */
 const deleteStaleChunks = async (
   keys: readonly string[],
   reporter: ErrorReporter,
-): Promise<void> => {
+): Promise<boolean> => {
   try {
     await settleAll(keys.map((chunk) => deleteItemAsync(chunk, OPTIONS)));
+    return true;
   } catch (error) {
     reporter.captureError(error, { source: REPORT_SOURCE });
+    return false;
   }
 };
 
-const writeValue = async (key: string, value: string, reporter: ErrorReporter): Promise<void> => {
+/**
+ * writes the value and resolves whether its cleanup succeeded. a clean key only deletes the chunks
+ * of the previous value; a sweep (asked by the caller, or forced by a missing or invalid header)
+ * deletes every chunk key outside the new value
+ */
+const writeValue = async (
+  key: string,
+  value: string,
+  reporter: ErrorReporter,
+  sweep: boolean,
+): Promise<boolean> => {
   const chunks = splitIntoChunks(value);
   if (chunks.length > MAX_CHUNKS) {
     throw new RangeError(
@@ -171,15 +189,18 @@ const writeValue = async (key: string, value: string, reporter: ErrorReporter): 
   const header: Header = { generation, count: chunks.length };
   // one secure-store write switches from the whole old value to the whole new value
   await setItemAsync(key, formatHeader(header), OPTIONS);
+  if (previous.header && !sweep) {
+    return deleteStaleChunks(previousChunkKeys(key, previous.header), reporter);
+  }
   // a stored header that is not valid may be an f-09 count: its chunks go too
   const legacy = previous.raw !== null && previous.header === undefined;
-  await deleteStaleChunks(staleChunkKeys(key, header, legacy), reporter);
+  return deleteStaleChunks(allStaleChunkKeys(key, header, legacy), reporter);
 };
 
-const removeValue = async (key: string, reporter: ErrorReporter): Promise<void> => {
+const removeValue = async (key: string, reporter: ErrorReporter): Promise<boolean> => {
   // the header goes first: reads fail closed even if a chunk deletion fails
   await deleteItemAsync(key, OPTIONS);
-  await deleteStaleChunks(staleChunkKeys(key, undefined, true), reporter);
+  return deleteStaleChunks(allStaleChunkKeys(key, undefined, true), reporter);
 };
 
 /**
@@ -204,13 +225,26 @@ const createKeyQueue = () => {
 /**
  * the auth session storage over expo-secure-store. a write stores the chunks under
  * `<key>.<generation>.<index>` in the generation the stored header does not point to, then the
- * header `<generation>:<count>` under `<key>`, last, then deletes the other chunks: a read returns
- * the whole old value or the whole new value, never a mix, and fails closed (null) while the
- * header is missing or invalid or a chunk is missing. a failed chunk deletion is reported to the
- * reporter, never thrown. calls are queued per key. values are never logged
+ * header `<generation>:<count>` under `<key>`, last, then deletes the chunks of the previous value:
+ * a read returns the whole old value or the whole new value, never a mix, and fails closed (null)
+ * while the header is missing or invalid or a chunk is missing. every chunk key is swept only when
+ * the stored header is missing or invalid, on removal, and on the first write after a failed write
+ * or cleanup on the key. a failed chunk deletion is reported to the reporter, never thrown. calls
+ * are queued per key. values are never logged
  */
 export const createSecureSessionStorage = (reporter: ErrorReporter): SessionStorage => {
   const enqueue = createKeyQueue();
+  // keys that may hold leftover chunks: a write or a cleanup on them failed since their last sweep
+  const dirtyKeys = new Set<string>();
+  // runs a write or a removal; the key stays dirty unless the call and its cleanup succeed
+  const tracked = async (
+    key: string,
+    call: (sweep: boolean) => Promise<boolean>,
+  ): Promise<void> => {
+    const sweep = dirtyKeys.has(key);
+    dirtyKeys.add(key);
+    if (await call(sweep)) dirtyKeys.delete(key);
+  };
   return {
     getItem: async (key) => {
       assertValidKey(key);
@@ -218,11 +252,11 @@ export const createSecureSessionStorage = (reporter: ErrorReporter): SessionStor
     },
     setItem: async (key, value) => {
       assertValidKey(key);
-      return enqueue(key, () => writeValue(key, value, reporter));
+      return enqueue(key, () => tracked(key, (sweep) => writeValue(key, value, reporter, sweep)));
     },
     removeItem: async (key) => {
       assertValidKey(key);
-      return enqueue(key, () => removeValue(key, reporter));
+      return enqueue(key, () => tracked(key, () => removeValue(key, reporter)));
     },
   };
 };
