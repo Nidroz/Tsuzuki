@@ -30,8 +30,8 @@ export const PROBES = {
   hooks: 'src/core/hooks/probe.ts',
   domain: 'src/core/domain/probe.ts',
   // root interface files, next to the implementation folders
-  repositoryInterface: 'src/core/repositories/library-repository.ts',
-  catalogInterface: 'src/core/catalog/catalog-provider.ts',
+  repositoryInterface: 'src/core/repositories/probe-interface.ts',
+  catalogInterface: 'src/core/catalog/probe-interface.ts',
   jikan: 'src/core/catalog/jikan/probe.ts',
   i18n: 'src/core/i18n/probe.ts',
   i18nTest: 'src/core/i18n/probe.test.ts',

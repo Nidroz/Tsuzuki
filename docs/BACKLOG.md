@@ -129,7 +129,7 @@ Details:
 
 ## Phase 2 — Catalog
 
-- [ ] C-01 `CatalogProvider` interface + normalized types + content filter domain function
+- [x] C-01 `CatalogProvider` interface + normalized types + content filter domain function
 - [ ] C-02 Rate limiter (token bucket, dedup, backoff) 
 - [ ] C-03 Jikan adapter: search, detail, top, season, genres, with Zod schemas and recorded fixtures
 - [ ] C-04 Search screen: debounced bar, recent searches, results list
@@ -139,6 +139,14 @@ Details:
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
 
 Details:
+
+### C-03 Jikan adapter
+- Bump `CACHE_SCHEMA_VERSION` whenever a persisted normalized catalog shape changes after a release (C-01 review).
+
+### C-05 Filters sheet
+- `MEDIA_FORMATS_BY_KIND` includes the `unknown` fallback: leave it out of the format chips, or add a searchable formats list in `src/core/domain/media.ts` (C-01 review).
+- `SearchParams.formats` accepts any `MediaFormat` for either kind (`{ kind: 'manga', formats: ['tv'] }` typechecks): validate formats per kind, or make `SearchParams` a union keyed on `kind` (C-01 review).
+- Type `ADULT_GENRE_NAMES` in `src/core/domain/content-filter.ts` `as const`, like the other constant arrays (C-01 review).
 
 ### C-07 Media detail screen
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.

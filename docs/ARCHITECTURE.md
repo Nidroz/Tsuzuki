@@ -43,13 +43,15 @@ tsuzuki/
 ├── src/
 │   ├── core/                         # platform-agnostic, shareable with a future Next.js app
 │   │   ├── domain/                   # entities, business rules (BR-xx), content filter
-│   │   │   └── media.ts              # MEDIA_KINDS, MediaKind, MediaKey, MAL_ID_MAX, isMediaKind
+│   │   │   ├── media.ts              # MEDIA_KINDS, MediaKind, MediaKey, MAL_ID_MAX, isMediaKind; ANIME/MANGA/MEDIA_FORMATS, MEDIA_FORMATS_BY_KIND, MEDIA_STATUSES (publication), SEARCHABLE_MEDIA_STATUSES
+│   │   │   └── content-filter.ts     # BR-06: isAdultMedia (used by adapters), applyContentFilter (§7)
 │   │   ├── schemas/                  # zod schemas for user input, route params and db rows
 │   │   │   ├── media-route-params.ts # media detail route params { kind, id } -> MediaKey, parseMediaRouteParams
 │   │   │   └── app-env.ts            # build-time env (variant, https supabase url, anon key, optional sentry dsn), shared by app.config.ts and the startup reader (§10)
 │   │   ├── catalog/
 │   │   │   ├── catalog-provider.ts   # CatalogProvider interface + normalized types
 │   │   │   ├── catalog-provider-id.ts # CATALOG_PROVIDER_IDS ('jikan'), CatalogProviderId, used in query keys
+│   │   │   ├── search-params.ts      # normalizeSearchParams: canonical SearchParams for the search query key (§6)
 │   │   │   ├── rate-limiter.ts       # token bucket + request dedup
 │   │   │   └── jikan/                # jikan adapter: http client, zod schemas, mappers, fixtures
 │   │   ├── repositories/
@@ -177,58 +179,73 @@ All catalog access goes through one interface, so Jikan can be replaced or compl
 
 ```ts
 // src/core/catalog/catalog-provider.ts
-// MediaKind ('anime' | 'manga') and MediaKey ({ kind, malId }) live in src/core/domain/media.ts;
-// malId is the canonical id: jikan uses it natively, anilist exposes idMal
-import type { MediaKey, MediaKind } from '../domain/media';
+// MediaKind, MediaKey ({ kind, malId }), the format and status types and their const arrays live in
+// src/core/domain/media.ts; malId is the canonical id: jikan uses it natively, anilist exposes idMal
+import type { MediaFormat, MediaKey, MediaKind, MediaStatus, SearchableMediaStatus } from '../domain/media';
+import type { CatalogProviderId } from './catalog-provider-id';
+
+export interface Genre {
+  readonly id: number;
+  readonly name: string;
+}
 
 export interface MediaSummary {
-  key: MediaKey;
-  title: string;
-  titleEnglish: string | null;
-  imageUrl: string | null;
-  format: MediaFormat;          // tv, movie, manga, manhwa, manhua, light_novel…
-  status: MediaStatus;          // ongoing, finished, upcoming
-  totalUnits: number | null;    // episodes or chapters, null when unknown
-  score: number | null;
-  year: number | null;
-  genres: Genre[];
-  isAdult: boolean;             // computed by the adapter (see §7)
+  readonly key: MediaKey;
+  readonly title: string;
+  readonly titleEnglish: string | null;
+  readonly imageUrl: string | null;
+  readonly format: MediaFormat;          // tv, movie, manga, manhwa, light_novel… or unknown
+  readonly status: MediaStatus;          // ongoing, finished, upcoming, hiatus, discontinued
+  readonly totalUnits: number | null;    // episodes or chapters, null when unknown
+  readonly score: number | null;
+  readonly year: number | null;
+  readonly genres: readonly Genre[];
+  readonly isAdult: boolean;             // set by the adapter with isAdultMedia (see §7)
 }
 
 export interface MediaDetail extends MediaSummary {
-  synopsis: string | null;
-  titleNative: string | null;
+  readonly synopsis: string | null;
+  readonly titleNative: string | null;
 }
 
+export const SEARCH_SORT_FIELDS = ['score', 'popularity', 'title', 'start_date'] as const;
+export type SearchSortField = (typeof SEARCH_SORT_FIELDS)[number];
+export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
+export type SortDirection = (typeof SORT_DIRECTIONS)[number];
+
 export interface SearchParams {
-  kind: MediaKind;
-  query?: string;
-  formats?: MediaFormat[];
-  genresIncluded?: number[];
-  genresExcluded?: number[];
-  status?: MediaStatus;
-  year?: number;
-  minScore?: number;
-  sort?: { field: 'score' | 'popularity' | 'title' | 'start_date'; direction: 'asc' | 'desc' };
-  page: number;
+  readonly kind: MediaKind;
+  readonly query?: string;
+  readonly formats?: readonly MediaFormat[];
+  readonly genresIncluded?: readonly number[];
+  readonly genresExcluded?: readonly number[];
+  readonly status?: SearchableMediaStatus;  // ongoing, finished, upcoming (FR-03)
+  readonly year?: number;
+  readonly minScore?: number;
+  readonly sort?: { readonly field: SearchSortField; readonly direction: SortDirection };
+  readonly page: number;                    // 1-based
 }
 
 export interface Page<T> {
-  items: T[];
-  page: number;
-  lastPage: number;
-  hasNextPage: boolean;
+  readonly items: readonly T[];
+  readonly page: number;
+  readonly lastPage: number;
+  readonly hasNextPage: boolean;
 }
 
 export interface CatalogProvider {
-  readonly id: 'jikan';
+  readonly id: CatalogProviderId;
   search(params: SearchParams, signal?: AbortSignal): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
   getTop(kind: MediaKind, page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;
   getCurrentSeason(page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;
-  getGenres(kind: MediaKind): Promise<Genre[]>;
+  getGenres(kind: MediaKind, signal?: AbortSignal): Promise<readonly Genre[]>;
 }
 ```
+
+- `MediaStatus` is the publication status of the title (MAL "On Hiatus" and "Discontinued" included); it never reuses the library status names (`current`, `planned`, `completed`, `paused`, `dropped`, §5).
+- The format and status const arrays (`ANIME_FORMATS`, `MANGA_FORMATS`, `MEDIA_FORMATS`, `MEDIA_STATUSES`, `SEARCHABLE_MEDIA_STATUSES`, `SEARCH_SORT_FIELDS`, `SORT_DIRECTIONS`) are the single source for the adapters' `z.enum` schemas and the filter chips (`MEDIA_FORMATS_BY_KIND`). An unrecognized provider type maps to `unknown`.
+- The interface file holds types only, no Zod: raw payloads are parsed inside each adapter.
 
 Adapter rules:
 
@@ -406,7 +423,7 @@ pgTAP (`supabase/tests/database/`) covers owner CRUD, cross-user denial, anon de
 | --- | --- |
 | Query cache | TanStack Query, `createQueryClient` (`src/core/query/query-client.ts`): a new client per call, owned by the composition root, one per test. `staleTime` (`STALE_TIMES`): media detail 24 h, top/season 6 h, search 10 min, genres 7 days, library 0 (always revalidated). `gcTime` 7 days (`PERSISTED_CACHE_MAX_AGE`), so restored queries are not collected right away. Query `retry` is off: retries and backoff belong to the shared rate limiter (C-02) |
 | Persistent cache | `PersistQueryClientProvider` with a hand-written persister (`src/core/query/persister.ts`) over the synchronous core `StorageAdapter` (MMKV on mobile), under the key `query-cache`. Writes are throttled (at most one per second, with the latest state); only queries in `success` status are dehydrated; `maxAge` 7 days, equal to `gcTime`; `buster` = `` `${APP_VERSION}+${CACHE_SCHEMA_VERSION}` `` (`APP_VERSION` from `expo-constants`, `CACHE_SCHEMA_VERSION` in `src/core/query/cache-schema-version.ts`), so a new version drops the cache, and so does a bump of `CACHE_SCHEMA_VERSION`, required whenever a persisted query shape changes, because an EAS update keeps the app version. The stored envelope is untrusted: invalid JSON or a wrong envelope is removed and restores as an empty cache (cold start). Never holds secrets (§8). Instant start and offline reading |
-| Query keys | Centralized factory `queryKeys` in `src/core/query/keys.ts`, readonly tuples of primitives: `['media', kind, malId]`, `['top', provider, kind, page]`, `['season', provider, page]`, `['genres', provider, kind]`, `['library']`, `['library', kind, malId]` (prefixed by `['library']`, so invalidating the library covers every entry). `provider` is a `CatalogProviderId`. Search and library list keys are added with their hooks |
+| Query keys | Centralized factory `queryKeys` in `src/core/query/keys.ts`, readonly tuples of primitives: `['media', kind, malId]`, `['top', provider, kind, page]`, `['season', provider, page]`, `['genres', provider, kind]`, `['library']`, `['library', kind, malId]` (prefixed by `['library']`, so invalidating the library covers every entry), and the search key `['search', provider, kind, query, formats, genresIncluded, genresExcluded, status, year, minScore, sortField, sortDirection, page]`, built from `normalizeSearchParams` (`src/core/catalog/search-params.ts`: trimmed query, sorted deduplicated arrays, absent fields as `null`, page last), so equivalent params share one cache entry. `provider` is a `CatalogProviderId`. Library list keys are added with their hook |
 | Rate limiting | Token bucket (3 req/s, 60 req/min, configurable per provider), in-flight dedup of identical requests, exponential backoff with jitter on 429/5xx, max 3 retries |
 | Search | 400 ms debounce, `AbortController` cancels outdated requests (TanStack `signal`) |
 | Pagination | One cache entry per `(params, page)`, `placeholderData: keepPreviousData`, prefetch of the next page when idle |
@@ -420,8 +437,8 @@ pgTAP (`supabase/tests/database/`) covers owner CRUD, cross-user denial, anon de
 ## 7. Adult content filter
 
 - Providers are always queried without content filters (ADR-0004).
-- The adapter sets `isAdult` when genres include Hentai or Erotica, or the anime rating is Rx.
-- A pure function `applyContentFilter(items, showAdult)` in `src/core/domain/` is applied in hook `select`. Default `showAdult = false`.
+- The BR-06 classifier `isAdultMedia({ kind, genreNames, isRxRated })` lives in `src/core/domain/content-filter.ts`: a title is adult when its genres include Hentai or Erotica, or the anime rating is Rx. Adapters call it to set `isAdult`; no adapter reimplements the rule.
+- `applyContentFilter(items, showAdult)` in the same file is generic over `{ isAdult: boolean }` (catalog items and library snapshots) and returns `{ items, hiddenCount }`; it is applied in hook `select`. Default `showAdult = false`.
 - A filtered page can contain fewer items than the provider page size; the UI shows a subtle note instead of refetching.
 - App store rating: 17+ (App Store) / PEGI 18 equivalent (Play). Before exposing the toggle on iOS, check the current App Store Review Guidelines (1.1.4).
 

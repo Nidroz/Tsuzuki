@@ -1,4 +1,6 @@
+import type { SearchParams } from '../catalog/catalog-provider';
 import type { CatalogProviderId } from '../catalog/catalog-provider-id';
+import { searchKeyParts } from '../catalog/search-params';
 import type { MediaKey, MediaKind } from '../domain/media';
 
 // query keys are built only here: readonly tuples of primitives, so they hash and compare stably.
@@ -8,6 +10,9 @@ export const queryKeys = {
   top: (provider: CatalogProviderId, kind: MediaKind, page: number) =>
     ['top', provider, kind, page] as const,
   season: (provider: CatalogProviderId, page: number) => ['season', provider, page] as const,
+  // params are normalized first: equivalent searches share one key, page last
+  search: (provider: CatalogProviderId, params: SearchParams) =>
+    ['search', provider, ...searchKeyParts(params)] as const,
   genres: (provider: CatalogProviderId, kind: MediaKind) => ['genres', provider, kind] as const,
   library: {
     all: () => ['library'] as const,
