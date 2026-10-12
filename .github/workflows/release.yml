@@ -44,10 +44,20 @@ jobs:
             fi
           done
           exit "$missing"
+      # the whole history, origin/main included, for the ancestor check below
       - name: Check out
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+      # production deploys released code only: a v* tag pushed on a commit outside main stops here,
+      # before any migration or build
+      - name: Check the tag is on main
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME points to $GITHUB_SHA, which is not on main: production deploys tags of main only"
+            exit 1
+          fi
       - name: Set up
         uses: ./.github/actions/setup
       # migrations first: they stay compatible with the binaries already installed. the supabase cli
