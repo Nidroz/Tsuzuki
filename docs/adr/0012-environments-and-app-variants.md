@@ -1,6 +1,6 @@
 # ADR-0012: Environments, app variants and error reporting
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-09
 
 ## Context
