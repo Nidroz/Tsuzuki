@@ -22,7 +22,7 @@ One item = one branch = one PR. Items are taken in order unless the owner says o
 - [x] F-08 Supabase schema v1
 - [x] F-09 Platform adapters and query client
 - [x] F-10 Environments, Sentry and EAS
-- [ ] F-11 Release pipeline and error reporting hardening (F-10 review follow-ups)
+- [x] F-11 Release pipeline and error reporting hardening (F-10 review follow-ups)
 
 Details:
 
@@ -187,6 +187,9 @@ Details:
 ### R-04 MASVS L1 security review
 - Review the unencrypted MMKV instance (F-09, owner decision): it holds the persisted query cache and the preferences, never the session. Decide whether user data in the cache (library notes from A-03) needs MMKV encryption with a key kept in secure-store.
 - Per-user quotas or rate limiting on writes: an authenticated user can insert unlimited `library_entries` and grow `progress_events` without bound by toggling progress (F-08 review). Decide a cap (row limit trigger or Edge Function) and add the threat to `ARCHITECTURE.md` §9.
+- Stray session chunks after a kill (F-11 review): the per-key dirty state of `src/platform/secure-session.ts` lives in memory, so if the app is killed between writing the chunks and the cleanup, chunks of an older session stay in the keychain until a removal or a missing or invalid header triggers a sweep. Decide whether to persist the dirty marker or sweep once per launch.
+- Test the success paths of `tools/ci/check-eas-preview-scope.mjs` (F-11 review): stdin to `build=true|false` in `GITHUB_OUTPUT`, and `FORCE_ALL` ignoring stdin.
+- Sentry notes scrubbing gaps (F-11 review): an unquoted colon value (`notes: rewatch with my sister`) and a prefix longer than 40 characters before `notes=` are not redacted, and a malformed value with no closing quote can hide a later `notes` member from the scrubber. Cover them in `src/platform/sentry-scrub.ts` or record them as accepted limitations in `ARCHITECTURE.md` §9.
 
 ## Maintenance (recurring, never ticked)
 

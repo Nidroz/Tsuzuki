@@ -23,20 +23,37 @@ const SENSITIVE_KEYS = new Set(['session', 'phone']);
 // keys holding a url: the query string and the fragment are dropped, they can carry tokens
 const URL_KEYS = new Set(['url', 'from', 'to']);
 
-// request parts that are never sent: bodies, cookies and query strings
-const DROPPED_REQUEST_KEYS = new Set(['data', 'cookies', 'query_string']);
+// request parts that are never sent: bodies, cookies, query strings and the environment
+const DROPPED_REQUEST_KEYS = new Set(['data', 'cookies', 'query_string', 'env']);
 
 // deeper values are dropped: an event is never that deep, a cycle would be
 const MAX_DEPTH = 12;
 
 const FILTERED = '[Filtered]';
+const PHONE = '[phone]';
 
 // a postgres constraint error quotes the whole row, notes included: everything after it goes
 const FAILING_ROW = /\bfailing row contains\b.*/gis;
 
-// a json string member embedded in a text, e.g. {"notes":"..."}: the key is checked in code. the
-// two branches of the value never match the same character, so a failed match backtracks linearly
-const JSON_STRING_MEMBER = /"([\w-]{1,64})"(\s*:\s*)"(?:[^"\\]|\\[\s\S])*"/g;
+// a quoted string member embedded in a text: json {"notes":"..."}, a python repr {'notes': '...'},
+// a js object literal {notes: '...'} or mixed quotes {'notes': "l'episode"}. the key is bare or
+// quoted (same quote on both sides), the value quote is chosen independently and the key is checked
+// in code. the two branches of the value never match the same character, so a failed match
+// backtracks linearly
+const STRING_MEMBER = /(["']?)([\w-]{1,64})\1(\s*:\s*)(["'])(?:(?!\4)[^\\]|\\[\s\S])*\4/g;
+
+// phone numbers written with separators only: a plain digit run (an id, a timestamp) is kept.
+// international: + then 8 to 15 digits (e.164), each one preceded by at most two of space . - ( ),
+// e.g. +33 6 12 34 56 78 or +1 (555) 123-4567
+const INTERNATIONAL_PHONE = /\+(?:[ .()-]{0,2}\d){8,15}(?!\d)/g;
+// national, grouped: a trunk 0 and four separated digit pairs (06 12 34 56 78, 06.12.34.56.78),
+// and the north american (555) 123-4567 or 555-123-4567. dotted digit groups such as 100.200.3000
+// match too: an accepted, harmless over-scrub
+const NATIONAL_PHONE = /\b0\d(?:[ .-]\d{2}){4}\b|(?:\(\d{3}\) ?|\b\d{3}[ .-])\d{3}[ .-]\d{4}\b/g;
+
+// free-text notes in a form body or a log line, e.g. notes=rewatch with my sister or userNote=...,
+// up to the next & or the end of the line
+const NOTES_ASSIGNMENT = /\b([\w-]{0,40}?notes?=)[^&\r\n]*/gi;
 
 // patterns replaced inside any string (messages, exception values, breadcrumb data). every
 // repetition is bounded or followed by a distinct character: no catastrophic backtracking
@@ -51,6 +68,10 @@ const TEXT_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   // plain and percent-encoded emails (%40 is @, %2540 is %40 encoded again); the local part and
   // the labels are bounded by their rfc 5321 maximum lengths
   [/[\w.%+-]{1,64}(?:@|%40|%2540)[a-z0-9-]{1,63}(?:\.[a-z0-9-]{1,63})*\.[a-z]{2,}/gi, '[email]'],
+  // separated phone numbers, international first: the country code belongs to the number
+  [INTERNATIONAL_PHONE, PHONE],
+  [NATIONAL_PHONE, PHONE],
+  [NOTES_ASSIGNMENT, `$1${FILTERED}`],
   // secrets in query strings and fragments, e.g. ?apikey=... or #access_token=... (oauth)
   [
     /([?&#](?:apikey|api_key|access_token|refresh_token|id_token|provider_token|token|code|password|email)=)[^&#\s]*/gi,
@@ -73,19 +94,24 @@ const isSensitiveKey = (key: string): boolean => {
   );
 };
 
-const scrubJsonMembers = (text: string): string =>
-  text.replace(JSON_STRING_MEMBER, (member, key: string, separator: string) =>
-    isSensitiveKey(key) ? `"${key}"${separator}"${FILTERED}"` : member,
+const scrubMembers = (text: string): string =>
+  text.replace(
+    STRING_MEMBER,
+    (member, keyQuote: string, key: string, separator: string, valueQuote: string) =>
+      isSensitiveKey(key)
+        ? `${keyQuote}${key}${keyQuote}${separator}${valueQuote}${FILTERED}${valueQuote}`
+        : member,
   );
 
 /**
- * replaces failing rows, sensitive json members, emails, jwts, bearer and basic credentials,
- * supabase keys, query string secrets and key=value credentials in a text
+ * replaces failing rows, sensitive quoted string members, emails, jwts, bearer and basic
+ * credentials, supabase keys, separated phone numbers, notes=..., query string secrets and
+ * key=value credentials in a text
  */
 export const scrubText = (text: string): string =>
   TEXT_REPLACEMENTS.reduce(
     (result, [pattern, replacement]) => result.replace(pattern, replacement),
-    scrubJsonMembers(text.replace(FAILING_ROW, `Failing row contains ${FILTERED}`)),
+    scrubMembers(text.replace(FAILING_ROW, `Failing row contains ${FILTERED}`)),
   );
 
 /** drops the query string and the fragment of a url */
