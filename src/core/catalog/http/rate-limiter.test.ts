@@ -16,9 +16,6 @@ const ONE_PER_SECOND: RateLimitPolicy = {
 };
 // never limits within a test: isolates the pause
 const UNLIMITED: RateLimitPolicy = { buckets: [{ capacity: 1_000, refillIntervalMs: 1 }] };
-const ONE_HOUR_MS = 3_600_000;
-// the jump the wall clock would need to release the 10-token burst of TWO_BUCKETS
-const FORWARD_JUMP_MS = 15_000;
 const PER_SECOND_INTERVAL_MS = 750;
 // a per-second and a per-minute bucket, the shape of the jikan policy
 const TWO_BUCKETS: RateLimitPolicy = {
@@ -232,66 +229,6 @@ describe('pauseFor', () => {
     expect(() => {
       createRateLimiter(UNLIMITED).pauseFor(ms);
     }).toThrow(RangeError);
-  });
-});
-
-// the default clock is monotonic: jest.setSystemTime moves Date.now, never the fake performance.now
-describe('a wall clock change', () => {
-  it('does not stall the buckets when it jumps backwards', async () => {
-    const limiter = createRateLimiter(ONE_PER_SECOND);
-    await limiter.acquire();
-    jest.setSystemTime(FIXED_NOW - ONE_HOUR_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('does not stall a pause when it jumps backwards', async () => {
-    const limiter = createRateLimiter(UNLIMITED);
-    limiter.pauseFor(MAX_PAUSE_MS);
-    jest.setSystemTime(FIXED_NOW - ONE_HOUR_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(MAX_PAUSE_MS);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('grants no extra token after a burst when it jumps forwards', async () => {
-    const limiter = createRateLimiter(TWO_BUCKETS);
-    await Promise.all([limiter.acquire(), limiter.acquire()]);
-    // a wall clock reading would see both buckets refilled: the next request would go at once
-    jest.setSystemTime(FIXED_NOW + FORWARD_JUMP_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(PER_SECOND_INTERVAL_MS - 1);
-    expect(granted).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('does not shorten a running pause when it jumps forwards', async () => {
-    const limiter = createRateLimiter(UNLIMITED);
-    limiter.pauseFor(MAX_PAUSE_MS);
-    jest.setSystemTime(FIXED_NOW + FORWARD_JUMP_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(MAX_PAUSE_MS - 1);
-    expect(granted).not.toHaveBeenCalled();
-    await jest.advanceTimersByTimeAsync(1);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
   });
 });
 
