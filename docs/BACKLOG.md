@@ -147,17 +147,26 @@ Details:
 - Release the body of a non-2xx response in `src/core/catalog/http/catalog-http-client.ts` (C-02 review): it is never read or cancelled, harmless on React Native (the XHR-based fetch buffers it) but it holds the connection on undici and browsers (future web app). Abort the attempt controller in the `finally`, or cancel `response.body` before throwing `CatalogHttpError`.
 - Widen the lint zone of `src/core/catalog/http/` (C-02 review): only `app/` and `src/features/` are barred today, while `ARCHITECTURE.md` §2 says only provider adapters use the client; also target the rest of `src/core/` (`targetsExcept(CORE_ROOT, [...IMPLEMENTATION_FOLDERS, './src/core/catalog/http'])`) and `test/core/`, with cases in `tools/eslint/layers-cases.mjs`, or narrow the wording.
 - Focused regression tests for interleavings so far covered only by fuzzing in the C-02 review: an abort landing after the dedup task settled but before the caller settles (`in-flight-dedup.test.ts`); the abort of a waiter in the middle of the limiter queue keeping FIFO order (`rate-limiter.test.ts`); a caller joining a url whose shared operation sleeps in backoff (`catalog-http-client-abort.test.ts`).
+- Open step, recorded fixtures: api.jikan.moe was unreachable from the development machine during C-03 (TCP timeouts for about 5 hours on 2026-10-13, while jikan.moe and other hosts answered), so the tests use builders shaped from the published openapi spec. Record the real v4 responses (search anime, search manga, empty search, 3 details, top anime and manga, current season, both genre lists, two year probes: about 13 sequential plain GETs, one per 1.5 s, raw output outside the repository), trim them into `src/core/catalog/jikan/__fixtures__/*.json` (at most 3 items, synopsis and background replaced by placeholders, no adult titles or covers, no people or organizations), add a test running them through the provider, and verify against them: the case of the anime search `type` values, the `titles[].type` values, whether an anime `status` can be null, and how `end_date` applies (`jikanYearRange`). C-03 is ticked after this step.
+
+### C-04 Search screen
+- Wire `createJikanCatalogProvider()` in the composition root (`app/_layout.tsx`) together with the first catalog hook, through a React context in `src/core/hooks/` that provides the `CatalogProvider`: the hooks depend on the interface only, never on the Jikan implementation (C-03).
 
 ### C-05 Filters sheet
 - `MEDIA_FORMATS_BY_KIND` includes the `unknown` fallback: leave it out of the format chips, or add a searchable formats list in `src/core/domain/media.ts` (C-01 review).
 - `SearchParams.formats` accepts any `MediaFormat` for either kind (`{ kind: 'manga', formats: ['tv'] }` typechecks): validate formats per kind, or make `SearchParams` a union keyed on `kind` (C-01 review).
-- Type `ADULT_GENRE_NAMES` in `src/core/domain/content-filter.ts` `as const`, like the other constant arrays (C-01 review).
+- The Jikan adapter accepts one format per search and has no search type for `oel` or `unknown` (a `RangeError` before any request, C-03): make the format chips single-select and leave these two out, or change `SearchParams`.
+- Hide the adult genre chips (names in `ADULT_GENRE_NAMES`, `src/core/domain/content-filter.ts`) when the adult content setting is off (BR-06).
+- Before exposing the year filter, confirm with a live request how Jikan applies `end_date` (to the start or the end of airing), and adjust `jikanYearRange` (`src/core/catalog/jikan/jikan-urls.ts`) if a title still airing must match its start year (C-03).
 
 ### C-06 Interactive pagination
 - Prefetches share the FIFO queue of the catalog rate limiter with the requests of the visible screen (C-02): give visible requests priority, or skip a prefetch while requests are queued, so a prefetch never delays the page the user opens.
 
 ### C-07 Media detail screen
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
+
+### C-08 Discovery screen
+- FR-05 format chips on top manga (manhwa, manhua) need a format on `CatalogProvider.getTop` (Jikan `/top/manga?type=`): a change to the interface and to the `top` query key (C-03).
 
 ## Phase 3 — Library (guest first)
 
@@ -167,6 +176,11 @@ Details:
 - [ ] L-04 Library screen: grouping, filters, sorting
 - [ ] L-05 Favorites (toggle + tab)
 - [ ] L-06 Adult content setting wired to the filter
+
+Details:
+
+### L-02 Local (guest) library repository
+- The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
 
 ## Phase 4 — Accounts and sync
 
@@ -181,6 +195,7 @@ Details:
 
 ### A-03 Supabase library repository
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
+- `library_entries.media_is_adult` defaults to `false`, which fails open (BR-06): snapshot writes must always set it from `MediaSummary.isAdult`; consider dropping the default in a migration (C-03 review).
 
 ### A-05 Offline write queue and replay
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
