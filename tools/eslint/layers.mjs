@@ -178,6 +178,8 @@ const IMPLEMENTATION_FOLDERS = [
 ];
 
 const CORE_ROOT = './src/core';
+// the catalog http client: rate limit, in-flight dedup and retries, used only by provider adapters
+const CATALOG_HTTP = './src/core/catalog/http';
 
 // globs for every file under root except the excluded folders (leaves under root): at each level
 // on the way down to them, the files of that folder plus every sibling folder. targets are
@@ -245,8 +247,16 @@ export const LAYER_ZONES = [
   // backslash escape above does not apply, and a folder target already covers dot names
   layerZone(
     ['./app', './src/features'],
-    './src/core/catalog/http',
+    CATALOG_HTTP,
     'routes and features reach the catalog through src/core hooks; the catalog http client is used only by provider adapters',
+  ),
+  // every file of src/core outside the implementation folders and the http folder itself, and every
+  // file of test/core: only the provider adapters (jikan/) and the http folder keep the client.
+  // targetsExcept keeps each pattern a glob on windows
+  layerZone(
+    [...targetsExcept(CORE_ROOT, [...IMPLEMENTATION_FOLDERS, CATALOG_HTTP]), './test/core/**'],
+    CATALOG_HTTP,
+    'src/core reaches the catalog through the catalog provider interface; the catalog http client is used only by provider adapters',
   ),
   // every file of app/ and src/ except the colocated jest tests; the "**" keeps each pattern a glob
   // on windows, where the backslash before "!(" escapes it (see above)

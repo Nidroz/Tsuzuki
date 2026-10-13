@@ -33,6 +33,9 @@ export const PROBES = {
   repositoryInterface: 'src/core/repositories/probe-interface.ts',
   catalogInterface: 'src/core/catalog/probe-interface.ts',
   jikan: 'src/core/catalog/jikan/probe.ts',
+  // the catalog http client folder, next to the provider adapters
+  catalogHttp: 'src/core/catalog/http/probe.ts',
+  query: 'src/core/query/probe.ts',
   i18n: 'src/core/i18n/probe.ts',
   i18nTest: 'src/core/i18n/probe.test.ts',
   supabase: 'src/core/repositories/supabase/probe.ts',
