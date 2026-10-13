@@ -167,6 +167,56 @@ describe('an abort during the backoff', () => {
   });
 });
 
+describe('a caller joining a url during its backoff', () => {
+  it.each([
+    ['a 503', 503],
+    ['a 429', 429],
+  ])('gets the result of the shared retry after %s', async (_, status) => {
+    const requests = recordRequests(URL, (_request, dispatch) =>
+      dispatch === 1 ? new HttpResponse(null, { status }) : answerPayload(),
+    );
+    const client = createClient();
+
+    const first = settle(client.getJson(URL));
+    await jest.advanceTimersByTimeAsync(FIRST_BACKOFF_MS / 2);
+    // the shared operation sleeps before its retry: the backoff is the only timer
+    expect(jest.getTimerCount()).toBe(1);
+    const joined = settle(client.getJson(URL, new AbortController().signal));
+    await jest.advanceTimersByTimeAsync(FIRST_BACKOFF_MS / 2);
+
+    expect(await Promise.all([first, joined])).toEqual([PAYLOAD, PAYLOAD]);
+    // the joining caller sent nothing of its own
+    expect(requests.map(({ at }) => at)).toStrictEqual([0, FIRST_BACKOFF_MS]);
+    await expectNoPendingTimer();
+  });
+
+  it('stops the retry, with no timer left, once the joining caller left last', async () => {
+    const requests = recordRequests(URL, (_, dispatch) =>
+      dispatch === 1 ? new HttpResponse(null, { status: 503 }) : answerPayload(),
+    );
+    const client = createClient();
+    const original = new AbortController();
+    const joining = new AbortController();
+
+    const left = settle(client.getJson(URL, original.signal));
+    await jest.advanceTimersByTimeAsync(FIRST_BACKOFF_MS / 4);
+    const joined = settle(client.getJson(URL, joining.signal));
+    original.abort();
+    expect(await left).toBeInstanceOf(CatalogAbortedError);
+    // the joining caller keeps the backoff running
+    expect(jest.getTimerCount()).toBe(1);
+    await jest.advanceTimersByTimeAsync(FIRST_BACKOFF_MS / 4);
+    joining.abort();
+
+    // no time passed: the abort itself rejected the last caller and cleared the sleep
+    expect(await joined).toBeInstanceOf(CatalogAbortedError);
+    expect(jest.getTimerCount()).toBe(0);
+    await jest.advanceTimersByTimeAsync(LONG_AFTER_MS);
+    expect(requests).toHaveLength(1);
+    await expectNoPendingTimer();
+  });
+});
+
 describe('an abort during the fetch', () => {
   // msw's 500 lands after the abort: the client discards it, neither reported nor retried
   it('aborts the request the provider sees and discards its late answer', async () => {
@@ -265,11 +315,12 @@ describe('callers sharing a url', () => {
     await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
     leaving.abort();
     expect(await left).toBeInstanceOf(CatalogAbortedError);
+    // checked in flight: a settled attempt releases its request
+    expect(requests[0]?.signal.aborted).toBe(false);
     await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
 
     expect(await stayed).toEqual(PAYLOAD);
     expect(requests).toHaveLength(1);
-    expect(requests[0]?.signal.aborted).toBe(false);
     await expectNoPendingTimer();
   });
 
@@ -294,6 +345,39 @@ describe('callers sharing a url', () => {
 
     await expect(client.getJson(URL)).resolves.toEqual(PAYLOAD);
     expect(requests.map(({ at }) => at)).toStrictEqual([0, RESPONSE_DELAY_MS]);
+    await expectNoPendingTimer();
+  });
+});
+
+// the attempt aborts its own transfer once settled: the unread body of a non-2xx response would
+// hold the connection on undici and in browsers
+describe('a settled attempt', () => {
+  it('releases the transfer of a non-2xx response once the call rejected', async () => {
+    recordRequests(URL, async () => {
+      await delay(RESPONSE_DELAY_MS);
+      return HttpResponse.json({ message: 'Resource does not exist' }, { status: 404 });
+    });
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    const result = settle(createClient().getJson(URL));
+    await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
+    const signal = fetchSpy.mock.calls[0]?.[1]?.signal;
+    expect(signal?.aborted).toBe(false);
+    await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
+
+    expect(await result).toMatchObject({ status: 404 });
+    expect(signal?.aborted).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    await expectNoPendingTimer();
+  });
+
+  it('releases the transfer of a 2xx response only after its body was read', async () => {
+    recordRequests(URL, answerPayload);
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    await expect(createClient().getJson(URL)).resolves.toEqual(PAYLOAD);
+    expect(fetchSpy.mock.calls[0]?.[1]?.signal?.aborted).toBe(true);
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     await expectNoPendingTimer();
   });
 });

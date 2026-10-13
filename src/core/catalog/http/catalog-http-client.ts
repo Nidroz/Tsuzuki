@@ -36,10 +36,19 @@ export interface CatalogHttpClientOptions {
   readonly rateLimit: RateLimitPolicy;
   readonly retry?: RetryPolicy;
   readonly timeoutMs?: number;
-  // default Math.random, for the backoff jitter
+  /** for the backoff jitter, in [0, 1). default `Math.random()`. */
   readonly random?: () => number;
-  // default Date.now, shared with the rate limiter
+  /**
+   * monotonic clock in ms: it must never decrease. default `performance.now()`, read on each call
+   * so fake timers apply. shared with the rate limiter and measures the retry deadline, so a wall
+   * clock change never refills a bucket, shortens a pause or moves the deadline.
+   */
   readonly now?: () => number;
+  /**
+   * wall clock in epoch ms, default `Date.now()`, read on each call. only resolves a `Retry-After`
+   * http date, never a duration.
+   */
+  readonly wallClock?: () => number;
 }
 
 const HTTPS_PREFIX = 'https://';
@@ -65,7 +74,8 @@ export const createCatalogHttpClient = (options: CatalogHttpClientOptions): Cata
   const retry = options.retry ?? DEFAULT_RETRY_POLICY;
   const timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   const random = options.random ?? (() => Math.random());
-  const now = options.now ?? (() => Date.now());
+  const now = options.now ?? (() => performance.now());
+  const wallClock = options.wallClock ?? (() => Date.now());
   const limiter = createRateLimiter(options.rateLimit, { now });
   const dedup = createInFlightDedup<unknown>();
 
@@ -104,7 +114,7 @@ export const createCatalogHttpClient = (options: CatalogHttpClientOptions): Cata
       // an abort or a timeout before the response rejects through raceAbort; one in the same
       // microtask turn still ends at the raced body read or at the backoff sleep
       if (!response.ok) {
-        const retryAfterMs = parseRetryAfter(response.headers.get(RETRY_AFTER_HEADER), now());
+        const retryAfterMs = parseRetryAfter(response.headers.get(RETRY_AFTER_HEADER), wallClock());
         throw new CatalogHttpError(response.status, retryAfterMs);
       }
       let body: unknown;
@@ -121,6 +131,11 @@ export const createCatalogHttpClient = (options: CatalogHttpClientOptions): Cata
     } finally {
       clearTimeout(timer);
       unlink();
+      // a non-2xx body is never read: on undici and in browsers it would hold the connection, so
+      // the attempt's transfer is aborted. a no-op on a request that already settled (body read,
+      // network error): the outcome is decided above, and a raceAbort listener still attached for
+      // a microtask only rejects an already settled promise
+      controller.abort();
     }
   };
 

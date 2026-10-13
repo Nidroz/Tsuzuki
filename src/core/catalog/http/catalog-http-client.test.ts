@@ -234,7 +234,7 @@ describe('createCatalogHttpClient', () => {
     await expectNoPendingTimer();
   });
 
-  it('reads a Retry-After date against the injected clock', async () => {
+  it('reads a Retry-After date against the injected wall clock', async () => {
     countRequests(
       URL,
       () =>
@@ -243,13 +243,31 @@ describe('createCatalogHttpClient', () => {
           headers: { 'Retry-After': 'Thu, 01 Jan 2026 00:00:00 GMT' },
         }),
     );
-    // the injected clock is 30 s behind the date the provider sends
-    const client = createClient({ now: () => Date.now() - RETRY_AFTER_MS });
+    // the injected wall clock is 30 s behind the date the provider sends
+    const client = createClient({ wallClock: () => Date.now() - RETRY_AFTER_MS });
 
     const failure = await settle(client.getJson(URL));
 
     expect(Date.now()).toBe(FIXED_NOW);
     expect(failure).toMatchObject({ status: 503, retryAfterMs: RETRY_AFTER_MS });
+    await expectNoPendingTimer();
+  });
+
+  it('keeps the retry deadline when the wall clock jumps forwards', async () => {
+    const counter = countRequests(URL, (count) => {
+      if (count > 1) {
+        return HttpResponse.json(PAYLOAD);
+      }
+      // a whole retry deadline: measured on the wall clock, the retry would be given up
+      jest.setSystemTime(Date.now() + DEFAULT_RETRY_POLICY.retryDeadlineMs);
+      return new HttpResponse(null, { status: 500 });
+    });
+
+    const result = settle(createClient({ random: () => 0 }).getJson(URL));
+    await jest.advanceTimersByTimeAsync(FIRST_BACKOFF_MS);
+
+    expect(await result).toEqual(PAYLOAD);
+    expect(counter.requests).toBe(2);
     await expectNoPendingTimer();
   });
 });

@@ -188,6 +188,47 @@ describe('aborting callers', () => {
     expect(signals[0]?.aborted).toBe(true);
   });
 
+  // the entry subscribes to the task's promise one microtask turn after run() returns: a reaction
+  // added after that turn runs right after the entry settled, before the caller adopts the outcome
+  it.each([
+    [
+      'succeeded',
+      (deferred?: Deferred<string>) => {
+        deferred?.resolve('frieren');
+      },
+    ],
+    [
+      'failed',
+      (deferred?: Deferred<string>) => {
+        deferred?.reject(new Error('provider down'));
+      },
+    ],
+  ])(
+    'rejects a caller aborting after the task %s, before its own promise settled, and starts afresh',
+    async (_, settleTask) => {
+      const dedup = createInFlightDedup<string>();
+      const { task, pending } = createControlledTask();
+      const caller = new AbortController();
+      const abort = (): void => {
+        caller.abort();
+      };
+
+      const outcome = dedup.run(KEY, task, caller.signal).catch((error: unknown) => error);
+      // that turn: the abort is now queued behind the entry's own reaction to the task
+      await Promise.resolve();
+      void pending[0]?.promise.then(abort, abort);
+      settleTask(pending[0]);
+
+      // the abort came first for this caller: neither the value nor the failure reaches it
+      expect(await outcome).toBeInstanceOf(CatalogAbortedError);
+      expect(caller.signal.aborted).toBe(true);
+      const later = dedup.run(KEY, task);
+      pending[1]?.resolve('frieren, updated');
+      await expect(later).resolves.toBe('frieren, updated');
+      expect(task).toHaveBeenCalledTimes(2);
+    },
+  );
+
   it('removes its listener from the caller signal once settled', async () => {
     const dedup = createInFlightDedup<string>();
     const { task, pending } = createControlledTask();
