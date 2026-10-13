@@ -96,17 +96,29 @@ export const toMediaDetail = (kind: MediaKind, entry: JikanEntry): MediaDetail =
     titleNative: entry.titleNative,
   }) satisfies MediaDetail;
 
-/** a page of summaries; an id repeated within the page keeps its first item. */
+/**
+ * a page of summaries. an id repeated within the page keeps its first item, which is adult when
+ * any copy of that id is adult: a clean copy never hides an adult one (BR-06).
+ */
 export const toSummaryPage = (
   kind: MediaKind,
   requestedPage: number,
   payload: JikanPagePayload,
-): Page<MediaSummary> => ({
-  items: uniqueBy(payload.data, (entry) => entry.malId).map((entry) => toMediaSummary(kind, entry)),
-  page: requestedPage,
-  lastPage: Math.max(FIRST_PAGE, payload.pagination.last_visible_page),
-  hasNextPage: payload.pagination.has_next_page,
-});
+): Page<MediaSummary> => {
+  const summaries = payload.data.map((entry) => toMediaSummary(kind, entry));
+  const adultIds = new Set(
+    summaries.filter((summary) => summary.isAdult).map((summary) => summary.key.malId),
+  );
+  return {
+    items: uniqueBy(summaries, (summary) => summary.key.malId).map((summary) => ({
+      ...summary,
+      isAdult: adultIds.has(summary.key.malId),
+    })),
+    page: requestedPage,
+    lastPage: Math.max(FIRST_PAGE, payload.pagination.last_visible_page),
+    hasNextPage: payload.pagination.has_next_page,
+  };
+};
 
 /** parses a search, top or season response of `kind` into a page of summaries. */
 export const parseJikanPage = (

@@ -6,6 +6,7 @@ import {
   buildJikanGenres,
   buildJikanManga,
   buildJikanPage,
+  genreRef,
   withoutKeys,
 } from './__fixtures__/jikan-builders';
 import { parseJikanGenres, parseJikanPage } from './jikan-mappers';
@@ -22,6 +23,22 @@ const failureOf = (parse: () => unknown): unknown => {
 
 const titledAnime = (malId: number, title: string) =>
   buildJikanAnime({ mal_id: malId, titles: [{ type: 'Default', title }] });
+
+// copies of id 101: clean, with Hentai only in explicit_genres, or rated Rx with clean genres
+const COPY_OVERRIDES = {
+  clean: {},
+  hentai: { explicit_genres: [genreRef(12, 'Hentai')] },
+  rx: { rating: 'Rx - Hentai' },
+} as const;
+
+type CopyContent = keyof typeof COPY_OVERRIDES;
+
+const copyOf = (content: CopyContent, title: string) =>
+  buildJikanAnime({
+    mal_id: 101,
+    titles: [{ type: 'Default', title }],
+    ...COPY_OVERRIDES[content],
+  });
 
 describe('parseJikanPage', () => {
   it('maps the items and keeps the requested page', () => {
@@ -50,6 +67,25 @@ describe('parseJikanPage', () => {
     const page = parseJikanPage('anime', 1, body);
 
     expect(page.items.map((item) => item.title)).toStrictEqual(['First', 'Second']);
+  });
+
+  it.each<[string, CopyContent, CopyContent, boolean]>([
+    ['a clean first copy and an adult second copy', 'clean', 'hentai', true],
+    ['an adult first copy and a clean second copy', 'rx', 'clean', true],
+    ['two clean copies', 'clean', 'clean', false],
+  ])('flags a repeated id with %s as adult: %p', (_case, first, second, isAdult) => {
+    const body = buildJikanPage([
+      copyOf(first, 'First'),
+      titledAnime(102, 'Other'),
+      copyOf(second, 'Repeated'),
+    ]);
+
+    const page = parseJikanPage('anime', 1, body);
+
+    expect(page.items.map((item) => [item.key.malId, item.title, item.isAdult])).toStrictEqual([
+      [101, 'First', isAdult],
+      [102, 'Other', false],
+    ]);
   });
 
   it.each([
