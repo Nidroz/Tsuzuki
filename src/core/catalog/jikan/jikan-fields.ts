@@ -1,7 +1,13 @@
 // jikan v4 field values, from its published openapi spec (the anime and manga resources), and
 // their normalization to the domain types. a display field never fails a response: an unexpected
 // value becomes null or the `unknown` format
-import type { AnimeFormat, MangaFormat, MediaFormat, MediaStatus } from '../../domain/media';
+import {
+  MAL_ID_MAX,
+  type AnimeFormat,
+  type MangaFormat,
+  type MediaFormat,
+  type MediaStatus,
+} from '../../domain/media';
 
 /** anime airing statuses; any other value, null included, fails the response. */
 export const JIKAN_ANIME_STATUSES = [
@@ -111,15 +117,16 @@ export const titleOf = (
   return textOrNull(deprecatedField);
 };
 
-// the postgres integer bound of library_entries.media_total_units, docs/ARCHITECTURE.md §5
-const TOTAL_UNITS_MAX = 2_147_483_647;
+// the postgres integer bound of library_entries.media_total_units, the same as mal_id
+// (docs/ARCHITECTURE.md §5)
+const TOTAL_UNITS_MAX = MAL_ID_MAX;
 
 /** an episode or chapter count: a positive integer the database accepts, else null (unknown). */
 export const unitCountOf = (value: number | null): number | null =>
   value !== null && Number.isInteger(value) && value > 0 && value <= TOTAL_UNITS_MAX ? value : null;
 
-// mal scores run from 1 to 10; jikan sends 0 or null for an unscored title
-const SCORE_MAX = 10;
+/** the highest mal score; jikan sends 0 or null for an unscored title. */
+export const SCORE_MAX = 10;
 
 /** a score in (0, 10], else null. */
 export const scoreOf = (value: number | null): number | null =>

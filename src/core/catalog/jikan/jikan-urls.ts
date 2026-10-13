@@ -19,7 +19,7 @@ import {
   type SortDirection,
 } from '../catalog-provider';
 import { normalizeSearchParams } from '../search-params';
-import { isFourDigitYear } from './jikan-fields';
+import { SCORE_MAX, isFourDigitYear } from './jikan-fields';
 
 /** the root of every jikan request. */
 export const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
@@ -27,7 +27,6 @@ export const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
 /** items per page, sent with every paginated request: the jikan maximum. */
 export const JIKAN_PAGE_LIMIT = 25;
 
-const MIN_SCORE_MAX = 10;
 // mal scores have two decimals; rounding also keeps String() out of exponent notation
 const MIN_SCORE_SCALE = 100;
 const LIST_SEPARATOR = ',';
@@ -149,7 +148,7 @@ const statusOf = (tables: KindTables, status: SearchableMediaStatus): string => 
 };
 
 const minScoreOf = (minScore: number): string => {
-  if (!Number.isFinite(minScore) || minScore < 0 || minScore > MIN_SCORE_MAX) {
+  if (!Number.isFinite(minScore) || minScore < 0 || minScore > SCORE_MAX) {
     throw new RangeError('Catalog minimum score must be between 0 and 10');
   }
   return String(Math.round(minScore * MIN_SCORE_SCALE) / MIN_SCORE_SCALE);
