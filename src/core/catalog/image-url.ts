@@ -12,11 +12,11 @@ const NOT_FOUND = -1;
 
 // a lowercase dns name: no userinfo, no port, no trailing dot
 const HOST_PATTERN = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
-// unreserved characters, slashes and percent escapes; no whitespace, backslash, fragment or
-// control character
-const PATH_PATTERN = /^\/[A-Za-z0-9\-._~/%]*$/;
+// unreserved characters, slashes and percent escapes of two hex digits; no bare `%`,
+// whitespace, backslash, fragment or control character
+const PATH_PATTERN = /^\/(?:[A-Za-z0-9\-._~/]|%[0-9A-Fa-f]{2})*$/;
 // the path characters plus the key=value separators
-const QUERY_PATTERN = /^[A-Za-z0-9\-._~/%=&]*$/;
+const QUERY_PATTERN = /^(?:[A-Za-z0-9\-._~/=&]|%[0-9A-Fa-f]{2})*$/;
 
 const isSafePathAndQuery = (pathAndQuery: string): boolean => {
   const queryStart = pathAndQuery.indexOf(QUERY_START);

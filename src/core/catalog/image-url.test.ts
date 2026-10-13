@@ -18,6 +18,7 @@ describe('toAllowedImageUrl', () => {
     `${ORIGIN}/images/anime/1001/100001l.webp`,
     `${ORIGIN}/images/manga/2/200002l.jpg`,
     `${ORIGIN}/r/50x70/images/anime/3/300003.jpg?s=0a1b2c&v=2`,
+    `${ORIGIN}/images/anime/4/a%2Fb%7e.jpg?s=a%3Db`,
   ])('keeps %s', (url) => {
     expect(toAllowedImageUrl(url, HOSTS)).toBe(url);
   });
@@ -37,6 +38,12 @@ describe('toAllowedImageUrl', () => {
     ['a second query mark', 'https://cdn.myanimelist.net/1.jpg?a=1?b=2'],
     ['a control character', 'https://cdn.myanimelist.net/images/\u0000.jpg'],
     ['a non-ascii character', 'https://cdn.myanimelist.net/images/é.jpg'],
+    ['a bare percent sign', 'https://cdn.myanimelist.net/images/anime/1/1%.jpg'],
+    ['a percent sign without two hex digits', 'https://cdn.myanimelist.net/1.jpg?s=%zz'],
+    ['a trailing-dot host', 'https://cdn.myanimelist.net./images/anime/1/1.jpg'],
+    ['a percent-encoded host', 'https://cdn%2emyanimelist.net/images/anime/1/1.jpg'],
+    // the first "a" of "myanimelist" is the cyrillic U+0430
+    ['a unicode look-alike host', 'https://cdn.myаnimelist.net/images/anime/1/1.jpg'],
   ])('rejects %s', (_case, url) => {
     expect(toAllowedImageUrl(url, HOSTS)).toBeNull();
   });
