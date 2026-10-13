@@ -169,10 +169,12 @@ const layerZone = (target, from, message) => ({
   message: `${message} (${LAYERS_RULE}).`,
 });
 
-// every catalog provider adapter and repository implementation folder: a new provider next to
-// jikan/ must be added here
+// every catalog provider adapter folder, the only users of the catalog http client: a new provider
+// adapter next to jikan/ is added here, which also adds it to IMPLEMENTATION_FOLDERS
+const CATALOG_ADAPTER_FOLDERS = ['./src/core/catalog/jikan'];
+// every catalog provider adapter and repository implementation folder
 const IMPLEMENTATION_FOLDERS = [
-  './src/core/catalog/jikan',
+  ...CATALOG_ADAPTER_FOLDERS,
   './src/core/repositories/supabase',
   './src/core/repositories/local',
 ];
@@ -250,11 +252,11 @@ export const LAYER_ZONES = [
     CATALOG_HTTP,
     'routes and features reach the catalog through src/core hooks; the catalog http client is used only by provider adapters',
   ),
-  // every file of src/core outside the implementation folders and the http folder itself, and every
-  // file of test/core: only the provider adapters (jikan/) and the http folder keep the client.
-  // targetsExcept keeps each pattern a glob on windows
+  // every file of src/core outside the provider adapter folders and the http folder itself (the
+  // repository implementations included), and every file of test/core: only the provider adapters
+  // (jikan/) and the http folder keep the client. targetsExcept keeps each pattern a glob on windows
   layerZone(
-    [...targetsExcept(CORE_ROOT, [...IMPLEMENTATION_FOLDERS, CATALOG_HTTP]), './test/core/**'],
+    [...targetsExcept(CORE_ROOT, [...CATALOG_ADAPTER_FOLDERS, CATALOG_HTTP]), './test/core/**'],
     CATALOG_HTTP,
     'src/core reaches the catalog through the catalog provider interface; the catalog http client is used only by provider adapters',
   ),

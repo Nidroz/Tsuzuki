@@ -154,9 +154,10 @@ export const REJECTED = {
       ...types(CATALOG_HTTP_CLIENT),
       ...dynamics(CATALOG_HTTP_CLIENT),
     ]),
-    // the rest of src/core and test/core, root files of src/core/catalog included
-    ...[PROBES.hooks, PROBES.query, PROBES.coreTestSource].flatMap((file) =>
-      rejected(file, PATHS, MESSAGES.coreCatalogHttp, catalogHttpImports(file)),
+    // the rest of src/core and test/core, root files of src/core/catalog and the repository
+    // implementations included
+    ...[PROBES.hooks, PROBES.query, PROBES.coreTestSource, PROBES.supabase, PROBES.local].flatMap(
+      (file) => rejected(file, PATHS, MESSAGES.coreCatalogHttp, catalogHttpImports(file)),
     ),
     ...rejected(PROBES.catalogInterface, PATHS, MESSAGES.coreCatalogHttp, [
       ...values('./http/rate-limiter'),
