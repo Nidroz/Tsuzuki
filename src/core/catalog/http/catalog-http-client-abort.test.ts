@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { delay, http, HttpResponse } from 'msw';
+import { http, HttpResponse } from 'msw';
 
 import { FIXED_NOW } from '../../../../test/core/fixed-clock';
 import { server } from '../../../../test/core/msw-server';
@@ -13,7 +13,7 @@ import type { RateLimitPolicy } from './rate-limiter';
 import { DEFAULT_RETRY_POLICY } from './retry-policy';
 
 // aborts and timeouts at each stage of a call: queued for a token, sleeping before a retry,
-// waiting for the headers, reading the body, and shared with other callers of the same url.
+// waiting for the headers and reading the body; callers sharing a url are in the release suite.
 // a rejection left unhandled fails the test that left it (jest-circus watches the real process;
 // the sandbox `process` is a copy whose listeners never fire)
 
@@ -29,7 +29,6 @@ const ONE_PER_SECOND: RateLimitPolicy = {
 // first retry with random() = 0: half of the 1 s base delay
 const FIRST_BACKOFF_MS = 500;
 const TIMEOUT_MS = 1_000;
-const RESPONSE_DELAY_MS = 100;
 // longer than any retry sequence of these tests: whatever was left to send has been sent
 const LONG_AFTER_MS = 60_000;
 
@@ -70,11 +69,6 @@ const recordRequests = (
 };
 
 const answerPayload = (): Response => HttpResponse.json(PAYLOAD);
-
-const answerLater = async (): Promise<Response> => {
-  await delay(RESPONSE_DELAY_MS);
-  return HttpResponse.json(PAYLOAD);
-};
 
 const neverAnswer = (): Promise<Response> => new Promise<Response>(() => undefined);
 
@@ -247,53 +241,6 @@ describe('reading the body', () => {
 
     expect(await result).toBeInstanceOf(CatalogNetworkError);
     expect(requests.map(({ at }) => at)).toStrictEqual([0, FIRST_BACKOFF_MS]);
-    await expectNoPendingTimer();
-  });
-});
-
-describe('callers sharing a url', () => {
-  it.each([
-    ['with a signal', new AbortController().signal],
-    ['without a signal', undefined],
-  ])('keep one request alive for a caller %s when the other aborts', async (_, signal) => {
-    const requests = recordRequests(URL, answerLater);
-    const client = createClient();
-    const leaving = new AbortController();
-
-    const stayed = settle(client.getJson(URL, signal));
-    const left = settle(client.getJson(URL, leaving.signal));
-    await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
-    leaving.abort();
-    expect(await left).toBeInstanceOf(CatalogAbortedError);
-    await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS / 2);
-
-    expect(await stayed).toEqual(PAYLOAD);
-    expect(requests).toHaveLength(1);
-    expect(requests[0]?.signal.aborted).toBe(false);
-    await expectNoPendingTimer();
-  });
-
-  it('cancel the request once all of them left, and a later call sends a new one', async () => {
-    const requests = recordRequests(URL, (_, dispatch) =>
-      dispatch === 1 ? neverAnswer() : answerPayload(),
-    );
-    const client = createClient();
-    const first = new AbortController();
-    const second = new AbortController();
-
-    const left = Promise.all([
-      settle(client.getJson(URL, first.signal)),
-      settle(client.getJson(URL, second.signal)),
-    ]);
-    await jest.advanceTimersByTimeAsync(RESPONSE_DELAY_MS);
-    first.abort();
-    expect(requests[0]?.signal.aborted).toBe(false);
-    second.abort();
-    expect(await left).toEqual([expect.any(CatalogAbortedError), expect.any(CatalogAbortedError)]);
-    expect(requests[0]?.signal.aborted).toBe(true);
-
-    await expect(client.getJson(URL)).resolves.toEqual(PAYLOAD);
-    expect(requests.map(({ at }) => at)).toStrictEqual([0, RESPONSE_DELAY_MS]);
     await expectNoPendingTimer();
   });
 });

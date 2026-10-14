@@ -6,6 +6,7 @@ import { FIXED_NOW } from './fixed-clock';
 import { server } from './msw-server';
 
 const DELAY_MS = 1000;
+const ONE_HOUR_MS = 3_600_000;
 const HANDLED_URL = 'https://example.test/handled';
 const UNHANDLED_URL = 'https://example.test/unhandled';
 const PAYLOAD = { id: 1, title: 'Frieren' };
@@ -28,6 +29,30 @@ describe('test determinism', () => {
 
     expect(callback).toHaveBeenCalledTimes(1);
     expect(Date.now()).toBe(FIXED_NOW + DELAY_MS);
+  });
+
+  // the monotonic clock of the catalog rate limiter and retry deadline
+  it('freezes performance.now until the test advances the timers', async () => {
+    const start = performance.now();
+
+    // real time passes over a microtask turn, fake time does not
+    await Promise.resolve();
+    expect(performance.now()).toBe(start);
+
+    jest.advanceTimersByTime(DELAY_MS);
+    expect(performance.now()).toBe(start + DELAY_MS);
+  });
+
+  it('moves Date.now but not performance.now when the system time changes', () => {
+    const start = performance.now();
+
+    jest.setSystemTime(FIXED_NOW + ONE_HOUR_MS);
+    expect(Date.now()).toBe(FIXED_NOW + ONE_HOUR_MS);
+    expect(performance.now()).toBe(start);
+
+    jest.setSystemTime(FIXED_NOW - ONE_HOUR_MS);
+    expect(Date.now()).toBe(FIXED_NOW - ONE_HOUR_MS);
+    expect(performance.now()).toBe(start);
   });
 
   it('computes dates in UTC', () => {

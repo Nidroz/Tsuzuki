@@ -16,11 +16,11 @@ const ONE_PER_SECOND: RateLimitPolicy = {
 };
 // never limits within a test: isolates the pause
 const UNLIMITED: RateLimitPolicy = { buckets: [{ capacity: 1_000, refillIntervalMs: 1 }] };
-const ONE_HOUR_MS = 3_600_000;
+const PER_SECOND_INTERVAL_MS = 750;
 // a per-second and a per-minute bucket, the shape of the jikan policy
 const TWO_BUCKETS: RateLimitPolicy = {
   buckets: [
-    { capacity: 2, refillIntervalMs: 750 },
+    { capacity: 2, refillIntervalMs: PER_SECOND_INTERVAL_MS },
     { capacity: 10, refillIntervalMs: 1_500 },
   ],
 };
@@ -94,6 +94,31 @@ describe('createRateLimiter', () => {
     await done;
     // granted at the time the aborted waiter would have had
     expect(grants).toStrictEqual([{ label: 'next', at: INTERVAL_MS }]);
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
+  it('keeps the others in arrival order when a waiter in the middle of the queue aborts', async () => {
+    const limiter = createRateLimiter(ONE_PER_SECOND);
+    const controller = new AbortController();
+    const grants: { label: string; at: number }[] = [];
+    const record = (label: string) => (): void => {
+      grants.push({ label, at: elapsed() });
+    };
+    await limiter.acquire();
+    void limiter.acquire().then(record('head'));
+    const middle = limiter.acquire(controller.signal).then(record('middle'));
+    void limiter.acquire().then(record('tail'));
+
+    await jest.advanceTimersByTimeAsync(INTERVAL_MS / 2);
+    controller.abort();
+
+    await expect(middle).rejects.toBeInstanceOf(CatalogAbortedError);
+    await jest.advanceTimersByTimeAsync(2 * INTERVAL_MS - INTERVAL_MS / 2);
+    // the head keeps its turn, and the tail takes the token the aborted waiter would have had
+    expect(grants).toStrictEqual([
+      { label: 'head', at: INTERVAL_MS },
+      { label: 'tail', at: 2 * INTERVAL_MS },
+    ]);
     expect(jest.getTimerCount()).toBe(0);
   });
 
@@ -204,34 +229,6 @@ describe('pauseFor', () => {
     expect(() => {
       createRateLimiter(UNLIMITED).pauseFor(ms);
     }).toThrow(RangeError);
-  });
-});
-
-describe('a clock going backwards', () => {
-  it('does not stall the buckets', async () => {
-    const limiter = createRateLimiter(ONE_PER_SECOND);
-    await limiter.acquire();
-    jest.setSystemTime(FIXED_NOW - ONE_HOUR_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(INTERVAL_MS);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
-  });
-
-  it('does not stall a pause', async () => {
-    const limiter = createRateLimiter(UNLIMITED);
-    limiter.pauseFor(MAX_PAUSE_MS);
-    jest.setSystemTime(FIXED_NOW - ONE_HOUR_MS);
-    const granted = jest.fn();
-
-    void limiter.acquire().then(granted);
-    await jest.advanceTimersByTimeAsync(MAX_PAUSE_MS);
-
-    expect(granted).toHaveBeenCalledTimes(1);
-    expect(jest.getTimerCount()).toBe(0);
   });
 });
 

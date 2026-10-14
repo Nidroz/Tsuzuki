@@ -4,17 +4,14 @@ import { delay, http, HttpResponse } from 'msw';
 import { FIXED_NOW } from '../../../../test/core/fixed-clock';
 import { server } from '../../../../test/core/msw-server';
 import { createCatalogHttpClient } from '../http/catalog-http-client';
-import { JIKAN_RATE_LIMIT } from './jikan-rate-limit';
+import type { RateLimitPolicy } from '../http/rate-limiter';
+import { SELF_HOSTED_JIKAN_RATE_LIMIT, TENRAI_RATE_LIMIT } from './jikan-rate-limit';
 
-// the jikan rate limit through the real http client: concurrent callers, in-flight duplicates,
-// provider latency and a 429 mid-run never break the documented limits
+// each jikan rate limit through the real http client: concurrent callers, in-flight duplicates,
+// provider latency and a 429 mid-run never break the policy's bounds, below the documented limits
 
 const BASE_URL = 'https://catalog.test/anime';
 const CALLS = 150;
-// documented jikan v4 limit per second
-const PER_SECOND_LIMIT = 3;
-// the policy's own bound for a minute, below the documented 60 per minute
-const PER_MINUTE_BOUND = 50;
 const SECOND_MS = 1_000;
 const MINUTE_MS = 60_000;
 const ARRIVAL_SEED = 2026;
@@ -25,9 +22,39 @@ const DUPLICATE_SHARE = 0.25;
 const MIN_RESPONSE_DELAY_MS = 40;
 const RESPONSE_DELAY_STEP_MS = 50;
 const RESPONSE_DELAY_STEPS = 5;
-// the first request dispatched from then on gets the 429
-const RATE_LIMITED_FROM_MS = 90_000;
 const PAUSE_MS = 2_000;
+
+interface PolicyCase {
+  readonly name: string;
+  readonly policy: RateLimitPolicy;
+  // the policy's own bounds (jikan-rate-limit.test.ts)
+  readonly perSecondBound: number;
+  readonly perMinuteBound: number;
+  // the longest gap between two arrivals: calls come faster than the policy sustains, so a queue
+  // builds up
+  readonly maxArrivalGapMs: number;
+  // the first request dispatched from then on gets the 429, mid-run
+  readonly rateLimitedFromMs: number;
+}
+
+const POLICIES: readonly PolicyCase[] = [
+  {
+    name: 'TENRAI_RATE_LIMIT',
+    policy: TENRAI_RATE_LIMIT,
+    perSecondBound: 3,
+    perMinuteBound: 82,
+    maxArrivalGapMs: 1_200,
+    rateLimitedFromMs: 45_000,
+  },
+  {
+    name: 'SELF_HOSTED_JIKAN_RATE_LIMIT',
+    policy: SELF_HOSTED_JIKAN_RATE_LIMIT,
+    perSecondBound: 3,
+    perMinuteBound: 50,
+    maxArrivalGapMs: 2_500,
+    rateLimitedFromMs: 90_000,
+  },
+];
 
 interface Dispatch {
   readonly at: number;
@@ -54,13 +81,12 @@ const urlOf = (id: number): string => `${BASE_URL}/${String(id)}`;
 
 const payloadOf = (id: number) => ({ data: { mal_id: id } });
 
-// arrival offsets: bursts of simultaneous calls mixed with gaps of up to 2.5 s, faster than the
-// 40 per minute the policy sustains, so a queue builds up
-const arrivalsOf = (seed: number): number[] => {
+// arrival offsets: bursts of simultaneous calls mixed with gaps of up to `maxGapMs`
+const arrivalsOf = (seed: number, maxGapMs: number): number[] => {
   const random = createLcg(seed);
   let at = 0;
   return Array.from({ length: CALLS }, () => {
-    at += random() < 0.3 ? 0 : Math.floor(random() * 2_500);
+    at += random() < 0.3 ? 0 : Math.floor(random() * maxGapMs);
     return at;
   });
 };
@@ -73,7 +99,7 @@ const maxInWindow = (times: readonly number[], windowMs: number): number =>
   );
 
 // the provider: answers each id with its payload after a latency, except one 429 mid-run
-const serveProvider = () => {
+const serveProvider = (rateLimitedFromMs: number) => {
   const dispatches: Dispatch[] = [];
   const rateLimited: { id: number | null; pauseFrom: number } = { id: null, pauseFrom: 0 };
   server.use(
@@ -82,7 +108,7 @@ const serveProvider = () => {
       const at = elapsed();
       dispatches.push({ at, id });
       await delay(MIN_RESPONSE_DELAY_MS + (id % RESPONSE_DELAY_STEPS) * RESPONSE_DELAY_STEP_MS);
-      if (rateLimited.id === null && at >= RATE_LIMITED_FROM_MS) {
+      if (rateLimited.id === null && at >= rateLimitedFromMs) {
         rateLimited.id = id;
         // the client pauses from the moment it reads this response
         rateLimited.pauseFrom = elapsed();
@@ -98,12 +124,15 @@ const serveProvider = () => {
 };
 
 // schedules every call; at its arrival, a call joins a url still in flight or asks for a new one
-const scheduleCalls = (getJson: (url: string) => Promise<unknown>): Call[] => {
+const scheduleCalls = (
+  getJson: (url: string) => Promise<unknown>,
+  maxArrivalGapMs: number,
+): Call[] => {
   const choose = createLcg(CHOICE_SEED);
   const inFlight = new Set<number>();
   const calls: Call[] = [];
   let nextId = 1;
-  for (const arrival of arrivalsOf(ARRIVAL_SEED)) {
+  for (const arrival of arrivalsOf(ARRIVAL_SEED, maxArrivalGapMs)) {
     setTimeout(() => {
       const pending = [...inFlight];
       const joined =
@@ -124,12 +153,12 @@ const scheduleCalls = (getJson: (url: string) => Promise<unknown>): Call[] => {
   return calls;
 };
 
-describe('the jikan rate limit under concurrent calls', () => {
-  it('keeps every limit through duplicates, latency and a 429', async () => {
-    const { dispatches, rateLimited } = serveProvider();
-    const client = createCatalogHttpClient({ rateLimit: JIKAN_RATE_LIMIT, random: () => 0 });
+describe.each(POLICIES)('$name under concurrent calls', (policyCase) => {
+  it('keeps every bound through duplicates, latency and a 429', async () => {
+    const { dispatches, rateLimited } = serveProvider(policyCase.rateLimitedFromMs);
+    const client = createCatalogHttpClient({ rateLimit: policyCase.policy, random: () => 0 });
 
-    const calls = scheduleCalls((url) => client.getJson(url));
+    const calls = scheduleCalls((url) => client.getJson(url), policyCase.maxArrivalGapMs);
     await jest.runAllTimersAsync();
     const results = await Promise.all(calls.map(({ result }) => result));
 
@@ -138,8 +167,8 @@ describe('the jikan rate limit under concurrent calls', () => {
     expect(results).toEqual(calls.map(({ id }) => payloadOf(id)));
 
     const times = dispatches.map(({ at }) => at);
-    expect(maxInWindow(times, SECOND_MS)).toBeLessThanOrEqual(PER_SECOND_LIMIT);
-    expect(maxInWindow(times, MINUTE_MS)).toBeLessThanOrEqual(PER_MINUTE_BOUND);
+    expect(maxInWindow(times, SECOND_MS)).toBeLessThanOrEqual(policyCase.perSecondBound);
+    expect(maxInWindow(times, MINUTE_MS)).toBeLessThanOrEqual(policyCase.perMinuteBound);
 
     // one dispatch per url: duplicates joined the request in flight; the 429 was retried once
     const ids = [...new Set(calls.map(({ id }) => id))];

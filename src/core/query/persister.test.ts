@@ -18,7 +18,7 @@ import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
 const APP_VERSION = '1.0.0';
 const PREVIOUS_APP_VERSION = '0.9.0';
-const MEDIA_KEY = ['media', 'anime', 1];
+const MEDIA_KEY = ['media', 'mal', 'anime', 1];
 const MEDIA = { title: 'Frieren' };
 const OTHER_MEDIA = { title: 'Mushishi' };
 
@@ -112,13 +112,13 @@ describe('createQueryPersister', () => {
     const source = createQueryClient();
     await expect(
       source.query({
-        queryKey: ['top', 'jikan', 'anime', 1],
+        queryKey: ['top', 'mal', 'anime', 1],
         queryFn: () => Promise.reject(new Error('offline')),
       }),
     ).rejects.toThrow('offline');
     void source
       .query({
-        queryKey: ['season', 'jikan', 1],
+        queryKey: ['season', 'mal', 1],
         queryFn: () => new Promise<never>(() => undefined),
       })
       .catch(noop);

@@ -3,7 +3,10 @@
 import type { MediaKind } from './media';
 
 /** genre names that mark a title as adult content (BR-06), lowercase for comparison. */
-export const ADULT_GENRE_NAMES: readonly string[] = ['hentai', 'erotica'];
+export const ADULT_GENRE_NAMES = ['hentai', 'erotica'] as const;
+
+// lookup of any trimmed, lowercased genre name
+const ADULT_GENRE_NAME_SET: ReadonlySet<string> = new Set<string>(ADULT_GENRE_NAMES);
 
 const ADULT_RATED_KIND: MediaKind = 'anime';
 
@@ -19,7 +22,7 @@ export const isAdultMedia = (input: {
   if (input.kind === ADULT_RATED_KIND && input.isRxRated) {
     return true;
   }
-  return input.genreNames.some((name) => ADULT_GENRE_NAMES.includes(name.trim().toLowerCase()));
+  return input.genreNames.some((name) => ADULT_GENRE_NAME_SET.has(name.trim().toLowerCase()));
 };
 
 /**

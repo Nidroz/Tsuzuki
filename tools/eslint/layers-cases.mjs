@@ -19,6 +19,7 @@ export const MESSAGES = {
   features: 'src/features uses src/core hooks, never repository or catalog provider',
   root: 'only app/_layout.tsx (the composition root) wires',
   catalogHttp: 'the catalog http client is used only by provider adapters',
+  coreCatalogHttp: 'src/core reaches the catalog through the catalog provider interface',
   reactNative: 'src/core stays platform-agnostic: no React Native',
   expo: 'src/core stays platform-agnostic: no Expo module',
   nativewind: 'NativeWind is used only inside src/ui',
@@ -31,7 +32,8 @@ export const MESSAGES = {
   jestLiteral: 'jest module calls take a string literal',
   jestName: 'jest is imported and used under its own name',
   jestByName: 'jest methods are called by name',
-  jikan: 'the catalog provider is reached only through its adapter',
+  catalogHost:
+    'catalog provider hosts (Jikan v4 compatible instances such as Tenrai) are reached only through their adapter in src/core/catalog/jikan',
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',
   classNameGuard: 'className is used only inside src/ui',
@@ -153,6 +155,15 @@ export const REJECTED = {
       ...types(CATALOG_HTTP_CLIENT),
       ...dynamics(CATALOG_HTTP_CLIENT),
     ]),
+    // the rest of src/core and test/core, root files of src/core/catalog and the repository
+    // implementations included
+    ...[PROBES.hooks, PROBES.query, PROBES.coreTestSource, PROBES.supabase, PROBES.local].flatMap(
+      (file) => rejected(file, PATHS, MESSAGES.coreCatalogHttp, catalogHttpImports(file)),
+    ),
+    ...rejected(PROBES.catalogInterface, PATHS, MESSAGES.coreCatalogHttp, [
+      ...values('./http/rate-limiter'),
+      ...types('./http/rate-limiter'),
+    ]),
   ],
 
   'package bans': [
@@ -239,8 +250,12 @@ export const ALLOWED = {
     ]),
     ...allowed(PROBES.features, values('@core/hooks/use-library')),
     ...allowed(EXISTING.layout, values(...IMPLEMENTATIONS)),
-    // a provider adapter uses the catalog http client
-    ...allowed(PROBES.jikan, catalogHttpImports(PROBES.jikan)),
+    // a provider adapter uses the catalog http client, and the http folder its own files
+    ...allowed(PROBES.jikan, [
+      ...catalogHttpImports(PROBES.jikan),
+      ...types('../http/rate-limiter'),
+    ]),
+    ...allowed(PROBES.catalogHttp, values('./rate-limiter', '@core/catalog/http/rate-limiter')),
   ],
   // documents current behavior, not a rule: the owner decided not to restrict imports between
   // implementation folders in F-03. restricting them later must update these cases on purpose

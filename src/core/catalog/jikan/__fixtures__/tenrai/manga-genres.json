@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "mal_id": 1,
+      "name": "Action",
+      "url": "https://myanimelist.net/manga/genre/1/Action",
+      "count": 11423
+    },
+    {
+      "mal_id": 62,
+      "name": "Isekai",
+      "url": "https://myanimelist.net/manga/genre/62/Isekai",
+      "count": 2548
+    },
+    {
+      "mal_id": 41,
+      "name": "Seinen",
+      "url": "https://myanimelist.net/manga/genre/41/Seinen",
+      "count": 9626
+    }
+  ]
+}

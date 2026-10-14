@@ -1,6 +1,6 @@
 # ADR-0003: Catalog data behind a CatalogProvider adapter
 
-- Status: Accepted
+- Status: Superseded by ADR-0013 for the provider and the media identifier; the adapter principle is unchanged
 - Date: 2026-09-23
 
 ## Context

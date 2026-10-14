@@ -12,7 +12,7 @@ Targets: Android and iOS, published on Google Play and the App Store.
 
 | Term | Meaning |
 | --- | --- |
-| Media | A catalog title, identified by `(kind, providerId)` |
+| Media | A catalog title, identified by `(namespace, kind, externalId)` |
 | Kind | `anime` or `manga` (manga covers manhwa, manhua, novels…) |
 | Format | Provider subtype: TV, Movie, OVA, ONA, Special, Music for anime; Manga, Manhwa, Manhua, Light Novel, Novel, One-shot, Doujinshi, OEL for manga |
 | Unit | Episode (anime) or chapter (manga) |
@@ -82,7 +82,7 @@ Targets: Android and iOS, published on Google Play and the App Store.
 | --- | --- |
 | Performance | Cold start < 2 s on a mid-range Android device; lists at 60 fps; cached screens render instantly |
 | Offline | Library and previously viewed media readable offline; writes queued and synced on reconnect |
-| Provider limits | Never exceed the catalog provider rate limit (Jikan: ~3 req/s, ~60 req/min) |
+| Provider limits | Never exceed the rate limit of the active catalog instance (Tenrai: 4 req/s, 120 req/min per IP) |
 | Security | OWASP MASVS L1 baseline; see `docs/ARCHITECTURE.md` §Security |
 | Privacy | GDPR: minimal data (email, library), privacy policy, account deletion, no advertising or analytics trackers (crash reporting only, without personal data) |
 | Accessibility | Screen reader labels on all controls, dynamic font size support, WCAG AA contrast |

@@ -1,0 +1,345 @@
+{
+  "pagination": {
+    "last_visible_page": 1,
+    "has_next_page": false,
+    "current_page": 1,
+    "items": {
+      "count": 3,
+      "total": 4,
+      "per_page": 5
+    }
+  },
+  "data": [
+    {
+      "mal_id": 52991,
+      "url": "https://myanimelist.net/anime/52991/Sousou_no_Frieren",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1015/138006.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1015/138006.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1015/138006l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Sousou no Frieren"
+        },
+        {
+          "type": "Japanese",
+          "title": "葬送のフリーレン"
+        },
+        {
+          "type": "English",
+          "title": "Frieren: Beyond Journey's End"
+        },
+        {
+          "type": "Synonym",
+          "title": "Frieren at the Funeral"
+        },
+        {
+          "type": "Synonym",
+          "title": "Frieren The Slayer"
+        }
+      ],
+      "title": "Sousou no Frieren",
+      "title_english": "Frieren: Beyond Journey's End",
+      "title_japanese": "葬送のフリーレン",
+      "title_synonyms": ["Frieren at the Funeral", "Frieren The Slayer"],
+      "type": "TV",
+      "source": "Manga",
+      "episodes": 28,
+      "status": "Finished Airing",
+      "airing": false,
+      "aired": {
+        "from": "2023-09-29T00:00:00+00:00",
+        "to": "2024-03-22T00:00:00+00:00",
+        "prop": {
+          "from": {
+            "day": 29,
+            "month": 9,
+            "year": 2023
+          },
+          "to": {
+            "day": 22,
+            "month": 3,
+            "year": 2024
+          }
+        },
+        "string": "Sep 29, 2023 to Mar 22, 2024"
+      },
+      "duration": "24 min per ep",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": 9.24,
+      "scored_by": 944093,
+      "rank": 1,
+      "popularity": 96,
+      "members": 1529944,
+      "favorites": 94102,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "fall",
+      "year": 2023,
+      "broadcast": {
+        "day": "Fridays",
+        "time": "23:00",
+        "timezone": "Asia/Tokyo",
+        "string": "Fridays at 23:00 (JST)"
+      },
+      "genres": [
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 46,
+          "type": "anime",
+          "name": "Award Winning",
+          "url": "https://myanimelist.net/anime/genre/46/Award_Winning"
+        },
+        {
+          "mal_id": 8,
+          "type": "anime",
+          "name": "Drama",
+          "url": "https://myanimelist.net/anime/genre/8/Drama"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    },
+    {
+      "mal_id": 63816,
+      "url": "https://myanimelist.net/anime/63816/Sousou_no_Frieren__Ougonkyou-hen",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1619/156313.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1619/156313t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1619/156313l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1619/156313.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1619/156313t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1619/156313l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Sousou no Frieren: Ougonkyou-hen"
+        },
+        {
+          "type": "Japanese",
+          "title": "葬送のフリーレン 黄金郷編"
+        },
+        {
+          "type": "English",
+          "title": "Frieren: Beyond Journey's End - Golden Land Arc"
+        },
+        {
+          "type": "Synonym",
+          "title": "Frieren at the Funeral Season 3"
+        }
+      ],
+      "title": "Sousou no Frieren: Ougonkyou-hen",
+      "title_english": "Frieren: Beyond Journey's End - Golden Land Arc",
+      "title_japanese": "葬送のフリーレン 黄金郷編",
+      "title_synonyms": ["Frieren at the Funeral Season 3"],
+      "type": "TV",
+      "source": "Manga",
+      "episodes": null,
+      "status": "Not yet aired",
+      "airing": false,
+      "aired": {
+        "from": "2027-10",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": null,
+            "month": 10,
+            "year": 2027
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Oct 2027 to ?"
+      },
+      "duration": "Unknown",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": null,
+      "scored_by": 0,
+      "rank": null,
+      "popularity": 2217,
+      "members": 115869,
+      "favorites": 333,
+      "synopsis": "Placeholder synopsis.",
+      "background": null,
+      "season": "fall",
+      "year": 2027,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 8,
+          "type": "anime",
+          "name": "Drama",
+          "url": "https://myanimelist.net/anime/genre/8/Drama"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    },
+    {
+      "mal_id": 56885,
+      "url": "https://myanimelist.net/anime/56885/Sousou_no_Frieren___no_Mahou",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1045/150038.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1045/150038t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1045/150038l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1045/150038.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1045/150038t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1045/150038l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Sousou no Frieren: ●● no Mahou"
+        },
+        {
+          "type": "Japanese",
+          "title": "葬送のフリーレン ～●●の魔法～"
+        },
+        {
+          "type": "English",
+          "title": "Frieren: Beyond Journey's End Mini Anime"
+        },
+        {
+          "type": "Synonym",
+          "title": "Sousou no Frieren: Marumaru no Mahou"
+        }
+      ],
+      "title": "Sousou no Frieren: ●● no Mahou",
+      "title_english": "Frieren: Beyond Journey's End Mini Anime",
+      "title_japanese": "葬送のフリーレン ～●●の魔法～",
+      "title_synonyms": ["Sousou no Frieren: Marumaru no Mahou"],
+      "type": "ONA",
+      "source": "Manga",
+      "episodes": 24,
+      "status": "Finished Airing",
+      "airing": false,
+      "aired": {
+        "from": "2023-10-11T00:00:00+00:00",
+        "to": "2026-05-22T00:00:00+00:00",
+        "prop": {
+          "from": {
+            "day": 11,
+            "month": 10,
+            "year": 2023
+          },
+          "to": {
+            "day": 22,
+            "month": 5,
+            "year": 2026
+          }
+        },
+        "string": "Oct 11, 2023 to May 22, 2026"
+      },
+      "duration": "1 min per ep",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": 7.36,
+      "scored_by": 10700,
+      "rank": 2880,
+      "popularity": 5012,
+      "members": 26723,
+      "favorites": 83,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "fall",
+      "year": 2023,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 4,
+          "type": "anime",
+          "name": "Comedy",
+          "url": "https://myanimelist.net/anime/genre/4/Comedy"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    }
+  ]
+}

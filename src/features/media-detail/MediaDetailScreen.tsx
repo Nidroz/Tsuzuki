@@ -20,8 +20,10 @@ export interface MediaDetailScreenProps {
 }
 
 /**
- * the media detail screen of a `media/[kind]/[id]` route. a deep link never triggers a write: this
- * screen only reads its params, and calls no repository and no mutation
+ * the media detail screen of a `media/[namespace]/[kind]/[id]` route, such as
+ * `tsuzuki://media/mal/anime/52991`: the namespace says whose catalog ids the id is. a deep link
+ * never triggers a write: this screen only reads its params, and calls no repository and no
+ * mutation
  */
 export function MediaDetailScreen({ params }: MediaDetailScreenProps) {
   const { t } = useTranslation();
@@ -51,7 +53,7 @@ export function MediaDetailScreen({ params }: MediaDetailScreenProps) {
   return (
     <Screen edges={EDGES} testID="media-detail-screen">
       <Text>
-        {t('mediaDetail.placeholder', { kind: t(KIND_KEYS[media.kind]), id: media.malId })}
+        {t('mediaDetail.placeholder', { kind: t(KIND_KEYS[media.kind]), id: media.externalId })}
       </Text>
     </Screen>
   );

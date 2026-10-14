@@ -33,6 +33,9 @@ export const PROBES = {
   repositoryInterface: 'src/core/repositories/probe-interface.ts',
   catalogInterface: 'src/core/catalog/probe-interface.ts',
   jikan: 'src/core/catalog/jikan/probe.ts',
+  // the catalog http client folder, next to the provider adapters
+  catalogHttp: 'src/core/catalog/http/probe.ts',
+  query: 'src/core/query/probe.ts',
   i18n: 'src/core/i18n/probe.ts',
   i18nTest: 'src/core/i18n/probe.test.ts',
   supabase: 'src/core/repositories/supabase/probe.ts',
@@ -59,9 +62,10 @@ export const PROBES = {
   uiComponent: 'src/ui/probe.tsx',
   testMobileComponent: 'test/mobile/probe.tsx',
   layoutTs: 'app/_layout.ts',
-  // the shapes of app/(tabs)/_layout.tsx and app/media/[kind]/[id].tsx, under names no route uses
+  // the shapes of app/(tabs)/_layout.tsx and app/media/[namespace]/[kind]/[id].tsx, under names no
+  // route uses
   nestedLayout: 'app/(probe)/_layout.tsx',
-  nestedRoute: 'app/probe/[kind]/[id].tsx',
+  nestedRoute: 'app/probe/[namespace]/[kind]/[id].tsx',
   // dotfiles and dot-folders: plain modules (.mjs), since typescript leaves ts dotfiles out of the
   // project
   featuresDotfile: 'src/features/.probe.mjs',

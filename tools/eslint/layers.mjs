@@ -8,9 +8,9 @@ import { withDotNames } from './glob-dot-names.mjs';
 import { BANNED, CANONICAL_PATHS, PLATFORM_CORE_TYPE_ONLY } from './import-bans.mjs';
 import { toSelectorRegex } from './selectors.mjs';
 import {
+  CATALOG_HOST_GUARDS,
   CLASS_NAME_GUARDS,
   JEST_GUARDS,
-  JIKAN_GUARDS,
   LAYERS_RULE,
   LITERAL_IMPORT_GUARD,
   STYLE_GUARDS,
@@ -23,7 +23,7 @@ export { NETWORK_GLOBALS, NETWORK_MESSAGE } from './import-bans.mjs';
 
 // every file's no-restricted-syntax guards outside src/ui, tools/ included; a block that sets its
 // own options must re-include them
-export const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS, ...CLASS_NAME_GUARDS];
+export const BASE_SYNTAX_GUARDS = [...CATALOG_HOST_GUARDS, ...CLASS_NAME_GUARDS];
 
 // every file under src/ belongs to a layer, so each file gets the rules of exactly one layer
 const SRC_LAYER_FOLDERS = ['src/core', 'src/features', 'src/ui', 'src/platform'];
@@ -49,7 +49,7 @@ export const SRC_OUTSIDE_LAYERS = {
 export const layerRules = ({
   banned: layerBanned,
   typeOnly,
-  allowJikan = false,
+  allowCatalogHosts = false,
   usesNativeWind = false,
   bansStyles = false,
   bansLiteralText = false,
@@ -84,7 +84,7 @@ export const layerRules = ({
         })),
       ),
       ...jestModuleBans(banned),
-      ...(allowJikan ? [] : JIKAN_GUARDS),
+      ...(allowCatalogHosts ? [] : CATALOG_HOST_GUARDS),
       ...(usesNativeWind ? [] : CLASS_NAME_GUARDS),
       ...(bansStyles ? STYLE_GUARDS : []),
       ...(bansLiteralText ? TEXT_GUARDS : []),
@@ -126,7 +126,7 @@ export const LAYERS = [
   {
     files: ['src/core/catalog/jikan/**'],
     banned: [reactNative, expo, nativewind, supabase, i18n],
-    allowJikan: true,
+    allowCatalogHosts: true,
   },
   { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind, i18n] },
   { files: ['src/core/i18n/**'], banned: [reactNative, expo, nativewind, supabase] },
@@ -169,15 +169,19 @@ const layerZone = (target, from, message) => ({
   message: `${message} (${LAYERS_RULE}).`,
 });
 
-// every catalog provider adapter and repository implementation folder: a new provider next to
-// jikan/ must be added here
+// every catalog provider adapter folder, the only users of the catalog http client: a new provider
+// adapter next to jikan/ is added here, which also adds it to IMPLEMENTATION_FOLDERS
+const CATALOG_ADAPTER_FOLDERS = ['./src/core/catalog/jikan'];
+// every catalog provider adapter and repository implementation folder
 const IMPLEMENTATION_FOLDERS = [
-  './src/core/catalog/jikan',
+  ...CATALOG_ADAPTER_FOLDERS,
   './src/core/repositories/supabase',
   './src/core/repositories/local',
 ];
 
 const CORE_ROOT = './src/core';
+// the catalog http client: rate limit, in-flight dedup and retries, used only by provider adapters
+const CATALOG_HTTP = './src/core/catalog/http';
 
 // globs for every file under root except the excluded folders (leaves under root): at each level
 // on the way down to them, the files of that folder plus every sibling folder. targets are
@@ -245,8 +249,16 @@ export const LAYER_ZONES = [
   // backslash escape above does not apply, and a folder target already covers dot names
   layerZone(
     ['./app', './src/features'],
-    './src/core/catalog/http',
+    CATALOG_HTTP,
     'routes and features reach the catalog through src/core hooks; the catalog http client is used only by provider adapters',
+  ),
+  // every file of src/core outside the provider adapter folders and the http folder itself (the
+  // repository implementations included), and every file of test/core: only the provider adapters
+  // (jikan/) and the http folder keep the client. targetsExcept keeps each pattern a glob on windows
+  layerZone(
+    [...targetsExcept(CORE_ROOT, [...CATALOG_ADAPTER_FOLDERS, CATALOG_HTTP]), './test/core/**'],
+    CATALOG_HTTP,
+    'src/core reaches the catalog through the catalog provider interface; the catalog http client is used only by provider adapters',
   ),
   // every file of app/ and src/ except the colocated jest tests; the "**" keeps each pattern a glob
   // on windows, where the backslash before "!(" escapes it (see above)

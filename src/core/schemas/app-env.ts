@@ -14,6 +14,13 @@ const SUPABASE_URL_PATTERN = /^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d{1,5})
 const SENTRY_DSN_PATTERN =
   /^https:\/\/[a-f0-9]+@[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d{1,5})?\/(?:[a-z0-9-]+\/)*\d+$/i;
 
+// the root of a jikan v4 compatible instance: https, the supabase url host grammar, an optional
+// port and an optional path of plain segments. no credentials, query, fragment or whitespace; an
+// optional trailing slash is dropped from the parsed value
+const JIKAN_BASE_URL_PATTERN =
+  /^https:\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)*(?::\d{1,5})?(?:\/[a-z0-9._~-]+)*\/?$/i;
+const TRAILING_SLASH = /\/$/;
+
 const PUBLISHABLE_KEY_PREFIX = 'sb_publishable_';
 const PUBLISHABLE_KEY_PATTERN = /^sb_publishable_[A-Za-z0-9_-]+$/;
 const JWT_PATTERN = /^[A-Za-z0-9_-]+\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+$/;
@@ -54,6 +61,18 @@ export const appEnvSchema = z.object({
     .optional()
     .transform((value) => (value === '' ? undefined : value))
     .pipe(z.string().regex(SENTRY_DSN_PATTERN).optional()),
+  // an empty url means the default catalog instance
+  jikanBaseUrl: z
+    .string()
+    .optional()
+    .transform((value) => (value === '' ? undefined : value))
+    .pipe(
+      z
+        .string()
+        .regex(JIKAN_BASE_URL_PATTERN)
+        .transform((url) => url.replace(TRAILING_SLASH, ''))
+        .optional(),
+    ),
   variant: z.enum(APP_VARIANTS),
 });
 
@@ -63,6 +82,8 @@ export interface AppEnv {
   readonly supabaseUrl: string;
   readonly supabaseAnonKey: string;
   readonly sentryDsn?: string;
+  /** a jikan v4 compatible instance root, without a trailing slash; absent = the default one. */
+  readonly jikanBaseUrl?: string;
   readonly variant: AppVariant;
 }
 
@@ -78,6 +99,11 @@ export const parseAppEnv = (input: unknown): AppEnv => {
     });
     throw new AppEnvError([...new Set(fields)]);
   }
-  const { sentryDsn, ...env } = result.data;
-  return sentryDsn === undefined ? env : { ...env, sentryDsn };
+  // optional fields are set only when defined (exactOptionalPropertyTypes)
+  const { sentryDsn, jikanBaseUrl, ...env } = result.data;
+  return {
+    ...env,
+    ...(sentryDsn === undefined ? {} : { sentryDsn }),
+    ...(jikanBaseUrl === undefined ? {} : { jikanBaseUrl }),
+  };
 };

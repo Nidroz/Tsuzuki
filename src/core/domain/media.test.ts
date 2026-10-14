@@ -2,10 +2,11 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   ANIME_FORMATS,
-  MAL_ID_MAX,
+  EXTERNAL_ID_MAX,
   MANGA_FORMATS,
   MEDIA_FORMATS,
   MEDIA_FORMATS_BY_KIND,
+  MEDIA_ID_NAMESPACES,
   MEDIA_KINDS,
   MEDIA_STATUSES,
   SEARCHABLE_MEDIA_STATUSES,
@@ -18,14 +19,20 @@ describe('MEDIA_KINDS', () => {
   });
 });
 
-describe('MAL_ID_MAX', () => {
+describe('MEDIA_ID_NAMESPACES', () => {
+  it('lists mal as the only id namespace', () => {
+    expect(MEDIA_ID_NAMESPACES).toStrictEqual(['mal']);
+  });
+});
+
+describe('EXTERNAL_ID_MAX', () => {
   it('is the largest signed 32-bit integer', () => {
-    expect(MAL_ID_MAX).toBe(2_147_483_647);
-    expect(MAL_ID_MAX).toBe(2 ** 31 - 1);
+    expect(EXTERNAL_ID_MAX).toBe(2_147_483_647);
+    expect(EXTERNAL_ID_MAX).toBe(2 ** 31 - 1);
   });
 
   it('is a safe integer', () => {
-    expect(Number.isSafeInteger(MAL_ID_MAX)).toBe(true);
+    expect(Number.isSafeInteger(EXTERNAL_ID_MAX)).toBe(true);
   });
 });
 

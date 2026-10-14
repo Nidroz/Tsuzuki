@@ -1,10 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  CATALOG_FAILURE_KINDS,
   CatalogAbortedError,
   CatalogError,
   CatalogHttpError,
   CatalogNetworkError,
+  CatalogProviderFailureError,
   CatalogResponseError,
   CatalogTimeoutError,
 } from './catalog-errors';
@@ -20,6 +22,7 @@ const errors = [
   new CatalogTimeoutError(TIMEOUT_MS),
   new CatalogResponseError(),
   new CatalogAbortedError(),
+  new CatalogProviderFailureError('server_error'),
 ];
 
 describe('catalog errors', () => {
@@ -30,6 +33,7 @@ describe('catalog errors', () => {
       'CatalogTimeoutError',
       'CatalogResponseError',
       'AbortError',
+      'CatalogProviderFailureError',
     ]);
     for (const error of errors) {
       expect(error).toBeInstanceOf(CatalogError);
@@ -61,6 +65,22 @@ describe('catalog errors', () => {
     for (const error of errors) {
       expect(error.message).not.toMatch(REQUEST_TRACE);
       expect(error.cause).toBeUndefined();
+    }
+  });
+
+  it('names the kind of a provider failure, and only the kind', () => {
+    expect(CATALOG_FAILURE_KINDS).toStrictEqual([
+      'server_error',
+      'rate_limited',
+      'client_error',
+      'timeout',
+      'malformed_response',
+    ]);
+    for (const kind of CATALOG_FAILURE_KINDS) {
+      const error = new CatalogProviderFailureError(kind);
+      expect(error.kind).toBe(kind);
+      expect(error.message).toBe(`Catalog provider is failing: ${kind}`);
+      expect(Object.keys(error).sort()).toStrictEqual(['kind', 'name']);
     }
   });
 });

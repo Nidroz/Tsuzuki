@@ -98,7 +98,7 @@ function RootStack() {
   return (
     <Stack screenOptions={ROOT_SCREEN_OPTIONS}>
       <Stack.Screen name="(tabs)" options={TABS_OPTIONS} />
-      <Stack.Screen name="media/[kind]/[id]" options={mediaOptions} />
+      <Stack.Screen name="media/[namespace]/[kind]/[id]" options={mediaOptions} />
       <Stack.Screen name="+not-found" options={notFoundOptions} />
     </Stack>
   );

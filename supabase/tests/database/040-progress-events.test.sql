@@ -12,27 +12,27 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000002', 'other@example.test');
 
 insert into public.library_entries (
-  id, user_id, media_kind, mal_id, media_title, media_format, media_total_units
+  id, user_id, id_namespace, media_kind, external_id, media_title, media_format, media_total_units
 ) values
   (
     '00000000-0000-0000-0000-00000000a001',
     '00000000-0000-0000-0000-000000000001',
-    'anime', 1, 'Cowboy Bebop', 'TV', 26
+    'mal', 'anime', 1, 'Cowboy Bebop', 'TV', 26
   ),
   (
     '00000000-0000-0000-0000-00000000a002',
     '00000000-0000-0000-0000-000000000001',
-    'anime', 2, 'Trigun', 'TV', 26
+    'mal', 'anime', 2, 'Trigun', 'TV', 26
   ),
   (
     '00000000-0000-0000-0000-00000000a003',
     '00000000-0000-0000-0000-000000000001',
-    'manga', 1, 'Cowboy Bebop', 'Manga', 3
+    'mal', 'manga', 1, 'Cowboy Bebop', 'Manga', 3
   ),
   (
     '00000000-0000-0000-0000-00000000b001',
     '00000000-0000-0000-0000-000000000002',
-    'manga', 5, 'Monster', 'Manga', 162
+    'mal', 'manga', 5, 'Monster', 'Manga', 162
   );
 
 -- the other user gets one event, so the owner's reads below can prove it stays hidden
@@ -72,8 +72,9 @@ select isnt_empty(
   'the same-progress write matches the entry'
 );
 
-insert into public.library_entries (media_kind, mal_id, media_title, media_format, progress)
-values ('manga', 2, 'Monster', 'Manga', 5);
+insert into public.library_entries (
+  id_namespace, media_kind, external_id, media_title, media_format, progress
+) values ('mal', 'manga', 2, 'Monster', 'Manga', 5);
 
 -- verification as postgres
 reset role;
@@ -119,8 +120,9 @@ select is_empty(
     from public.progress_events e
     join public.library_entries l on l.id = e.entry_id
     where l.user_id = '00000000-0000-0000-0000-000000000001'
+      and l.id_namespace = 'mal'
       and l.media_kind = 'manga'
-      and l.mal_id = 2
+      and l.external_id = 2
   $$,
   'an insert writes no event, whatever its progress'
 );

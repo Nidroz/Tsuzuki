@@ -131,7 +131,7 @@ Details:
 
 - [x] C-01 `CatalogProvider` interface + normalized types + content filter domain function
 - [x] C-02 Rate limiter (token bucket, dedup, backoff)
-- [ ] C-03 Jikan adapter: search, detail, top, season, genres, with Zod schemas and recorded fixtures
+- [x] C-03 Jikan-compatible adapter (Tenrai by default): search, detail, top, season, genres, with Zod schemas and recorded fixtures
 - [ ] C-04 Search screen: debounced bar, recent searches, results list
 - [ ] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [ ] C-06 Interactive pagination with prefetch and position restore
@@ -140,24 +140,38 @@ Details:
 
 Details:
 
-### C-03 Jikan adapter
+### C-03 Jikan-compatible adapter
+- Reshaped by owner decisions after the public Jikan API (api.jikan.moe) shut down on 2026-10-01 (ADR-0013): one adapter for every Jikan v4 instance, with per-instance base URL and rate limits, Tenrai (`https://api.tenrai.org/v1`) by default and a self-hosted Jikan selected by one env value (`EXPO_PUBLIC_JIKAN_BASE_URL`); media identity is the id namespace (`mal`), not the server, in the domain types, the query keys, the detail route and `library_entries` (`id_namespace`, `external_id`); one shared contract suite for every `CatalogProvider` adapter; sustained provider failures reported through the `ErrorReporter`.
 - Bump `CACHE_SCHEMA_VERSION` whenever a persisted normalized catalog shape changes after a release (C-01 review).
-- Send every request through one `createCatalogHttpClient({ rateLimit: JIKAN_RATE_LIMIT })` per provider instance (`getJson`), never a direct `fetch`; the adapter factory creates that client itself, the composition root never builds one (lint keeps `src/core/catalog/http/` out of `app/` and `src/features/`); build deterministic https URLs (stable parameter order, from `normalizeSearchParams` for search) so equivalent requests share one dedup key; pass the caller's `AbortSignal` through; map a Zod failure to `CatalogResponseError` (C-02).
+- Send every request through one `createCatalogHttpClient({ rateLimit: instance.rateLimit })` per provider instance (`getJson`), never a direct `fetch`; the adapter factory creates that client itself, the composition root never builds one (lint keeps `src/core/catalog/http/` out of `app/` and `src/features/`); build deterministic https URLs (stable parameter order, from `normalizeSearchParams` for search) so equivalent requests share one dedup key; pass the caller's `AbortSignal` through; map a Zod failure to `CatalogResponseError` (C-02).
 - Monotonic clock for the rate limiter (owner decision, C-02 review): the limiter and the retry deadline read `Date.now`, clamped only when it jumps backwards; a forward wall-clock jump (NTP step, manual change) of 1.5 s or more refills the buckets at once (5 grants in one real second were measured with a +2 s jump), and 15 s or more releases the 10-token burst and shortens a running pause. Use `performance.now()` (Hermes, browsers, Node, Jest fake timers) for the limiter and the deadline, keep `Date.now` for `Retry-After` dates, drop `clampToClock`; or record the caveat in `ARCHITECTURE.md` §6.
 - Release the body of a non-2xx response in `src/core/catalog/http/catalog-http-client.ts` (C-02 review): it is never read or cancelled, harmless on React Native (the XHR-based fetch buffers it) but it holds the connection on undici and browsers (future web app). Abort the attempt controller in the `finally`, or cancel `response.body` before throwing `CatalogHttpError`.
 - Widen the lint zone of `src/core/catalog/http/` (C-02 review): only `app/` and `src/features/` are barred today, while `ARCHITECTURE.md` §2 says only provider adapters use the client; also target the rest of `src/core/` (`targetsExcept(CORE_ROOT, [...IMPLEMENTATION_FOLDERS, './src/core/catalog/http'])`) and `test/core/`, with cases in `tools/eslint/layers-cases.mjs`, or narrow the wording.
-- Focused regression tests for interleavings so far covered only by fuzzing in the C-02 review: an abort landing after the dedup task settled but before the caller settles (`in-flight-dedup.test.ts`); the abort of a waiter in the middle of the limiter queue keeping FIFO order (`rate-limiter.test.ts`); a caller joining a url whose shared operation sleeps in backoff (`catalog-http-client-abort.test.ts`).
+- Focused regression tests for interleavings so far covered only by fuzzing in the C-02 review: an abort landing after the dedup task settled but before the caller settles (`in-flight-dedup.test.ts`); the abort of a waiter in the middle of the limiter queue keeping FIFO order (`rate-limiter.test.ts`); a caller joining a url whose shared operation sleeps in backoff (`catalog-http-client-release.test.ts`).
+- Recorded fixtures (done on Tenrai, 2026-10-14; api.jikan.moe had been unreachable since 2026-10-13, then shut down): record the real v4 responses with about 13 sequential plain GETs, one per 1.5 s, raw output kept outside the repository: `/anime?q=frieren&limit=5`, `/manga?q=solo%20leveling&type=manhwa&limit=5`, the empty search `/anime?q=zzqxjvwkpt&limit=5`, the details `/anime/52991`, `/manga/121496` and `/manga/2`, `/top/anime?page=1&limit=5`, `/top/manga?page=1&limit=5`, `/seasons/now?page=1&limit=15`, `/genres/anime`, `/genres/manga`, and the year probe `/anime?q=one%20piece&start_date=1999-01-01&end_date=1999-12-31&limit=5` (a title that started in 1999 and is still airing: listed means `end_date` does not drop titles still airing and `jikanYearRange` stays; missing means it bounds the end of airing, and the year filter meaning is decided before C-05 exposes it). Trim them into `src/core/catalog/jikan/__fixtures__/tenrai/*.json` (at most 3 items, synopsis and background replaced by placeholders, no adult titles or covers, no people or organizations, one item with a null score, count or year if the responses hold one), add a test running them through the provider, and verify against them: the case of the anime search `type` values, the `titles[].type` values, whether an anime `status` can be null, and that every item of search, top, season and detail carries the four genre arrays (`genres`, `explicit_genres`, `themes`, `demographics`) and, for anime, the `rating` key. These inputs fail a whole response today: a mismatch is fixed in the same step (schema, tests, `ARCHITECTURE.md` §3), never by relaxing BR-06. Result: every listed fact holds on Tenrai, and the year probe shows that `end_date` bounds the end of airing (One Piece, airing since 1999, is missing with `end_date=1999-12-31` and listed without it), so the year filter meaning moves to C-05.
+
+### C-04 Search screen
+- Wire the catalog provider in the composition root (`app/_layout.tsx`) together with the first catalog hook, through a React context in `src/core/hooks/` that provides the `CatalogProvider`: the hooks depend on the interface only, never on the Jikan implementation (C-03). Provider selection happens only there (ADR-0013): `monitorCatalogProvider(createJikanCatalogProvider(jikanInstanceFor(appEnv.jikanBaseUrl)), { reporter })`, so an unset `EXPO_PUBLIC_JIKAN_BASE_URL` selects Tenrai and sustained failures reach the `ErrorReporter`.
+- Cap the search input at the adapter's query limit (300 UTF-16 code units, Tenrai's documented `q` limit; longer text is a `RangeError` before any request, C-03). Features cannot import the adapter: expose the limit through a core constant or the provider.
 
 ### C-05 Filters sheet
 - `MEDIA_FORMATS_BY_KIND` includes the `unknown` fallback: leave it out of the format chips, or add a searchable formats list in `src/core/domain/media.ts` (C-01 review).
 - `SearchParams.formats` accepts any `MediaFormat` for either kind (`{ kind: 'manga', formats: ['tv'] }` typechecks): validate formats per kind, or make `SearchParams` a union keyed on `kind` (C-01 review).
-- Type `ADULT_GENRE_NAMES` in `src/core/domain/content-filter.ts` `as const`, like the other constant arrays (C-01 review).
+- The Jikan adapter accepts one format per search and has no search type for `oel` or `unknown` (a `RangeError` before any request, C-03): make the format chips single-select and leave these two out, or change `SearchParams`.
+- Hide the adult genre chips (names in `ADULT_GENRE_NAMES`, `src/core/domain/content-filter.ts`) when the adult content setting is off (BR-06).
+- Decide the year filter meaning before exposing it (C-03, confirmed on Tenrai): `start_date` bounds the start of airing and `end_date` its end, so `jikanYearRange` (`src/core/catalog/jikan/jikan-urls.ts`, year Y → `start_date=Y-01-01&end_date=Y-12-31`) matches only titles aired entirely within Y and drops titles still airing or spanning two years. Choose "started in Y" (for example `start_date` alone with a start-date sort and a cut at the first later year), "from Y onwards", or drop the filter, and adjust `jikanYearRange` and `ARCHITECTURE.md` §3.
+- The genre chips select at most 25 included and 25 excluded genres (Tenrai's documented limit; more is a `RangeError` before any request, C-03).
 
 ### C-06 Interactive pagination
 - Prefetches share the FIFO queue of the catalog rate limiter with the requests of the visible screen (C-02): give visible requests priority, or skip a prefetch while requests are queued, so a prefetch never delays the page the user opens.
+- When touching the catalog http tests: `settle`, `recordRequests`, `expectNoPendingTimer` and `elapsed` are copied in four test files of `src/core/catalog/http/` (C-03 review); move them into one shared test helper, under a name that the coverage exclusions and the test lint overrides treat as test code.
 
 ### C-07 Media detail screen
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
+
+### C-08 Discovery screen
+- FR-05 format chips on top manga (manhwa, manhua) need a format on `CatalogProvider.getTop` (Jikan `/top/manga?type=`): a change to the interface and to the `top` query key (C-03).
+- Tenrai's `/seasons/now` also lists titles still airing from earlier seasons, without the `continuing` parameter (recorded 2026-10-14: a winter 2026 title in the fall 2026 list, C-03). Decide whether the current season section keeps them, or drops items whose `season` and `year` differ from the current season (the adapter does not read `season` today).
 
 ## Phase 3 — Library (guest first)
 
@@ -167,6 +181,12 @@ Details:
 - [ ] L-04 Library screen: grouping, filters, sorting
 - [ ] L-05 Favorites (toggle + tab)
 - [ ] L-06 Adult content setting wired to the filter
+
+Details:
+
+### L-02 Local (guest) library repository
+- The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
+- Name the Postgres `integer` bound once in `src/core/domain/` (e.g. `POSTGRES_INTEGER_MAX`) and derive `EXTERNAL_ID_MAX` (`MAL_ID_MAX` before C-03) and the Jikan `TOTAL_UNITS_MAX` (`src/core/catalog/jikan/jikan-fields.ts`) from it (C-03 review).
 
 ## Phase 4 — Accounts and sync
 
@@ -181,9 +201,13 @@ Details:
 
 ### A-03 Supabase library repository
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
+- `library_entries.media_is_adult` defaults to `false`, which fails open (BR-06): snapshot writes must always set it from `MediaSummary.isAdult`; consider dropping the default in a migration (C-03 review).
+- Two `throws_ok` cases of `supabase/tests/database/030-library-entries.test.sql` (the external id check and the duplicate entry) pass a null message, so the constraint names `library_entries_external_id_check` and `library_entries_user_media_key` are never asserted (C-03 review): assert the Postgres messages that name them.
+- Every write names the media identity `(id_namespace, external_id)` from the `MediaKey` (`namespace`, `externalId`): `id_namespace` has no default (C-03, ADR-0013), and the upsert conflict target is `(user_id, id_namespace, media_kind, external_id)`.
 
 ### A-05 Offline write queue and replay
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
+- Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
 ## Phase 5 — Release
 
@@ -209,6 +233,31 @@ Details:
 - Stray session chunks after a kill (F-11 review): the per-key dirty state of `src/platform/secure-session.ts` lives in memory, so if the app is killed between writing the chunks and the cleanup, chunks of an older session stay in the keychain until a removal or a missing or invalid header triggers a sweep. Decide whether to persist the dirty marker or sweep once per launch.
 - Test the success paths of `tools/ci/check-eas-preview-scope.mjs` (F-11 review): stdin to `build=true|false` in `GITHUB_OUTPUT`, and `FORCE_ALL` ignoring stdin.
 - Sentry notes scrubbing gaps (F-11 review): an unquoted colon value (`notes: rewatch with my sister`) and a prefix longer than 40 characters before `notes=` are not redacted, and a malformed value with no closing quote can hide a later `notes` member from the scrubber. Cover them in `src/platform/sentry-scrub.ts` or record them as accepted limitations in `ARCHITECTURE.md` §9.
+
+### R-05 Privacy policy, store listings, screenshots, age rating
+- The privacy policy states that the catalog provider receives the user's IP address and User-Agent with every catalog request: Tenrai, the default instance, logs them for up to 90 days (its privacy policy, C-03, ADR-0013). Name the active provider and update the policy whenever the instance changes (self-hosted Jikan, AniList).
+
+## Catalog fallbacks (on demand, outside the phase order)
+
+Taken only when the owner triggers them (provider outage or discontinuation, or an authorization), not in backlog order. Strategy (ADR-0013): AniList if authorized, else a self-hosted Jikan.
+
+- [ ] C-09 AniList adapter (pending authorization)
+- [ ] C-10 Self-hosted Jikan
+
+Details:
+
+### C-09 AniList adapter (pending authorization)
+- Starts only after AniList authorizes the app. Terms to recheck first: free under $150 of revenue per month, a commercial licence above, so any monetization triggers a review; the app name must not contain "AniList".
+- A new adapter folder next to `jikan/` (GraphQL over POST: the catalog http client gains a dedup key that includes the body), added to `CATALOG_ADAPTER_FOLDERS` and the provider host lint guard, passing the shared contract suite (`test/core/catalog-provider-contract.ts`), with its own rate limiter instance and recorded fixtures.
+- Media id namespace (deferred from C-03): AniList ids get their own namespace (`anilist`) unless this item decides a mapping to `mal` through `idMal`. Add the AniList cross-reference column on `library_entries` (an AniList id next to the MAL `external_id`, nullable, per-user unique) in a new migration with pgTAP tests, so existing `mal` entries and AniList results can be matched.
+- Distinct from A-07 (AniList account sync).
+- Before a second adapter relies on the contract suite (C-03 review): its `page` and `detail` scenarios only check that `isAdult` is a boolean, so an adapter flagging every item adult passes. Require these scenarios to serve non-adult items (harness doc in `test/core/catalog-provider-contract-support.ts`) and assert `isAdult === false` for them.
+
+### C-10 Self-hosted Jikan
+- Run a jikan-rest instance (hosting, its own cache, MyAnimeList scraping limits, monitoring), https only.
+- Switch the app with one value: `EXPO_PUBLIC_JIKAN_BASE_URL` in the EAS environments (C-03), then a build, or an update published with its environment. The adapter applies `SELF_HOSTED_JIKAN_RATE_LIMIT` (the public Jikan's documented limits); tune it to the instance's real limits if needed.
+- Update the privacy policy (R-05) and ADR-0013's terms summary.
+- Before a self-hosted URL is used (C-03 review): `selfHostedJikanInstance` (`src/core/catalog/jikan/jikan-instances.ts`) checks only the https prefix and the trailing slash, and the app env URL pattern (`src/core/schemas/app-env.ts`) accepts `.` and `..` path segments. Export one core URL pattern, use it in both, and reject dot segments.
 
 ## Maintenance (recurring, never ticked)
 

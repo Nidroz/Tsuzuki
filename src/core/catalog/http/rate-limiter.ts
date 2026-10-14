@@ -1,4 +1,5 @@
-// shared token bucket rate limiter of the catalog providers (docs/ARCHITECTURE.md §6, ADR-0005)
+// shared token bucket rate limiter of the catalog providers (docs/ARCHITECTURE.md §6, ADR-0005).
+// it reads a monotonic clock: a wall clock change (ntp step, manual change) never moves its state
 import { CatalogAbortedError } from '../../errors/catalog-errors';
 import { onAbort, type Detach } from './abortable';
 
@@ -21,11 +22,15 @@ export interface RateLimiter {
 }
 
 export interface RateLimiterOptions {
-  // default Date.now, read on each call so fake clocks apply
+  /**
+   * monotonic clock in ms: it must never decrease. default `performance.now()`, read on each call
+   * so fake timers apply. never the wall clock: a wall clock change would refill the buckets or
+   * shorten a pause (forward), or stall the queue (backward).
+   */
   readonly now?: () => number;
 }
 
-/** upper bound of a pause, so a huge Retry-After or a clock jump never blocks the queue for long. */
+/** upper bound of a pause, so a huge Retry-After never blocks the queue for long. */
 export const MAX_PAUSE_MS = 60_000;
 
 // the integer virtual-scheduling form of the token bucket (gcra): `tat` is the theoretical arrival
@@ -60,7 +65,7 @@ export const createRateLimiter = (
   options: RateLimiterOptions = {},
 ): RateLimiter => {
   validatePolicy(policy);
-  const now = options.now ?? (() => Date.now());
+  const now = options.now ?? (() => performance.now());
   const buckets: BucketState[] = policy.buckets.map(({ capacity, refillIntervalMs }) => ({
     capacity,
     intervalMs: refillIntervalMs,
@@ -70,15 +75,6 @@ export const createRateLimiter = (
   let queue: Waiter[] = [];
   let pausedUntil = Number.NEGATIVE_INFINITY;
   let timer: ReturnType<typeof setTimeout> | undefined;
-
-  // a clock that went backwards (wall clock) leaves the state at most one full burst or one
-  // maximum pause ahead of t, so the queue never stalls
-  const clampToClock = (t: number): void => {
-    for (const bucket of buckets) {
-      bucket.tat = Math.min(bucket.tat, t + bucket.capacity * bucket.intervalMs);
-    }
-    pausedUntil = Math.min(pausedUntil, t + MAX_PAUSE_MS);
-  };
 
   // the earliest time every bucket and the pause allow the next grant
   const readyAt = (): number =>
@@ -100,7 +96,6 @@ export const createRateLimiter = (
     timer = undefined;
     for (let head = queue[0]; head !== undefined; head = queue[0]) {
       const t = now();
-      clampToClock(t);
       const ready = readyAt();
       if (t < ready) {
         timer = setTimeout(drain, Math.max(0, Math.ceil(ready - t)));

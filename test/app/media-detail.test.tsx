@@ -20,6 +20,7 @@ jest.mock('expo-localization', () => ({
 
 const VALID_TEST_ID = 'media-detail-screen';
 const INVALID_TEST_ID = 'media-detail-invalid';
+const NOT_FOUND_TEST_ID = 'not-found-screen';
 // the native stack header only shows up as this react-native-screens host component, whose title
 // prop is the header title
 const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
@@ -47,8 +48,8 @@ const headerTitles = () =>
 
 describe('media detail route', () => {
   it.each([
-    ['/media/anime/1', 'Anime #1: details coming soon'],
-    ['/media/manga/42', 'Manga #42: details coming soon'],
+    ['/media/mal/anime/1', 'Anime #1: details coming soon'],
+    ['/media/mal/manga/42', 'Manga #42: details coming soon'],
   ])('shows the placeholder of the valid link %s', async (url, text) => {
     const router = await openLink(url);
 
@@ -59,13 +60,13 @@ describe('media detail route', () => {
   });
 
   it('titles its stack header in the app language', async () => {
-    await openLink('/media/anime/1');
+    await openLink('/media/mal/anime/1');
 
     expect(headerTitles()).toContain(en.mediaDetail.title);
   });
 
   it('keeps Discover below a cold deep link, so back leads to it', async () => {
-    const router = await openLink('/media/manga/42');
+    const router = await openLink('/media/mal/manga/42');
 
     expect(appRouter.canGoBack()).toBe(true);
     await act(() => {
@@ -77,9 +78,11 @@ describe('media detail route', () => {
   });
 
   it.each([
-    ['an unknown kind', '/media/movie/1'],
-    ['an id that is not a number', '/media/anime/abc'],
-    ['an id that is not positive', '/media/anime/0'],
+    ['an unknown namespace', '/media/anilist/anime/1'],
+    ['an uppercase namespace', '/media/MAL/anime/1'],
+    ['an unknown kind', '/media/mal/movie/1'],
+    ['an id that is not a number', '/media/mal/anime/abc'],
+    ['an id that is not positive', '/media/mal/anime/0'],
   ])('shows a translated error for %s', async (_case, url) => {
     await openLink(url);
 
@@ -91,7 +94,7 @@ describe('media detail route', () => {
 
   it('goes back to Discover from an invalid link', async () => {
     const user = userEvent.setup();
-    const router = await openLink('/media/anime/abc');
+    const router = await openLink('/media/mal/anime/abc');
 
     await user.press(screen.getByRole('button', { name: en.mediaDetail.invalidLink.action }));
 
@@ -101,8 +104,17 @@ describe('media detail route', () => {
     // dismissed to the tabs below, not pushed: one Discover, no invalid link left to go back to
     expect(appRouter.canGoBack()).toBe(false);
   });
-  it('shows no untranslated back title or back menu over the tabs', async () => {
+
+  it('shows the not found screen for an old link without a namespace', async () => {
     await openLink('/media/anime/1');
+
+    expect(screen.getByTestId(NOT_FOUND_TEST_ID)).toBeOnTheScreen();
+    expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
+  });
+
+  it('shows no untranslated back title or back menu over the tabs', async () => {
+    await openLink('/media/mal/anime/1');
 
     expect(visibleBackButtons()).toStrictEqual([
       { backTitle: undefined, minimal: true, disableBackButtonMenu: true },

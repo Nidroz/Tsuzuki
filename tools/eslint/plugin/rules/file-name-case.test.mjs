@@ -51,7 +51,7 @@ const VALID_PATHS = [
   'app/test.tsx',
   'app/(tabs)/_layout.tsx',
   'app/(auth)/sign-in.tsx',
-  'app/media/[kind]/[id].tsx',
+  'app/media/[namespace]/[kind]/[id].tsx',
   'app/[userId].tsx',
   'app/[...slug].tsx',
   'app/docs/[...slug].tsx',
