@@ -1,10 +1,42 @@
 -- library entries: full crud for the owner, nothing for another user or anon, server-controlled
--- columns (user_id, created_at) not writable, constraints for BR-01, BR-07 and the media snapshot
+-- columns (user_id, created_at) not writable, the media identity (id_namespace, media_kind,
+-- external_id), constraints for BR-01, BR-07 and the media snapshot
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(41);
+select plan(49);
+
+-- media identity: mal_id is gone, every write names its id namespace
+select hasnt_column(
+  'public', 'library_entries', 'mal_id',
+  'library_entries has no mal_id column anymore'
+);
+
+select has_column(
+  'public', 'library_entries', 'id_namespace',
+  'library_entries has an id_namespace column'
+);
+
+select col_type_is(
+  'public', 'library_entries', 'id_namespace', 'public', 'media_id_namespace',
+  'id_namespace is a media_id_namespace'
+);
+
+select col_not_null(
+  'public', 'library_entries', 'id_namespace',
+  'id_namespace is not null'
+);
+
+select col_hasnt_default(
+  'public', 'library_entries', 'id_namespace',
+  'id_namespace has no default'
+);
+
+select enum_has_labels(
+  'public', 'media_id_namespace', array['mal'],
+  'media_id_namespace holds the mal namespace only'
+);
 
 -- setup as postgres: one backdated entry per user
 insert into auth.users (id, email) values
@@ -14,8 +46,9 @@ insert into auth.users (id, email) values
 insert into public.library_entries (
   id,
   user_id,
+  id_namespace,
   media_kind,
-  mal_id,
+  external_id,
   media_title,
   media_format,
   media_total_units,
@@ -25,12 +58,12 @@ insert into public.library_entries (
   (
     '00000000-0000-0000-0000-00000000a001',
     '00000000-0000-0000-0000-000000000001',
-    'anime', 1, 'Cowboy Bebop', 'TV', 26, '2000-01-01', '2000-01-01'
+    'mal', 'anime', 1, 'Cowboy Bebop', 'TV', 26, '2000-01-01', '2000-01-01'
   ),
   (
     '00000000-0000-0000-0000-00000000b001',
     '00000000-0000-0000-0000-000000000002',
-    'manga', 5, 'Monster', 'Manga', 162, '2000-01-01', '2000-01-01'
+    'mal', 'manga', 5, 'Monster', 'Manga', 162, '2000-01-01', '2000-01-01'
   );
 
 -- owner
@@ -44,8 +77,10 @@ select set_config(
 select results_eq(
   $$
     insert into public.library_entries (
-      media_kind, mal_id, media_title, media_format, media_image_url
-    ) values ('anime', 2, 'Trigun', 'TV', 'https://cdn.myanimelist.net/images/anime/7/20310.jpg')
+      id_namespace, media_kind, external_id, media_title, media_format, media_image_url
+    ) values (
+      'mal', 'anime', 2, 'Trigun', 'TV', 'https://cdn.myanimelist.net/images/anime/7/20310.jpg'
+    )
     returning user_id
   $$,
   $$ values ('00000000-0000-0000-0000-000000000001'::uuid) $$,
@@ -53,7 +88,7 @@ select results_eq(
 );
 
 select results_eq(
-  $$ select mal_id from public.library_entries order by mal_id $$,
+  $$ select external_id from public.library_entries order by external_id $$,
   $$ values (1), (2) $$,
   'the owner reads their own entries only'
 );
@@ -81,8 +116,8 @@ select ok(
 select results_eq(
   $$
     delete from public.library_entries
-    where media_kind = 'anime' and mal_id = 2
-    returning mal_id
+    where id_namespace = 'mal' and media_kind = 'anime' and external_id = 2
+    returning external_id
   $$,
   $$ values (2) $$,
   'the owner deletes their own entry'
@@ -91,8 +126,9 @@ select results_eq(
 -- server-controlled columns have no insert or update grant
 select throws_ok(
   $$
-    insert into public.library_entries (user_id, media_kind, mal_id, media_title, media_format)
-    values ('00000000-0000-0000-0000-000000000001', 'anime', 3, 'Akira', 'Movie')
+    insert into public.library_entries (
+      user_id, id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('00000000-0000-0000-0000-000000000001', 'mal', 'anime', 3, 'Akira', 'Movie')
   $$,
   '42501',
   null,
@@ -134,8 +170,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (id, media_kind, mal_id, media_title, media_format)
-    values ('00000000-0000-0000-0000-00000000a0ff', 'anime', 4, 'Paprika', 'Movie')
+    insert into public.library_entries (
+      id, id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('00000000-0000-0000-0000-00000000a0ff', 'mal', 'anime', 4, 'Paprika', 'Movie')
   $$,
   '42501',
   null,
@@ -157,8 +194,8 @@ select throws_ok(
 select lives_ok(
   $$
     insert into public.library_entries (
-      media_kind, mal_id, media_title, media_format, media_total_units, progress
-    ) values ('anime', 20, 'Planetes', 'TV', 12, 13)
+      id_namespace, media_kind, external_id, media_title, media_format, media_total_units, progress
+    ) values ('mal', 'anime', 20, 'Planetes', 'TV', 12, 13)
   $$,
   'BR-01: a progress above the snapshot total is accepted'
 );
@@ -188,8 +225,11 @@ select throws_ok(
 
 select lives_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, score)
-    values ('anime', 21, 'Mushishi', 'TV', 10), ('anime', 22, 'Haibane Renmei', 'TV', null)
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, score
+    ) values
+      ('mal', 'anime', 21, 'Mushishi', 'TV', 10),
+      ('mal', 'anime', 22, 'Haibane Renmei', 'TV', null)
   $$,
   'BR-07: a score of 10 or null is accepted'
 );
@@ -223,35 +263,60 @@ select lives_ok(
   'BR-07: notes of 2000 characters are accepted'
 );
 
--- media snapshot
+-- media identity
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 0, 'Zero', 'TV')
+    insert into public.library_entries (media_kind, external_id, media_title, media_format)
+    values ('anime', 29, 'Haikyuu', 'TV')
+  $$,
+  '23502',
+  null,
+  'an entry without id_namespace is rejected'
+);
+
+select throws_ok(
+  $$
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('anilist', 'anime', 30, 'Mononoke', 'TV')
+  $$,
+  '22P02',
+  null,
+  'an unknown id namespace is rejected'
+);
+
+select throws_ok(
+  $$
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 0, 'Zero', 'TV')
   $$,
   '23514',
   null,
-  'a mal_id of 0 is rejected'
+  'an external_id of 0 is rejected'
 );
 
 select lives_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 2147483647, 'Max', 'TV')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 2147483647, 'Max', 'TV')
   $$,
-  'the largest integer mal_id is accepted'
+  'the largest integer external_id is accepted'
 );
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 2147483648, 'Overflow', 'TV')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 2147483648, 'Overflow', 'TV')
   $$,
   '22003',
   null,
-  'a mal_id above the integer range is rejected'
+  'an external_id above the integer range is rejected'
 );
 
+-- media snapshot
 select throws_ok(
   $$
     update public.library_entries
@@ -265,8 +330,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 23, '', 'TV')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 23, '', 'TV')
   $$,
   '23514',
   null,
@@ -275,8 +341,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, media_image_url)
-    values ('anime', 25, repeat('a', 501), 'TV', null)
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_image_url
+    ) values ('mal', 'anime', 25, repeat('a', 501), 'TV', null)
   $$,
   '23514',
   null,
@@ -285,8 +352,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, media_image_url)
-    values ('anime', 26, 'Kino', '', null)
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_image_url
+    ) values ('mal', 'anime', 26, 'Kino', '', null)
   $$,
   '23514',
   null,
@@ -295,8 +363,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, media_image_url)
-    values ('anime', 27, 'Kino', repeat('a', 33), null)
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_image_url
+    ) values ('mal', 'anime', 27, 'Kino', repeat('a', 33), null)
   $$,
   '23514',
   null,
@@ -305,8 +374,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, media_image_url)
-    values ('anime', 28, 'Kino', 'TV', 'https://' || repeat('a', 2041))
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_image_url
+    ) values ('mal', 'anime', 28, 'Kino', 'TV', 'https://' || repeat('a', 2041))
   $$,
   '23514',
   null,
@@ -315,19 +385,21 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, media_total_units)
-    values ('anime', 24, 'Kaiba', 'TV', 0)
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_total_units
+    ) values ('mal', 'anime', 24, 'Kaiba', 'TV', 0)
   $$,
   '23514',
   null,
   'a media total of 0 units is rejected'
 );
 
--- one entry per user and media
+-- one entry per user and media: (user_id, id_namespace, media_kind, external_id)
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 1, 'Cowboy Bebop', 'TV')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 1, 'Cowboy Bebop', 'TV')
   $$,
   '23505',
   null,
@@ -336,21 +408,24 @@ select throws_ok(
 
 select lives_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('manga', 1, 'Cowboy Bebop', 'Manga')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'manga', 1, 'Cowboy Bebop', 'Manga')
   $$,
-  'the same mal_id is accepted for the other media kind'
+  'the same external_id is accepted for the other media kind'
 );
 
--- upsert as postgrest sends it: every payload column, media_kind and mal_id included, is in the
+-- upsert as postgrest sends it: every payload column, the media identity included, is in the
 -- do update set list, so a narrower update grant would break the repository and the guest merge
 select lives_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format, progress)
-    values ('anime', 1, 'Cowboy Bebop', 'TV', 7)
-    on conflict (user_id, media_kind, mal_id) do update
-    set media_kind = excluded.media_kind,
-      mal_id = excluded.mal_id,
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, progress
+    ) values ('mal', 'anime', 1, 'Cowboy Bebop', 'TV', 7)
+    on conflict (user_id, id_namespace, media_kind, external_id) do update
+    set id_namespace = excluded.id_namespace,
+      media_kind = excluded.media_kind,
+      external_id = excluded.external_id,
       media_title = excluded.media_title,
       media_format = excluded.media_format,
       progress = excluded.progress
@@ -359,7 +434,11 @@ select lives_ok(
 );
 
 select results_eq(
-  $$ select id, progress from public.library_entries where media_kind = 'anime' and mal_id = 1 $$,
+  $$
+    select id, progress
+    from public.library_entries
+    where id_namespace = 'mal' and media_kind = 'anime' and external_id = 1
+  $$,
   $$ values ('00000000-0000-0000-0000-00000000a001'::uuid, 7) $$,
   'the upsert updates the existing entry instead of adding one'
 );
@@ -373,8 +452,9 @@ select set_config(
 
 select lives_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 1, 'Cowboy Bebop', 'TV')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 1, 'Cowboy Bebop', 'TV')
   $$,
   'the same media is accepted for another user'
 );
@@ -429,8 +509,9 @@ select throws_ok(
 
 select throws_ok(
   $$
-    insert into public.library_entries (media_kind, mal_id, media_title, media_format)
-    values ('anime', 3, 'Akira', 'Movie')
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format
+    ) values ('mal', 'anime', 3, 'Akira', 'Movie')
   $$,
   '42501',
   null,

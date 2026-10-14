@@ -6,10 +6,11 @@ export type Database = {
       library_entries: {
         Row: {
           created_at: string;
+          external_id: number;
           finished_at: string | null;
           id: string;
+          id_namespace: Database['public']['Enums']['media_id_namespace'];
           is_favorite: boolean;
-          mal_id: number;
           media_format: string;
           media_image_url: string | null;
           media_is_adult: boolean;
@@ -26,10 +27,11 @@ export type Database = {
         };
         Insert: {
           created_at?: string;
+          external_id: number;
           finished_at?: string | null;
           id?: string;
+          id_namespace: Database['public']['Enums']['media_id_namespace'];
           is_favorite?: boolean;
-          mal_id: number;
           media_format: string;
           media_image_url?: string | null;
           media_is_adult?: boolean;
@@ -46,10 +48,11 @@ export type Database = {
         };
         Update: {
           created_at?: string;
+          external_id?: number;
           finished_at?: string | null;
           id?: string;
+          id_namespace?: Database['public']['Enums']['media_id_namespace'];
           is_favorite?: boolean;
-          mal_id?: number;
           media_format?: string;
           media_image_url?: string | null;
           media_is_adult?: boolean;
@@ -131,6 +134,7 @@ export type Database = {
     };
     Enums: {
       library_status: 'current' | 'planned' | 'completed' | 'paused' | 'dropped';
+      media_id_namespace: 'mal';
       media_kind: 'anime' | 'manga';
     };
     CompositeTypes: {
@@ -244,6 +248,7 @@ export const Constants = {
   public: {
     Enums: {
       library_status: ['current', 'planned', 'completed', 'paused', 'dropped'],
+      media_id_namespace: ['mal'],
       media_kind: ['anime', 'manga'],
     },
   },
