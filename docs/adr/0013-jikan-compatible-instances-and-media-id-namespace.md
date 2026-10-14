@@ -1,8 +1,8 @@
 # ADR-0013: Jikan-compatible instances and a namespaced media identity
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-14
-- Supersedes in part: ADR-0003 (Jikan as the provider, and the MyAnimeList id as the canonical media identifier). The adapter boundary of ADR-0003 stays; its status is updated when this ADR is accepted.
+- Supersedes in part: ADR-0003 (Jikan as the provider, and the MyAnimeList id as the canonical media identifier). The adapter boundary of ADR-0003 stays.
 
 ## Context
 
