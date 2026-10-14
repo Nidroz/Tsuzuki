@@ -107,15 +107,15 @@ describe('monitorCatalogProvider', () => {
 });
 
 describe('a sustained failure', () => {
-  it.each<[string, unknown, CatalogFailureKind]>([
-    ['a 500', new CatalogHttpError(500, null), 'server_error'],
-    ['a 503 with Retry-After', SERVER_ERROR, 'server_error'],
-    ['a 429', new CatalogHttpError(429, 1_000), 'rate_limited'],
-    ['a 400', new CatalogHttpError(400, null), 'client_error'],
-    ['a 403', new CatalogHttpError(403, null), 'client_error'],
-    ['a timeout', new CatalogTimeoutError(10_000), 'timeout'],
-    ['a malformed response', new CatalogResponseError(), 'malformed_response'],
-  ])('of %s is reported once, as %s', async (_, error, kind) => {
+  it.each<[string, CatalogFailureKind, unknown]>([
+    ['a 500', 'server_error', new CatalogHttpError(500, null)],
+    ['a 503 with Retry-After', 'server_error', SERVER_ERROR],
+    ['a 429', 'rate_limited', new CatalogHttpError(429, 1_000)],
+    ['a 400', 'client_error', new CatalogHttpError(400, null)],
+    ['a 403', 'client_error', new CatalogHttpError(403, null)],
+    ['a timeout', 'timeout', new CatalogTimeoutError(10_000)],
+    ['a malformed response', 'malformed_response', new CatalogResponseError()],
+  ])('of %s is reported once, as %s', async (_, kind, error) => {
     const { captureError, searchAt } = setup();
 
     await searchAt(0, error);
