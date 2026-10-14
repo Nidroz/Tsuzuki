@@ -1,0 +1,228 @@
+{
+  "pagination": {
+    "last_visible_page": 1,
+    "has_next_page": false,
+    "current_page": 1,
+    "items": {
+      "count": 2,
+      "total": 2,
+      "per_page": 5
+    }
+  },
+  "data": [
+    {
+      "mal_id": 121496,
+      "url": "https://myanimelist.net/manga/121496/Solo_Leveling",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/3/222295.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/3/222295t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/3/222295l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/3/222295.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/3/222295t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/3/222295l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Solo Leveling"
+        },
+        {
+          "type": "Japanese",
+          "title": "나 혼자만 레벨업"
+        },
+        {
+          "type": "English",
+          "title": "Solo Leveling"
+        },
+        {
+          "type": "Synonym",
+          "title": "Na Honjaman Level Up"
+        },
+        {
+          "type": "Synonym",
+          "title": "I Level Up Alone"
+        }
+      ],
+      "title": "Solo Leveling",
+      "title_english": "Solo Leveling",
+      "title_japanese": "나 혼자만 레벨업",
+      "title_synonyms": ["Na Honjaman Level Up", "I Level Up Alone"],
+      "type": "Manhwa",
+      "chapters": 201,
+      "volumes": 15,
+      "status": "Finished",
+      "publishing": false,
+      "published": {
+        "from": "2018-03-04T00:00:00+00:00",
+        "to": "2023-05-31T00:00:00+00:00",
+        "prop": {
+          "from": {
+            "day": 4,
+            "month": 3,
+            "year": 2018
+          },
+          "to": {
+            "day": 31,
+            "month": 5,
+            "year": 2023
+          }
+        },
+        "string": "Mar 4, 2018 to May 31, 2023"
+      },
+      "score": 8.55,
+      "scored_by": 376115,
+      "rank": 146,
+      "popularity": 5,
+      "members": 629600,
+      "favorites": 47211,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "manga",
+          "name": "Action",
+          "url": "https://myanimelist.net/manga/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "manga",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/manga/genre/2/Adventure"
+        },
+        {
+          "mal_id": 10,
+          "type": "manga",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/manga/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 50,
+          "type": "manga",
+          "name": "Adult Cast",
+          "url": "https://myanimelist.net/manga/genre/50/Adult_Cast"
+        },
+        {
+          "mal_id": 83,
+          "type": "manga",
+          "name": "Urban Fantasy",
+          "url": "https://myanimelist.net/manga/genre/83/Urban_Fantasy"
+        }
+      ],
+      "demographics": []
+    },
+    {
+      "mal_id": 172429,
+      "url": "https://myanimelist.net/manga/172429/Solo_Leveling__Ragnarok",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/2/339933.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/2/339933t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/2/339933l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/2/339933.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/2/339933t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/2/339933l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Solo Leveling: Ragnarok"
+        },
+        {
+          "type": "Japanese",
+          "title": "나 혼자만 레벨업 : 라그나로크"
+        },
+        {
+          "type": "English",
+          "title": "Solo Leveling: Ragnarok"
+        },
+        {
+          "type": "Synonym",
+          "title": "Na Honjaman Level Up: Ragnarok"
+        }
+      ],
+      "title": "Solo Leveling: Ragnarok",
+      "title_english": "Solo Leveling: Ragnarok",
+      "title_japanese": "나 혼자만 레벨업 : 라그나로크",
+      "title_synonyms": ["Na Honjaman Level Up: Ragnarok"],
+      "type": "Manhwa",
+      "chapters": null,
+      "volumes": null,
+      "status": "Publishing",
+      "publishing": true,
+      "published": {
+        "from": "2024-07-31T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 31,
+            "month": 7,
+            "year": 2024
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Jul 31, 2024 to ?"
+      },
+      "score": 7.6,
+      "scored_by": 10777,
+      "rank": 2557,
+      "popularity": 515,
+      "members": 40900,
+      "favorites": 353,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "manga",
+          "name": "Action",
+          "url": "https://myanimelist.net/manga/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "manga",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/manga/genre/2/Adventure"
+        },
+        {
+          "mal_id": 10,
+          "type": "manga",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/manga/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 50,
+          "type": "manga",
+          "name": "Adult Cast",
+          "url": "https://myanimelist.net/manga/genre/50/Adult_Cast"
+        },
+        {
+          "mal_id": 83,
+          "type": "manga",
+          "name": "Urban Fantasy",
+          "url": "https://myanimelist.net/manga/genre/83/Urban_Fantasy"
+        }
+      ],
+      "demographics": []
+    }
+  ]
+}

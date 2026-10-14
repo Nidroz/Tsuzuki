@@ -1,0 +1,390 @@
+{
+  "pagination": {
+    "last_visible_page": 8,
+    "has_next_page": true,
+    "current_page": 1,
+    "items": {
+      "count": 3,
+      "total": 120,
+      "per_page": 15
+    }
+  },
+  "data": [
+    {
+      "mal_id": 61469,
+      "url": "https://myanimelist.net/anime/61469/Steel_Ball_Run__JoJo_no_Kimyou_na_Bouken",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1065/158884.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1065/158884t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1065/158884l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1065/158884.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1065/158884t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1065/158884l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Steel Ball Run: JoJo no Kimyou na Bouken"
+        },
+        {
+          "type": "Japanese",
+          "title": "スティール・ボール・ラン ジョジョの奇妙な冒険"
+        },
+        {
+          "type": "English",
+          "title": "Steel Ball Run: JoJo's Bizarre Adventure"
+        },
+        {
+          "type": "Synonym",
+          "title": "JoJo's Bizarre Adventure Part 7: Steel Ball Run"
+        },
+        {
+          "type": "Synonym",
+          "title": "JoJo no Kimyou na Bouken Part 7: Steel Ball Run"
+        },
+        {
+          "type": "Synonym",
+          "title": "SBR"
+        }
+      ],
+      "title": "Steel Ball Run: JoJo no Kimyou na Bouken",
+      "title_english": "Steel Ball Run: JoJo's Bizarre Adventure",
+      "title_japanese": "スティール・ボール・ラン ジョジョの奇妙な冒険",
+      "title_synonyms": [
+        "JoJo's Bizarre Adventure Part 7: Steel Ball Run",
+        "JoJo no Kimyou na Bouken Part 7: Steel Ball Run",
+        "SBR"
+      ],
+      "type": "ONA",
+      "source": "Manga",
+      "episodes": null,
+      "status": "Currently Airing",
+      "airing": true,
+      "aired": {
+        "from": "2026-03-19T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 19,
+            "month": 3,
+            "year": 2026
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Mar 19, 2026 to ?"
+      },
+      "duration": "27 min",
+      "rating": "R - 17+ (violence & profanity)",
+      "score": 9.05,
+      "scored_by": 110380,
+      "rank": 9,
+      "popularity": 1183,
+      "members": 246540,
+      "favorites": 8475,
+      "synopsis": "Placeholder synopsis.",
+      "background": null,
+      "season": "winter",
+      "year": 2026,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "anime",
+          "name": "Action",
+          "url": "https://myanimelist.net/anime/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 7,
+          "type": "anime",
+          "name": "Mystery",
+          "url": "https://myanimelist.net/anime/genre/7/Mystery"
+        },
+        {
+          "mal_id": 37,
+          "type": "anime",
+          "name": "Supernatural",
+          "url": "https://myanimelist.net/anime/genre/37/Supernatural"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 13,
+          "type": "anime",
+          "name": "Historical",
+          "url": "https://myanimelist.net/anime/genre/13/Historical"
+        },
+        {
+          "mal_id": 3,
+          "type": "anime",
+          "name": "Racing",
+          "url": "https://myanimelist.net/anime/genre/3/Racing"
+        }
+      ],
+      "demographics": [
+        {
+          "mal_id": 42,
+          "type": "anime",
+          "name": "Seinen",
+          "url": "https://myanimelist.net/anime/genre/42/Seinen"
+        },
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    },
+    {
+      "mal_id": 61987,
+      "url": "https://myanimelist.net/anime/61987/Kusuriya_no_Hitorigoto_3rd_Season",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1028/160277.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1028/160277t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1028/160277l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1028/160277.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1028/160277t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1028/160277l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Kusuriya no Hitorigoto 3rd Season"
+        },
+        {
+          "type": "Japanese",
+          "title": "薬屋のひとりごと 第3期"
+        },
+        {
+          "type": "English",
+          "title": "The Apothecary Diaries Season 3"
+        },
+        {
+          "type": "Synonym",
+          "title": "The Pharmacist's Monologue"
+        },
+        {
+          "type": "Synonym",
+          "title": "Drugstore Soliloquy"
+        }
+      ],
+      "title": "Kusuriya no Hitorigoto 3rd Season",
+      "title_english": "The Apothecary Diaries Season 3",
+      "title_japanese": "薬屋のひとりごと 第3期",
+      "title_synonyms": ["The Pharmacist's Monologue", "Drugstore Soliloquy"],
+      "type": "TV",
+      "source": "Light novel",
+      "episodes": 12,
+      "status": "Currently Airing",
+      "airing": true,
+      "aired": {
+        "from": "2026-10-02T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 2,
+            "month": 10,
+            "year": 2026
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Oct 2, 2026 to ?"
+      },
+      "duration": "24 min per ep",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": 8.66,
+      "scored_by": 10533,
+      "rank": 87,
+      "popularity": 1438,
+      "members": 198060,
+      "favorites": 1010,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "fall",
+      "year": 2026,
+      "broadcast": {
+        "day": "Fridays",
+        "time": "23:00",
+        "timezone": "Asia/Tokyo",
+        "string": "Fridays at 23:00 (JST)"
+      },
+      "genres": [
+        {
+          "mal_id": 8,
+          "type": "anime",
+          "name": "Drama",
+          "url": "https://myanimelist.net/anime/genre/8/Drama"
+        },
+        {
+          "mal_id": 7,
+          "type": "anime",
+          "name": "Mystery",
+          "url": "https://myanimelist.net/anime/genre/7/Mystery"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 13,
+          "type": "anime",
+          "name": "Historical",
+          "url": "https://myanimelist.net/anime/genre/13/Historical"
+        },
+        {
+          "mal_id": 67,
+          "type": "anime",
+          "name": "Medical",
+          "url": "https://myanimelist.net/anime/genre/67/Medical"
+        }
+      ],
+      "demographics": []
+    },
+    {
+      "mal_id": 54250,
+      "url": "https://myanimelist.net/anime/54250/Made_in_Abyss__Mezameru_Shinpi",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1444/156382.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1444/156382t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1444/156382l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1444/156382.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1444/156382t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1444/156382l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Made in Abyss: Mezameru Shinpi"
+        },
+        {
+          "type": "Japanese",
+          "title": "メイドインアビス 目覚める神秘"
+        },
+        {
+          "type": "Synonym",
+          "title": "Made in Abyss: Awakening Mystery"
+        }
+      ],
+      "title": "Made in Abyss: Mezameru Shinpi",
+      "title_english": null,
+      "title_japanese": "メイドインアビス 目覚める神秘",
+      "title_synonyms": ["Made in Abyss: Awakening Mystery"],
+      "type": "Movie",
+      "source": "Web manga",
+      "episodes": 1,
+      "status": "Not yet aired",
+      "airing": false,
+      "aired": {
+        "from": "2026-10-23T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 23,
+            "month": 10,
+            "year": 2026
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Oct 23, 2026"
+      },
+      "duration": "Unknown",
+      "rating": "R - 17+ (violence & profanity)",
+      "score": null,
+      "scored_by": 0,
+      "rank": null,
+      "popularity": 2990,
+      "members": 73172,
+      "favorites": 154,
+      "synopsis": "Placeholder synopsis.",
+      "background": null,
+      "season": "fall",
+      "year": 2026,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 8,
+          "type": "anime",
+          "name": "Drama",
+          "url": "https://myanimelist.net/anime/genre/8/Drama"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        },
+        {
+          "mal_id": 7,
+          "type": "anime",
+          "name": "Mystery",
+          "url": "https://myanimelist.net/anime/genre/7/Mystery"
+        },
+        {
+          "mal_id": 24,
+          "type": "anime",
+          "name": "Sci-Fi",
+          "url": "https://myanimelist.net/anime/genre/24/Sci-Fi"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 58,
+          "type": "anime",
+          "name": "Gore",
+          "url": "https://myanimelist.net/anime/genre/58/Gore"
+        }
+      ],
+      "demographics": []
+    }
+  ]
+}

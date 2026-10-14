@@ -1,0 +1,369 @@
+{
+  "pagination": {
+    "last_visible_page": 17133,
+    "has_next_page": true,
+    "current_page": 1,
+    "items": {
+      "count": 3,
+      "total": 85661,
+      "per_page": 5
+    }
+  },
+  "data": [
+    {
+      "mal_id": 2,
+      "url": "https://myanimelist.net/manga/2/Berserk",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/1/157897.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/1/157897t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/1/157897l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/1/157897.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/1/157897t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/1/157897l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Berserk"
+        },
+        {
+          "type": "Japanese",
+          "title": "ベルセルク"
+        },
+        {
+          "type": "English",
+          "title": "Berserk"
+        },
+        {
+          "type": "Synonym",
+          "title": "Berserk: The Prototype"
+        }
+      ],
+      "title": "Berserk",
+      "title_english": "Berserk",
+      "title_japanese": "ベルセルク",
+      "title_synonyms": ["Berserk: The Prototype"],
+      "type": "Manga",
+      "chapters": null,
+      "volumes": null,
+      "status": "Publishing",
+      "publishing": true,
+      "published": {
+        "from": "1989-08-25T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 25,
+            "month": 8,
+            "year": 1989
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Aug 25, 1989 to ?"
+      },
+      "score": 9.46,
+      "scored_by": 406149,
+      "rank": 1,
+      "popularity": 1,
+      "members": 811862,
+      "favorites": 139721,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "manga",
+          "name": "Action",
+          "url": "https://myanimelist.net/manga/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "manga",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/manga/genre/2/Adventure"
+        },
+        {
+          "mal_id": 46,
+          "type": "manga",
+          "name": "Award Winning",
+          "url": "https://myanimelist.net/manga/genre/46/Award_Winning"
+        },
+        {
+          "mal_id": 8,
+          "type": "manga",
+          "name": "Drama",
+          "url": "https://myanimelist.net/manga/genre/8/Drama"
+        },
+        {
+          "mal_id": 10,
+          "type": "manga",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/manga/genre/10/Fantasy"
+        },
+        {
+          "mal_id": 14,
+          "type": "manga",
+          "name": "Horror",
+          "url": "https://myanimelist.net/manga/genre/14/Horror"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 58,
+          "type": "manga",
+          "name": "Gore",
+          "url": "https://myanimelist.net/manga/genre/58/Gore"
+        },
+        {
+          "mal_id": 38,
+          "type": "manga",
+          "name": "Military",
+          "url": "https://myanimelist.net/manga/genre/38/Military"
+        },
+        {
+          "mal_id": 40,
+          "type": "manga",
+          "name": "Psychological",
+          "url": "https://myanimelist.net/manga/genre/40/Psychological"
+        }
+      ],
+      "demographics": [
+        {
+          "mal_id": 41,
+          "type": "manga",
+          "name": "Seinen",
+          "url": "https://myanimelist.net/manga/genre/41/Seinen"
+        }
+      ]
+    },
+    {
+      "mal_id": 656,
+      "url": "https://myanimelist.net/manga/656/Vagabond",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/1/259070.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/1/259070t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/1/259070l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/1/259070.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/1/259070t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/1/259070l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Vagabond"
+        },
+        {
+          "type": "Japanese",
+          "title": "バガボンド"
+        },
+        {
+          "type": "English",
+          "title": "Vagabond"
+        }
+      ],
+      "title": "Vagabond",
+      "title_english": "Vagabond",
+      "title_japanese": "バガボンド",
+      "title_synonyms": [],
+      "type": "Manga",
+      "chapters": 327,
+      "volumes": 37,
+      "status": "On Hiatus",
+      "publishing": false,
+      "published": {
+        "from": "1998-09-03T00:00:00+00:00",
+        "to": "2015-05-21T00:00:00+00:00",
+        "prop": {
+          "from": {
+            "day": 3,
+            "month": 9,
+            "year": 1998
+          },
+          "to": {
+            "day": 21,
+            "month": 5,
+            "year": 2015
+          }
+        },
+        "string": "Sep 3, 1998 to May 21, 2015"
+      },
+      "score": 9.27,
+      "scored_by": 180137,
+      "rank": 3,
+      "popularity": 12,
+      "members": 469398,
+      "favorites": 49747,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "manga",
+          "name": "Action",
+          "url": "https://myanimelist.net/manga/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "manga",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/manga/genre/2/Adventure"
+        },
+        {
+          "mal_id": 46,
+          "type": "manga",
+          "name": "Award Winning",
+          "url": "https://myanimelist.net/manga/genre/46/Award_Winning"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 13,
+          "type": "manga",
+          "name": "Historical",
+          "url": "https://myanimelist.net/manga/genre/13/Historical"
+        },
+        {
+          "mal_id": 21,
+          "type": "manga",
+          "name": "Samurai",
+          "url": "https://myanimelist.net/manga/genre/21/Samurai"
+        }
+      ],
+      "demographics": [
+        {
+          "mal_id": 41,
+          "type": "manga",
+          "name": "Seinen",
+          "url": "https://myanimelist.net/manga/genre/41/Seinen"
+        }
+      ]
+    },
+    {
+      "mal_id": 162032,
+      "url": "https://myanimelist.net/manga/162032/Guimi_Zhi_Zhu",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/2/287344.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/2/287344t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/2/287344l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/manga/2/287344.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/manga/2/287344t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/manga/2/287344l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "Guimi Zhi Zhu"
+        },
+        {
+          "type": "Japanese",
+          "title": "诡秘之主"
+        },
+        {
+          "type": "English",
+          "title": "Lord of Mysteries"
+        },
+        {
+          "type": "Synonym",
+          "title": "Lord of the Mysteries"
+        }
+      ],
+      "title": "Guimi Zhi Zhu",
+      "title_english": "Lord of Mysteries",
+      "title_japanese": "诡秘之主",
+      "title_synonyms": ["Lord of the Mysteries"],
+      "type": "Novel",
+      "chapters": 366,
+      "volumes": 18,
+      "status": "Finished",
+      "publishing": false,
+      "published": {
+        "from": "2020-05-01T00:00:00+00:00",
+        "to": "2023-08-01T00:00:00+00:00",
+        "prop": {
+          "from": {
+            "day": 1,
+            "month": 5,
+            "year": 2020
+          },
+          "to": {
+            "day": 1,
+            "month": 8,
+            "year": 2023
+          }
+        },
+        "string": "May 1, 2020 to Aug 1, 2023"
+      },
+      "score": 9.2,
+      "scored_by": 8689,
+      "rank": 5,
+      "popularity": 838,
+      "members": 26815,
+      "favorites": 2243,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "manga",
+          "name": "Action",
+          "url": "https://myanimelist.net/manga/genre/1/Action"
+        },
+        {
+          "mal_id": 10,
+          "type": "manga",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/manga/genre/10/Fantasy"
+        },
+        {
+          "mal_id": 7,
+          "type": "manga",
+          "name": "Mystery",
+          "url": "https://myanimelist.net/manga/genre/7/Mystery"
+        },
+        {
+          "mal_id": 45,
+          "type": "manga",
+          "name": "Suspense",
+          "url": "https://myanimelist.net/manga/genre/45/Suspense"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [
+        {
+          "mal_id": 62,
+          "type": "manga",
+          "name": "Isekai",
+          "url": "https://myanimelist.net/manga/genre/62/Isekai"
+        },
+        {
+          "mal_id": 83,
+          "type": "manga",
+          "name": "Urban Fantasy",
+          "url": "https://myanimelist.net/manga/genre/83/Urban_Fantasy"
+        }
+      ],
+      "demographics": []
+    }
+  ]
+}

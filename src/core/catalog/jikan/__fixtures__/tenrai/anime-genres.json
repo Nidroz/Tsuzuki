@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "mal_id": 1,
+      "name": "Action",
+      "url": "https://myanimelist.net/anime/genre/1/Action",
+      "count": 5058
+    },
+    {
+      "mal_id": 41,
+      "name": "Suspense",
+      "url": "https://myanimelist.net/anime/genre/41/Suspense",
+      "count": 487
+    },
+    {
+      "mal_id": 27,
+      "name": "Shounen",
+      "url": "https://myanimelist.net/anime/genre/27/Shounen",
+      "count": 2322
+    }
+  ]
+}

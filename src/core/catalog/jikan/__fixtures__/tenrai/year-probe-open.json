@@ -1,0 +1,335 @@
+{
+  "pagination": {
+    "last_visible_page": 19,
+    "has_next_page": true,
+    "current_page": 1,
+    "items": {
+      "count": 3,
+      "total": 91,
+      "per_page": 5
+    }
+  },
+  "data": [
+    {
+      "mal_id": 21,
+      "url": "https://myanimelist.net/anime/21/One_Piece",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1244/138851.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1244/138851t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1244/138851l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1244/138851.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1244/138851t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1244/138851l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "One Piece"
+        },
+        {
+          "type": "Japanese",
+          "title": "ONE PIECE"
+        },
+        {
+          "type": "English",
+          "title": "One Piece"
+        },
+        {
+          "type": "Synonym",
+          "title": "OP"
+        }
+      ],
+      "title": "One Piece",
+      "title_english": "One Piece",
+      "title_japanese": "ONE PIECE",
+      "title_synonyms": ["OP"],
+      "type": "TV",
+      "source": "Manga",
+      "episodes": null,
+      "status": "Currently Airing",
+      "airing": true,
+      "aired": {
+        "from": "1999-10-20T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 20,
+            "month": 10,
+            "year": 1999
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Oct 20, 1999 to ?"
+      },
+      "duration": "24 min",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": 8.72,
+      "scored_by": 1562450,
+      "rank": 62,
+      "popularity": 17,
+      "members": 2736192,
+      "favorites": 256810,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "fall",
+      "year": 1999,
+      "broadcast": {
+        "day": "Sundays",
+        "time": "23:15",
+        "timezone": "Asia/Tokyo",
+        "string": "Sundays at 23:15 (JST)"
+      },
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "anime",
+          "name": "Action",
+          "url": "https://myanimelist.net/anime/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    },
+    {
+      "mal_id": 459,
+      "url": "https://myanimelist.net/anime/459/One_Piece_Movie_01",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1770/97704.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1770/97704t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1770/97704l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1770/97704.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1770/97704t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1770/97704l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "One Piece Movie 01"
+        },
+        {
+          "type": "Japanese",
+          "title": "ONE PIECE"
+        },
+        {
+          "type": "English",
+          "title": "One Piece: The Movie"
+        },
+        {
+          "type": "German",
+          "title": "One Piece: Der Film"
+        },
+        {
+          "type": "Spanish",
+          "title": "One Piece: La Película"
+        },
+        {
+          "type": "French",
+          "title": "One Piece: Le Film"
+        },
+        {
+          "type": "Synonym",
+          "title": "One Piece: The Movie"
+        }
+      ],
+      "title": "One Piece Movie 01",
+      "title_english": "One Piece: The Movie",
+      "title_japanese": "ONE PIECE",
+      "title_synonyms": ["One Piece: The Movie"],
+      "type": "Movie",
+      "source": "Manga",
+      "episodes": 1,
+      "status": "Finished Airing",
+      "airing": false,
+      "aired": {
+        "from": "2000-03-04T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 4,
+            "month": 3,
+            "year": 2000
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Mar 4, 2000"
+      },
+      "duration": "50 min",
+      "rating": "PG-13 - Teens 13 or older",
+      "score": 7.1,
+      "scored_by": 88842,
+      "rank": 4409,
+      "popularity": 1730,
+      "members": 158909,
+      "favorites": 492,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "winter",
+      "year": 2000,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "anime",
+          "name": "Action",
+          "url": "https://myanimelist.net/anime/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        },
+        {
+          "mal_id": 10,
+          "type": "anime",
+          "name": "Fantasy",
+          "url": "https://myanimelist.net/anime/genre/10/Fantasy"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    },
+    {
+      "mal_id": 54196,
+      "url": "https://myanimelist.net/anime/54196/One_Piece_4D",
+      "images": {
+        "jpg": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1455/133991.jpg",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1455/133991t.jpg",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1455/133991l.jpg"
+        },
+        "webp": {
+          "image_url": "https://cdn.myanimelist.net/images/anime/1455/133991.webp",
+          "small_image_url": "https://cdn.myanimelist.net/images/anime/1455/133991t.webp",
+          "large_image_url": "https://cdn.myanimelist.net/images/anime/1455/133991l.webp"
+        }
+      },
+      "approved": true,
+      "titles": [
+        {
+          "type": "Default",
+          "title": "One Piece 4D"
+        }
+      ],
+      "title": "One Piece 4D",
+      "title_english": null,
+      "title_japanese": null,
+      "title_synonyms": [],
+      "type": "Special",
+      "source": "Manga",
+      "episodes": 1,
+      "status": "Finished Airing",
+      "airing": false,
+      "aired": {
+        "from": "2015-03-13T00:00:00+00:00",
+        "to": null,
+        "prop": {
+          "from": {
+            "day": 13,
+            "month": 3,
+            "year": 2015
+          },
+          "to": {
+            "day": null,
+            "month": null,
+            "year": null
+          }
+        },
+        "string": "Mar 13, 2015"
+      },
+      "duration": "5 min",
+      "rating": "PG - Children",
+      "score": 6.41,
+      "scored_by": 1426,
+      "rank": 8677,
+      "popularity": 9779,
+      "members": 4959,
+      "favorites": 17,
+      "synopsis": "Placeholder synopsis.",
+      "background": "Placeholder background.",
+      "season": "winter",
+      "year": 2015,
+      "broadcast": {
+        "day": null,
+        "time": null,
+        "timezone": null,
+        "string": null
+      },
+      "genres": [
+        {
+          "mal_id": 1,
+          "type": "anime",
+          "name": "Action",
+          "url": "https://myanimelist.net/anime/genre/1/Action"
+        },
+        {
+          "mal_id": 2,
+          "type": "anime",
+          "name": "Adventure",
+          "url": "https://myanimelist.net/anime/genre/2/Adventure"
+        }
+      ],
+      "explicit_genres": [],
+      "themes": [],
+      "demographics": [
+        {
+          "mal_id": 27,
+          "type": "anime",
+          "name": "Shounen",
+          "url": "https://myanimelist.net/anime/genre/27/Shounen"
+        }
+      ]
+    }
+  ]
+}
