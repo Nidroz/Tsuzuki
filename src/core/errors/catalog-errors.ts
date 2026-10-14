@@ -1,6 +1,7 @@
-// errors of the catalog http layer (src/core/catalog/http/). messages never hold a url, a query
-// string, search text or an underlying error message, and no cause is attached: search text is
-// user input and these errors reach the error reporter
+// errors of the catalog http layer (src/core/catalog/http/) and of the provider failure monitor
+// (src/core/catalog/catalog-failure-monitor.ts). messages never hold a url, a query string, search
+// text or an underlying error message, and no cause is attached: search text is user input and
+// these errors reach the error reporter
 
 /** base class of every catalog request failure. */
 export class CatalogError extends Error {
@@ -58,5 +59,30 @@ export class CatalogAbortedError extends CatalogError {
   constructor() {
     super('Catalog request was aborted');
     this.name = 'AbortError';
+  }
+}
+
+/** the kinds of provider failure the failure monitor counts and reports. */
+export const CATALOG_FAILURE_KINDS = [
+  'server_error',
+  'rate_limited',
+  'client_error',
+  'timeout',
+  'malformed_response',
+] as const;
+
+export type CatalogFailureKind = (typeof CATALOG_FAILURE_KINDS)[number];
+
+/**
+ * a catalog provider keeps failing with `kind`, as reported by the failure monitor. it holds the
+ * kind only: no cause, url, query or status.
+ */
+export class CatalogProviderFailureError extends CatalogError {
+  readonly kind: CatalogFailureKind;
+
+  constructor(kind: CatalogFailureKind) {
+    super(`Catalog provider is failing: ${kind}`);
+    this.name = 'CatalogProviderFailureError';
+    this.kind = kind;
   }
 }
