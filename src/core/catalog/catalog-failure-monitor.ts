@@ -25,6 +25,7 @@ export const CATALOG_FAILURE_REPORT_INTERVAL_MS = 1_800_000;
 const REPORT_SOURCE = 'catalog';
 const HTTP_SERVER_ERROR_MIN = 500;
 const HTTP_TOO_MANY_REQUESTS = 429;
+const HTTP_NOT_FOUND = 404;
 
 export interface CatalogFailureMonitorOptions {
   readonly reporter: ErrorReporter;
@@ -35,11 +36,15 @@ export interface CatalogFailureMonitorOptions {
   readonly now?: () => number;
 }
 
-// the kind of a failure, or null when it is not counted: a network error (an offline device and a
-// provider outage look the same until A-05 brings connectivity), an abort, an input RangeError
-// or an unknown error
+// the kind of a failure, or null when it is not counted: a 404 (a normal answer for a missing
+// title: gaps in MAL ids, a stale library row, a deep link to a missing id), a network error (an
+// offline device and a provider outage look the same until A-05 brings connectivity), an abort,
+// an input RangeError or an unknown error
 const failureKindOf = (error: unknown): CatalogFailureKind | null => {
   if (error instanceof CatalogHttpError) {
+    if (error.status === HTTP_NOT_FOUND) {
+      return null;
+    }
     if (error.status >= HTTP_SERVER_ERROR_MIN) {
       return 'server_error';
     }

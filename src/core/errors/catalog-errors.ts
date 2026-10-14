@@ -62,7 +62,10 @@ export class CatalogAbortedError extends CatalogError {
   }
 }
 
-/** the kinds of provider failure the failure monitor counts and reports. */
+/**
+ * the kinds of provider failure the failure monitor counts and reports. `client_error` is any
+ * other non-2xx but a 404, which is never counted: it is a normal answer for a missing title.
+ */
 export const CATALOG_FAILURE_KINDS = [
   'server_error',
   'rate_limited',

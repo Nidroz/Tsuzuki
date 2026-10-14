@@ -168,7 +168,6 @@ Details:
 
 ### C-07 Media detail screen
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
-- The catalog failure monitor counts a 404 as `client_error` (C-03 review). A detail 404 is a normal answer (gaps in MAL ids, a stale library row, a deep link to a missing id), so opening such a title 3 times within 2 minutes reports a healthy provider. Do not count a 404 from `getDetail` (keep it for lists, where it signals a wrong base URL), with a test, and update `ARCHITECTURE.md` §3, the `CATALOG_FAILURE_KINDS` doc and ADR-0013.
 
 ### C-08 Discovery screen
 - FR-05 format chips on top manga (manhwa, manhua) need a format on `CatalogProvider.getTop` (Jikan `/top/manga?type=`): a change to the interface and to the `top` query key (C-03).

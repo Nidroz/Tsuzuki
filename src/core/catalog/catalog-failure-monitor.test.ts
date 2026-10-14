@@ -111,7 +111,8 @@ describe('a sustained failure', () => {
     ['a 500', new CatalogHttpError(500, null), 'server_error'],
     ['a 503 with Retry-After', SERVER_ERROR, 'server_error'],
     ['a 429', new CatalogHttpError(429, 1_000), 'rate_limited'],
-    ['a 404', new CatalogHttpError(404, null), 'client_error'],
+    ['a 400', new CatalogHttpError(400, null), 'client_error'],
+    ['a 403', new CatalogHttpError(403, null), 'client_error'],
     ['a timeout', new CatalogTimeoutError(10_000), 'timeout'],
     ['a malformed response', new CatalogResponseError(), 'malformed_response'],
   ])('of %s is reported once, as %s', async (_, error, kind) => {
@@ -267,6 +268,7 @@ describe('an error that says nothing about the provider', () => {
   abort.name = 'AbortError';
 
   it.each<[string, unknown]>([
+    ['a 404', new CatalogHttpError(404, null)],
     ['a network error', new CatalogNetworkError()],
     ['a catalog abort', new CatalogAbortedError()],
     ['a native abort', abort],
@@ -286,5 +288,17 @@ describe('an error that says nothing about the provider', () => {
     await searchAt(6, SERVER_ERROR);
 
     expect(captureError).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports nothing when a missing title is opened again and again', async () => {
+    const { fake, monitored, captureError } = setup();
+    fake.getDetail.mockRejectedValue(new CatalogHttpError(404, null));
+
+    for (let open = 0; open < 2 * CATALOG_FAILURE_THRESHOLD; open += 1) {
+      await monitored.getDetail(SAMPLE_DETAIL.key).catch(() => undefined);
+    }
+
+    expect(fake.getDetail).toHaveBeenCalledTimes(2 * CATALOG_FAILURE_THRESHOLD);
+    expect(captureError).not.toHaveBeenCalled();
   });
 });
