@@ -1,10 +1,11 @@
-// jikan v4 request urls. deterministic: equivalent params give the identical url, so identical
-// requests share one in-flight request. built as strings with encodeURIComponent: react native's
-// URL and URLSearchParams polyfills are incomplete. no content filter is ever sent (sfw, rating,
-// unapproved, continuing: ADR-0004). invalid input throws a RangeError before any request; its
-// message holds no value and never the search text
+// jikan v4 request urls, under the base url of a jikan v4 compatible instance (jikan-instances.ts).
+// deterministic: equivalent params give the identical url, so identical requests share one
+// in-flight request. built as strings with encodeURIComponent: react native's
+// URL and URLSearchParams polyfills are incomplete. no content filter is ever sent (sfw,
+// sfw-strict, rating, unapproved, continuing: ADR-0004). invalid input throws a RangeError before
+// any request; its message holds no value and never the search text
 import {
-  MAL_ID_MAX,
+  EXTERNAL_ID_MAX,
   MEDIA_KINDS,
   type AnimeFormat,
   type MangaFormat,
@@ -20,12 +21,16 @@ import {
 } from '../catalog-provider';
 import { normalizeSearchParams } from '../search-params';
 import { SCORE_MAX, isFourDigitYear } from './jikan-fields';
+import { JIKAN_NAMESPACE } from './jikan-instances';
 
-/** the root of every jikan request. */
-export const JIKAN_BASE_URL = 'https://api.jikan.moe/v4';
-
-/** items per page, sent with every paginated request: the jikan maximum. */
+/** items per page, sent with every paginated request: the public jikan maximum (tenrai: 100). */
 export const JIKAN_PAGE_LIMIT = 25;
+
+/** the longest search text sent, in utf-16 code units after normalization: the tenrai maximum. */
+export const JIKAN_QUERY_MAX_LENGTH = 300;
+
+/** the most genre ids sent in `genres`, and in `genres_exclude`: the tenrai maximum. */
+export const JIKAN_GENRE_IDS_MAX = 25;
 
 // mal scores have two decimals; rounding also keeps String() out of exponent notation
 const MIN_SCORE_SCALE = 100;
@@ -81,8 +86,8 @@ const ORDER_BY_FIELD = tableOf(ORDER_BY);
 
 type QueryParam = readonly [name: string, value: string];
 
-const withQuery = (path: string, params: readonly QueryParam[]): string =>
-  `${JIKAN_BASE_URL}${path}?${params.map(([name, value]) => `${name}=${value}`).join('&')}`;
+const withQuery = (baseUrl: string, path: string, params: readonly QueryParam[]): string =>
+  `${baseUrl}${path}?${params.map(([name, value]) => `${name}=${value}`).join('&')}`;
 
 const UNSUPPORTED_KIND = 'Catalog media kind is not supported';
 
@@ -108,14 +113,25 @@ const pageOf = (page: number): string => {
   return String(page);
 };
 
-const malIdOf = (malId: number): string => {
-  if (!Number.isSafeInteger(malId) || malId < 1 || malId > MAL_ID_MAX) {
+// a key of another namespace holds ids no jikan instance serves. read as a string: the guard
+// holds for an untyped caller, and once MEDIA_ID_NAMESPACES grows
+const checkNamespace = (namespace: string): void => {
+  if (namespace !== JIKAN_NAMESPACE) {
+    throw new RangeError('Catalog media id namespace is not supported');
+  }
+};
+
+const externalIdOf = (externalId: number): string => {
+  if (!Number.isSafeInteger(externalId) || externalId < 1 || externalId > EXTERNAL_ID_MAX) {
     throw new RangeError('Catalog media id is out of range');
   }
-  return String(malId);
+  return String(externalId);
 };
 
 const genreListOf = (ids: readonly number[]): string => {
+  if (ids.length > JIKAN_GENRE_IDS_MAX) {
+    throw new RangeError('Catalog search has too many genre ids');
+  }
   if (!ids.every((id) => Number.isSafeInteger(id) && id > 0)) {
     throw new RangeError('Catalog genre ids must be positive integers');
   }
@@ -123,6 +139,9 @@ const genreListOf = (ids: readonly number[]): string => {
 };
 
 const queryTextOf = (query: string): string => {
+  if (query.length > JIKAN_QUERY_MAX_LENGTH) {
+    throw new RangeError('Catalog search text is too long');
+  }
   try {
     return encodeURIComponent(query);
   } catch {
@@ -155,8 +174,12 @@ const minScoreOf = (minScore: number): string => {
 };
 
 /**
- * the start_date and end_date filters of a year. the only place that reads a year as a date
- * range, so the filter can change after a live check of how jikan applies end_date.
+ * the start_date and end_date filters of a year, the only place that reads a year as a date range.
+ * checked on tenrai on 2026-10-14: start_date bounds the start of airing and end_date bounds its
+ * end, so a title still airing (aired.to null) or ending after the year does not match
+ * end_date=Y-12-31. one piece (mal 21, airing since 1999-10-20) is missing with
+ * start_date=1999-01-01&end_date=1999-12-31 and listed with start_date alone. C-05 decides what
+ * the year filter means before it is exposed.
  */
 export const jikanYearRange = (year: number): readonly [startDate: string, endDate: string] => {
   if (!isFourDigitYear(year)) {
@@ -184,9 +207,9 @@ const paginationOf = (page: number): QueryParam[] => [
 /**
  * `/anime` or `/manga` with the normalized params in a fixed order, absent ones left out:
  * q, type, status, min_score, genres, genres_exclude, start_date, end_date, order_by, sort, page,
- * limit.
+ * limit. the length and count limits apply to the normalized params.
  */
-export const jikanSearchUrl = (params: SearchParams): string => {
+export const jikanSearchUrl = (baseUrl: string, params: SearchParams): string => {
   const normalized = normalizeSearchParams(params);
   const { kind, query, formats, status, minScore, genresIncluded, genresExcluded, year, sort } =
     normalized;
@@ -217,21 +240,26 @@ export const jikanSearchUrl = (params: SearchParams): string => {
   if (sort !== undefined) {
     search.push(...sortOf(sort.field, sort.direction));
   }
-  return withQuery(`/${kind}`, [...search, ...paginationOf(normalized.page)]);
+  return withQuery(baseUrl, `/${kind}`, [...search, ...paginationOf(normalized.page)]);
 };
 
-/** `/anime/{id}` or `/manga/{id}`. */
-export const jikanDetailUrl = (key: MediaKey): string =>
-  `${JIKAN_BASE_URL}/${kindOf(key.kind)}/${malIdOf(key.malId)}`;
+/** `/anime/{id}` or `/manga/{id}`, for a key of the jikan namespace only. */
+export const jikanDetailUrl = (baseUrl: string, key: MediaKey): string => {
+  checkNamespace(key.namespace);
+  return `${baseUrl}/${kindOf(key.kind)}/${externalIdOf(key.externalId)}`;
+};
 
 /** `/top/anime` or `/top/manga`, without a type or filter. */
-export const jikanTopUrl = (kind: MediaKind, page: number): string =>
-  withQuery(`/top/${kindOf(kind)}`, paginationOf(page));
+export const jikanTopUrl = (baseUrl: string, kind: MediaKind, page: number): string =>
+  withQuery(baseUrl, `/top/${kindOf(kind)}`, paginationOf(page));
 
-/** `/seasons/now`, without the continuing titles of previous seasons. */
-export const jikanSeasonNowUrl = (page: number): string =>
-  withQuery('/seasons/now', paginationOf(page));
+/**
+ * `/seasons/now`, without the `continuing` parameter. tenrai still lists titles airing from earlier
+ * seasons (recorded 2026-10-14); whether discovery keeps them is decided by C-08.
+ */
+export const jikanSeasonNowUrl = (baseUrl: string, page: number): string =>
+  withQuery(baseUrl, '/seasons/now', paginationOf(page));
 
 /** `/genres/anime` or `/genres/manga`: every category, explicit genres included. */
-export const jikanGenresUrl = (kind: MediaKind): string =>
-  `${JIKAN_BASE_URL}/genres/${kindOf(kind)}`;
+export const jikanGenresUrl = (baseUrl: string, kind: MediaKind): string =>
+  `${baseUrl}/genres/${kindOf(kind)}`;

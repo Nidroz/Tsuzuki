@@ -10,7 +10,7 @@ import {
   buildJikanPage,
   withoutKeys,
 } from './jikan-builders';
-import { JIKAN_BASE, jikanError, jsonAnswer, type JikanAnswer } from './jikan-handlers';
+import { TENRAI_BASE, jikanError, jsonAnswer, type JikanAnswer } from './jikan-handlers';
 
 type JsonObject = Record<string, unknown>;
 
@@ -57,7 +57,7 @@ export const SEARCH_ENDPOINT: JikanEndpoint = {
     {
       label: 'an anime search',
       path: '/anime',
-      url: `${JIKAN_BASE}/anime?q=Sample&type=tv&status=airing&page=2&limit=25`,
+      url: `${TENRAI_BASE}/anime?q=Sample&type=tv&status=airing&page=2&limit=25`,
       limit: PAGE_LIMIT,
       call: (provider, signal) =>
         provider.search(
@@ -74,7 +74,7 @@ export const SEARCH_ENDPOINT: JikanEndpoint = {
         hasNextPage: true,
         items: [
           {
-            key: { kind: 'anime', malId: 5114 },
+            key: { namespace: 'mal', kind: 'anime', externalId: 5114 },
             title: 'Sample Anime',
             format: 'tv',
             status: 'ongoing',
@@ -87,7 +87,7 @@ export const SEARCH_ENDPOINT: JikanEndpoint = {
     {
       label: 'a manga search',
       path: '/manga',
-      url: `${JIKAN_BASE}/manga?q=Sample&type=manhwa&order_by=score&sort=desc&page=1&limit=25`,
+      url: `${TENRAI_BASE}/manga?q=Sample&type=manhwa&order_by=score&sort=desc&page=1&limit=25`,
       limit: PAGE_LIMIT,
       call: (provider, signal) =>
         provider.search(
@@ -107,7 +107,7 @@ export const SEARCH_ENDPOINT: JikanEndpoint = {
         hasNextPage: false,
         items: [
           {
-            key: { kind: 'manga', malId: 2 },
+            key: { namespace: 'mal', kind: 'manga', externalId: 2 },
             title: 'Sample Manga',
             format: 'manhwa',
             status: 'hiatus',
@@ -128,12 +128,13 @@ export const DETAIL_ENDPOINT: JikanEndpoint = {
     {
       label: 'an anime detail',
       path: '/anime/101',
-      url: `${JIKAN_BASE}/anime/101`,
+      url: `${TENRAI_BASE}/anime/101`,
       limit: null,
-      call: (provider, signal) => provider.getDetail({ kind: 'anime', malId: 101 }, signal),
+      call: (provider, signal) =>
+        provider.getDetail({ namespace: 'mal', kind: 'anime', externalId: 101 }, signal),
       body: buildJikanDetail(buildJikanAnime()),
       expected: {
-        key: { kind: 'anime', malId: 101 },
+        key: { namespace: 'mal', kind: 'anime', externalId: 101 },
         title: 'Sample Anime',
         titleEnglish: 'Sample Anime in English',
         titleNative: 'サンプルアニメ',
@@ -171,7 +172,7 @@ export const TOP_ENDPOINT: JikanEndpoint = {
     {
       label: 'a top manga page',
       path: '/top/manga',
-      url: `${JIKAN_BASE}/top/manga?page=3&limit=25`,
+      url: `${TENRAI_BASE}/top/manga?page=3&limit=25`,
       limit: PAGE_LIMIT,
       call: (provider, signal) => provider.getTop('manga', 3, signal),
       body: buildJikanPage(
@@ -191,7 +192,7 @@ export const TOP_ENDPOINT: JikanEndpoint = {
         hasNextPage: true,
         items: [
           {
-            key: { kind: 'manga', malId: 13 },
+            key: { namespace: 'mal', kind: 'manga', externalId: 13 },
             title: 'Sample Manga',
             format: 'light_novel',
             status: 'ongoing',
@@ -215,7 +216,7 @@ export const SEASON_ENDPOINT: JikanEndpoint = {
     {
       label: 'a current season page',
       path: '/seasons/now',
-      url: `${JIKAN_BASE}/seasons/now?page=1&limit=25`,
+      url: `${TENRAI_BASE}/seasons/now?page=1&limit=25`,
       limit: PAGE_LIMIT,
       call: (provider, signal) => provider.getCurrentSeason(1, signal),
       body: buildJikanPage(
@@ -228,7 +229,7 @@ export const SEASON_ENDPOINT: JikanEndpoint = {
         hasNextPage: true,
         items: [
           {
-            key: { kind: 'anime', malId: 52991 },
+            key: { namespace: 'mal', kind: 'anime', externalId: 52991 },
             title: 'Sample Anime',
             format: 'ona',
             status: 'upcoming',
@@ -252,7 +253,7 @@ export const GENRES_ENDPOINT: JikanEndpoint = {
     {
       label: 'the manga genres, explicit ones included',
       path: '/genres/manga',
-      url: `${JIKAN_BASE}/genres/manga`,
+      url: `${TENRAI_BASE}/genres/manga`,
       limit: null,
       call: (provider, signal) => provider.getGenres('manga', signal),
       body: buildJikanGenres(

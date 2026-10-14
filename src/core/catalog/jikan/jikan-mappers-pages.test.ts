@@ -51,8 +51,8 @@ describe('parseJikanPage', () => {
     const page = parseJikanPage('anime', 3, body);
 
     expect(page.items.map((item) => [item.key, item.title])).toStrictEqual([
-      [{ kind: 'anime', malId: 101 }, 'First'],
-      [{ kind: 'anime', malId: 102 }, 'Second'],
+      [{ namespace: 'mal', kind: 'anime', externalId: 101 }, 'First'],
+      [{ namespace: 'mal', kind: 'anime', externalId: 102 }, 'Second'],
     ]);
     expect(page).toMatchObject({ page: 3, lastPage: 7, hasNextPage: true });
   });
@@ -82,10 +82,12 @@ describe('parseJikanPage', () => {
 
     const page = parseJikanPage('anime', 1, body);
 
-    expect(page.items.map((item) => [item.key.malId, item.title, item.isAdult])).toStrictEqual([
-      [101, 'First', isAdult],
-      [102, 'Other', false],
-    ]);
+    expect(page.items.map((item) => [item.key.externalId, item.title, item.isAdult])).toStrictEqual(
+      [
+        [101, 'First', isAdult],
+        [102, 'Other', false],
+      ],
+    );
   });
 
   it.each([

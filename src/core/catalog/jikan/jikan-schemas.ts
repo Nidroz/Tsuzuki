@@ -4,7 +4,7 @@
 // display fields fall back to null (jikan-fields.ts). each item becomes a `JikanEntry`
 import { z } from 'zod';
 
-import { MAL_ID_MAX, type MediaFormat, type MediaStatus } from '../../domain/media';
+import { EXTERNAL_ID_MAX, type MediaFormat, type MediaStatus } from '../../domain/media';
 import {
   ANIME_STATUS_BY_JIKAN,
   JIKAN_ANIME_STATUSES,
@@ -84,7 +84,7 @@ const genreRefSchema = z.object({ mal_id: z.int().positive(), name: z.string() }
 const genreRefsSchema = z.array(genreRefSchema);
 
 const sharedShape = {
-  mal_id: z.int().min(1).max(MAL_ID_MAX),
+  mal_id: z.int().min(1).max(EXTERNAL_ID_MAX),
   titles: titleEntriesSchema,
   title: lenientText,
   title_english: lenientText,

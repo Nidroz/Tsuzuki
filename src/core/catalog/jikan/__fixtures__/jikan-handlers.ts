@@ -1,12 +1,12 @@
-// msw handlers on the real jikan v4 urls, for the provider tests: each handler records the
-// requests it answered, with their dispatch time on the fake clock. tests install them on the msw
-// server of test/core
+// msw handlers on the real urls of a jikan v4 instance, tenrai by default, for the provider tests:
+// each handler records the requests it answered, with their dispatch time on the fake clock. tests
+// install them on the msw server of test/core
 import { http, HttpResponse, type HttpHandler } from 'msw';
 
 type JsonObject = Record<string, unknown>;
 
-/** the root of every jikan request, spelled out: the provider must reach this exact host. */
-export const JIKAN_BASE = 'https://api.jikan.moe/v4';
+/** the root of every tenrai request, spelled out: the default provider must reach this exact url. */
+export const TENRAI_BASE = 'https://api.tenrai.org/v1';
 
 /** a request as jikan received it. */
 export interface JikanRequest {
@@ -19,14 +19,18 @@ export interface JikanRequest {
 /** the answer to the n-th request of a handler, n from 1. */
 export type JikanAnswer = (dispatch: number) => Response | Promise<Response>;
 
-/** a handler of every GET of `path` under `JIKAN_BASE`, whatever its query, and its requests. */
+/**
+ * a handler of every GET of `path` under `base` (default `TENRAI_BASE`), whatever its query, and
+ * its requests.
+ */
 export const jikanHandler = (
   path: string,
   answer: JikanAnswer,
+  base: string = TENRAI_BASE,
 ): { readonly handler: HttpHandler; readonly requests: readonly JikanRequest[] } => {
   const requests: JikanRequest[] = [];
   const createdAt = Date.now();
-  const handler = http.get(`${JIKAN_BASE}${path}`, ({ request }) => {
+  const handler = http.get(`${base}${path}`, ({ request }) => {
     requests.push({ url: request.url, at: Date.now() - createdAt, signal: request.signal });
     return answer(requests.length);
   });

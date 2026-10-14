@@ -2,7 +2,7 @@
 // their normalization to the domain types. a display field never fails a response: an unexpected
 // value becomes null or the `unknown` format
 import {
-  MAL_ID_MAX,
+  EXTERNAL_ID_MAX,
   type AnimeFormat,
   type MangaFormat,
   type MediaFormat,
@@ -117,9 +117,9 @@ export const titleOf = (
   return textOrNull(deprecatedField);
 };
 
-// the postgres integer bound of library_entries.media_total_units, the same as mal_id
+// the postgres integer bound of library_entries.media_total_units, the same as external_id
 // (docs/ARCHITECTURE.md §5)
-const TOTAL_UNITS_MAX = MAL_ID_MAX;
+const TOTAL_UNITS_MAX = EXTERNAL_ID_MAX;
 
 /** an episode or chapter count: a positive integer the database accepts, else null (unknown). */
 export const unitCountOf = (value: number | null): number | null =>

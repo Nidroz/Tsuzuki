@@ -1,14 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
-  MAL_ID_MAX,
+  EXTERNAL_ID_MAX,
   type MediaFormat,
   type MediaKind,
   type SearchableMediaStatus,
 } from '../../domain/media';
 import type { SearchParams, SearchSortField, SortDirection } from '../catalog-provider';
 import {
-  JIKAN_BASE_URL,
   jikanDetailUrl,
   jikanGenresUrl,
   jikanSearchUrl,
@@ -17,15 +16,9 @@ import {
   jikanYearRange,
 } from './jikan-urls';
 
-const BASE = 'https://api.jikan.moe/v4';
+const BASE = 'https://api.tenrai.org/v1';
+const SELF_HOSTED_BASE = 'https://jikan.example.test:8443/v4';
 const SEARCH_TEXT = 'secret search';
-
-// values outside the declared types, as an untyped caller could pass them
-const asKind = (value: string): MediaKind => value as MediaKind;
-const asFormat = (value: string): MediaFormat => value as MediaFormat;
-const asStatus = (value: string): SearchableMediaStatus => value as SearchableMediaStatus;
-const asField = (value: string): SearchSortField => value as SearchSortField;
-const asDirection = (value: string): SortDirection => value as SortDirection;
 
 // how `build` fails: the error class, and whether its message quotes the search text
 const failureOf = (build: () => unknown) => {
@@ -42,16 +35,17 @@ const failureOf = (build: () => unknown) => {
 
 const RANGE_ERROR = { rangeError: true, quotesSearchText: false };
 
+// the input guards are in jikan-urls-guards.test.ts
+
 const searchQueryOf = (params: SearchParams): string => {
-  const url = jikanSearchUrl(params);
+  const url = jikanSearchUrl(BASE, params);
   return url.slice(url.indexOf('?') + 1);
 };
 
 describe('jikanSearchUrl', () => {
   it('sends every filter in the fixed order, then page and limit', () => {
-    expect(JIKAN_BASE_URL).toBe(BASE);
     expect(
-      jikanSearchUrl({
+      jikanSearchUrl(BASE, {
         page: 3,
         sort: { field: 'score', direction: 'desc' },
         year: 2020,
@@ -70,11 +64,11 @@ describe('jikanSearchUrl', () => {
   });
 
   it('sends only the page and the limit without filters', () => {
-    expect(jikanSearchUrl({ kind: 'manga', page: 1 })).toBe(`${BASE}/manga?page=1&limit=25`);
+    expect(jikanSearchUrl(BASE, { kind: 'manga', page: 1 })).toBe(`${BASE}/manga?page=1&limit=25`);
   });
 
   it('gives equivalent params the identical url', () => {
-    const url = jikanSearchUrl({
+    const url = jikanSearchUrl(BASE, {
       kind: 'manga',
       query: 'sample',
       formats: ['manhwa'],
@@ -82,7 +76,7 @@ describe('jikanSearchUrl', () => {
       page: 2,
     });
     expect(
-      jikanSearchUrl({
+      jikanSearchUrl(BASE, {
         page: 2,
         genresIncluded: [4, 1, 4],
         genresExcluded: [],
@@ -101,16 +95,16 @@ describe('jikanSearchUrl', () => {
 
   it('never sends a content filter', () => {
     const urls = [
-      jikanSearchUrl({ kind: 'anime', query: 'sample', page: 1 }),
-      jikanSearchUrl({ kind: 'manga', formats: ['doujinshi'], page: 1 }),
-      jikanTopUrl('anime', 1),
-      jikanTopUrl('manga', 1),
-      jikanSeasonNowUrl(1),
-      jikanGenresUrl('anime'),
-      jikanDetailUrl({ kind: 'anime', malId: 1 }),
+      jikanSearchUrl(BASE, { kind: 'anime', query: 'sample', page: 1 }),
+      jikanSearchUrl(BASE, { kind: 'manga', formats: ['doujinshi'], page: 1 }),
+      jikanTopUrl(BASE, 'anime', 1),
+      jikanTopUrl(BASE, 'manga', 1),
+      jikanSeasonNowUrl(BASE, 1),
+      jikanGenresUrl(BASE, 'anime'),
+      jikanDetailUrl(BASE, { namespace: 'mal', kind: 'anime', externalId: 1 }),
     ];
     for (const url of urls) {
-      expect(url).not.toMatch(/[?&](?:sfw|rating|unapproved|continuing|kids)(?:=|&|$)/);
+      expect(url).not.toMatch(/[?&](?:sfw|sfw-strict|rating|unapproved|continuing|kids)(?:=|&|$)/);
     }
   });
 
@@ -182,107 +176,42 @@ describe('jikanYearRange', () => {
   it.each([999, 10_000, 2024.5, Number.NaN])('rejects the year %p', (year) => {
     expect(failureOf(() => jikanYearRange(year))).toStrictEqual(RANGE_ERROR);
     expect(
-      failureOf(() => jikanSearchUrl({ kind: 'anime', query: SEARCH_TEXT, year, page: 1 })),
+      failureOf(() => jikanSearchUrl(BASE, { kind: 'anime', query: SEARCH_TEXT, year, page: 1 })),
     ).toStrictEqual(RANGE_ERROR);
   });
 });
 
 describe('the other endpoints', () => {
   it('builds the detail, top, season and genre urls', () => {
-    expect(jikanDetailUrl({ kind: 'anime', malId: 101 })).toBe(`${BASE}/anime/101`);
-    expect(jikanDetailUrl({ kind: 'manga', malId: MAL_ID_MAX })).toBe(
-      `${BASE}/manga/${String(MAL_ID_MAX)}`,
+    expect(jikanDetailUrl(BASE, { namespace: 'mal', kind: 'anime', externalId: 101 })).toBe(
+      `${BASE}/anime/101`,
     );
-    expect(jikanTopUrl('anime', 2)).toBe(`${BASE}/top/anime?page=2&limit=25`);
-    expect(jikanTopUrl('manga', 1)).toBe(`${BASE}/top/manga?page=1&limit=25`);
-    expect(jikanSeasonNowUrl(4)).toBe(`${BASE}/seasons/now?page=4&limit=25`);
-    expect(jikanGenresUrl('anime')).toBe(`${BASE}/genres/anime`);
-    expect(jikanGenresUrl('manga')).toBe(`${BASE}/genres/manga`);
+    expect(
+      jikanDetailUrl(BASE, { namespace: 'mal', kind: 'manga', externalId: EXTERNAL_ID_MAX }),
+    ).toBe(`${BASE}/manga/${String(EXTERNAL_ID_MAX)}`);
+    expect(jikanTopUrl(BASE, 'anime', 2)).toBe(`${BASE}/top/anime?page=2&limit=25`);
+    expect(jikanTopUrl(BASE, 'manga', 1)).toBe(`${BASE}/top/manga?page=1&limit=25`);
+    expect(jikanSeasonNowUrl(BASE, 4)).toBe(`${BASE}/seasons/now?page=4&limit=25`);
+    expect(jikanGenresUrl(BASE, 'anime')).toBe(`${BASE}/genres/anime`);
+    expect(jikanGenresUrl(BASE, 'manga')).toBe(`${BASE}/genres/manga`);
   });
 });
 
-describe('input guards', () => {
-  it.each([0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53])(
-    'rejects the page %p',
-    (page) => {
-      expect(
-        failureOf(() => jikanSearchUrl({ kind: 'anime', query: SEARCH_TEXT, page })),
-      ).toStrictEqual(RANGE_ERROR);
-      expect(failureOf(() => jikanTopUrl('manga', page))).toStrictEqual(RANGE_ERROR);
-      expect(failureOf(() => jikanSeasonNowUrl(page))).toStrictEqual(RANGE_ERROR);
-    },
-  );
-
-  it.each([0, -5, 1.5, MAL_ID_MAX + 1, Number.NaN])('rejects the media id %p', (malId) => {
-    expect(failureOf(() => jikanDetailUrl({ kind: 'anime', malId }))).toStrictEqual(RANGE_ERROR);
-  });
-
-  it.each([[[0]], [[1, -2]], [[1.5]], [[Number.NaN]]])('rejects the genre ids %p', (ids) => {
-    const search = { kind: 'anime', query: SEARCH_TEXT, page: 1 } as const;
-    expect(failureOf(() => jikanSearchUrl({ ...search, genresIncluded: ids }))).toStrictEqual(
-      RANGE_ERROR,
-    );
-    expect(failureOf(() => jikanSearchUrl({ ...search, genresExcluded: ids }))).toStrictEqual(
-      RANGE_ERROR,
-    );
-  });
-
-  it.each([-0.5, 10.01, Number.NaN, Number.POSITIVE_INFINITY])(
-    'rejects the minimum score %p',
-    (minScore) => {
-      expect(
-        failureOf(() => jikanSearchUrl({ kind: 'anime', query: SEARCH_TEXT, minScore, page: 1 })),
-      ).toStrictEqual(RANGE_ERROR);
-    },
-  );
-
-  it.each<[MediaKind, string[]]>([
-    ['anime', ['tv', 'movie']],
-    ['anime', ['unknown']],
-    ['manga', ['oel']],
-    ['manga', ['unknown']],
-    ['manga', ['tv']],
-    ['anime', ['manga']],
-    ['anime', ['constructor']],
-  ])('rejects the %s formats %p', (kind, formats) => {
-    expect(
-      failureOf(() =>
-        jikanSearchUrl({ kind, query: SEARCH_TEXT, formats: formats.map(asFormat), page: 1 }),
-      ),
-    ).toStrictEqual(RANGE_ERROR);
-  });
-
-  it.each(['novel', 'constructor', ''])('rejects the kind %p', (kind) => {
-    expect(
-      failureOf(() => jikanSearchUrl({ kind: asKind(kind), query: SEARCH_TEXT, page: 1 })),
-    ).toStrictEqual(RANGE_ERROR);
-    expect(failureOf(() => jikanDetailUrl({ kind: asKind(kind), malId: 1 }))).toStrictEqual(
-      RANGE_ERROR,
-    );
-    expect(failureOf(() => jikanTopUrl(asKind(kind), 1))).toStrictEqual(RANGE_ERROR);
-    expect(failureOf(() => jikanGenresUrl(asKind(kind)))).toStrictEqual(RANGE_ERROR);
-  });
-
-  it('rejects a status or a sort outside the declared values', () => {
-    const search = { kind: 'manga', query: SEARCH_TEXT, page: 1 } as const;
-    expect(
-      failureOf(() => jikanSearchUrl({ ...search, status: asStatus('hiatus') })),
-    ).toStrictEqual(RANGE_ERROR);
-    expect(
-      failureOf(() =>
-        jikanSearchUrl({ ...search, sort: { field: asField('members'), direction: 'asc' } }),
-      ),
-    ).toStrictEqual(RANGE_ERROR);
-    expect(
-      failureOf(() =>
-        jikanSearchUrl({ ...search, sort: { field: 'score', direction: asDirection('up') } }),
-      ),
-    ).toStrictEqual(RANGE_ERROR);
-  });
-
-  it('rejects search text that is not well-formed, without quoting it', () => {
-    expect(
-      failureOf(() => jikanSearchUrl({ kind: 'anime', query: `${SEARCH_TEXT} \uD800`, page: 1 })),
-    ).toStrictEqual(RANGE_ERROR);
+describe('the base url', () => {
+  it('prefixes every url with the given instance root, as is', () => {
+    const key = { namespace: 'mal', kind: 'anime', externalId: 1 } as const;
+    expect([
+      jikanSearchUrl(SELF_HOSTED_BASE, { kind: 'anime', page: 1 }),
+      jikanDetailUrl(SELF_HOSTED_BASE, key),
+      jikanTopUrl(SELF_HOSTED_BASE, 'anime', 1),
+      jikanSeasonNowUrl(SELF_HOSTED_BASE, 1),
+      jikanGenresUrl(SELF_HOSTED_BASE, 'anime'),
+    ]).toStrictEqual([
+      `${SELF_HOSTED_BASE}/anime?page=1&limit=25`,
+      `${SELF_HOSTED_BASE}/anime/1`,
+      `${SELF_HOSTED_BASE}/top/anime?page=1&limit=25`,
+      `${SELF_HOSTED_BASE}/seasons/now?page=1&limit=25`,
+      `${SELF_HOSTED_BASE}/genres/anime`,
+    ]);
   });
 });

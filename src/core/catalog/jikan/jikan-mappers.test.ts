@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import type { MediaKind } from '../../domain/media';
+import type { MediaKey, MediaKind } from '../../domain/media';
 import { CatalogResponseError } from '../../errors/catalog-errors';
 import {
   buildJikanAnime,
@@ -20,7 +20,7 @@ const defaultIdOf = { anime: 101, manga: 201 } as const;
 // the detail of one built item of `kind`, with `overrides` on top of the builder's defaults
 const detailOf = (kind: MediaKind, overrides: Record<string, unknown> = {}) =>
   parseJikanDetail(
-    { kind, malId: defaultIdOf[kind] },
+    { namespace: 'mal', kind, externalId: defaultIdOf[kind] },
     buildJikanDetail(builderOf[kind](overrides)),
   );
 
@@ -78,7 +78,7 @@ describe('BR-06 isAdult', () => {
     (key) => {
       const kinds: MediaKind[] = ['anime', 'manga'];
       for (const kind of kinds) {
-        const mediaKey = { kind, malId: defaultIdOf[kind] };
+        const mediaKey: MediaKey = { namespace: 'mal', kind, externalId: defaultIdOf[kind] };
         const body = buildJikanDetail(withoutKeys(builderOf[kind](), key));
         expect(failureOf(() => parseJikanDetail(mediaKey, body))).toBeInstanceOf(
           CatalogResponseError,
@@ -94,9 +94,9 @@ describe('BR-06 isAdult', () => {
     ['a genre with a numeric name', [{ mal_id: 12, name: 12 }]],
   ])('fails the response when explicit_genres is %s', (_case, explicitGenres) => {
     const body = buildJikanDetail(buildJikanAnime({ explicit_genres: explicitGenres }));
-    expect(failureOf(() => parseJikanDetail({ kind: 'anime', malId: 101 }, body))).toBeInstanceOf(
-      CatalogResponseError,
-    );
+    expect(
+      failureOf(() => parseJikanDetail({ namespace: 'mal', kind: 'anime', externalId: 101 }, body)),
+    ).toBeInstanceOf(CatalogResponseError);
   });
 
   it.each([
@@ -105,7 +105,12 @@ describe('BR-06 isAdult', () => {
     ['an object', buildJikanAnime({ rating: { code: 'rx' } })],
   ])('fails an anime response when the rating is %s', (_case, item) => {
     expect(
-      failureOf(() => parseJikanDetail({ kind: 'anime', malId: 101 }, buildJikanDetail(item))),
+      failureOf(() =>
+        parseJikanDetail(
+          { namespace: 'mal', kind: 'anime', externalId: 101 },
+          buildJikanDetail(item),
+        ),
+      ),
     ).toBeInstanceOf(CatalogResponseError);
   });
 });
@@ -163,14 +168,16 @@ describe('cover image', () => {
 
   it('gives no cover without an images key', () => {
     const body = buildJikanDetail(withoutKeys(buildJikanManga(), 'images'));
-    expect(parseJikanDetail({ kind: 'manga', malId: 201 }, body).imageUrl).toBeNull();
+    expect(
+      parseJikanDetail({ namespace: 'mal', kind: 'manga', externalId: 201 }, body).imageUrl,
+    ).toBeNull();
   });
 });
 
 describe('parseJikanDetail', () => {
   it('maps a whole anime and strips every other field', () => {
     expect(detailOf('anime')).toStrictEqual({
-      key: { kind: 'anime', malId: 101 },
+      key: { namespace: 'mal', kind: 'anime', externalId: 101 },
       title: 'Sample Anime',
       titleEnglish: 'Sample Anime in English',
       imageUrl: `${CDN}/images/anime/1/101l.webp`,
@@ -193,7 +200,7 @@ describe('parseJikanDetail', () => {
 
   it('maps a whole manga', () => {
     expect(detailOf('manga')).toStrictEqual({
-      key: { kind: 'manga', malId: 201 },
+      key: { namespace: 'mal', kind: 'manga', externalId: 201 },
       title: 'Sample Manga',
       titleEnglish: 'Sample Manga in English',
       imageUrl: `${CDN}/images/manga/1/201l.webp`,
@@ -214,23 +221,28 @@ describe('parseJikanDetail', () => {
 
   it('fails when the item is not the requested one', () => {
     const body = buildJikanDetail(buildJikanAnime({ mal_id: 102 }));
-    expect(failureOf(() => parseJikanDetail({ kind: 'anime', malId: 101 }, body))).toBeInstanceOf(
-      CatalogResponseError,
-    );
+    expect(
+      failureOf(() => parseJikanDetail({ namespace: 'mal', kind: 'anime', externalId: 101 }, body)),
+    ).toBeInstanceOf(CatalogResponseError);
   });
 
   it.each([null, 'text', {}, { data: null }, { data: [buildJikanAnime()] }])(
     'fails the envelope %p',
     (body) => {
-      expect(failureOf(() => parseJikanDetail({ kind: 'anime', malId: 101 }, body))).toBeInstanceOf(
-        CatalogResponseError,
-      );
+      expect(
+        failureOf(() =>
+          parseJikanDetail({ namespace: 'mal', kind: 'anime', externalId: 101 }, body),
+        ),
+      ).toBeInstanceOf(CatalogResponseError);
     },
   );
 
   it('reports a failure without any detail, cause or provider text', () => {
     const failure = failureOf(() =>
-      parseJikanDetail({ kind: 'anime', malId: 101 }, { data: { mal_id: 'Sample Anime' } }),
+      parseJikanDetail(
+        { namespace: 'mal', kind: 'anime', externalId: 101 },
+        { data: { mal_id: 'Sample Anime' } },
+      ),
     );
     expect(failure).toBeInstanceOf(CatalogResponseError);
     expect(Object.getOwnPropertyNames(failure).sort()).toStrictEqual(['message', 'name', 'stack']);

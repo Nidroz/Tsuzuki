@@ -10,7 +10,7 @@ import {
 } from '../../errors/catalog-errors';
 import { JIKAN_ENDPOINTS, SEARCH_ENDPOINT } from './__fixtures__/jikan-endpoints';
 import {
-  JIKAN_BASE,
+  TENRAI_BASE,
   firstThen,
   jikanError,
   jikanHandler,
@@ -21,13 +21,14 @@ import {
   type JikanRequest,
 } from './__fixtures__/jikan-handlers';
 import { createJikanCatalogProvider } from './jikan-catalog-provider';
+import { TENRAI_INSTANCE } from './jikan-instances';
 
 // the scenario matrix of every endpoint (CONTRIBUTING.md §6): success, empty, 429, timeout and
-// malformed payload, through the provider, its http client and msw on the real jikan urls.
+// malformed payload, through the provider, its http client and msw on the real tenrai urls.
 // random() = 0: a retry comes 0.5 s, 1 s, then 2 s after a failure
 
 // query parameters that would filter content at the provider (ADR-0004)
-const CONTENT_FILTER_PARAMS = ['sfw', 'rating', 'unapproved', 'continuing'];
+const CONTENT_FILTER_PARAMS = ['sfw', 'sfw-strict', 'rating', 'unapproved', 'continuing'];
 const FIRST_RETRY_AT_MS = 500;
 // a persistent failure: 4 attempts, 0.5 s, 1 s and 2 s apart
 const ATTEMPTS_AT_MS = [0, 500, 1_500, 3_500];
@@ -37,7 +38,7 @@ const TIMED_OUT_ATTEMPTS_AT_MS = [0, 10_500];
 // longer than any retry sequence: whatever was left to send has been sent
 const LONG_AFTER_MS = 60_000;
 
-const createProvider = () => createJikanCatalogProvider({ random: () => 0 });
+const createProvider = () => createJikanCatalogProvider(TENRAI_INSTANCE, { random: () => 0 });
 
 // installs a jikan handler on the msw server and returns the requests it answers
 const serveJikan = (path: string, answer: JikanAnswer): readonly JikanRequest[] => {
@@ -184,9 +185,11 @@ describe('identical concurrent searches', () => {
     ]);
 
     expect(second).toStrictEqual(first);
-    expect(first.items.map(({ key }) => key)).toStrictEqual([{ kind: 'anime', malId: 5114 }]);
+    expect(first.items.map(({ key }) => key)).toStrictEqual([
+      { namespace: 'mal', kind: 'anime', externalId: 5114 },
+    ]);
     expect(requests.map(({ url }) => url)).toStrictEqual([
-      `${JIKAN_BASE}/anime?q=Sample&genres=1,4&page=2&limit=25`,
+      `${TENRAI_BASE}/anime?q=Sample&genres=1,4&page=2&limit=25`,
     ]);
     await expectNoPendingTimer();
   });

@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
 import { server } from '../../../../test/core/msw-server';
+import type { MediaIdNamespace } from '../../domain/media';
 import {
   CatalogHttpError,
   CatalogResponseError,
@@ -15,7 +16,7 @@ import {
   genreRef,
 } from './__fixtures__/jikan-builders';
 import {
-  JIKAN_BASE,
+  TENRAI_BASE,
   jikanError,
   jikanHandler,
   jsonAnswer,
@@ -25,8 +26,9 @@ import {
   type JikanRequest,
 } from './__fixtures__/jikan-handlers';
 import { createJikanCatalogProvider } from './jikan-catalog-provider';
+import { TENRAI_INSTANCE } from './jikan-instances';
 
-// security proofs through the provider, its http client and msw on the real jikan urls: the
+// security proofs through the provider, its http client and msw on the real tenrai urls: the
 // BR-06 flag, errors that carry no search text nor provider text, the cover host allowlist, and
 // invalid input rejected before any request
 
@@ -37,14 +39,18 @@ const PROVIDER_TEXT = 'upstream 7f3a';
 const LEAK_MARKERS = [
   SECRET_QUERY,
   encodeURIComponent(SECRET_QUERY),
-  'api.jikan.moe',
+  'api.tenrai.org',
   PROVIDER_TEXT,
 ];
 const CDN = 'https://cdn.myanimelist.net/images/anime/1';
 // longer than any retry sequence: whatever was left to send has been sent
 const LONG_AFTER_MS = 60_000;
+// one more than the tenrai maximum per genre filter
+const TOO_MANY_GENRES = Array.from({ length: 26 }, (_, index) => index + 1);
+// a namespace no jikan instance serves, as an untyped caller could pass it
+const OTHER_NAMESPACE = 'anilist' as MediaIdNamespace;
 
-const createProvider = () => createJikanCatalogProvider({ random: () => 0 });
+const createProvider = () => createJikanCatalogProvider(TENRAI_INSTANCE, { random: () => 0 });
 
 // installs a jikan handler on the msw server and returns the requests it answers
 const serveJikan = (path: string, answer: JikanAnswer): readonly JikanRequest[] => {
@@ -106,13 +112,13 @@ describe('the BR-06 adult flag', () => {
 
     const page = await createProvider().search({ kind: 'anime', page: 1 });
 
-    expect(page.items.map(({ key, isAdult }) => [key.malId, isAdult])).toStrictEqual([
+    expect(page.items.map(({ key, isAdult }) => [key.externalId, isAdult])).toStrictEqual([
       [1, true],
       [2, true],
       [3, false],
     ]);
     // everything is fetched: the request carries no content filter
-    expect(requests.map(({ url }) => url)).toStrictEqual([`${JIKAN_BASE}/anime?page=1&limit=25`]);
+    expect(requests.map(({ url }) => url)).toStrictEqual([`${TENRAI_BASE}/anime?page=1&limit=25`]);
   });
 
   it('flags a manga detail with Erotica in explicit_genres', async () => {
@@ -123,7 +129,11 @@ describe('the BR-06 adult flag', () => {
       ),
     );
 
-    const detail = await createProvider().getDetail({ kind: 'manga', malId: 201 });
+    const detail = await createProvider().getDetail({
+      namespace: 'mal',
+      kind: 'manga',
+      externalId: 201,
+    });
 
     expect(detail.isAdult).toBe(true);
     expect(detail.genres).toContainEqual({ id: 49, name: 'Erotica' });
@@ -203,7 +213,11 @@ describe('the cover image', () => {
   ])('keeps %s', async (_, body, imageUrl) => {
     serveJikan('/anime/101', jsonAnswer(body));
 
-    const detail = await createProvider().getDetail({ kind: 'anime', malId: 101 });
+    const detail = await createProvider().getDetail({
+      namespace: 'mal',
+      kind: 'anime',
+      externalId: 101,
+    });
 
     expect(detail.imageUrl).toBe(imageUrl);
   });
@@ -223,6 +237,36 @@ describe('invalid input', () => {
     ],
     ['a top page of 0', (provider: CatalogProvider) => provider.getTop('manga', 0)],
     ['a season page of 1.5', (provider: CatalogProvider) => provider.getCurrentSeason(1.5)],
+    [
+      'a search text over 300 characters',
+      (provider: CatalogProvider) =>
+        provider.search({ kind: 'anime', query: SECRET_QUERY.padEnd(301, 'x'), page: 1 }),
+    ],
+    [
+      'a search with 26 included genres',
+      (provider: CatalogProvider) =>
+        provider.search({
+          kind: 'anime',
+          query: SECRET_QUERY,
+          genresIncluded: TOO_MANY_GENRES,
+          page: 1,
+        }),
+    ],
+    [
+      'a search with 26 excluded genres',
+      (provider: CatalogProvider) =>
+        provider.search({
+          kind: 'manga',
+          query: SECRET_QUERY,
+          genresExcluded: TOO_MANY_GENRES,
+          page: 1,
+        }),
+    ],
+    [
+      'a detail of another id namespace',
+      (provider: CatalogProvider) =>
+        provider.getDetail({ namespace: OTHER_NAMESPACE, kind: 'anime', externalId: 101 }),
+    ],
   ])('rejects %s with a RangeError and sends nothing', async (_, call) => {
     const requests = serveJikan('/*', jsonAnswer({}));
 

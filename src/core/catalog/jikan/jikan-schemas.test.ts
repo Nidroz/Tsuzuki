@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { MAL_ID_MAX } from '../../domain/media';
+import { EXTERNAL_ID_MAX } from '../../domain/media';
 import {
   buildJikanAnime,
   buildJikanDetail,
@@ -23,11 +23,11 @@ const titles = (...entries: readonly (readonly [type: string, title: string])[])
   entries.map(([type, title]) => ({ type, title }));
 
 describe('identity', () => {
-  it.each([1, 101, MAL_ID_MAX])('accepts the id %p', (malId) => {
+  it.each([1, 101, EXTERNAL_ID_MAX])('accepts the id %p', (malId) => {
     expect(animeEntry(buildJikanAnime({ mal_id: malId }))?.malId).toBe(malId);
   });
 
-  it.each([0, -1, 1.5, MAL_ID_MAX + 1, '101', null])('fails the id %p', (malId) => {
+  it.each([0, -1, 1.5, EXTERNAL_ID_MAX + 1, '101', null])('fails the id %p', (malId) => {
     expect(animeEntry(buildJikanAnime({ mal_id: malId }))).toBeNull();
     expect(mangaEntry(buildJikanManga({ mal_id: malId }))).toBeNull();
   });

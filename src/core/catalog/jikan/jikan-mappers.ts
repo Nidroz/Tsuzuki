@@ -8,6 +8,7 @@ import type { MediaKey, MediaKind } from '../../domain/media';
 import { CatalogResponseError } from '../../errors/catalog-errors';
 import type { Genre, MediaDetail, MediaSummary, Page } from '../catalog-provider';
 import { toAllowedImageUrl } from '../image-url';
+import { JIKAN_NAMESPACE } from './jikan-instances';
 import {
   jikanAnimeDetailSchema,
   jikanAnimePageSchema,
@@ -19,7 +20,7 @@ import {
   type JikanPagePayload,
 } from './jikan-schemas';
 
-/** the only hosts a jikan cover url may point to. */
+/** the only hosts a jikan cover url may point to, on every instance: tenrai serves mal covers too. */
 export const JIKAN_IMAGE_HOSTS = ['cdn.myanimelist.net'] as const;
 
 // mal ratings read "Rx - Hentai"; compared trimmed and lowercased
@@ -70,7 +71,7 @@ const imageUrlOf = (candidates: readonly (string | null)[]): string | null => {
 /** the summary of a parsed item; `isAdult` reads every genre array and the anime rating (BR-06). */
 export const toMediaSummary = (kind: MediaKind, entry: JikanEntry): MediaSummary =>
   ({
-    key: { kind, malId: entry.malId },
+    key: { namespace: JIKAN_NAMESPACE, kind, externalId: entry.malId },
     title: entry.title,
     titleEnglish: entry.titleEnglish,
     imageUrl: imageUrlOf(entry.imageCandidates),
@@ -107,12 +108,12 @@ export const toSummaryPage = (
 ): Page<MediaSummary> => {
   const summaries = payload.data.map((entry) => toMediaSummary(kind, entry));
   const adultIds = new Set(
-    summaries.filter((summary) => summary.isAdult).map((summary) => summary.key.malId),
+    summaries.filter((summary) => summary.isAdult).map((summary) => summary.key.externalId),
   );
   return {
-    items: uniqueBy(summaries, (summary) => summary.key.malId).map((summary) => ({
+    items: uniqueBy(summaries, (summary) => summary.key.externalId).map((summary) => ({
       ...summary,
-      isAdult: adultIds.has(summary.key.malId),
+      isAdult: adultIds.has(summary.key.externalId),
     })),
     page: requestedPage,
     lastPage: Math.max(FIRST_PAGE, payload.pagination.last_visible_page),
@@ -131,7 +132,7 @@ export const parseJikanPage = (
 /** parses a detail response; an item other than the requested one is a malformed response. */
 export const parseJikanDetail = (key: MediaKey, body: unknown): MediaDetail => {
   const { data } = parseOrThrow<{ data: JikanEntry }>(DETAIL_SCHEMAS[key.kind], body);
-  if (data.malId !== key.malId) {
+  if (data.malId !== key.externalId) {
     throw new CatalogResponseError();
   }
   return toMediaDetail(key.kind, data);
