@@ -25,7 +25,7 @@ Tsuzuki is a mobile app (Android + iOS) to track anime, manga, manhwa and manhua
 | Server state | TanStack Query (persisted cache) |
 | Local state / storage | Zustand + MMKV, `expo-secure-store` for the session |
 | Backend | Supabase (Auth, Postgres, RLS, Edge Functions) |
-| Catalog data | Jikan v4 behind a `CatalogProvider` adapter |
+| Catalog data | A Jikan v4 compatible API (Tenrai by default) behind a `CatalogProvider` adapter |
 | Validation | Zod |
 | Tests | Jest, React Native Testing Library, MSW, pgTAP, Maestro |
 | CI/CD | GitHub Actions + EAS Build / Submit / Update |
@@ -103,7 +103,7 @@ Git hooks (husky, installed by `pnpm install`): `pre-commit` lints and formats s
 
 ## Data sources
 
-Catalog data comes from [Jikan](https://jikan.moe), an unofficial MyAnimeList API. Tsuzuki is not affiliated with MyAnimeList.
+Catalog data comes from [Tenrai](https://tenrai.org), a Jikan v4 compatible API that serves MyAnimeList data. Tsuzuki is not affiliated with MyAnimeList, Jikan or Tenrai.
 
 ## License
 
