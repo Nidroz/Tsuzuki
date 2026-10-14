@@ -64,7 +64,7 @@ platform → core (interfaces only)
 - `src/core/` must stay shareable with a future Next.js app: React and TanStack Query are allowed, React Native is not.
 - Routes, features and UI components never import Supabase or a catalog provider directly; routes and features use hooks from `src/core/hooks/`, which depend on repository and `CatalogProvider` interfaces, never on their implementations.
 - Supabase client is imported only in `src/core/repositories/supabase/`.
-- Jikan is imported only in `src/core/catalog/jikan/`.
+- Catalog provider hosts (Jikan v4 compatible instances such as Tenrai) appear only in `src/core/catalog/jikan/`.
 - i18next is imported only in `src/core/i18n/`; routes, features and platform use its public API `@core/i18n/index`.
 - Only the root layout `app/_layout.tsx` (composition root) wires the repository and catalog provider implementations (`supabase/`, `local/`, `jikan/`); routes, features and UI components (`app/`, `src/features/`, `src/ui/`) have no direct network access (`fetch`, `XMLHttpRequest`, `WebSocket`, `expo/fetch`, Expo internals): network goes through `src/core/` and `src/platform/` (mobile SDKs).
 - Routes and features never style directly (no `StyleSheet`, no `style` / `*Style` props with an expression): they compose `src/ui` primitives and import `src/ui` only through its public barrel `@ui/index`.
@@ -99,7 +99,7 @@ Root configuration files belong to the area they configure. A change to one of t
 | `src/core/` | Jest | ≥ 90 % lines and branches; every BR-xx has explicit tests |
 | Global | Jest | ≥ 70 % lines |
 | `src/ui/` + feature screens | React Native Testing Library | Every component and screen has a test (render, interaction, a11y label) |
-| Catalog providers | MSW + recorded fixtures | Success, empty, 429, timeout, malformed payload |
+| Catalog providers | MSW + recorded fixtures | Success, empty, 429, timeout, malformed payload; every adapter passes `test/core/catalog-provider-contract.ts` |
 | Database | pgTAP | For each table: owner can CRUD own rows, cannot read/write others' rows, anon has no access |
 | E2E | Maestro | search → add → +1 → favorite; sign in; guest → account merge |
 
