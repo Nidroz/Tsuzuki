@@ -32,7 +32,8 @@ export const MESSAGES = {
   jestLiteral: 'jest module calls take a string literal',
   jestName: 'jest is imported and used under its own name',
   jestByName: 'jest methods are called by name',
-  jikan: 'the catalog provider is reached only through its adapter',
+  catalogHost:
+    'catalog provider hosts (Jikan v4 compatible instances such as Tenrai) are reached only through their adapter in src/core/catalog/jikan',
   outsideLayers: 'every file under src/ belongs to one of the four layers',
   testInfrastructure: 'production code never imports the test infrastructure in test/',
   classNameGuard: 'className is used only inside src/ui',

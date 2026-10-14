@@ -8,9 +8,9 @@ import { withDotNames } from './glob-dot-names.mjs';
 import { BANNED, CANONICAL_PATHS, PLATFORM_CORE_TYPE_ONLY } from './import-bans.mjs';
 import { toSelectorRegex } from './selectors.mjs';
 import {
+  CATALOG_HOST_GUARDS,
   CLASS_NAME_GUARDS,
   JEST_GUARDS,
-  JIKAN_GUARDS,
   LAYERS_RULE,
   LITERAL_IMPORT_GUARD,
   STYLE_GUARDS,
@@ -23,7 +23,7 @@ export { NETWORK_GLOBALS, NETWORK_MESSAGE } from './import-bans.mjs';
 
 // every file's no-restricted-syntax guards outside src/ui, tools/ included; a block that sets its
 // own options must re-include them
-export const BASE_SYNTAX_GUARDS = [...JIKAN_GUARDS, ...CLASS_NAME_GUARDS];
+export const BASE_SYNTAX_GUARDS = [...CATALOG_HOST_GUARDS, ...CLASS_NAME_GUARDS];
 
 // every file under src/ belongs to a layer, so each file gets the rules of exactly one layer
 const SRC_LAYER_FOLDERS = ['src/core', 'src/features', 'src/ui', 'src/platform'];
@@ -49,7 +49,7 @@ export const SRC_OUTSIDE_LAYERS = {
 export const layerRules = ({
   banned: layerBanned,
   typeOnly,
-  allowJikan = false,
+  allowCatalogHosts = false,
   usesNativeWind = false,
   bansStyles = false,
   bansLiteralText = false,
@@ -84,7 +84,7 @@ export const layerRules = ({
         })),
       ),
       ...jestModuleBans(banned),
-      ...(allowJikan ? [] : JIKAN_GUARDS),
+      ...(allowCatalogHosts ? [] : CATALOG_HOST_GUARDS),
       ...(usesNativeWind ? [] : CLASS_NAME_GUARDS),
       ...(bansStyles ? STYLE_GUARDS : []),
       ...(bansLiteralText ? TEXT_GUARDS : []),
@@ -126,7 +126,7 @@ export const LAYERS = [
   {
     files: ['src/core/catalog/jikan/**'],
     banned: [reactNative, expo, nativewind, supabase, i18n],
-    allowJikan: true,
+    allowCatalogHosts: true,
   },
   { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind, i18n] },
   { files: ['src/core/i18n/**'], banned: [reactNative, expo, nativewind, supabase] },

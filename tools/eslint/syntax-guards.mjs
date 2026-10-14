@@ -1,5 +1,5 @@
 // no-restricted-syntax guards of the layer rules (tools/eslint/layers.mjs): literal import()
-// sources, the catalog provider url, className outside src/ui, direct styling in routes and
+// sources, the catalog provider hosts, className outside src/ui, direct styling in routes and
 // features, and the jest module calls, which load or mock a module by its specifier like an import,
 // called by name directly on jest (CONTRIBUTING.md section 4)
 
@@ -13,10 +13,16 @@ export const LITERAL_IMPORT_GUARD = {
   message: `import() takes a string literal so layer rules can check it (${LAYERS_RULE}).`,
 };
 
-const JIKAN_MESSAGE = `the catalog provider is reached only through its adapter in src/core/catalog/jikan (${LAYERS_RULE}).`;
-export const JIKAN_GUARDS = [
-  { selector: 'Literal[value=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
-  { selector: 'TemplateElement[value.raw=/jikan\\.moe/i]', message: JIKAN_MESSAGE },
+// the hosts of the jikan v4 compatible catalog instances: api.jikan.moe (shut down) and Tenrai,
+// the default instance; a new instance host is added here. written as escaped regex sources, which
+// never match themselves: a plain host string would trip the guard on this file
+const CATALOG_HOST_SOURCES = ['jikan\\.moe', 'tenrai\\.org'];
+// any of the hosts, case-insensitive, anywhere in a string or template
+const CATALOG_HOST_PATTERN = `/${CATALOG_HOST_SOURCES.join('|')}/i`;
+const CATALOG_HOST_MESSAGE = `catalog provider hosts (Jikan v4 compatible instances such as Tenrai) are reached only through their adapter in src/core/catalog/jikan (${LAYERS_RULE}).`;
+export const CATALOG_HOST_GUARDS = [
+  { selector: `Literal[value=${CATALOG_HOST_PATTERN}]`, message: CATALOG_HOST_MESSAGE },
+  { selector: `TemplateElement[value.raw=${CATALOG_HOST_PATTERN}]`, message: CATALOG_HOST_MESSAGE },
 ];
 
 // className and its variants (contentContainerClassName, ...) as JSX props or object keys (spread

@@ -1,6 +1,6 @@
 // case tables for layers.test.mjs on network access: routes, features and UI components have no
-// direct network access, and only the jikan adapter reaches the catalog provider (CONTRIBUTING.md
-// section 4)
+// direct network access, and only the jikan adapter names the hosts of the catalog provider
+// instances (CONTRIBUTING.md section 4)
 
 import { EXISTING, PROBES } from './layers-harness.mjs';
 import { IMPORTS, MESSAGES, SYNTAX, allowed, dynamics, rejected, values } from './layers-cases.mjs';
@@ -8,8 +8,9 @@ import { IMPORTS, MESSAGES, SYNTAX, allowed, dynamics, rejected, values } from '
 const GLOBALS = 'no-restricted-globals';
 const PROPERTIES = 'no-restricted-properties';
 
-// assembled at runtime: a literal would trip the jikan guard on this file itself
+// assembled at runtime: a literal would trip the catalog host guard on this file itself
 const JIKAN_URL = `https://api.${['jikan', 'moe'].join('.')}/v4`;
+const TENRAI_URL = `https://api.${['tenrai', 'org'].join('.')}/v1`;
 
 // probes are [label, code] pairs
 const NETWORK_CALLS = {
@@ -36,10 +37,13 @@ const EVENT_SOURCE_CALLS = [
   NETWORK_CALLS.windowEventSource,
 ];
 
-const JIKAN_PROBES = [
-  ['jikan url string', `export const url = '${JIKAN_URL}';\n`],
-  ['jikan url template', `export const url = (id: number) => \`${JIKAN_URL}/\${String(id)}\`;\n`],
+// a url on the host, as a string and as a template
+const hostProbes = (host, url) => [
+  [`${host} url string`, `export const url = '${url}';\n`],
+  [`${host} url template`, `export const url = (id: number) => \`${url}/\${String(id)}\`;\n`],
 ];
+const JIKAN_PROBES = hostProbes('jikan', JIKAN_URL);
+const TENRAI_PROBES = hostProbes('tenrai', TENRAI_URL);
 
 const SCREEN_FILES = [EXISTING.index, PROBES.features, PROBES.ui];
 
@@ -66,7 +70,7 @@ export const REJECTED = {
     ]),
   ],
 
-  'jikan guard': [
+  'catalog host guard': [
     ...rejected(
       [
         PROBES.core,
@@ -79,11 +83,19 @@ export const REJECTED = {
         PROBES.srcOther,
       ],
       SYNTAX,
-      MESSAGES.jikan,
+      MESSAGES.catalogHost,
       JIKAN_PROBES,
     ),
-    ...rejected(PROBES.features, SYNTAX, MESSAGES.jikan, [
+    // the default instance, in a feature, a core root file and a core test
+    ...rejected(
+      [PROBES.features, PROBES.core, PROBES.coreTest],
+      SYNTAX,
+      MESSAGES.catalogHost,
+      TENRAI_PROBES,
+    ),
+    ...rejected(PROBES.features, SYNTAX, MESSAGES.catalogHost, [
       ['uppercase jikan url', `export const url = '${JIKAN_URL.toUpperCase()}';\n`],
+      ['uppercase tenrai url', `export const url = '${TENRAI_URL.toUpperCase()}';\n`],
     ]),
   ],
 };
@@ -95,5 +107,5 @@ export const ALLOWED = {
     ...allowed(PROBES.platform, [...Object.values(NETWORK_CALLS), ...values('expo/fetch')]),
     ...allowed(PROBES.supabase, EVENT_SOURCE_CALLS),
   ],
-  'jikan guard': allowed(PROBES.jikan, JIKAN_PROBES),
+  'catalog host guard': allowed(PROBES.jikan, [...JIKAN_PROBES, ...TENRAI_PROBES]),
 };
