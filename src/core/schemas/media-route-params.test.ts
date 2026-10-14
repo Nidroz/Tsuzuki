@@ -1,10 +1,24 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { MAL_ID_MAX, type MediaKey } from '../domain/media';
+import { EXTERNAL_ID_MAX, type MediaKey } from '../domain/media';
 import { mediaRouteParamsSchema, parseMediaRouteParams } from './media-route-params';
 
 // expo-router hands each param as a string, or as an array when the param is repeated
-const params = (kind: unknown, id: unknown): Record<string, unknown> => ({ kind, id });
+const params = (
+  kind: unknown,
+  id: unknown,
+  namespace: unknown = 'mal',
+): Record<string, unknown> => ({
+  namespace,
+  kind,
+  id,
+});
+
+const malKey = (kind: MediaKey['kind'], externalId: number): MediaKey => ({
+  namespace: 'mal',
+  kind,
+  externalId,
+});
 
 // every invalid input is rejected by the schema and turned into null by the parser
 const isRejected = (raw: unknown): boolean =>
@@ -13,12 +27,16 @@ const isRejected = (raw: unknown): boolean =>
 describe('parseMediaRouteParams', () => {
   describe('valid params', () => {
     it.each<[string, Record<string, unknown>, MediaKey]>([
-      ['an anime', params('anime', '1'), { kind: 'anime', malId: 1 }],
-      ['a manga', params('manga', '1'), { kind: 'manga', malId: 1 }],
-      ['a typical anime id', params('anime', '5114'), { kind: 'anime', malId: 5114 }],
-      ['a typical manga id', params('manga', '2'), { kind: 'manga', malId: 2 }],
-      ['an id with inner zeros', params('anime', '1000'), { kind: 'anime', malId: 1000 }],
-      ['the largest id', params('manga', String(MAL_ID_MAX)), { kind: 'manga', malId: MAL_ID_MAX }],
+      ['an anime', params('anime', '1'), malKey('anime', 1)],
+      ['a manga', params('manga', '1'), malKey('manga', 1)],
+      ['a typical anime id', params('anime', '5114'), malKey('anime', 5114)],
+      ['a typical manga id', params('manga', '2'), malKey('manga', 2)],
+      ['an id with inner zeros', params('anime', '1000'), malKey('anime', 1000)],
+      [
+        'the largest id',
+        params('manga', String(EXTERNAL_ID_MAX)),
+        malKey('manga', EXTERNAL_ID_MAX),
+      ],
     ])('parses %s into a media key', (_label, raw, expected) => {
       expect(parseMediaRouteParams(raw)).toStrictEqual(expected);
       expect(mediaRouteParamsSchema.parse(raw)).toStrictEqual(expected);
@@ -26,25 +44,25 @@ describe('parseMediaRouteParams', () => {
 
     it('converts the id to a number', () => {
       const key = parseMediaRouteParams(params('anime', '42'));
-      expect(typeof key?.malId).toBe('number');
-      expect(key?.malId).toBe(42);
+      expect(typeof key?.externalId).toBe('number');
+      expect(key?.externalId).toBe(42);
     });
 
     it.each<[string, Record<string, unknown>]>([
-      ['an unknown string param', { kind: 'anime', id: '1', ref: 'x' }],
-      ['a repeated unknown param', { kind: 'anime', id: '1', tab: ['a', 'b'] }],
-      ['a param named like the output', { kind: 'anime', id: '1', malId: '99' }],
-      ['several unknown params', { kind: 'anime', id: '1', a: '1', b: 2, c: null }],
-    ])('ignores %s and returns only kind and malId', (_label, raw) => {
-      const expected: MediaKey = { kind: 'anime', malId: 1 };
+      ['an unknown string param', { ...params('anime', '1'), ref: 'x' }],
+      ['a repeated unknown param', { ...params('anime', '1'), tab: ['a', 'b'] }],
+      ['a param named like the output', { ...params('anime', '1'), externalId: '99' }],
+      ['several unknown params', { ...params('anime', '1'), a: '1', b: 2, c: null }],
+    ])('ignores %s and returns only namespace, kind and externalId', (_label, raw) => {
+      const expected = malKey('anime', 1);
       expect(parseMediaRouteParams(raw)).toStrictEqual(expected);
       expect(mediaRouteParamsSchema.parse(raw)).toStrictEqual(expected);
     });
 
     it('does not modify the raw params', () => {
-      const raw = { kind: 'manga', id: '7', ref: 'x' };
+      const raw = { namespace: 'mal', kind: 'manga', id: '7', ref: 'x' };
       parseMediaRouteParams(raw);
-      expect(raw).toStrictEqual({ kind: 'manga', id: '7', ref: 'x' });
+      expect(raw).toStrictEqual({ namespace: 'mal', kind: 'manga', id: '7', ref: 'x' });
     });
   });
 
@@ -115,14 +133,38 @@ describe('parseMediaRouteParams', () => {
     });
   });
 
+  describe('invalid namespace', () => {
+    it.each<[string, string]>([
+      ['an unknown namespace', 'anilist'],
+      ['an upper-case namespace', 'MAL'],
+      ['a capitalized namespace', 'Mal'],
+      ['a server id', 'tenrai'],
+      ['the empty string', ''],
+      ['a trailing space', 'mal '],
+      ['an object prototype key', 'toString'],
+    ])('rejects %s', (_label, namespace) => {
+      expect(isRejected(params('anime', '1', namespace))).toBe(true);
+    });
+
+    it.each<[string, unknown]>([
+      ['a number', 0],
+      ['null', null],
+      ['an object', { value: 'mal' }],
+    ])('rejects a namespace that is not a string (%s)', (_label, namespace) => {
+      expect(isRejected(params('anime', '1', namespace))).toBe(true);
+    });
+  });
+
   describe('repeated params', () => {
     it.each<[string, Record<string, unknown>]>([
+      ['a repeated namespace', params('anime', '1', ['mal'])],
+      ['a namespace repeated twice', params('anime', '1', ['mal', 'mal'])],
       ['a repeated kind', params(['anime'], '1')],
       ['a kind repeated twice', params(['anime', 'manga'], '1')],
       ['a repeated id', params('anime', ['1'])],
       ['an id repeated twice', params('anime', ['1', '2'])],
       ['an empty array id', params('anime', [])],
-      ['both repeated', params(['anime'], ['1'])],
+      ['all repeated', params(['anime'], ['1'], ['mal'])],
     ])('rejects %s', (_label, raw) => {
       expect(isRejected(raw)).toBe(true);
     });
@@ -130,11 +172,13 @@ describe('parseMediaRouteParams', () => {
 
   describe('missing params', () => {
     it.each<[string, Record<string, unknown>]>([
-      ['a missing kind', { id: '1' }],
-      ['a missing id', { kind: 'anime' }],
-      ['both missing', {}],
-      ['an undefined kind', { kind: undefined, id: '1' }],
-      ['an undefined id', { kind: 'anime', id: undefined }],
+      ['a missing namespace', { kind: 'anime', id: '1' }],
+      ['a missing kind', { namespace: 'mal', id: '1' }],
+      ['a missing id', { namespace: 'mal', kind: 'anime' }],
+      ['all missing', {}],
+      ['an undefined namespace', { namespace: undefined, kind: 'anime', id: '1' }],
+      ['an undefined kind', params(undefined, '1')],
+      ['an undefined id', params('anime', undefined)],
       ['only unknown params', { ref: 'x' }],
     ])('rejects %s', (_label, raw) => {
       expect(isRejected(raw)).toBe(true);
@@ -145,12 +189,12 @@ describe('parseMediaRouteParams', () => {
     it.each<[string, unknown]>([
       ['null', null],
       ['undefined', undefined],
-      ['a string', 'anime/1'],
+      ['a string', 'mal/anime/1'],
       ['a number', 1],
       ['a boolean', true],
-      ['an array', ['anime', '1']],
+      ['an array', ['mal', 'anime', '1']],
       ['an empty array', []],
-      ['a function', () => ({ kind: 'anime', id: '1' })],
+      ['a function', () => params('anime', '1')],
     ])('returns null for %s', (_label, raw) => {
       expect(isRejected(raw)).toBe(true);
     });

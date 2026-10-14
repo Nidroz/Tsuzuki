@@ -12,7 +12,7 @@ const BACKSLASH = '\\';
 
 // the escaped globs of the expo-router shaped probe names
 const EXPO_ROUTER_GLOBS = {
-  'app/probe/[kind]/[id].tsx': 'app/probe/\\[kind\\]/\\[id\\].tsx',
+  'app/probe/[namespace]/[kind]/[id].tsx': 'app/probe/\\[namespace\\]/\\[kind\\]/\\[id\\].tsx',
   'app/(probe)/_layout.tsx': 'app/\\(probe\\)/_layout.tsx',
 };
 

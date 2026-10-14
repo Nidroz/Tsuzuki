@@ -62,9 +62,10 @@ export const PROBES = {
   uiComponent: 'src/ui/probe.tsx',
   testMobileComponent: 'test/mobile/probe.tsx',
   layoutTs: 'app/_layout.ts',
-  // the shapes of app/(tabs)/_layout.tsx and app/media/[kind]/[id].tsx, under names no route uses
+  // the shapes of app/(tabs)/_layout.tsx and app/media/[namespace]/[kind]/[id].tsx, under names no
+  // route uses
   nestedLayout: 'app/(probe)/_layout.tsx',
-  nestedRoute: 'app/probe/[kind]/[id].tsx',
+  nestedRoute: 'app/probe/[namespace]/[kind]/[id].tsx',
   // dotfiles and dot-folders: plain modules (.mjs), since typescript leaves ts dotfiles out of the
   // project
   featuresDotfile: 'src/features/.probe.mjs',

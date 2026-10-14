@@ -8,7 +8,7 @@ import LibraryRoute from '../../app/(tabs)/library';
 import SearchRoute from '../../app/(tabs)/search';
 import SettingsRoute from '../../app/(tabs)/settings';
 import RootLayout, { unstable_settings } from '../../app/_layout';
-import MediaDetailRoute from '../../app/media/[kind]/[id]';
+import MediaDetailRoute from '../../app/media/[namespace]/[kind]/[id]';
 
 /**
  * the in-memory route map of the app, keyed as in app/ without the extension: the real files of
@@ -24,7 +24,7 @@ export const APP_ROUTES = {
   '(tabs)/library': LibraryRoute,
   '(tabs)/favorites': FavoritesRoute,
   '(tabs)/settings': SettingsRoute,
-  'media/[kind]/[id]': MediaDetailRoute,
+  'media/[namespace]/[kind]/[id]': MediaDetailRoute,
   '+not-found': NotFoundRoute,
 } as const;
 

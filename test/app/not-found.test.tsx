@@ -49,7 +49,9 @@ describe('not found route', () => {
     mockDeviceLanguageTag.mockReturnValue('en-US');
   });
 
-  it.each(['/nowhere', UNKNOWN_PATH, '/media/anime'])(
+  // a media link takes a namespace, a kind and an id: a shorter one, such as the links from before
+  // the namespace segment (/media/anime/1), matches no route
+  it.each(['/nowhere', UNKNOWN_PATH, '/media/anime', '/media/anime/1', '/media/mal/anime'])(
     'shows the translated not found screen for the unknown path %s',
     async (url) => {
       await openLink(url);

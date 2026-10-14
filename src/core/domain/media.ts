@@ -1,19 +1,28 @@
-// a media is a catalog title identified by (kind, providerId), see SPEC.md
+// a media is a catalog title identified by (namespace, kind, externalId), see SPEC.md
 
 /** the kinds of media the catalog serves. */
 export const MEDIA_KINDS = ['anime', 'manga'] as const;
 
 export type MediaKind = (typeof MEDIA_KINDS)[number];
 
-/** canonical identity of a media across providers. */
+/**
+ * whose catalog ids `externalId` holds. `mal` = MyAnimeList ids, served by every
+ * Jikan v4 compatible instance (Tenrai, a self-hosted Jikan).
+ */
+export const MEDIA_ID_NAMESPACES = ['mal'] as const;
+
+/** the id namespace of a media key. */
+export type MediaIdNamespace = (typeof MEDIA_ID_NAMESPACES)[number];
+
+/** the canonical identity of a media, independent of the server that serves it. */
 export interface MediaKey {
-  kind: MediaKind;
-  // canonical id: jikan uses it natively, anilist exposes idMal
-  malId: number;
+  readonly namespace: MediaIdNamespace;
+  readonly kind: MediaKind;
+  readonly externalId: number;
 }
 
-// the postgres integer bound of library_entries.mal_id, docs/ARCHITECTURE.md §5
-export const MAL_ID_MAX = 2_147_483_647;
+// the postgres integer bound of library_entries.external_id, docs/ARCHITECTURE.md §5
+export const EXTERNAL_ID_MAX = 2_147_483_647;
 
 /** whether a string is exactly one of the media kinds (case-sensitive, no trimming). */
 export const isMediaKind = (value: string): value is MediaKind =>

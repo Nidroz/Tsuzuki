@@ -2,14 +2,14 @@
 // adapters parse raw provider payloads with zod and map them to these types; nothing provider-specific leaks out
 import type {
   MediaFormat,
+  MediaIdNamespace,
   MediaKey,
   MediaKind,
   MediaStatus,
   SearchableMediaStatus,
 } from '../domain/media';
-import type { CatalogProviderId } from './catalog-provider-id';
 
-/** a provider genre; the id is provider-scoped (mal genre id for jikan). */
+/** a provider genre; the id is namespace-scoped (a mal genre id in the mal namespace). */
 export interface Genre {
   readonly id: number;
   readonly name: string;
@@ -72,7 +72,16 @@ export interface Page<T> {
 
 /** the only way to the catalog: screens and hooks never see a provider directly. */
 export interface CatalogProvider {
-  readonly id: CatalogProviderId;
+  /**
+   * the id namespace of every media key it returns and accepts;
+   * catalog query keys are built from it.
+   */
+  readonly namespace: MediaIdNamespace;
+  /**
+   * a short non-personal id of the configured instance (lowercase letters, digits and hyphens),
+   * e.g. for error reports and its own rate limiter; never a url, never part of a query key.
+   */
+  readonly instanceId: string;
   search(params: SearchParams, signal?: AbortSignal): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
   getTop(kind: MediaKind, page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;
