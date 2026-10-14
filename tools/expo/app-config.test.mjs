@@ -192,7 +192,7 @@ describe('app.config.ts', () => {
     });
 
     assert.match(config.error, /Invalid app env: jikanBaseUrl$/);
-    assert.equal(config.error.includes('jikan.example.org'), false);
+    assert.doesNotMatch(config.error, /jikan\.example\.org/);
   });
 
   it('fails on an http supabase url, naming the field but not its value', () => {
