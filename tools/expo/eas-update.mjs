@@ -1,7 +1,7 @@
 // publishes an eas update for one app variant: `pnpm update:publish <variant> [eas update flags]`.
-// off the eas build worker, app.config.ts leaves extra.env out when no supabase or sentry value is
-// set, so an update published without its eas environment would fail closed at startup. this
-// wrapper always passes the variant as both the channel and the eas environment (eas.json)
+// off the eas build worker, app.config.ts leaves extra.env out when no supabase, sentry or catalog
+// value is set, so an update published without its eas environment would fail closed at startup.
+// this wrapper always passes the variant as both the channel and the eas environment (eas.json)
 
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';

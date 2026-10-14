@@ -39,17 +39,28 @@ const VARIANTS: Readonly<Record<AppVariant, { idSuffix: string; nameSuffix: stri
 const FALLBACK_VARIANT: AppVariant = 'development';
 
 // the build-time env of the eas environment, read by this config: every value is public and ships
-// in the app. APP_VARIANT is read on its own (readVariant)
+// in the app. APP_VARIANT is read on its own (readVariant). EXPO_PUBLIC_JIKAN_BASE_URL is optional:
+// the base url of a self-hosted Jikan v4 compatible api, the default catalog instance when empty
 const SERVER_ENV_NAMES = [
   'EXPO_PUBLIC_SUPABASE_URL',
   'EXPO_PUBLIC_SUPABASE_ANON_KEY',
   'SENTRY_DSN',
+  'EXPO_PUBLIC_JIKAN_BASE_URL',
 ] as const;
 
 const VARIANT_FIELD = 'variant';
 
 const isAppVariant = (value: string): value is AppVariant =>
   (APP_VARIANTS as readonly string[]).includes(value);
+
+// the app env schema input: the variant and every value of SERVER_ENV_NAMES, as read
+const readEnvInput = (variant: string | undefined) => ({
+  variant,
+  supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
+  supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+  sentryDsn: process.env.SENTRY_DSN,
+  jikanBaseUrl: process.env.EXPO_PUBLIC_JIKAN_BASE_URL,
+});
 
 // a valid APP_VARIANT selects the variant even without any other env: the eas cli evaluates this
 // config locally with the build profile env only, and picks the credentials by app id. a missing or
@@ -66,31 +77,21 @@ const readVariant = (): AppVariant => {
 };
 
 // the full env is always validated on the eas build worker. elsewhere (expo start, the local eas cli
-// evaluation, jest, lint) it is validated only when a supabase or sentry value is set, so a partial
-// or invalid local env still fails, with the variant falling back when APP_VARIANT is missing.
-// without any of them, extra.env is left out and the app fails closed at startup
+// evaluation, jest, lint) it is validated only when a supabase, sentry or catalog value is set, so
+// a partial or invalid local env still fails, with the variant falling back when APP_VARIANT is
+// missing. without any of them, extra.env is left out and the app fails closed at startup
 // (src/platform/app-env.ts)
 const readAppEnv = (): AppEnv | undefined => {
   // throws an error naming the invalid fields, never their values: the build or `expo start` stops
   if (process.env.EAS_BUILD === 'true') {
-    return parseAppEnv({
-      variant: process.env.APP_VARIANT,
-      supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-      supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-      sentryDsn: process.env.SENTRY_DSN,
-    });
+    return parseAppEnv(readEnvInput(process.env.APP_VARIANT));
   }
   const variant = readVariant();
   const hasServerEnv = SERVER_ENV_NAMES.some((name) => process.env[name] !== undefined);
   if (!hasServerEnv) {
     return undefined;
   }
-  return parseAppEnv({
-    variant,
-    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
-    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    sentryDsn: process.env.SENTRY_DSN,
-  });
+  return parseAppEnv(readEnvInput(variant));
 };
 
 const env = readAppEnv();

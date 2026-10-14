@@ -19,6 +19,8 @@ const VALID_ENV = {
   EXPO_PUBLIC_SUPABASE_ANON_KEY: 'sb_publishable_placeholder',
 };
 const VALID_DSN = 'https://0123abcd@o1.ingest.de.sentry.io/42';
+// a self-hosted jikan v4 compatible api, as .env.example describes it
+const SELF_HOSTED_JIKAN_URL = 'https://jikan.example.org/v4';
 
 // every variable the config reads: removed from the inherited environment so the developer's
 // shell (or ci) cannot change the outcome
@@ -27,6 +29,7 @@ const CONFIG_ENV_NAMES = [
   'EXPO_PUBLIC_SUPABASE_URL',
   'EXPO_PUBLIC_SUPABASE_ANON_KEY',
   'SENTRY_DSN',
+  'EXPO_PUBLIC_JIKAN_BASE_URL',
   'EAS_BUILD',
 ];
 
@@ -84,6 +87,34 @@ describe('app.config.ts', () => {
     const config = loadConfig({ ...VALID_ENV, APP_VARIANT: 'production', SENTRY_DSN: VALID_DSN });
 
     assert.equal(config.extra.env.sentryDsn, VALID_DSN);
+  });
+
+  for (const [where, buildEnv] of [
+    ['on', { EAS_BUILD: 'true' }],
+    ['off', {}],
+  ]) {
+    it(`keeps a self-hosted jikan base url in extra.env ${where} the eas build worker`, () => {
+      const config = loadConfig({
+        ...VALID_ENV,
+        ...buildEnv,
+        APP_VARIANT: 'production',
+        EXPO_PUBLIC_JIKAN_BASE_URL: SELF_HOSTED_JIKAN_URL,
+      });
+
+      assert.equal(config.error, undefined);
+      assert.equal(config.extra.env.jikanBaseUrl, SELF_HOSTED_JIKAN_URL);
+    });
+  }
+
+  it('leaves an empty jikan base url out of extra.env: the app uses the default instance', () => {
+    const config = loadConfig({
+      ...VALID_ENV,
+      APP_VARIANT: 'preview',
+      EXPO_PUBLIC_JIKAN_BASE_URL: '',
+    });
+
+    assert.equal(config.error, undefined);
+    assert.equal('jikanBaseUrl' in config.extra.env, false);
   });
 
   it('falls back to the development app id and leaves extra.env out without any env', () => {
@@ -144,6 +175,24 @@ describe('app.config.ts', () => {
     });
 
     assert.match(config.error, /Invalid app env: supabaseAnonKey$/);
+  });
+
+  it('fails on a local env with the jikan base url only, naming the missing fields', () => {
+    const config = loadConfig({ EXPO_PUBLIC_JIKAN_BASE_URL: SELF_HOSTED_JIKAN_URL });
+
+    assert.match(config.error, /Invalid app env: supabaseUrl, supabaseAnonKey$/);
+  });
+
+  it('fails on an http jikan base url, naming the field but not its value', () => {
+    const insecureUrl = SELF_HOSTED_JIKAN_URL.replace('https:', 'http:');
+    const config = loadConfig({
+      ...VALID_ENV,
+      APP_VARIANT: 'preview',
+      EXPO_PUBLIC_JIKAN_BASE_URL: insecureUrl,
+    });
+
+    assert.match(config.error, /Invalid app env: jikanBaseUrl$/);
+    assert.equal(config.error.includes('jikan.example.org'), false);
   });
 
   it('fails on an http supabase url, naming the field but not its value', () => {

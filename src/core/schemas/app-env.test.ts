@@ -17,6 +17,10 @@ const SUPABASE_URL = 'https://abcdefgh.supabase.co';
 const PUBLISHABLE_KEY = 'sb_publishable_AbC123_x-Y'; // gitleaks:allow
 const SECRET_KEY = 'sb_secret_AbC123';
 const SENTRY_DSN = 'https://0123abcdef@o12345.ingest.de.sentry.io/678';
+// the shape of the default instance url (an api host and a /v1 path); its real host is written
+// only in the catalog adapter
+const DEFAULT_SHAPED_URL = 'https://api.catalog.example/v1';
+const SELF_HOSTED_URL = 'https://jikan.example.test:8443/v4';
 
 const VALID_ENV = {
   supabaseUrl: SUPABASE_URL,
@@ -108,6 +112,69 @@ describe('parseAppEnv', () => {
       ['no public key', 'https://o12345.ingest.de.sentry.io/678'],
     ])('rejects a dsn with %s', (_case, sentryDsn) => {
       expect(parseError({ ...VALID_ENV, sentryDsn }).fields).toStrictEqual(['sentryDsn']);
+    });
+  });
+
+  describe('jikanBaseUrl', () => {
+    it.each([
+      ['a url of the default instance shape', DEFAULT_SHAPED_URL, DEFAULT_SHAPED_URL],
+      ['a self-hosted url with a port and a path', SELF_HOSTED_URL, SELF_HOSTED_URL],
+      ['a host without a path', 'https://jikan.example.test', 'https://jikan.example.test'],
+      ['a trailing slash after the path', `${DEFAULT_SHAPED_URL}/`, DEFAULT_SHAPED_URL],
+      [
+        'a trailing slash after the host',
+        'https://jikan.example.test/',
+        'https://jikan.example.test',
+      ],
+      [
+        'a trailing slash after the port',
+        'https://jikan.example.test:8443/',
+        'https://jikan.example.test:8443',
+      ],
+    ])('accepts %s', (_case, jikanBaseUrl, expected) => {
+      expect(parseAppEnv({ ...VALID_ENV, jikanBaseUrl })).toStrictEqual({
+        ...VALID_ENV,
+        jikanBaseUrl: expected,
+      });
+    });
+
+    it.each([
+      ['absent', undefined],
+      ['empty', ''],
+    ])('is omitted when %s', (_case, jikanBaseUrl) => {
+      const env = parseAppEnv({ ...VALID_ENV, jikanBaseUrl });
+      expect(env).not.toHaveProperty('jikanBaseUrl');
+      expect(env).toStrictEqual(VALID_ENV);
+    });
+
+    it.each([
+      ['http', 'http://api.catalog.example/v1'],
+      ['another scheme', 'ftp://api.catalog.example/v1'],
+      ['a query', `${DEFAULT_SHAPED_URL}?sfw=true`],
+      ['an empty query', `${DEFAULT_SHAPED_URL}?`],
+      ['a fragment', `${DEFAULT_SHAPED_URL}#top`],
+      ['userinfo', 'https://user:pass@api.catalog.example/v1'],
+      ['a user only', 'https://user@api.catalog.example/v1'],
+      ['a space in the path', 'https://api.catalog.example/v 1'],
+      ['a leading space', ` ${DEFAULT_SHAPED_URL}`],
+      ['a trailing newline', `${DEFAULT_SHAPED_URL}\n`],
+      ['an encoded character', 'https://api.catalog.example/v%201'],
+      ['an empty path segment', 'https://api.catalog.example//v1'],
+      ['two trailing slashes', `${DEFAULT_SHAPED_URL}//`],
+      ['no host', 'https:///v1'],
+      ['a port of six digits', 'https://api.catalog.example:123456/v1'],
+      ['a relative url', '/v1'],
+      ['a number', 42],
+    ])('rejects a url with %s', (_case, jikanBaseUrl) => {
+      expect(parseError({ ...VALID_ENV, jikanBaseUrl }).fields).toStrictEqual(['jikanBaseUrl']);
+    });
+
+    it('names the field without its value', () => {
+      const jikanBaseUrl = 'http://secret-host.example.test/v4?token=abc';
+      const error = parseError({ ...VALID_ENV, jikanBaseUrl });
+      expect(error.message).toBe('Invalid app env: jikanBaseUrl');
+      expect(error.message).not.toContain('secret-host');
+      expect(error.message).not.toContain('token');
     });
   });
 
