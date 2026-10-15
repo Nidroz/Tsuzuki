@@ -174,18 +174,17 @@ const minScoreOf = (minScore: number): string => {
 };
 
 /**
- * the start_date and end_date filters of a year, the only place that reads a year as a date range.
- * checked on tenrai on 2026-10-14: start_date bounds the start of airing and end_date bounds its
- * end, so a title still airing (aired.to null) or ending after the year does not match
- * end_date=Y-12-31. one piece (mal 21, airing since 1999-10-20) is missing with
- * start_date=1999-01-01&end_date=1999-12-31 and listed with start_date alone. C-05 decides what
- * the year filter means before it is exposed.
+ * the start_date filter of a year Y, Y-01-01, the only place that reads a year as a date: titles
+ * started on or after it, still airing or not ("from Y onwards"). end_date is never sent: recorded
+ * on tenrai on 2026-10-14, it bounds the end of airing, so a title still airing (aired.to null) or
+ * ending after Y would be dropped. one piece (mal 21, airing since 1999-10-20) is missing with
+ * start_date=1999-01-01&end_date=1999-12-31 and listed with start_date=1999-01-01 alone.
  */
-export const jikanYearRange = (year: number): readonly [startDate: string, endDate: string] => {
+export const jikanStartDateFrom = (year: number): string => {
   if (!isFourDigitYear(year)) {
     throw new RangeError('Catalog year must have four digits');
   }
-  return [`${String(year)}-01-01`, `${String(year)}-12-31`];
+  return `${String(year)}-01-01`;
 };
 
 const sortOf = (field: SearchSortField, direction: SortDirection): QueryParam[] => {
@@ -206,12 +205,12 @@ const paginationOf = (page: number): QueryParam[] => [
 
 /**
  * `/anime` or `/manga` with the normalized params in a fixed order, absent ones left out:
- * q, type, status, min_score, genres, genres_exclude, start_date, end_date, order_by, sort, page,
- * limit. the length and count limits apply to the normalized params.
+ * q, type, status, min_score, genres, genres_exclude, start_date, order_by, sort, page, limit.
+ * end_date is never sent. the length and count limits apply to the normalized params.
  */
 export const jikanSearchUrl = (baseUrl: string, params: SearchParams): string => {
   const normalized = normalizeSearchParams(params);
-  const { kind, query, formats, status, minScore, genresIncluded, genresExcluded, year, sort } =
+  const { kind, query, formats, status, minScore, genresIncluded, genresExcluded, yearFrom, sort } =
     normalized;
   const tables = tablesOf(kind);
   const search: QueryParam[] = [];
@@ -233,9 +232,8 @@ export const jikanSearchUrl = (baseUrl: string, params: SearchParams): string =>
   if (genresExcluded !== undefined) {
     search.push(['genres_exclude', genreListOf(genresExcluded)]);
   }
-  if (year !== undefined) {
-    const [startDate, endDate] = jikanYearRange(year);
-    search.push(['start_date', startDate], ['end_date', endDate]);
+  if (yearFrom !== undefined) {
+    search.push(['start_date', jikanStartDateFrom(yearFrom)]);
   }
   if (sort !== undefined) {
     search.push(...sortOf(sort.field, sort.direction));

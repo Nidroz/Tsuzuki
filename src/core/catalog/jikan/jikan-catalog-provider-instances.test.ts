@@ -24,7 +24,7 @@ import {
   type JikanCatalogProviderOptions,
 } from './jikan-catalog-provider';
 import { TENRAI_INSTANCE, selfHostedJikanInstance, type JikanInstance } from './jikan-instances';
-import { JIKAN_QUERY_MAX_LENGTH } from './jikan-urls';
+import { JIKAN_GENRE_IDS_MAX, JIKAN_QUERY_MAX_LENGTH } from './jikan-urls';
 
 // the instance wiring of the factory: each provider sends to its own instance, under its own rate
 // limit, with its own limiter, and names its instance without its url
@@ -89,6 +89,7 @@ describe('the instance of a jikan provider', () => {
     expect(provider.instanceId).toBe(instanceId);
     expect(provider.instanceId).toMatch(INSTANCE_ID_PATTERN);
     expect(provider.searchQueryMaxLength).toBe(JIKAN_QUERY_MAX_LENGTH);
+    expect(provider.searchGenresMax).toBe(JIKAN_GENRE_IDS_MAX);
   });
 
   it('sends every request of a self-hosted instance to its own base url', async () => {

@@ -37,13 +37,13 @@ describe('normalizeSearchParams', () => {
       genresIncluded: [],
       genresExcluded: [],
       status: 'ongoing',
-      year: 2024,
+      yearFrom: 2024,
       page: 3,
     });
     expect(normalized).not.toHaveProperty('formats');
     expect(normalized).not.toHaveProperty('genresIncluded');
     expect(normalized).not.toHaveProperty('genresExcluded');
-    expect(normalized).toStrictEqual({ kind: 'anime', status: 'ongoing', year: 2024, page: 3 });
+    expect(normalized).toStrictEqual({ kind: 'anime', status: 'ongoing', yearFrom: 2024, page: 3 });
   });
 
   it('does not mutate the input arrays', () => {
@@ -78,7 +78,7 @@ describe('searchKeyParts', () => {
       genresIncluded: [10, 9, 10],
       genresExcluded: [3],
       status: 'finished',
-      year: 1999,
+      yearFrom: 1999,
       minScore: 7.5,
       sort: { field: 'score', direction: 'desc' },
       page: 4,

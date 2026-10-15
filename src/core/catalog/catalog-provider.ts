@@ -55,7 +55,12 @@ export interface SearchParams {
   readonly genresIncluded?: readonly number[];
   readonly genresExcluded?: readonly number[];
   readonly status?: SearchableMediaStatus;
-  readonly year?: number;
+  /**
+   * a four-digit year Y (1000..9999): only titles whose airing or publishing started on or after
+   * Y-01-01, still running or not ("from Y onwards"). it never bounds the end of airing or
+   * publishing. any other value is a RangeError before any request.
+   */
+  readonly yearFrom?: number;
   readonly minScore?: number;
   readonly sort?: { readonly field: SearchSortField; readonly direction: SortDirection };
   // 1-based
@@ -89,6 +94,13 @@ export interface CatalogProvider {
    * (src/core/domain/search-query.ts), so a prepared query is always accepted.
    */
   readonly searchQueryMaxLength: number;
+  /**
+   * the most genre ids `search` accepts in `genresIncluded`, and separately in `genresExcluded`,
+   * after normalization (deduplicated): a positive safe integer. more ids in either list is a
+   * RangeError before any request. the filters sheet passes it to the genre cycle
+   * (src/core/domain/search-filters.ts), so the genre filters it builds are always accepted.
+   */
+  readonly searchGenresMax: number;
   search(params: SearchParams, signal?: AbortSignal): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
   getTop(kind: MediaKind, page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;

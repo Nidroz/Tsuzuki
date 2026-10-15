@@ -94,7 +94,14 @@ export const RAW_GENRES: Readonly<Record<MediaKind, readonly RawGenreRef[]>> = {
   manga: mangaGenres.data,
 };
 
-/** the items of the year probe with `start_date` and `end_date`: none. */
+/**
+ * the request of the bounded year probe, as recorded (tenrai/README.md): `start_date` and
+ * `end_date` of the year. the adapter never sends it: `end_date` bounds the end of airing.
+ */
+export const YEAR_PROBE_BOUNDED_REQUEST =
+  '/anime?q=one%20piece&start_date=1999-01-01&end_date=1999-12-31&limit=5';
+
+/** the items of the bounded year probe: none, one piece still airs. */
 export const RAW_YEAR_PROBE_BOUNDED: readonly unknown[] = yearProbeBounded.data;
 
 /** the raw season list, in recorded order. */

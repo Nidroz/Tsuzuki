@@ -10,6 +10,9 @@ export const FAKE_INSTANCE_ID = 'fake-instance';
 /** the search text limit of the fake provider, unlike any real one so forwarding shows. */
 export const FAKE_SEARCH_QUERY_MAX_LENGTH = 42;
 
+/** the genre id limit of the fake provider, unlike any real one so forwarding shows. */
+export const FAKE_SEARCH_GENRES_MAX = 7;
+
 /** an empty first page. */
 export const EMPTY_PAGE: Page<MediaSummary> = {
   items: [],
@@ -41,6 +44,7 @@ export const createFakeCatalogProvider = () =>
     namespace: 'mal',
     instanceId: FAKE_INSTANCE_ID,
     searchQueryMaxLength: FAKE_SEARCH_QUERY_MAX_LENGTH,
+    searchGenresMax: FAKE_SEARCH_GENRES_MAX,
     search: jest.fn<CatalogProvider['search']>(),
     getDetail: jest.fn<CatalogProvider['getDetail']>(),
     getTop: jest.fn<CatalogProvider['getTop']>(),

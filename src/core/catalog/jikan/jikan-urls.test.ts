@@ -13,7 +13,7 @@ import {
   jikanSearchUrl,
   jikanSeasonNowUrl,
   jikanTopUrl,
-  jikanYearRange,
+  jikanStartDateFrom,
 } from './jikan-urls';
 
 const BASE = 'https://api.tenrai.org/v1';
@@ -48,7 +48,7 @@ describe('jikanSearchUrl', () => {
       jikanSearchUrl(BASE, {
         page: 3,
         sort: { field: 'score', direction: 'desc' },
-        year: 2020,
+        yearFrom: 2020,
         genresExcluded: [9, 12],
         genresIncluded: [4, 1],
         minScore: 7.5,
@@ -59,7 +59,7 @@ describe('jikanSearchUrl', () => {
       }),
     ).toBe(
       `${BASE}/anime?q=sample&type=tv&status=complete&min_score=7.5&genres=1,4&genres_exclude=9,12` +
-        '&start_date=2020-01-01&end_date=2020-12-31&order_by=score&sort=desc&page=3&limit=25',
+        '&start_date=2020-01-01&order_by=score&sort=desc&page=3&limit=25',
     );
   });
 
@@ -164,19 +164,28 @@ describe('jikanSearchUrl', () => {
   });
 });
 
-describe('jikanYearRange', () => {
+describe('jikanStartDateFrom', () => {
   it.each([
-    [1000, '1000-01-01', '1000-12-31'],
-    [2024, '2024-01-01', '2024-12-31'],
-    [9999, '9999-01-01', '9999-12-31'],
-  ])('covers the whole year %p', (year, startDate, endDate) => {
-    expect(jikanYearRange(year)).toStrictEqual([startDate, endDate]);
+    [1000, '1000-01-01'],
+    [2024, '2024-01-01'],
+    [9999, '9999-01-01'],
+  ])('starts the year %p on january 1st', (yearFrom, startDate) => {
+    expect(jikanStartDateFrom(yearFrom)).toBe(startDate);
   });
 
-  it.each([999, 10_000, 2024.5, Number.NaN])('rejects the year %p', (year) => {
-    expect(failureOf(() => jikanYearRange(year))).toStrictEqual(RANGE_ERROR);
+  it('sends start_date alone, never end_date', () => {
+    expect(searchQueryOf({ kind: 'anime', yearFrom: 1999, page: 1 })).toBe(
+      'start_date=1999-01-01&page=1&limit=25',
+    );
+    expect(searchQueryOf({ kind: 'manga', yearFrom: 2024, page: 2 })).not.toContain('end_date');
+  });
+
+  it.each([999, 10_000, 2024.5, Number.NaN])('rejects the year %p', (yearFrom) => {
+    expect(failureOf(() => jikanStartDateFrom(yearFrom))).toStrictEqual(RANGE_ERROR);
     expect(
-      failureOf(() => jikanSearchUrl(BASE, { kind: 'anime', query: SEARCH_TEXT, year, page: 1 })),
+      failureOf(() =>
+        jikanSearchUrl(BASE, { kind: 'anime', query: SEARCH_TEXT, yearFrom, page: 1 }),
+      ),
     ).toStrictEqual(RANGE_ERROR);
   });
 });

@@ -13,6 +13,7 @@ import type { ErrorReporter } from '../errors/error-reporter';
 import {
   EMPTY_PAGE,
   FAKE_INSTANCE_ID,
+  FAKE_SEARCH_GENRES_MAX,
   FAKE_SEARCH_QUERY_MAX_LENGTH,
   SAMPLE_DETAIL,
   createFakeCatalogProvider,
@@ -56,12 +57,13 @@ const setup = () => {
 const SERVER_ERROR = new CatalogHttpError(503, 2_000);
 
 describe('monitorCatalogProvider', () => {
-  it('keeps the namespace, the instance id and the search text limit', () => {
+  it('keeps the namespace, the instance id and the search limits', () => {
     const { monitored } = setup();
 
     expect(monitored.namespace).toBe('mal');
     expect(monitored.instanceId).toBe(FAKE_INSTANCE_ID);
     expect(monitored.searchQueryMaxLength).toBe(FAKE_SEARCH_QUERY_MAX_LENGTH);
+    expect(monitored.searchGenresMax).toBe(FAKE_SEARCH_GENRES_MAX);
   });
 
   it('forwards the arguments and passes values and errors through by identity', async () => {
