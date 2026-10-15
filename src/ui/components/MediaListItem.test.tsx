@@ -41,6 +41,20 @@ describe('MediaListItem', () => {
     }
   });
 
+  it('shows each of equal details', async () => {
+    await renderWithTheme(
+      <MediaListItem
+        title={TITLE}
+        details={['TV', 'TV']}
+        imageUrl={null}
+        onPress={jest.fn()}
+        testID={TEST_ID}
+      />,
+    );
+
+    expect(within(row()).getAllByText('TV')).toHaveLength(2);
+  });
+
   it('is a button named by its lines joined with commas', async () => {
     await renderWithTheme(
       <MediaListItem

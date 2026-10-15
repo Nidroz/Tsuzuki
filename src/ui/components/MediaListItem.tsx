@@ -61,8 +61,9 @@ export function MediaListItem({
         )}
         {details.length === 0 ? null : (
           <View className="flex-row flex-wrap gap-x-sm">
-            {details.map((detail) => (
-              <Text key={detail} variant="caption" tone="muted">
+            {details.map((detail, index) => (
+              // the list is static per render and may repeat a string: the position keeps keys unique
+              <Text key={`${String(index)}:${detail}`} variant="caption" tone="muted">
                 {detail}
               </Text>
             ))}
