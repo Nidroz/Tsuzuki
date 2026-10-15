@@ -73,7 +73,8 @@ export function GenresFilter({ kind, filters, showAdult, max, onCycle }: GenresF
   const full = filters.genresIncluded.length >= max || filters.genresExcluded.length >= max;
 
   const content = () => {
-    if (error !== null) {
+    // a failed background refetch keeps the cached genres usable: the error shows only without them
+    if (error !== null && genres === undefined) {
       return (
         <ErrorState
           title={t('search.filters.genres.error')}

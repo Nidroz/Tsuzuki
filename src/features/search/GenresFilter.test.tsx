@@ -1,9 +1,11 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { EMPTY_SEARCH_FILTERS, type SearchFilters } from '@core/domain/search-filters';
 import { CatalogNetworkError } from '@core/errors/catalog-errors';
+import { createQueryClient } from '@core/query/query-client';
 import type { Language } from '@core/i18n/index';
 import { describe, expect, it, jest } from '@jest/globals';
-import { screen, userEvent } from '@testing-library/react-native';
+import type { QueryClient } from '@tanstack/react-query';
+import { act, screen, userEvent } from '@testing-library/react-native';
 
 import {
   createStrictFakeCatalogProvider,
@@ -19,6 +21,7 @@ interface Setup {
   readonly showAdult?: boolean;
   readonly getGenres?: CatalogProvider['getGenres'];
   readonly language?: Language;
+  readonly queryClient?: QueryClient;
 }
 
 const renderGenres = async ({
@@ -26,6 +29,7 @@ const renderGenres = async ({
   showAdult = false,
   getGenres = genresByKind,
   language = 'en',
+  queryClient = createQueryClient(),
 }: Setup = {}) => {
   const provider = createStrictFakeCatalogProvider({ getGenres });
   const onCycle = jest.fn<(genreId: number) => void>();
@@ -37,7 +41,7 @@ const renderGenres = async ({
       max={FAKE_SEARCH_GENRES_MAX}
       onCycle={onCycle}
     />,
-    { catalogProvider: provider, language },
+    { catalogProvider: provider, language, queryClient },
   );
   await advance(0);
   return { provider, onCycle };
@@ -125,6 +129,21 @@ describe('GenresFilter', () => {
     await advance(0);
 
     expect(provider.getGenres).toHaveBeenCalledTimes(2);
+    expect(screen.queryByTestId('filters-genres-error')).not.toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Action, not filtered' })).toBeOnTheScreen();
+  });
+
+  it('keeps the cached genres when a refetch fails', async () => {
+    const queryClient = createQueryClient();
+    const getGenres = jest
+      .fn<CatalogProvider['getGenres']>()
+      .mockImplementationOnce(genresByKind)
+      .mockRejectedValue(new CatalogNetworkError());
+    await renderGenres({ getGenres, queryClient });
+
+    await act(() => queryClient.refetchQueries());
+
+    expect(getGenres).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId('filters-genres-error')).not.toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Action, not filtered' })).toBeOnTheScreen();
   });
