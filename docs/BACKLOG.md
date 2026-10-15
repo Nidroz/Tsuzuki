@@ -209,6 +209,9 @@ Details:
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
 - Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
+### A-06 Sign out purge and account deletion
+- Sign out purges the recent searches (`RecentSearchesRepository.clear`, FR-25): they are personal data kept on the device (C-04).
+
 ## Phase 5 — Release
 
 - [ ] R-01 E2E suite complete (critical flows)
@@ -233,6 +236,7 @@ Details:
 - Stray session chunks after a kill (F-11 review): the per-key dirty state of `src/platform/secure-session.ts` lives in memory, so if the app is killed between writing the chunks and the cleanup, chunks of an older session stay in the keychain until a removal or a missing or invalid header triggers a sweep. Decide whether to persist the dirty marker or sweep once per launch.
 - Test the success paths of `tools/ci/check-eas-preview-scope.mjs` (F-11 review): stdin to `build=true|false` in `GITHUB_OUTPUT`, and `FORCE_ALL` ignoring stdin.
 - Sentry notes scrubbing gaps (F-11 review): an unquoted colon value (`notes: rewatch with my sister`) and a prefix longer than 40 characters before `notes=` are not redacted, and a malformed value with no closing quote can hide a later `notes` member from the scrubber. Cover them in `src/platform/sentry-scrub.ts` or record them as accepted limitations in `ARCHITECTURE.md` §9.
+- Covers are loaded only by the ui `CoverImage` from `MediaSummary.imageUrl`, which passed the provider's CDN allowlist (C-04). Ban the react-native `Image` and `ImageBackground` imports in `app/` and `src/features/`, so a screen cannot load an image around `CoverImage`.
 
 ### R-05 Privacy policy, store listings, screenshots, age rating
 - The privacy policy states that the catalog provider receives the user's IP address and User-Agent with every catalog request: Tenrai, the default instance, logs them for up to 90 days (its privacy policy, C-03, ADR-0013). Name the active provider and update the policy whenever the instance changes (self-hosted Jikan, AniList).
