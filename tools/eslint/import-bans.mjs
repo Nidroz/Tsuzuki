@@ -39,6 +39,12 @@ export const BANNED = {
     regexes: ['^@core/i18n(?!/index$)(?:$|/)', '^(?:\\.{1,2}/)+(?:src/)?core/i18n(?:$|/)'],
     message: `routes, features and src/platform import src/core/i18n through @core/i18n/index only: the barrel is the public API of the i18n module, and its internals (such as createI18n and resources) are not (${I18N_RULE}).`,
   },
+  // owner decision (C-04): the list and image packages stay behind the src/ui primitives List and
+  // CoverImage, so a cover only ever renders the url a catalog item holds
+  uiOnlyPackages: {
+    regexes: ['^expo-image($|/)', '^@shopify/flash-list($|/)'],
+    message: `expo-image and @shopify/flash-list are imported only in src/ui: other layers render lists and covers through the List and CoverImage primitives of @ui/index (${LAYERS_RULE}).`,
+  },
   supabase: {
     regexes: ['^@supabase/'],
     message: `the Supabase client is imported only in src/core/repositories/supabase (${LAYERS_RULE}).`,

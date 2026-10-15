@@ -35,7 +35,7 @@ const renderPicker = (
     >
       <ThemePicker />
     </PreferencesProvider>,
-    language,
+    { language },
   );
 
 describe('ThemePicker', () => {

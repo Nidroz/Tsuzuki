@@ -37,6 +37,7 @@ import {
   selfHostedJikanInstance,
   type JikanInstance,
 } from './jikan-instances';
+import { JIKAN_IMAGE_HOSTS } from './jikan-mappers';
 
 // the provider-agnostic contract (test/core/catalog-provider-contract.ts) run on the jikan adapter
 // for two instances, tenrai and a self-hosted jikan, each served by msw on its own base url: the
@@ -65,12 +66,46 @@ const HTTP_TOO_MANY_REQUESTS = 429;
 // ids of the synthetic page items
 const SYNTHETIC_IDS = [301, 302] as const;
 
+// covers outside JIKAN_IMAGE_HOSTS, one item each: another host, a host that only starts with the
+// cdn host, and the cdn over http
+const FOREIGN_IMAGE_BASES = [
+  'https://images.example.test',
+  'https://cdn.myanimelist.net.example.test',
+  'http://cdn.myanimelist.net',
+] as const;
+const FOREIGN_IMAGE_FIRST_ID = 311;
+
+// the images object of an item, every url under `base`
+const foreignImagesOf = (base: string, kind: MediaKind, id: number): JsonObject => {
+  const path = `${base}/images/${kind}/1/${String(id)}`;
+  return {
+    jpg: {
+      image_url: `${path}.jpg`,
+      small_image_url: `${path}t.jpg`,
+      large_image_url: `${path}l.jpg`,
+    },
+    webp: {
+      image_url: `${path}.webp`,
+      small_image_url: `${path}t.webp`,
+      large_image_url: `${path}l.webp`,
+    },
+  };
+};
+
 // whether `url` carries a content filter as a query parameter name, whatever its value
 const sendsContentFilter = (url: string): boolean =>
   [...new URL(url).searchParams.keys()].some((name) => CONTENT_FILTER_PARAMS.has(name));
 
 const itemOf = (kind: MediaKind, overrides: JsonObject): JsonObject =>
   kind === 'anime' ? buildJikanAnime(overrides) : buildJikanManga(overrides);
+
+const foreignImagePage = (kind: MediaKind): JsonObject =>
+  buildJikanPage(
+    FOREIGN_IMAGE_BASES.map((base, index) => {
+      const id = FOREIGN_IMAGE_FIRST_ID + index;
+      return itemOf(kind, { mal_id: id, images: foreignImagesOf(base, kind, id) });
+    }),
+  );
 
 // the BR-06 inputs: an explicit genre for any kind, an Rx rating for an anime; never both
 const adultOverrides = (scenario: ContractScenario, kind: MediaKind): JsonObject => {
@@ -155,6 +190,8 @@ const bodyOf = (scenario: ContractScenario, call: ContractCall): JsonObject => {
       );
     case 'malformed':
       return buildJikanPage([withoutKeys(itemOf(kind, {}), 'explicit_genres')]);
+    case 'foreign-image':
+      return foreignImagePage(kind);
     default:
       throw unsupported(scenario, call);
   }
@@ -195,6 +232,7 @@ const harnessOf = (
     requests: () => recorded,
     sendsContentFilter: (request) => sendsContentFilter(request.url),
     detailKey: (kind) => ({ namespace: JIKAN_NAMESPACE, kind, externalId: DETAIL_IDS[kind] }),
+    allowedImageHosts: JIKAN_IMAGE_HOSTS,
   };
   return {
     harness,

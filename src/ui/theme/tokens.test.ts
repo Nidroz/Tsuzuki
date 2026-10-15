@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { radii } from './radii';
-import { ICON_SIZE, opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, ICON_SIZE, opacities, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import { fontWeights, textVariants } from './typography';
 
@@ -12,6 +12,9 @@ const isAscending = (values: readonly number[]) =>
 const GRID = 4;
 const MIN_TOUCH_TARGET = 44;
 const MIN_READABLE_FONT_SIZE = 12;
+// covers are 2:3 (width:height) frames
+const COVER_WIDTH_RATIO = 2;
+const COVER_HEIGHT_RATIO = 3;
 
 describe('spacing', () => {
   it('starts at none and grows on a 4dp grid', () => {
@@ -47,6 +50,20 @@ describe('sizes', () => {
       expect(opacity).toBeLessThan(1);
     }
     expect(opacities.pressed).toBeGreaterThan(opacities.disabled);
+  });
+
+  it.each(Object.entries(coverSizes))(
+    'cover %s is a 2:3 frame on the 4dp grid that fits the placeholder glyph',
+    (_size, { width, height }) => {
+      expect(width * COVER_HEIGHT_RATIO).toBe(height * COVER_WIDTH_RATIO);
+      expect(width % GRID).toBe(0);
+      expect(height % GRID).toBe(0);
+      expect(width).toBeGreaterThan(ICON_SIZE);
+    },
+  );
+
+  it('orders the cover sizes', () => {
+    expect(coverSizes.md.width).toBeGreaterThan(coverSizes.sm.width);
   });
 });
 

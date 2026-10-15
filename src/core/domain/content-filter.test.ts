@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { applyContentFilter, isAdultMedia } from './content-filter';
+import { DEFAULT_SHOW_ADULT, applyContentFilter, isAdultMedia } from './content-filter';
 
 describe('BR-06 isAdultMedia', () => {
   it.each(['Hentai', 'Erotica'])('flags a title with the %s genre', (genre) => {
@@ -62,5 +62,12 @@ describe('BR-06 applyContentFilter', () => {
     const result = applyContentFilter(items, true);
     expect(result.items).toStrictEqual(items);
     expect(result.hiddenCount).toBe(0);
+  });
+});
+
+describe('BR-06 DEFAULT_SHOW_ADULT', () => {
+  it('hides adult content by default', () => {
+    expect(DEFAULT_SHOW_ADULT).toBe(false);
+    expect(applyContentFilter([{ isAdult: true }], DEFAULT_SHOW_ADULT).items).toStrictEqual([]);
   });
 });

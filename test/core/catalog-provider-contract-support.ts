@@ -17,7 +17,9 @@ import type { MediaKey, MediaKind } from '@core/domain/media';
  * - `server-error`: a 5xx, every time;
  * - `rate-limited`: a 429, every time;
  * - `malformed`: a 2xx body that fails the adapter's schema for the call;
- * - `hanging`: no answer, ever.
+ * - `hanging`: no answer, ever;
+ * - `foreign-image`: a page of at least 1 item of the call's kind (anime for the season) whose
+ *   covers are all outside `allowedImageHosts`: on another host, or over http.
  */
 export type ContractScenario =
   | 'page'
@@ -29,7 +31,8 @@ export type ContractScenario =
   | 'server-error'
   | 'rate-limited'
   | 'malformed'
-  | 'hanging';
+  | 'hanging'
+  | 'foreign-image';
 
 /** the provider method a scenario answers, with the kind the contract passes to it. */
 export type ContractCall =
@@ -62,6 +65,8 @@ export interface CatalogProviderHarness<TRequest> {
   readonly sendsContentFilter: (request: TRequest) => boolean;
   /** the key of the detail served for `kind`, in the provider's namespace. */
   readonly detailKey: (kind: MediaKind) => MediaKey;
+  /** the hosts the adapter takes covers from (`toAllowedImageUrl`, src/core/catalog/image-url.ts). */
+  readonly allowedImageHosts: readonly string[];
 }
 
 /** the current season is an anime list. */

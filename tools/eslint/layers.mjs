@@ -102,10 +102,12 @@ const {
   network,
   expoInternals,
   uiInternals,
+  uiOnlyPackages,
 } = BANNED;
 const SCREEN_LAYER_FOLDERS = ['src/features', 'app'];
 const SCREEN_BANS = [
   nativewind,
+  uiOnlyPackages,
   supabase,
   network,
   expoInternals,
@@ -121,20 +123,26 @@ export const LAYERS = [
   {
     files: ['src/core/**', 'test/core/**'],
     ignores: ['src/core/repositories/supabase/**', 'src/core/catalog/jikan/**', 'src/core/i18n/**'],
-    banned: [reactNative, expo, nativewind, supabase, i18n],
+    banned: [reactNative, expo, nativewind, uiOnlyPackages, supabase, i18n],
   },
   {
     files: ['src/core/catalog/jikan/**'],
-    banned: [reactNative, expo, nativewind, supabase, i18n],
+    banned: [reactNative, expo, nativewind, uiOnlyPackages, supabase, i18n],
     allowCatalogHosts: true,
   },
-  { files: ['src/core/repositories/supabase/**'], banned: [reactNative, expo, nativewind, i18n] },
-  { files: ['src/core/i18n/**'], banned: [reactNative, expo, nativewind, supabase] },
+  {
+    files: ['src/core/repositories/supabase/**'],
+    banned: [reactNative, expo, nativewind, uiOnlyPackages, i18n],
+  },
+  {
+    files: ['src/core/i18n/**'],
+    banned: [reactNative, expo, nativewind, uiOnlyPackages, supabase],
+  },
   { files: ['src/ui/**'], banned: [supabase, network, expoInternals, i18n], usesNativeWind: true },
   {
     files: ['src/platform/**'],
     // the i18n internals are banned as types too: the barrel is the only spelling
-    banned: [nativewind, supabase, i18n, i18nInternals],
+    banned: [nativewind, uiOnlyPackages, supabase, i18n, i18nInternals],
     typeOnly: PLATFORM_CORE_TYPE_ONLY,
   },
   {

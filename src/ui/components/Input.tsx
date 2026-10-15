@@ -26,6 +26,10 @@ export interface InputProps {
   returnKeyType?: InputReturnKeyType;
   onSubmitEditing?: () => void;
   autoCapitalize?: TextInputProps['autoCapitalize'];
+  /** on by default; off for names and search text, which autocorrect would rewrite */
+  autoCorrect?: boolean;
+  /** the longest text the field accepts, in utf-16 code units */
+  maxLength?: number;
   /** the error text gets `${testID}-error`, its live region `${testID}-error-region` */
   testID?: string;
 }
@@ -42,6 +46,8 @@ export function Input({
   returnKeyType,
   onSubmitEditing,
   autoCapitalize,
+  autoCorrect,
+  maxLength,
   testID,
 }: InputProps) {
   const colors = useThemeColors();
@@ -74,6 +80,8 @@ export function Input({
         {...(returnKeyType !== undefined && { returnKeyType })}
         {...(onSubmitEditing !== undefined && { onSubmitEditing })}
         {...(autoCapitalize !== undefined && { autoCapitalize })}
+        {...(autoCorrect !== undefined && { autoCorrect })}
+        {...(maxLength !== undefined && { maxLength })}
         testID={testID}
       />
       {/* talkback reads a live region when its content changes, not when it mounts with it: the

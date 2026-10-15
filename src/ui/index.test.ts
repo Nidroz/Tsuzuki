@@ -11,11 +11,14 @@ describe('src/ui public api', () => {
         'Button',
         'Card',
         'Chip',
+        'CoverImage',
         'DEFAULT_SIBLINGS',
         'EmptyState',
         'ErrorState',
         'IconButton',
         'Input',
+        'List',
+        'MediaListItem',
         'Pagination',
         'RadioGroup',
         'Row',
@@ -40,5 +43,6 @@ describe('src/ui public api', () => {
     expect(ui).not.toHaveProperty('GLYPHS');
     expect(ui).not.toHaveProperty('TAB_GLYPHS');
     expect(ui).not.toHaveProperty('PADDING');
+    expect(ui).not.toHaveProperty('coverSizes');
   });
 });

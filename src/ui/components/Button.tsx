@@ -39,6 +39,8 @@ export type ButtonProps = LoadingProps & {
   /** primary by default */
   variant?: ButtonVariant;
   disabled?: boolean;
+  /** read instead of the label when the label alone is ambiguous, e.g. "Clear recent searches" */
+  accessibilityLabel?: string;
   accessibilityHint?: string;
   testID?: string;
 };
@@ -51,6 +53,7 @@ export function Button({
   disabled = false,
   loading = false,
   loadingLabel,
+  accessibilityLabel = label,
   accessibilityHint,
   testID,
 }: ButtonProps) {
@@ -69,7 +72,7 @@ export function Button({
       onPress={onPress}
       disabled={inactive}
       accessibilityRole="button"
-      accessibilityLabel={loading && loadingLabel !== undefined ? loadingLabel : label}
+      accessibilityLabel={loading && loadingLabel !== undefined ? loadingLabel : accessibilityLabel}
       accessibilityState={{ disabled: inactive, busy: loading }}
       {...(accessibilityHint !== undefined && { accessibilityHint })}
       testID={testID}

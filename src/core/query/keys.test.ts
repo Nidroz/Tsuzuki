@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { SearchParams } from '../catalog/catalog-provider';
 import type { MediaKey } from '../domain/media';
-import { queryKeys } from './keys';
+import { SEARCH_KEY_ROOT, queryKeys } from './keys';
 
 const animeKey = (externalId: number): MediaKey => ({
   namespace: 'mal',
@@ -82,6 +82,26 @@ describe('queryKeys.search', () => {
     const key = queryKeys.search('mal', { ...base, page: 3 });
     expect(key.slice(0, 2)).toStrictEqual(['search', 'mal']);
     expect(key.at(-1)).toBe(3);
+  });
+
+  it('starts with SEARCH_KEY_ROOT, which no other key family starts with', () => {
+    expect(SEARCH_KEY_ROOT).toBe('search');
+    expect(queryKeys.search('mal', base)[0]).toBe(SEARCH_KEY_ROOT);
+    const others = [
+      queryKeys.media(animeKey(1)),
+      queryKeys.top('mal', 'anime', 1),
+      queryKeys.season('mal', 1),
+      queryKeys.genres('mal', 'anime'),
+      queryKeys.library.all(),
+      queryKeys.library.entry(animeKey(1)),
+    ];
+    expect(others.map((key) => key[0])).not.toContain(SEARCH_KEY_ROOT);
+  });
+
+  it('gives the idle search key the search root, apart from every search key', () => {
+    const idle = queryKeys.searchIdle('mal');
+    expect(idle).toStrictEqual([SEARCH_KEY_ROOT, 'mal', 'idle']);
+    expect(queryKeys.search('mal', { ...base, query: 'idle' })).not.toStrictEqual(idle);
   });
 
   it('contains only primitives', () => {

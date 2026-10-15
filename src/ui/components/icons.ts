@@ -20,6 +20,9 @@ export const GLYPHS = {
 
 export type IconName = keyof typeof GLYPHS;
 
+// the glyph of a cover without an image (CoverImage)
+export const COVER_PLACEHOLDER_GLYPH = 'image-outline' satisfies IoniconsGlyph;
+
 export type TabIconName = 'discover' | 'search' | 'library' | 'favorites' | 'settings';
 
 // one glyph pair per tab: filled for the focused tab, outline for the others

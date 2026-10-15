@@ -82,6 +82,13 @@ export interface CatalogProvider {
    * e.g. for error reports and its own rate limiter; never a url, never part of a query key.
    */
   readonly instanceId: string;
+  /**
+   * the longest search text `search` accepts, in utf-16 code units after trimming: a positive
+   * safe integer. longer text, or text with a lone surrogate, is a RangeError before any request.
+   * screens cap the search field with it and prepare the text with prepareSearchQuery
+   * (src/core/domain/search-query.ts), so a prepared query is always accepted.
+   */
+  readonly searchQueryMaxLength: number;
   search(params: SearchParams, signal?: AbortSignal): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
   getTop(kind: MediaKind, page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;

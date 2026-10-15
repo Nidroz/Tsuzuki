@@ -13,6 +13,7 @@ import {
   createQueryPersister,
 } from './persister';
 import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
+import { queryKeys } from './keys';
 import { createQueryClient } from './query-client';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
@@ -132,6 +133,23 @@ describe('createQueryPersister', () => {
         .getAll()
         .map((query) => query.queryKey),
     ).toStrictEqual([MEDIA_KEY]);
+  });
+
+  it.each<[string, readonly unknown[]]>([
+    ['a search', queryKeys.search('mal', { kind: 'anime', query: 'frieren', page: 1 })],
+    ['a later search page', queryKeys.search('mal', { kind: 'manga', query: 'berserk', page: 2 })],
+    ['an idle search', ['search', 'mal', 'idle']],
+  ])('does not persist %s, even when successful', async (_label, searchKey) => {
+    const storage = createMemoryStorage();
+    const source = createQueryClient();
+    source.setQueryData(searchKey, { items: [] });
+    source.setQueryData(MEDIA_KEY, MEDIA);
+    await save(source, storage);
+
+    expect(storage.values.get(QUERY_CACHE_STORAGE_KEY)).not.toContain('search');
+    const restored = await restore(storage);
+    expect(restored.getQueryData(searchKey)).toBeUndefined();
+    expect(restored.getQueryData(MEDIA_KEY)).toStrictEqual(MEDIA);
   });
 
   it('writes once per throttle interval, with the latest state', async () => {

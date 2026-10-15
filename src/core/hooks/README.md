@@ -1,5 +1,6 @@
 # src/core/hooks
 
-TanStack Query hooks (`useSearch`, `useMedia`, `useLibrary`…) consumed by feature screens.
-They depend only on repository and `CatalogProvider` interfaces, never on Supabase or a catalog provider directly.
+React hooks over the repository and `CatalogProvider` interfaces, consumed by feature screens: TanStack Query hooks (`useSearch`, later `useMedia`, `useLibrary`…) and the hooks of local data (`useRecentSearches`).
+Each injected dependency reaches them through its own React context, given by the composition root: `CatalogContextProvider` (`useCatalogProvider`) and `RecentSearchesContextProvider` (`useRecentSearches`); each hook throws outside its provider.
+They depend only on interfaces, never on Supabase or a catalog provider directly. Hooks are imported by file (`@core/hooks/use-search`): there is no barrel.
 `src/core/` never imports React Native, Expo modules or NativeWind.

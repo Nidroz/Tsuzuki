@@ -9,6 +9,7 @@ import { Button, type ButtonVariant } from './Button';
 const LABEL = 'Save';
 const LOADING_LABEL = 'Saving';
 const HINT = 'Saves the entry';
+const ACCESSIBILITY_LABEL = 'Save the entry';
 const TEST_ID = 'button';
 
 const VARIANTS: [ButtonVariant, string[], string][] = [
@@ -30,6 +31,30 @@ describe('Button', () => {
     expect(screen.getByText(LABEL)).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: LABEL })).toBeEnabled();
     expect(screen.getByRole('button', { name: LABEL })).not.toBeBusy();
+  });
+
+  it('is announced with its accessibility label instead of the visible label when given', async () => {
+    await renderWithTheme(
+      <Button label={LABEL} onPress={jest.fn()} accessibilityLabel={ACCESSIBILITY_LABEL} />,
+    );
+
+    expect(screen.getByText(LABEL)).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: ACCESSIBILITY_LABEL })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: LABEL })).not.toBeOnTheScreen();
+  });
+
+  it('announces the loading label over its accessibility label while loading', async () => {
+    await renderWithTheme(
+      <Button
+        label={LABEL}
+        onPress={jest.fn()}
+        accessibilityLabel={ACCESSIBILITY_LABEL}
+        loading
+        loadingLabel={LOADING_LABEL}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: LOADING_LABEL })).toBeBusy();
   });
 
   it('calls onPress when pressed', async () => {

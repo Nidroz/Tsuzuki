@@ -8,6 +8,7 @@ import { z } from 'zod';
 
 import type { StorageAdapter } from '../repositories/storage-adapter';
 import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
+import { SEARCH_KEY_ROOT } from './keys';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
 /** storage key of the persisted query cache. */
@@ -98,9 +99,17 @@ interface PersistOptionsInput {
   cacheSchemaVersion?: number;
 }
 
+// only successful queries are kept, searches excepted: every debounced prefix of a typed search
+// would be stored for days and rewritten on each save, and search text stays off the stored cache
+const shouldDehydrateQuery = (query: {
+  readonly queryKey: readonly unknown[];
+  readonly state: { readonly status: string };
+}): boolean =>
+  query.state.status === QUERY_STATUS_PERSISTED && query.queryKey[0] !== SEARCH_KEY_ROOT;
+
 /**
  * persistence options: a new app version or cache schema version drops the cache,
- * only successful queries are kept.
+ * only successful queries are kept, never a search.
  */
 export const createPersistOptions = ({
   persister,
@@ -111,6 +120,6 @@ export const createPersistOptions = ({
   maxAge: PERSISTED_CACHE_MAX_AGE,
   buster: `${appVersion}+${String(cacheSchemaVersion)}`,
   dehydrateOptions: {
-    shouldDehydrateQuery: (query) => query.state.status === QUERY_STATUS_PERSISTED,
+    shouldDehydrateQuery,
   },
 });

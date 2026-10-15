@@ -32,7 +32,7 @@ const renderPicker = (
     >
       <LanguagePicker />
     </PreferencesProvider>,
-    uiLanguage,
+    { language: uiLanguage },
   );
 
 describe('LanguagePicker', () => {

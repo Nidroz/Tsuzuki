@@ -3,7 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import { COLOR_TOKENS } from './colors';
 import { colorClassKey, colorVariable } from './css-variables';
 import { radii } from './radii';
-import { opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, opacities, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import config from './tailwind.config';
 import { fontWeights, textVariants } from './typography';
@@ -17,7 +17,12 @@ describe('tailwind config', () => {
   });
 
   it('replaces the default scales instead of extending them', () => {
-    expect(Object.keys(config.theme.extend)).toStrictEqual(['minHeight', 'minWidth']);
+    expect(Object.keys(config.theme.extend)).toStrictEqual([
+      'minHeight',
+      'minWidth',
+      'width',
+      'height',
+    ]);
   });
 
   it('maps every color token to its css variable, plus transparent', () => {
@@ -58,5 +63,16 @@ describe('tailwind config', () => {
     });
     expect(config.theme.extend.minHeight).toStrictEqual({ touch: px(TOUCH_TARGET) });
     expect(config.theme.extend.minWidth).toStrictEqual({ touch: px(TOUCH_TARGET) });
+  });
+
+  it('gives each cover size a width and a height class in px', () => {
+    expect(config.theme.extend.width).toStrictEqual({
+      'cover-sm': px(coverSizes.sm.width),
+      'cover-md': px(coverSizes.md.width),
+    });
+    expect(config.theme.extend.height).toStrictEqual({
+      'cover-sm': px(coverSizes.sm.height),
+      'cover-md': px(coverSizes.md.height),
+    });
   });
 });

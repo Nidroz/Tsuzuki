@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { PERSISTED_CACHE_MAX_AGE, STALE_TIMES } from './stale-times';
+import { PERSISTED_CACHE_MAX_AGE, SEARCH_GC_TIME, STALE_TIMES } from './stale-times';
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -28,5 +28,15 @@ describe('PERSISTED_CACHE_MAX_AGE', () => {
     for (const staleTime of Object.values(STALE_TIMES)) {
       expect(PERSISTED_CACHE_MAX_AGE).toBeGreaterThanOrEqual(staleTime);
     }
+  });
+});
+
+describe('SEARCH_GC_TIME', () => {
+  it('is 30 minutes', () => {
+    expect(SEARCH_GC_TIME).toBe(30 * MINUTE_MS);
+  });
+
+  it('keeps an unused search at least as long as it stays fresh', () => {
+    expect(SEARCH_GC_TIME).toBeGreaterThanOrEqual(STALE_TIMES.search);
   });
 });
