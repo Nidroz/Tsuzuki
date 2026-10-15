@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
-import { FIXED_NOW } from '../../../../test/core/fixed-clock';
 import { CatalogAbortedError } from '../../errors/catalog-errors';
+import { elapsed } from '../../../../test/core/catalog-http-test-support';
 import {
   MAX_PAUSE_MS,
   createRateLimiter,
@@ -24,8 +24,6 @@ const TWO_BUCKETS: RateLimitPolicy = {
     { capacity: 10, refillIntervalMs: 1_500 },
   ],
 };
-
-const elapsed = (): number => Date.now() - FIXED_NOW;
 
 // acquires one token per label at once and records when each one is granted, in grant order
 const acquireAll = (limiter: RateLimiter, labels: readonly string[]) => {

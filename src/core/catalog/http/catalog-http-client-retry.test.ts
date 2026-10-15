@@ -1,9 +1,13 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { http, HttpResponse } from 'msw';
 
-import { FIXED_NOW } from '../../../../test/core/fixed-clock';
 import { server } from '../../../../test/core/msw-server';
 import { CatalogHttpError } from '../../errors/catalog-errors';
+import {
+  elapsed,
+  expectNoPendingTimer,
+  settle,
+} from '../../../../test/core/catalog-http-test-support';
 import { createCatalogHttpClient, type CatalogHttpClientOptions } from './catalog-http-client';
 import type { RateLimitPolicy } from './rate-limiter';
 import { DEFAULT_RETRY_POLICY } from './retry-policy';
@@ -31,12 +35,6 @@ const LONG_AFTER_MS = 60_000;
 const createClient = (options: Partial<CatalogHttpClientOptions> = {}) =>
   createCatalogHttpClient({ rateLimit: UNLIMITED, random: () => 0, ...options });
 
-const elapsed = (): number => Date.now() - FIXED_NOW;
-
-// the outcome of a request, value or error, with its rejection handled from the start
-const settle = (request: Promise<unknown>): Promise<unknown> =>
-  request.catch((error: unknown) => error);
-
 interface Tracked {
   settled: boolean;
   outcome: unknown;
@@ -51,12 +49,6 @@ const track = (request: Promise<unknown>): Tracked => {
   };
   void request.then(done, done);
   return tracked;
-};
-
-// lets msw finish its bookkeeping, then checks that nothing is left scheduled
-const expectNoPendingTimer = async (): Promise<void> => {
-  await jest.advanceTimersByTimeAsync(0);
-  expect(jest.getTimerCount()).toBe(0);
 };
 
 // answers the n-th request to url (1-based) with answer(n); returns the dispatch times in ms
