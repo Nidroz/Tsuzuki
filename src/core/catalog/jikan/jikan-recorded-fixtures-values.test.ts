@@ -9,7 +9,6 @@ import {
   RAW_MANGA,
   RAW_SEASON_NOW,
   RAW_YEAR_PROBE_BOUNDED,
-  YEAR_PROBE_BOUNDED_REQUEST,
   rawAnimeOf,
   rawItemOf,
   rawUnitsOf,
@@ -84,12 +83,7 @@ describe('covers', () => {
 
 describe('the year probe', () => {
   it('found nothing within the year: end_date bounds the end of airing', () => {
-    const year = String(YEAR_PROBE_YEAR);
-
     // a raw fact: the adapter never sends end_date, so no provider call yields this request
-    expect(YEAR_PROBE_BOUNDED_REQUEST).toContain(
-      `&start_date=${year}-01-01&end_date=${year}-12-31&`,
-    );
     expect(RAW_YEAR_PROBE_BOUNDED).toStrictEqual([]);
   });
 

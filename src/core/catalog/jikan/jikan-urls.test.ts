@@ -2,6 +2,8 @@ import { describe, expect, it } from '@jest/globals';
 
 import {
   EXTERNAL_ID_MAX,
+  MEDIA_KINDS,
+  SEARCHABLE_FORMATS_BY_KIND,
   type MediaFormat,
   type MediaKind,
   type SearchableMediaStatus,
@@ -149,6 +151,14 @@ describe('jikanSearchUrl', () => {
     expect(searchQueryOf({ kind, formats: [format], page: 1 })).toBe(
       `type=${expected}&page=1&limit=25`,
     );
+  });
+
+  it.each(
+    MEDIA_KINDS.flatMap((kind) =>
+      SEARCHABLE_FORMATS_BY_KIND[kind].map((format): [MediaKind, MediaFormat] => [kind, format]),
+    ),
+  )('builds a search for the searchable %s format %s', (kind, format) => {
+    expect(searchQueryOf({ kind, formats: [format], page: 1 })).toMatch(/^type=[a-z]+&page=1&/);
   });
 
   it.each([
