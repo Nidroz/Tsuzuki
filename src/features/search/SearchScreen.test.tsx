@@ -12,10 +12,17 @@ import {
   renderSearchScreen,
   searchInput,
 } from '../../../test/mobile/render-search-screen';
-import { adultItem, FRIEREN, pageOf, SOLO_LEVELING } from './__fixtures__/search-results';
+import {
+  adultItem,
+  FRIEREN,
+  FRIEREN_GOLDEN_LAND,
+  pageOf,
+  SOLO_LEVELING,
+} from './__fixtures__/search-results';
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 const FRIEREN_ROW = 'search-result-mal-anime-52991';
+const GOLDEN_LAND_ROW = 'search-result-mal-anime-63816';
 
 // the screen pushes the detail route when a result is opened (SearchScreen.recent.test.tsx)
 jest.mock('expo-router', () => ({
@@ -29,6 +36,19 @@ const resolvesWith =
   (page: Page<MediaSummary>): Search =>
   () =>
     Promise.resolve(page);
+
+// a search that settles with the page the test answers, once the request started
+const searchAnsweredByTest = () => {
+  let settle: (page: Page<MediaSummary>) => void = () => undefined;
+  const search: Search = () =>
+    new Promise<Page<MediaSummary>>((resolve) => {
+      settle = resolve;
+    });
+  const answer = (page: Page<MediaSummary>): void => {
+    settle(page);
+  };
+  return { search, answer };
+};
 
 const signalOfCall = (provider: { search: jest.Mock<Search> }, call: number) =>
   provider.search.mock.calls[call]?.[1];
@@ -125,6 +145,41 @@ describe('SearchScreen', () => {
     await advance(SEARCH_DEBOUNCE_MS);
 
     expect(screen.getByRole('progressbar', { name: 'Loading results' })).toBeOnTheScreen();
+  });
+
+  it('shows the first-load spinner, never the old results, for a search typed after a cleared field', async () => {
+    const golden = searchAnsweredByTest();
+    await renderSearchScreen({
+      search: (params, signal) =>
+        params.query === 'frieren'
+          ? Promise.resolve(pageOf(FRIEREN))
+          : golden.search(params, signal),
+      recentSearches: ['mushishi'],
+    });
+    await user.type(searchInput(), 'frieren');
+    await advance(SEARCH_DEBOUNCE_MS);
+    expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+    await user.clear(searchInput());
+    await advance(SEARCH_DEBOUNCE_MS);
+    expect(screen.getByTestId('search-recent')).toBeOnTheScreen();
+
+    await user.type(searchInput(), 'golden');
+
+    expect(screen.getByTestId('search-loading')).toBeOnTheScreen();
+    expect(screen.queryByTestId(FRIEREN_ROW)).not.toBeOnTheScreen();
+
+    await advance(SEARCH_DEBOUNCE_MS);
+
+    expect(screen.getByTestId('search-loading')).toBeOnTheScreen();
+    expect(screen.queryByTestId(FRIEREN_ROW)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('search-updating')).not.toBeOnTheScreen();
+
+    golden.answer(pageOf(FRIEREN_GOLDEN_LAND));
+    await advance(0);
+
+    expect(screen.getByTestId(GOLDEN_LAND_ROW)).toBeOnTheScreen();
+    expect(screen.queryByTestId('search-loading')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(FRIEREN_ROW)).not.toBeOnTheScreen();
   });
 
   it('says that nothing was found', async () => {
