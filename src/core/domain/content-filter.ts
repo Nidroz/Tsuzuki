@@ -14,6 +14,13 @@ const ADULT_RATED_KIND: MediaKind = 'anime';
 export const DEFAULT_SHOW_ADULT = false;
 
 /**
+ * whether a genre name marks adult content (BR-06): Hentai or Erotica, case-insensitive, trimmed.
+ * the comparison isAdultMedia uses; the filters sheet hides the chips of such genres.
+ */
+export const isAdultGenreName = (name: string): boolean =>
+  ADULT_GENRE_NAME_SET.has(name.trim().toLowerCase());
+
+/**
  * whether a title is adult content (BR-06): a genre named Hentai or Erotica
  * (case-insensitive, trimmed), or an anime rated Rx. an Rx rating on a manga is ignored.
  */
@@ -25,7 +32,7 @@ export const isAdultMedia = (input: {
   if (input.kind === ADULT_RATED_KIND && input.isRxRated) {
     return true;
   }
-  return input.genreNames.some((name) => ADULT_GENRE_NAME_SET.has(name.trim().toLowerCase()));
+  return input.genreNames.some(isAdultGenreName);
 };
 
 /**
