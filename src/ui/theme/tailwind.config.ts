@@ -4,7 +4,7 @@ import nativewindPreset from 'nativewind/preset';
 import { COLOR_TOKENS } from './colors';
 import { colorClassKey, colorVariable } from './css-variables';
 import { radii } from './radii';
-import { opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, opacities, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import { fontWeights, textVariants } from './typography';
 
@@ -24,6 +24,12 @@ const colors = Object.fromEntries(
 );
 
 type FontSizeEntry = [fontSize: string, configuration: { lineHeight: string; fontWeight: string }];
+
+// cover frames as width and height classes: w-cover-md h-cover-md
+const coverLengths = (side: 'width' | 'height') =>
+  Object.fromEntries(
+    Object.entries(coverSizes).map(([token, size]) => [`cover-${token}`, px(size[side])]),
+  );
 
 const fontSize = mapValues(
   textVariants,
@@ -50,6 +56,8 @@ const config = {
     extend: {
       minHeight: { touch: px(TOUCH_TARGET) },
       minWidth: { touch: px(TOUCH_TARGET) },
+      width: coverLengths('width'),
+      height: coverLengths('height'),
     },
   },
 } satisfies Config;

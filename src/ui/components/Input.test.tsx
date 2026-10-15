@@ -15,6 +15,7 @@ const TEST_ID = 'email';
 const ERROR_TEST_ID = `${TEST_ID}-error`;
 const ERROR_REGION_TEST_ID = `${TEST_ID}-error-region`;
 const FOCUS_BORDER = 'focus:border-focus';
+const MAX_LENGTH = 300;
 
 const field = () => screen.getByLabelText(LABEL);
 // the visible label, found in the whole tree: screen readers do not reach it
@@ -249,7 +250,14 @@ describe('Input', () => {
     expect(field()).toHaveProp('keyboardType', 'default');
     expect(field()).toHaveProp('secureTextEntry', false);
     expect(field()).toHaveProp('placeholderTextColor', palettes.light.textMuted);
-    for (const prop of ['placeholder', 'returnKeyType', 'onSubmitEditing', 'autoCapitalize']) {
+    for (const prop of [
+      'placeholder',
+      'returnKeyType',
+      'onSubmitEditing',
+      'autoCapitalize',
+      'autoCorrect',
+      'maxLength',
+    ]) {
       expect(field().props).not.toHaveProperty(prop);
     }
   });
@@ -265,6 +273,8 @@ describe('Input', () => {
         keyboardType="email-address"
         returnKeyType="next"
         autoCapitalize="none"
+        autoCorrect={false}
+        maxLength={MAX_LENGTH}
       />,
     );
 
@@ -273,6 +283,8 @@ describe('Input', () => {
     expect(field()).toHaveProp('keyboardType', 'email-address');
     expect(field()).toHaveProp('returnKeyType', 'next');
     expect(field()).toHaveProp('autoCapitalize', 'none');
+    expect(field()).toHaveProp('autoCorrect', false);
+    expect(field()).toHaveProp('maxLength', MAX_LENGTH);
   });
 
   it('draws a themed field with a full touch target and a focus border', async () => {
