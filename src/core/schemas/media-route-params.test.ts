@@ -1,7 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { EXTERNAL_ID_MAX, type MediaKey } from '../domain/media';
-import { mediaRouteParamsSchema, parseMediaRouteParams } from './media-route-params';
+import {
+  mediaRouteParamsSchema,
+  parseMediaRouteParams,
+  toMediaRouteParams,
+} from './media-route-params';
 
 // expo-router hands each param as a string, or as an array when the param is repeated
 const params = (
@@ -198,5 +202,24 @@ describe('parseMediaRouteParams', () => {
     ])('returns null for %s', (_label, raw) => {
       expect(isRejected(raw)).toBe(true);
     });
+  });
+});
+
+describe('toMediaRouteParams', () => {
+  it('builds the route params of a media key', () => {
+    expect(toMediaRouteParams(malKey('anime', 5114))).toStrictEqual({
+      namespace: 'mal',
+      kind: 'anime',
+      id: '5114',
+    });
+  });
+
+  it.each<[string, MediaKey]>([
+    ['the smallest anime id', malKey('anime', 1)],
+    ['a manga', malKey('manga', 121496)],
+    ['an id with inner zeros', malKey('anime', 1000)],
+    ['the largest id', malKey('manga', EXTERNAL_ID_MAX)],
+  ])('round-trips %s through parseMediaRouteParams', (_label, key) => {
+    expect(parseMediaRouteParams(toMediaRouteParams(key))).toStrictEqual(key);
   });
 });

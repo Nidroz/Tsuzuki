@@ -1,6 +1,13 @@
 import { z } from 'zod';
 
-import { EXTERNAL_ID_MAX, MEDIA_ID_NAMESPACES, MEDIA_KINDS, type MediaKey } from '../domain/media';
+import {
+  EXTERNAL_ID_MAX,
+  MEDIA_ID_NAMESPACES,
+  MEDIA_KINDS,
+  type MediaIdNamespace,
+  type MediaKey,
+  type MediaKind,
+} from '../domain/media';
 
 // deep link and route params are untrusted input (CONTRIBUTING.md §7): they are parsed here
 // and only ever used to read; a link never triggers a write by itself
@@ -35,3 +42,17 @@ export const parseMediaRouteParams = (raw: unknown): MediaKey | null => {
   const result = mediaRouteParamsSchema.safeParse(raw);
   return result.success ? result.data : null;
 };
+
+/** the expo-router params of a media route, as `parseMediaRouteParams` reads them. */
+export interface MediaRouteParams {
+  readonly namespace: MediaIdNamespace;
+  readonly kind: MediaKind;
+  readonly id: string;
+}
+
+/** the route params of the detail route of `key`: the inverse of `parseMediaRouteParams`. */
+export const toMediaRouteParams = (key: MediaKey): MediaRouteParams => ({
+  namespace: key.namespace,
+  kind: key.kind,
+  id: String(key.externalId),
+});

@@ -10,6 +10,9 @@ const ADULT_GENRE_NAME_SET: ReadonlySet<string> = new Set<string>(ADULT_GENRE_NA
 
 const ADULT_RATED_KIND: MediaKind = 'anime';
 
+/** the adult content setting of a new user (BR-06): adult titles are hidden. */
+export const DEFAULT_SHOW_ADULT = false;
+
 /**
  * whether a title is adult content (BR-06): a genre named Hentai or Erotica
  * (case-insensitive, trimmed), or an anime rated Rx. an Rx rating on a manga is ignored.
