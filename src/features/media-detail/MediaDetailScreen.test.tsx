@@ -40,7 +40,7 @@ describe('MediaDetailScreen', () => {
   it('shows the placeholder in french', async () => {
     await renderWithProviders(
       <MediaDetailScreen params={{ namespace: MAL, kind: 'anime', id: '1' }} />,
-      'fr',
+      { language: 'fr' },
     );
 
     expect(screen.getByText('Anime n° 1 : détails bientôt disponibles')).toBeOnTheScreen();
@@ -65,10 +65,9 @@ describe('MediaDetailScreen', () => {
 
   it('goes back to Discover from an invalid link, without any other navigation', async () => {
     const user = userEvent.setup();
-    await renderWithProviders(
-      <MediaDetailScreen params={{ namespace: MAL, kind: 'anime' }} />,
-      'fr',
-    );
+    await renderWithProviders(<MediaDetailScreen params={{ namespace: MAL, kind: 'anime' }} />, {
+      language: 'fr',
+    });
 
     await user.press(screen.getByRole('button', { name: FRENCH_ACTION }));
 

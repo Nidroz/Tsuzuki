@@ -43,7 +43,7 @@ const ignoreTheme: (theme: ThemePreference) => void = () => undefined;
 const ignoreLanguage: (language: LanguagePreference) => void = () => undefined;
 
 const withPreferences = (language: Language): ComponentType<{ readonly children: ReactNode }> => {
-  const Providers = providersFor(language);
+  const Providers = providersFor({ language });
   return function PreferencesAndProviders({ children }) {
     return (
       <PreferencesProvider
@@ -58,14 +58,10 @@ const withPreferences = (language: Language): ComponentType<{ readonly children:
   };
 };
 
-// one wrapper per language, built once: a rerender keeps the same providers
-const WRAPPERS: Readonly<Record<Language, ComponentType<{ readonly children: ReactNode }>>> = {
-  en: withPreferences('en'),
-  fr: withPreferences('fr'),
-};
-
+// a new wrapper per render, so each test gets its own query client, catalog provider and recent
+// searches; a rerender keeps them
 const renderTabs = (language: Language = 'en') =>
-  renderRouterAsync(ROUTES, { wrapper: WRAPPERS[language] });
+  renderRouterAsync(ROUTES, { wrapper: withPreferences(language) });
 
 describe('tabs layout', () => {
   it.each<Language>(['en', 'fr'])(

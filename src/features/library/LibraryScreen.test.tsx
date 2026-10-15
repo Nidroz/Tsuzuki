@@ -24,7 +24,7 @@ describe('LibraryScreen', () => {
   });
 
   it('shows the placeholder message in french', async () => {
-    await renderWithProviders(<LibraryScreen />, 'fr');
+    await renderWithProviders(<LibraryScreen />, { language: 'fr' });
 
     expect(screen.getByText(FRENCH_MESSAGE)).toBeOnTheScreen();
     expect(screen.queryByText(MESSAGE)).not.toBeOnTheScreen();

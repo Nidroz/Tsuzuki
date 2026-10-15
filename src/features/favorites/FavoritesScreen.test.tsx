@@ -24,7 +24,7 @@ describe('FavoritesScreen', () => {
   });
 
   it('shows the placeholder message in french', async () => {
-    await renderWithProviders(<FavoritesScreen />, 'fr');
+    await renderWithProviders(<FavoritesScreen />, { language: 'fr' });
 
     expect(screen.getByText(FRENCH_MESSAGE)).toBeOnTheScreen();
     expect(screen.queryByText(MESSAGE)).not.toBeOnTheScreen();

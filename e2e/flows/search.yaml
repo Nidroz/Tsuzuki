@@ -1,0 +1,59 @@
+# search flow (FR-01, FR-02): search a title, open a result, come back, find the search among the
+# recent searches, then clear them. runs in the development build like the smoke flow (see its
+# header and e2e/README.md), with clearState, so no recent search is stored at launch. elements
+# are found by id or by the typed text only, so the flow does not depend on the device language.
+# it queries the live catalog (Tenrai): the first result row is matched by its id prefix, never by
+# a title the catalog could reorder
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: tab-search
+- assertVisible:
+    id: search-screen
+# nothing searched yet: the hint, no recent search
+- assertVisible:
+    id: search-idle
+- tapOn:
+    id: search-input
+- inputText: Frieren
+# typing searches after the debounce; the catalog answer may take a few seconds
+- extendedWaitUntil:
+    visible:
+      id: search-result-mal-anime-.*
+    timeout: 30000
+- hideKeyboard
+# opening a result records the search and opens its details
+- tapOn:
+    id: search-result-mal-anime-.*
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: media-detail-screen
+    timeout: 10000
+- back
+- assertVisible:
+    id: search-screen
+# an empty field shows the recent searches
+- tapOn:
+    id: search-input
+- eraseText: 20
+- hideKeyboard
+- assertVisible:
+    id: search-recent
+- assertVisible:
+    id: search-recent-0
+    text: Frieren
+- tapOn:
+    id: search-recent-clear
+- assertVisible:
+    id: search-idle
+- assertNotVisible:
+    id: search-recent-0
