@@ -225,6 +225,51 @@ describe('useSearch', () => {
 
     expect(result.current.isPlaceholderData).toBe(true);
     expect(result.current.data?.items).toStrictEqual([CLEAN]);
+
+    await waitFor(() => {
+      expect(provider.search).toHaveBeenCalledTimes(2);
+    });
+
+    expect(result.current.isPlaceholderData).toBe(true);
+    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+  });
+
+  it('shows no results while idle after a search', async () => {
+    const { result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    rerender({ params: null, showAdult: false });
+
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isPlaceholderData).toBe(false);
+  });
+
+  it('keeps no results from before an idle state as placeholder data', async () => {
+    const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    provider.search.mockImplementation(pendingUntilAborted);
+    rerender({ params: null, showAdult: false });
+
+    rerender({ params: MUSHISHI, showAdult: false });
+
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isPlaceholderData).toBe(false);
+
+    // the request starting updates the result again, after the new key is committed
+    await waitFor(() => {
+      expect(provider.search).toHaveBeenCalledTimes(2);
+    });
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.isPending).toBe(true);
+    expect(result.current.data).toBeUndefined();
+    expect(result.current.isPlaceholderData).toBe(false);
   });
 
   it('surfaces a provider error after a single call, never retrying', async () => {
