@@ -18,6 +18,7 @@ import * as styleCases from './layers-style-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
 import * as textCases from './layers-text-cases.mjs';
 import * as uiBarrelCases from './layers-ui-barrel-cases.mjs';
+import * as uiOnlyCases from './layers-ui-only-cases.mjs';
 import {
   EXISTING,
   PROBES,
@@ -41,6 +42,7 @@ const TABLES = [
   classNameCases,
   styleCases,
   uiBarrelCases,
+  uiOnlyCases,
   i18nCases,
   i18nBarrelCases,
   textCases,
