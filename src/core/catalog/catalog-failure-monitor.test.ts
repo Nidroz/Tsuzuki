@@ -72,22 +72,23 @@ describe('monitorCatalogProvider', () => {
     const params = { kind: 'anime', query: SEARCH_TEXT, page: 2 } as const;
     const key = SAMPLE_DETAIL.key;
     const genres = [{ id: 1, name: 'Action' }];
+    const background = { priority: 'background' } as const;
     fake.search.mockResolvedValueOnce(EMPTY_PAGE);
     fake.getDetail.mockResolvedValueOnce(SAMPLE_DETAIL);
     fake.getTop.mockResolvedValueOnce(EMPTY_PAGE);
     fake.getCurrentSeason.mockResolvedValueOnce(EMPTY_PAGE);
     fake.getGenres.mockResolvedValueOnce(genres);
 
-    expect(await monitored.search(params, signal)).toBe(EMPTY_PAGE);
+    expect(await monitored.search(params, signal, background)).toBe(EMPTY_PAGE);
     expect(await monitored.getDetail(key)).toBe(SAMPLE_DETAIL);
     expect(await monitored.getTop('manga', 3, signal)).toBe(EMPTY_PAGE);
-    expect(await monitored.getCurrentSeason(4)).toBe(EMPTY_PAGE);
+    expect(await monitored.getCurrentSeason(4, undefined, background)).toBe(EMPTY_PAGE);
     expect(await monitored.getGenres('anime', signal)).toBe(genres);
-    expect(fake.search.mock.calls).toStrictEqual([[params, signal]]);
+    expect(fake.search.mock.calls).toStrictEqual([[params, signal, background]]);
     expect(fake.search.mock.calls[0]?.[1]).toBe(signal);
     expect(fake.getDetail.mock.calls).toStrictEqual([[key]]);
     expect(fake.getTop.mock.calls).toStrictEqual([['manga', 3, signal]]);
-    expect(fake.getCurrentSeason.mock.calls).toStrictEqual([[4]]);
+    expect(fake.getCurrentSeason.mock.calls).toStrictEqual([[4, undefined, background]]);
     expect(fake.getGenres.mock.calls).toStrictEqual([['anime', signal]]);
   });
 

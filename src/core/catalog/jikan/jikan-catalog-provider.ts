@@ -1,7 +1,8 @@
 // the catalog provider of any jikan v4 compatible instance (ADR-0003, docs/ARCHITECTURE.md §3):
 // instances in jikan-instances.ts, urls in jikan-urls.ts, payload schemas in jikan-schemas.ts,
 // mapping in jikan-mappers.ts. every request goes through the provider's own rate limited http
-// client with the caller's signal; its errors pass through as is
+// client with the caller's signal, and the request priority of the paged methods; its errors pass
+// through as is
 import type { CatalogProvider } from '../catalog-provider';
 import {
   createCatalogHttpClient,
@@ -39,22 +40,23 @@ export const createJikanCatalogProvider = (
     instanceId: instance.id,
     searchQueryMaxLength: JIKAN_QUERY_MAX_LENGTH,
     searchGenresMax: JIKAN_GENRE_IDS_MAX,
-    search: async (params, signal) => {
+    search: async (params, signal, requestOptions) => {
       // built first: an invalid param throws before any request
       const url = jikanSearchUrl(baseUrl, params);
-      return parseJikanPage(params.kind, params.page, await client.getJson(url, signal));
+      const body = await client.getJson(url, signal, requestOptions);
+      return parseJikanPage(params.kind, params.page, body);
     },
     getDetail: async (key, signal) => {
       const url = jikanDetailUrl(baseUrl, key);
       return parseJikanDetail(key, await client.getJson(url, signal));
     },
-    getTop: async (kind, page, signal) => {
+    getTop: async (kind, page, signal, requestOptions) => {
       const url = jikanTopUrl(baseUrl, kind, page);
-      return parseJikanPage(kind, page, await client.getJson(url, signal));
+      return parseJikanPage(kind, page, await client.getJson(url, signal, requestOptions));
     },
-    getCurrentSeason: async (page, signal) => {
+    getCurrentSeason: async (page, signal, requestOptions) => {
       const url = jikanSeasonNowUrl(baseUrl, page);
-      return parseJikanPage(SEASON_KIND, page, await client.getJson(url, signal));
+      return parseJikanPage(SEASON_KIND, page, await client.getJson(url, signal, requestOptions));
     },
     getGenres: async (kind, signal) => {
       const url = jikanGenresUrl(baseUrl, kind);
