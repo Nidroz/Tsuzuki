@@ -163,6 +163,7 @@ Details:
 - The genre chips select at most 25 included and 25 excluded genres (Tenrai's documented limit; more is a `RangeError` before any request, C-03).
 
 ### C-06 Interactive pagination
+- Lock the search placeholder behaviour before changing it for pages (C-04 review): `src/core/hooks/use-search.test.tsx` has no case for search A, then B still loading, then C (C keeps A's results only because TanStack reuses the previous placeholder while the `placeholderData` function stays the same object), and no `SearchScreen` test types a search, clears the field and types another one to check the spinner replaces the old results.
 - Prefetches share the FIFO queue of the catalog rate limiter with the requests of the visible screen (C-02): give visible requests priority, or skip a prefetch while requests are queued, so a prefetch never delays the page the user opens.
 - When touching the catalog http tests: `settle`, `recordRequests`, `expectNoPendingTimer` and `elapsed` are copied in four test files of `src/core/catalog/http/` (C-03 review); move them into one shared test helper, under a name that the coverage exclusions and the test lint overrides treat as test code.
 
