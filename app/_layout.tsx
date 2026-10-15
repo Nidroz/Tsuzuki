@@ -1,6 +1,11 @@
 // first: plural rules must exist before i18next builds its plural resolvers
 import '@platform/intl-polyfills';
 
+import { monitorCatalogProvider } from '@core/catalog/catalog-failure-monitor';
+import { createJikanCatalogProvider } from '@core/catalog/jikan/jikan-catalog-provider';
+import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
+import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import {
   hasIntlPluralRules,
   I18nProvider,
@@ -18,6 +23,7 @@ import {
 } from '@core/preferences/index';
 import { createPersistOptions, createQueryPersister } from '@core/query/persister';
 import { createQueryClient } from '@core/query/query-client';
+import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
 import { APP_VERSION } from '@platform/app-version';
@@ -44,7 +50,7 @@ const ROOT_SCREEN_OPTIONS = {
 
 // the build-time env, validated again at startup: a missing or invalid env throws here, before
 // anything else is created (fail closed, ADR-0012). the supabase client is wired from it with its
-// first consumer (the auth or library repositories)
+// first consumer (the auth or library repositories); the catalog instance comes from it below
 const appEnv = readAppEnv(parseAppEnv);
 
 // sentry in release builds with a dsn, the console in development (ADR-0012)
@@ -79,14 +85,28 @@ const reportThemeError = (error: unknown) => {
   reporter.captureError(error, { source: THEME_SOURCE });
 };
 
-// the app's single key-value storage: it holds the preferences and the persisted query cache.
-// module level, so the persist options stay one stable object for PersistQueryClientProvider
+// the app's single key-value storage: it holds the preferences, the recent searches and the
+// persisted query cache. module level, so the persist options stay one stable object for
+// PersistQueryClientProvider
 const storage = createStorage();
 
 // a new app version or cache schema version drops the persisted cache
 const persistOptions = createPersistOptions({
   persister: createQueryPersister(storage),
   appVersion: APP_VERSION,
+});
+
+// the only place that selects a catalog provider and its instance (ADR-0013): tenrai unless the
+// build sets a self-hosted jikan base url. sustained provider failures go to the reporter.
+// module level, like the repository below: each is one stable object for its context
+const catalogProvider = monitorCatalogProvider(
+  createJikanCatalogProvider(jikanInstanceFor(appEnv.jikanBaseUrl)),
+  { reporter },
+);
+
+// the recent searches on the device (FR-02), checked against the provider's search text limit
+const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
+  maxQueryLength: catalogProvider.searchQueryMaxLength,
 });
 
 // the root stack, inside I18nProvider because its header titles are translated
@@ -104,10 +124,11 @@ function RootStack() {
   );
 }
 
-// the composition root: it owns the storage, the query client and the preferences, and gives the
-// tree the query cache (persisted to the storage), the preferences, the translations and the
-// theme. the stored preferences are read synchronously on mount, so the first frame already uses
-// them. expo-router's root already provides the SafeAreaProvider that Screen relies on;
+// the composition root: it owns the storage, the catalog provider, the recent searches repository,
+// the query client and the preferences, and gives the tree the query cache (persisted to the
+// storage), the catalog provider and the recent searches (the data dependencies, next to the query
+// client), then the preferences, the translations and the theme. the stored preferences are read
+// synchronously on mount, so the first frame already uses them. expo-router's root already provides the SafeAreaProvider that Screen relies on;
 // ThemeProvider renders the status bar and gives navigators their theme
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
@@ -130,18 +151,22 @@ export default function RootLayout() {
 
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      <PreferencesProvider
-        theme={themePreference}
-        language={languagePreference}
-        onThemeChange={changeTheme}
-        onLanguageChange={changeLanguage}
-      >
-        <I18nProvider language={language} onMissingKey={reportMissingKey}>
-          <ThemeProvider preference={themePreference} onError={reportThemeError}>
-            <RootStack />
-          </ThemeProvider>
-        </I18nProvider>
-      </PreferencesProvider>
+      <CatalogContextProvider provider={catalogProvider}>
+        <RecentSearchesContextProvider repository={recentSearchesRepository}>
+          <PreferencesProvider
+            theme={themePreference}
+            language={languagePreference}
+            onThemeChange={changeTheme}
+            onLanguageChange={changeLanguage}
+          >
+            <I18nProvider language={language} onMissingKey={reportMissingKey}>
+              <ThemeProvider preference={themePreference} onError={reportThemeError}>
+                <RootStack />
+              </ThemeProvider>
+            </I18nProvider>
+          </PreferencesProvider>
+        </RecentSearchesContextProvider>
+      </CatalogContextProvider>
     </PersistQueryClientProvider>
   );
 }

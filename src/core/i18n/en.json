@@ -13,9 +13,41 @@
     }
   },
   "search": {
-    "placeholder": {
-      "title": "Coming soon",
-      "message": "Search anime and manga by title."
+    "field": {
+      "label": "Search",
+      "placeholder": "Title of an anime or a manga"
+    },
+    "idle": {
+      "title": "Search anime and manga",
+      "message": "Type a title to find it."
+    },
+    "recent": {
+      "title": "Recent searches",
+      "clear": "Clear",
+      "clearLabel": "Clear recent searches"
+    },
+    "results": {
+      "loading": "Loading results",
+      "updating": "Updating results",
+      "empty": {
+        "title": "No results",
+        "message": "Try another title, or the other kind."
+      },
+      "hidden_one": "{{count}} adult title was hidden.",
+      "hidden_other": "{{count}} adult titles were hidden.",
+      "score": "Score {{score}}",
+      "openHint": "Opens the details"
+    },
+    "error": {
+      "offline": {
+        "title": "You are offline",
+        "message": "Check your connection, then try again."
+      },
+      "generic": {
+        "title": "Search failed",
+        "message": "Something went wrong. Try again in a moment."
+      },
+      "retry": "Try again"
     }
   },
   "library": {
@@ -52,6 +84,23 @@
     "kind": {
       "anime": "Anime",
       "manga": "Manga"
+    },
+    "format": {
+      "tv": "TV",
+      "movie": "Movie",
+      "ova": "OVA",
+      "ona": "ONA",
+      "special": "Special",
+      "music": "Music",
+      "manga": "Manga",
+      "manhwa": "Manhwa",
+      "manhua": "Manhua",
+      "light_novel": "Light novel",
+      "novel": "Novel",
+      "one_shot": "One-shot",
+      "doujinshi": "Doujinshi",
+      "oel": "OEL manga",
+      "unknown": "Unknown format"
     }
   },
   "mediaDetail": {

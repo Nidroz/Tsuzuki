@@ -13,9 +13,42 @@
     }
   },
   "search": {
-    "placeholder": {
-      "title": "Bientôt disponible",
-      "message": "Recherchez des anime et des manga par titre."
+    "field": {
+      "label": "Rechercher",
+      "placeholder": "Titre d'un anime ou d'un manga"
+    },
+    "idle": {
+      "title": "Rechercher des anime et des manga",
+      "message": "Saisissez un titre pour le trouver."
+    },
+    "recent": {
+      "title": "Recherches récentes",
+      "clear": "Effacer",
+      "clearLabel": "Effacer les recherches récentes"
+    },
+    "results": {
+      "loading": "Chargement des résultats",
+      "updating": "Mise à jour des résultats",
+      "empty": {
+        "title": "Aucun résultat",
+        "message": "Essayez un autre titre, ou l'autre type."
+      },
+      "hidden_one": "{{count}} titre pour adultes a été masqué.",
+      "hidden_many": "{{count}} titres pour adultes ont été masqués.",
+      "hidden_other": "{{count}} titres pour adultes ont été masqués.",
+      "score": "Note {{score}}",
+      "openHint": "Ouvre les détails"
+    },
+    "error": {
+      "offline": {
+        "title": "Vous êtes hors ligne",
+        "message": "Vérifiez votre connexion, puis réessayez."
+      },
+      "generic": {
+        "title": "La recherche a échoué",
+        "message": "Une erreur est survenue. Réessayez dans un instant."
+      },
+      "retry": "Réessayer"
     }
   },
   "library": {
@@ -52,6 +85,23 @@
     "kind": {
       "anime": "Anime",
       "manga": "Manga"
+    },
+    "format": {
+      "tv": "TV",
+      "movie": "Film",
+      "ova": "OVA",
+      "ona": "ONA",
+      "special": "Spécial",
+      "music": "Musique",
+      "manga": "Manga",
+      "manhwa": "Manhwa",
+      "manhua": "Manhua",
+      "light_novel": "Light novel",
+      "novel": "Roman",
+      "one_shot": "One-shot",
+      "doujinshi": "Doujinshi",
+      "oel": "Manga OEL",
+      "unknown": "Format inconnu"
     }
   },
   "mediaDetail": {
