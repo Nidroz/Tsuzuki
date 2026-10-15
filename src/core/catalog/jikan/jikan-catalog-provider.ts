@@ -10,6 +10,7 @@ import {
 import { JIKAN_NAMESPACE, type JikanInstance } from './jikan-instances';
 import { parseJikanDetail, parseJikanGenres, parseJikanPage } from './jikan-mappers';
 import {
+  JIKAN_QUERY_MAX_LENGTH,
   jikanDetailUrl,
   jikanGenresUrl,
   jikanSearchUrl,
@@ -35,6 +36,7 @@ export const createJikanCatalogProvider = (
   return {
     namespace: JIKAN_NAMESPACE,
     instanceId: instance.id,
+    searchQueryMaxLength: JIKAN_QUERY_MAX_LENGTH,
     search: async (params, signal) => {
       // built first: an invalid param throws before any request
       const url = jikanSearchUrl(baseUrl, params);

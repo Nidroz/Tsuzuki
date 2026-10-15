@@ -7,6 +7,9 @@ import type { CatalogProvider, MediaDetail, MediaSummary, Page } from '../catalo
 /** the instance id of the fake provider. */
 export const FAKE_INSTANCE_ID = 'fake-instance';
 
+/** the search text limit of the fake provider, unlike any real one so forwarding shows. */
+export const FAKE_SEARCH_QUERY_MAX_LENGTH = 42;
+
 /** an empty first page. */
 export const EMPTY_PAGE: Page<MediaSummary> = {
   items: [],
@@ -37,6 +40,7 @@ export const createFakeCatalogProvider = () =>
   ({
     namespace: 'mal',
     instanceId: FAKE_INSTANCE_ID,
+    searchQueryMaxLength: FAKE_SEARCH_QUERY_MAX_LENGTH,
     search: jest.fn<CatalogProvider['search']>(),
     getDetail: jest.fn<CatalogProvider['getDetail']>(),
     getTop: jest.fn<CatalogProvider['getTop']>(),
