@@ -4,7 +4,7 @@
 // terms (CatalogProviderHarness). fake timers are on (test/core setup): the suite advances them
 // until rate limit pauses, retries and timeouts run out. case tables and invariant checks are in
 // catalog-provider-contract-cases.ts, harness types and timer helpers in
-// catalog-provider-contract-support.ts, the search text limit and cover cases in
+// catalog-provider-contract-support.ts, the search text limit, genre limit and cover cases in
 // catalog-provider-contract-boundaries.ts
 import { afterEach, describe, expect, it, jest } from '@jest/globals';
 

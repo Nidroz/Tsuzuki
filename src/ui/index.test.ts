@@ -23,6 +23,7 @@ describe('src/ui public api', () => {
         'RadioGroup',
         'Row',
         'Screen',
+        'Sheet',
         'Spacer',
         'Spinner',
         'Stack',

@@ -13,6 +13,8 @@ import { SearchScreen } from '@features/search/SearchScreen';
 export interface SearchScreenSetup {
   /** what the provider answers to each search; every other method rejects */
   readonly search?: CatalogProvider['search'];
+  /** what the provider answers to each genres request (the filters sheet); rejects by default */
+  readonly getGenres?: CatalogProvider['getGenres'];
   /** the stored recent searches, newest first */
   readonly recentSearches?: readonly string[];
   readonly language?: Language;
@@ -21,10 +23,14 @@ export interface SearchScreenSetup {
 /** renders SearchScreen and returns its fake provider and recent searches repository */
 export const renderSearchScreen = async ({
   search,
+  getGenres,
   recentSearches = [],
   language = 'en',
 }: SearchScreenSetup = {}) => {
-  const provider = createStrictFakeCatalogProvider(search === undefined ? {} : { search });
+  const provider = createStrictFakeCatalogProvider({
+    ...(search !== undefined && { search }),
+    ...(getGenres !== undefined && { getGenres }),
+  });
   const repository = createFakeRecentSearchesRepository(recentSearches);
   await renderWithProviders(<SearchScreen />, {
     language,

@@ -38,6 +38,8 @@ export { Row } from './components/Row';
 export type { RowProps } from './components/Row';
 export { Screen } from './components/Screen';
 export type { ScreenEdge, ScreenProps } from './components/Screen';
+export { Sheet } from './components/Sheet';
+export type { SheetProps } from './components/Sheet';
 export { Spacer } from './components/Spacer';
 export type { SpacerProps } from './components/Spacer';
 export { Spinner } from './components/Spinner';

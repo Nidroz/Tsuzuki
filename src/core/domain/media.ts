@@ -69,11 +69,51 @@ export const MEDIA_FORMATS = [
   'unknown',
 ] as const satisfies readonly MediaFormat[];
 
-/** the formats offered for each kind, e.g. the search format filter. */
+/** every format of each kind, `unknown` included; search uses SEARCHABLE_FORMATS_BY_KIND. */
 export const MEDIA_FORMATS_BY_KIND: {
   readonly anime: readonly AnimeFormat[];
   readonly manga: readonly MangaFormat[];
 } = { anime: ANIME_FORMATS, manga: MANGA_FORMATS };
+
+/**
+ * the anime formats a search can filter on (FR-03), in ANIME_FORMATS order: every anime format but
+ * `unknown`, the adapter fallback, which no provider search type matches.
+ */
+export const SEARCHABLE_ANIME_FORMATS = [
+  'tv',
+  'movie',
+  'ova',
+  'ona',
+  'special',
+  'music',
+] as const satisfies readonly Exclude<AnimeFormat, 'unknown'>[];
+
+export type SearchableAnimeFormat = (typeof SEARCHABLE_ANIME_FORMATS)[number];
+
+/**
+ * the manga formats a search can filter on (FR-03), in MANGA_FORMATS order: every manga format but
+ * `oel` and `unknown`, which have no provider search type.
+ */
+export const SEARCHABLE_MANGA_FORMATS = [
+  'manga',
+  'manhwa',
+  'manhua',
+  'light_novel',
+  'novel',
+  'one_shot',
+  'doujinshi',
+] as const satisfies readonly Exclude<MangaFormat, 'oel' | 'unknown'>[];
+
+export type SearchableMangaFormat = (typeof SEARCHABLE_MANGA_FORMATS)[number];
+
+/** a format a search can filter on, of either kind. */
+export type SearchableMediaFormat = SearchableAnimeFormat | SearchableMangaFormat;
+
+/** the searchable formats of each kind: the format chips of the search filters, single-select. */
+export const SEARCHABLE_FORMATS_BY_KIND: {
+  readonly anime: readonly SearchableAnimeFormat[];
+  readonly manga: readonly SearchableMangaFormat[];
+} = { anime: SEARCHABLE_ANIME_FORMATS, manga: SEARCHABLE_MANGA_FORMATS };
 
 // publication status of the title, never a library status (current, planned, completed, paused, dropped)
 export const MEDIA_STATUSES = [

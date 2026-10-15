@@ -94,7 +94,10 @@ export const RAW_GENRES: Readonly<Record<MediaKind, readonly RawGenreRef[]>> = {
   manga: mangaGenres.data,
 };
 
-/** the items of the year probe with `start_date` and `end_date`: none. */
+/**
+ * the items of the bounded year probe (start_date and end_date of the year, request in
+ * tenrai/README.md): none, one piece still airs. the adapter never sends end_date.
+ */
 export const RAW_YEAR_PROBE_BOUNDED: readonly unknown[] = yearProbeBounded.data;
 
 /** the raw season list, in recorded order. */

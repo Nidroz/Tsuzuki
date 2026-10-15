@@ -109,7 +109,7 @@ describe('queryKeys.search', () => {
       ...base,
       genresExcluded: [1],
       status: 'ongoing',
-      year: 2023,
+      yearFrom: 2023,
       minScore: 8,
       sort: { field: 'popularity', direction: 'asc' },
     });

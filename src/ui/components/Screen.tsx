@@ -1,13 +1,9 @@
-import { cssInterop } from 'nativewind';
 import type { ReactNode } from 'react';
 import { ScrollView, View } from 'react-native';
-import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 
 import type { SpacingToken } from '../theme/spacing';
 import { cx, PADDING } from './layout/layout-classes';
-
-// the safe area view is not a react native core component: nativewind styles it once registered
-cssInterop(SafeAreaView, { className: 'style' });
+import { SafeAreaView, type Edge } from './layout/safe-area-view';
 
 export type ScreenEdge = Edge;
 

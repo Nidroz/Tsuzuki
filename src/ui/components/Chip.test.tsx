@@ -1,10 +1,15 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { render, screen, userEvent } from '@testing-library/react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import { render, screen, userEvent, within } from '@testing-library/react-native';
 
 import { classesOf } from '../../../test/mobile/class-names';
+import { renderWithTheme } from '../../../test/mobile/render-with-theme';
+import { palettes } from '../theme/colors';
 import { Chip } from './Chip';
 
 const LABEL = 'Anime';
+const STATE_LABEL = 'Anime, excluded';
+const EXCLUDED_GLYPH = String.fromCodePoint(Number(Ionicons.glyphMap['remove-circle']));
 const TEST_ID = 'chip';
 const CHIP_CLASSES = [
   'min-h-touch',
@@ -114,6 +119,67 @@ describe('Chip', () => {
       expect(onPress).not.toHaveBeenCalled();
       expect(chip).toBeDisabled();
       expect(classesOf(chip)).toContain('opacity-disabled');
+    });
+  });
+
+  describe('excluded', () => {
+    it('is drawn in the danger color with a glyph, and wins over selected', async () => {
+      await renderWithTheme(
+        <Chip label={LABEL} onPress={jest.fn()} selected excluded testID={TEST_ID} />,
+      );
+
+      const chip = screen.getByTestId(TEST_ID);
+
+      expect(classesOf(chip)).toStrictEqual([
+        ...CHIP_CLASSES,
+        'gap-xs',
+        'border-danger',
+        'bg-danger',
+        'active:opacity-pressed',
+      ]);
+      expect(classesOf(screen.getByText(LABEL))).toContain('text-on-danger');
+      expect(within(chip).getByText(EXCLUDED_GLYPH, { includeHiddenElements: true })).toHaveStyle({
+        color: palettes.light.onDanger,
+      });
+    });
+
+    it('keeps the glyph out of the accessibility tree and reads the given label', async () => {
+      await renderWithTheme(
+        <Chip
+          label={LABEL}
+          accessibilityLabel={STATE_LABEL}
+          onPress={jest.fn()}
+          excluded
+          testID={TEST_ID}
+        />,
+      );
+
+      const chip = screen.getByRole('button', { name: STATE_LABEL });
+
+      expect(chip).toBe(screen.getByTestId(TEST_ID));
+      expect(chip).not.toBeSelected();
+      expect(screen.getByText(EXCLUDED_GLYPH, { includeHiddenElements: true })).toHaveProp(
+        'importantForAccessibility',
+        'no',
+      );
+    });
+
+    it('draws no glyph unless excluded', async () => {
+      await render(<Chip label={LABEL} onPress={jest.fn()} selected testID={TEST_ID} />);
+
+      expect(
+        screen.queryByText(EXCLUDED_GLYPH, { includeHiddenElements: true }),
+      ).not.toBeOnTheScreen();
+      expect(classesOf(screen.getByTestId(TEST_ID))).not.toContain('bg-danger');
+    });
+
+    it('reads the accessibility label instead of the visible one on a static chip', async () => {
+      await renderWithTheme(
+        <Chip label={LABEL} accessibilityLabel={STATE_LABEL} excluded testID={TEST_ID} />,
+      );
+
+      expect(screen.getByLabelText(STATE_LABEL)).toBe(screen.getByTestId(TEST_ID));
+      expect(screen.getByText(LABEL)).toBeOnTheScreen();
     });
   });
 });

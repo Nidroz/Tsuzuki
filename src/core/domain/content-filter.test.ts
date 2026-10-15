@@ -1,6 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { DEFAULT_SHOW_ADULT, applyContentFilter, isAdultMedia } from './content-filter';
+import {
+  DEFAULT_SHOW_ADULT,
+  applyContentFilter,
+  isAdultGenreName,
+  isAdultMedia,
+} from './content-filter';
 
 describe('BR-06 isAdultMedia', () => {
   it.each(['Hentai', 'Erotica'])('flags a title with the %s genre', (genre) => {
@@ -27,6 +32,23 @@ describe('BR-06 isAdultMedia', () => {
     expect(
       isAdultMedia({ kind: 'anime', genreNames: ['Ecchi', 'Hentai Parody'], isRxRated: false }),
     ).toBe(false);
+  });
+});
+
+describe('BR-06 isAdultGenreName', () => {
+  it.each(['Hentai', 'Erotica'])('flags the %s genre', (name) => {
+    expect(isAdultGenreName(name)).toBe(true);
+  });
+
+  it.each(['  hEnTaI ', 'EROTICA\n', '\terotica'])(
+    'flags %p, case-insensitive and trimmed',
+    (name) => {
+      expect(isAdultGenreName(name)).toBe(true);
+    },
+  );
+
+  it.each(['Ecchi', 'Hentai Parody', 'Romance', ''])('does not flag %p', (name) => {
+    expect(isAdultGenreName(name)).toBe(false);
   });
 });
 

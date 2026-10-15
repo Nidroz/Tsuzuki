@@ -133,7 +133,7 @@ Details:
 - [x] C-02 Rate limiter (token bucket, dedup, backoff)
 - [x] C-03 Jikan-compatible adapter (Tenrai by default): search, detail, top, season, genres, with Zod schemas and recorded fixtures
 - [x] C-04 Search screen: debounced bar, recent searches, results list
-- [ ] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
+- [x] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [ ] C-06 Interactive pagination with prefetch and position restore
 - [ ] C-07 Media detail screen
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
@@ -189,6 +189,9 @@ Details:
 - The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
 - Name the Postgres `integer` bound once in `src/core/domain/` (e.g. `POSTGRES_INTEGER_MAX`) and derive `EXTERNAL_ID_MAX` (`MAL_ID_MAX` before C-03) and the Jikan `TOTAL_UNITS_MAX` (`src/core/catalog/jikan/jikan-fields.ts`) from it (C-03 review).
 
+### L-06 Adult content setting wired to the filter
+- Replace the `DEFAULT_SHOW_ADULT` read of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet. Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
+
 ## Phase 4 — Accounts and sync
 
 - [ ] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
@@ -230,6 +233,12 @@ Details:
 
 ### R-02 Performance pass
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
+
+### R-03 Accessibility pass
+- Filters sheet section titles (`src/features/search/FilterChoice.tsx`, `GenresFilter.tsx`) use `Text variant="subtitle"` without a header role: add a heading option to the ui `Text` (`accessibilityRole="header"`) so screen readers can jump between sections (C-05 review).
+- Genre chips announce their state twice: the label names it ("Action, included") and `accessibilityState.selected` adds "selected" ("excluded, not selected" for an excluded chip). Leave `selected` out of the state when the label already names it (C-05 review).
+- The `Sheet` primitive has no keyboard avoidance: the keyboard can cover the year field of the filters sheet on small screens. Use `KeyboardAvoidingView` or `automaticallyAdjustKeyboardInsets` on its scroll body (C-05).
+- The `Sheet` backdrop dims with the `background` token at the `pressed` opacity: add a scrim color token to the theme with a checked contrast (C-05).
 
 ### R-04 MASVS L1 security review
 - Review the unencrypted MMKV instance (F-09, owner decision): it holds the persisted query cache and the preferences, never the session. Decide whether user data in the cache (library notes from A-03) needs MMKV encryption with a key kept in secure-store.

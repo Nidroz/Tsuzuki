@@ -114,6 +114,7 @@ export const monitorCatalogProvider = (
     namespace: provider.namespace,
     instanceId: provider.instanceId,
     searchQueryMaxLength: provider.searchQueryMaxLength,
+    searchGenresMax: provider.searchGenresMax,
     search: (...args) => observe(provider.search(...args)),
     getDetail: (...args) => observe(provider.getDetail(...args)),
     getTop: (...args) => observe(provider.getTop(...args)),

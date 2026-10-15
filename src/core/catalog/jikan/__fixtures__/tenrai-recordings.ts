@@ -22,7 +22,6 @@ import searchEmpty from './tenrai/search-empty.json';
 import seasonNow from './tenrai/season-now.json';
 import topAnime from './tenrai/top-anime.json';
 import topManga from './tenrai/top-manga.json';
-import yearProbeBounded from './tenrai/year-probe-bounded.json';
 import yearProbeOpen from './tenrai/year-probe-open.json';
 import { createJikanCatalogProvider } from '../jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '../jikan-instances';
@@ -79,20 +78,14 @@ export const PAGE_RECORDINGS = {
     body: seasonNow,
     call: (provider) => provider.getCurrentSeason(1),
   },
-  // the adapter's own year filter: start_date and end_date of the year
-  yearProbeBounded: {
-    file: 'year-probe-bounded.json',
-    path: '/anime',
-    body: yearProbeBounded,
-    call: (provider) =>
-      provider.search({ kind: 'anime', query: 'one piece', year: YEAR_PROBE_YEAR, page: 1 }),
-  },
-  // recorded with start_date alone, which the adapter never sends: served for a plain search
+  // the adapter's own year filter, recorded with start_date alone. the bounded probe, recorded with
+  // end_date too, is a raw fact only (tenrai-raw.ts): the adapter never sends end_date
   yearProbeOpen: {
     file: 'year-probe-open.json',
     path: '/anime',
     body: yearProbeOpen,
-    call: (provider) => provider.search({ kind: 'anime', query: 'one piece', page: 1 }),
+    call: (provider) =>
+      provider.search({ kind: 'anime', query: 'one piece', yearFrom: YEAR_PROBE_YEAR, page: 1 }),
   },
 } as const satisfies Record<string, Recording<Page<MediaSummary>>>;
 

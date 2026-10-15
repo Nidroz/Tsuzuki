@@ -82,15 +82,17 @@ describe('covers', () => {
 });
 
 describe('the year probe', () => {
-  it('finds nothing within the year: end_date bounds the end of airing', async () => {
-    const { result, urls } = await fetchRecorded(server, PAGE_RECORDINGS.yearProbeBounded);
-    const year = String(YEAR_PROBE_YEAR);
-
+  it('found nothing within the year: end_date bounds the end of airing', () => {
+    // a raw fact: the adapter never sends end_date, so no provider call yields this request
     expect(RAW_YEAR_PROBE_BOUNDED).toStrictEqual([]);
-    // the adapter's year filter sends the bounded probe
+  });
+
+  it('is sent by the year filter as start_date alone', async () => {
+    const { urls } = await fetchRecorded(server, PAGE_RECORDINGS.yearProbeOpen);
+
     expect(urls).toHaveLength(1);
-    expect(urls[0]).toContain(`&start_date=${year}-01-01&end_date=${year}-12-31&`);
-    expect(result).toMatchObject({ items: [], hasNextPage: false });
+    expect(urls[0]).toContain(`&start_date=${String(YEAR_PROBE_YEAR)}-01-01&`);
+    expect(urls[0]).not.toContain('end_date');
   });
 
   it('lists one piece, airing since 1999, from the start of the year alone', async () => {

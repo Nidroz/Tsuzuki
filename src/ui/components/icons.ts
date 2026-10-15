@@ -23,6 +23,9 @@ export type IconName = keyof typeof GLYPHS;
 // the glyph of a cover without an image (CoverImage)
 export const COVER_PLACEHOLDER_GLYPH = 'image-outline' satisfies IoniconsGlyph;
 
+// the glyph of an excluded chip (Chip excluded): the state is never shown by color alone
+export const CHIP_EXCLUDED_GLYPH = 'remove-circle' satisfies IoniconsGlyph;
+
 export type TabIconName = 'discover' | 'search' | 'library' | 'favorites' | 'settings';
 
 // one glyph pair per tab: filled for the focused tab, outline for the others
