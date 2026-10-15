@@ -128,8 +128,9 @@ function RootStack() {
 // the query client and the preferences, and gives the tree the query cache (persisted to the
 // storage), the catalog provider and the recent searches (the data dependencies, next to the query
 // client), then the preferences, the translations and the theme. the stored preferences are read
-// synchronously on mount, so the first frame already uses them. expo-router's root already provides the SafeAreaProvider that Screen relies on;
-// ThemeProvider renders the status bar and gives navigators their theme
+// synchronously on mount, so the first frame already uses them. expo-router's root already
+// provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
+// gives navigators their theme
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [initialPreferences] = useState(() => loadPreferences(storage));

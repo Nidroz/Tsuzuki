@@ -60,9 +60,9 @@ const failureKindOf = (error: unknown): CatalogFailureKind | null => {
 };
 
 /**
- * `provider` with the same namespace, instance id and search text limit, whose calls are watched: each method
- * forwards the same arguments and returns the provider's own promise, so the caller gets exactly
- * its value or error. state lives in the returned provider, never in a global.
+ * `provider` with the same namespace, instance id and search text limit, whose calls are
+ * watched: each method forwards the same arguments and returns the provider's own promise, so the
+ * caller gets exactly its value or error. state lives in the returned provider, never in a global.
  */
 export const monitorCatalogProvider = (
   provider: CatalogProvider,
