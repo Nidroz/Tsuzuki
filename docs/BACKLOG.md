@@ -132,7 +132,7 @@ Details:
 - [x] C-01 `CatalogProvider` interface + normalized types + content filter domain function
 - [x] C-02 Rate limiter (token bucket, dedup, backoff)
 - [x] C-03 Jikan-compatible adapter (Tenrai by default): search, detail, top, season, genres, with Zod schemas and recorded fixtures
-- [ ] C-04 Search screen: debounced bar, recent searches, results list
+- [x] C-04 Search screen: debounced bar, recent searches, results list
 - [ ] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [ ] C-06 Interactive pagination with prefetch and position restore
 - [ ] C-07 Media detail screen
