@@ -11,6 +11,7 @@ const DAY_MS = HOURS_PER_DAY * HOUR_MS;
 const MEDIA_DETAIL_HOURS = 24;
 const RANKING_HOURS = 6;
 const SEARCH_MINUTES = 10;
+const SEARCH_GC_MINUTES = 30;
 const GENRES_DAYS = 7;
 const PERSISTED_CACHE_DAYS = 7;
 
@@ -30,3 +31,9 @@ export const STALE_TIMES = {
  * at least the longest stale time, so persisted data is never dropped while still fresh.
  */
 export const PERSISTED_CACHE_MAX_AGE = PERSISTED_CACHE_DAYS * DAY_MS;
+
+/**
+ * how long an unused search query stays in memory. searches pile up during a session and are
+ * never persisted (persister.ts), so they are dropped sooner than the default gc time.
+ */
+export const SEARCH_GC_TIME = SEARCH_GC_MINUTES * MINUTE_MS;
