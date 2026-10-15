@@ -49,6 +49,69 @@
         "message": "Une erreur est survenue. Réessayez dans un instant."
       },
       "retry": "Réessayer"
+    },
+    "filters": {
+      "open": {
+        "label": "Filtres",
+        "labelCount": "Filtres ({{active}})",
+        "activeLabel_one": "Filtres, {{count}} actif",
+        "activeLabel_many": "Filtres, {{count}} actifs",
+        "activeLabel_other": "Filtres, {{count}} actifs",
+        "hint": "Ouvre les filtres de recherche"
+      },
+      "sheet": {
+        "title": "Filtres",
+        "close": "Fermer les filtres sans les appliquer",
+        "apply": "Appliquer",
+        "reset": "Réinitialiser"
+      },
+      "format": {
+        "title": "Format"
+      },
+      "genres": {
+        "title": "Genres",
+        "hint": "Touchez un genre une fois pour l'inclure, deux fois pour l'exclure, une troisième fois pour l'effacer.",
+        "neutral": "{{name}}, non filtré",
+        "included": "{{name}}, inclus",
+        "excluded": "{{name}}, exclu",
+        "full": "{{max}} genres au plus peuvent être inclus, et {{max}} exclus.",
+        "loading": "Chargement des genres",
+        "error": "Impossible de charger les genres",
+        "retry": "Réessayer",
+        "empty": "Aucun genre à filtrer."
+      },
+      "status": {
+        "title": "Statut",
+        "airing": "En cours de diffusion",
+        "publishing": "En cours de publication",
+        "finished": "Terminé",
+        "upcoming": "À venir"
+      },
+      "year": {
+        "label": "À partir de l'année",
+        "placeholder": "AAAA",
+        "invalid": "Saisissez une année à quatre chiffres, de {{min}} à {{max}}."
+      },
+      "minScore": {
+        "title": "Note minimale",
+        "option": "{{score}}+",
+        "optionLabel": "Note de {{score}} ou plus"
+      },
+      "sort": {
+        "title": "Trier par",
+        "relevance": "Pertinence",
+        "field": {
+          "score": "Note",
+          "popularity": "Popularité",
+          "title": "Titre",
+          "start_date": "Date de début"
+        },
+        "direction": {
+          "title": "Ordre",
+          "asc": "Croissant",
+          "desc": "Décroissant"
+        }
+      }
     }
   },
   "library": {

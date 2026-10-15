@@ -1,26 +1,9 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
-import type { MediaFormat } from '@core/domain/media';
-import { useTranslation, type TranslationKey } from '@core/i18n/index';
+import { useTranslation } from '@core/i18n/index';
 import { MediaListItem } from '@ui/index';
 import { memo, useCallback } from 'react';
 
-const FORMAT_KEYS = {
-  tv: 'media.format.tv',
-  movie: 'media.format.movie',
-  ova: 'media.format.ova',
-  ona: 'media.format.ona',
-  special: 'media.format.special',
-  music: 'media.format.music',
-  manga: 'media.format.manga',
-  manhwa: 'media.format.manhwa',
-  manhua: 'media.format.manhua',
-  light_novel: 'media.format.light_novel',
-  novel: 'media.format.novel',
-  one_shot: 'media.format.one_shot',
-  doujinshi: 'media.format.doujinshi',
-  oel: 'media.format.oel',
-  unknown: 'media.format.unknown',
-} as const satisfies Record<MediaFormat, TranslationKey>;
+import { FORMAT_KEYS } from './format-keys';
 
 // a year is written without digit grouping in every language
 const YEAR_FORMAT: Intl.NumberFormatOptions = { useGrouping: false };

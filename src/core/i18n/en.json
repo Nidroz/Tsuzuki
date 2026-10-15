@@ -48,6 +48,68 @@
         "message": "Something went wrong. Try again in a moment."
       },
       "retry": "Try again"
+    },
+    "filters": {
+      "open": {
+        "label": "Filters",
+        "labelCount": "Filters ({{active}})",
+        "activeLabel_one": "Filters, {{count}} active",
+        "activeLabel_other": "Filters, {{count}} active",
+        "hint": "Opens the search filters"
+      },
+      "sheet": {
+        "title": "Filters",
+        "close": "Close the filters without applying them",
+        "apply": "Apply",
+        "reset": "Reset"
+      },
+      "format": {
+        "title": "Format"
+      },
+      "genres": {
+        "title": "Genres",
+        "hint": "Tap a genre once to include it, twice to exclude it, a third time to clear it.",
+        "neutral": "{{name}}, not filtered",
+        "included": "{{name}}, included",
+        "excluded": "{{name}}, excluded",
+        "full": "At most {{max}} genres can be included, and {{max}} excluded.",
+        "loading": "Loading genres",
+        "error": "Genres could not be loaded",
+        "retry": "Try again",
+        "empty": "No genres to filter on."
+      },
+      "status": {
+        "title": "Status",
+        "airing": "Airing",
+        "publishing": "Publishing",
+        "finished": "Finished",
+        "upcoming": "Upcoming"
+      },
+      "year": {
+        "label": "From year",
+        "placeholder": "YYYY",
+        "invalid": "Enter a year of four digits, from {{min}} to {{max}}."
+      },
+      "minScore": {
+        "title": "Minimum score",
+        "option": "{{score}}+",
+        "optionLabel": "Score {{score}} or more"
+      },
+      "sort": {
+        "title": "Sort by",
+        "relevance": "Relevance",
+        "field": {
+          "score": "Score",
+          "popularity": "Popularity",
+          "title": "Title",
+          "start_date": "Start date"
+        },
+        "direction": {
+          "title": "Order",
+          "asc": "Ascending",
+          "desc": "Descending"
+        }
+      }
     }
   },
   "library": {
