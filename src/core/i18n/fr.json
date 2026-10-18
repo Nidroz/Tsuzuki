@@ -174,11 +174,68 @@
       "doujinshi": "Doujinshi",
       "oel": "Manga OEL",
       "unknown": "Format inconnu"
+    },
+    "status": {
+      "airing": "En cours de diffusion",
+      "publishing": "En cours de publication",
+      "finished": "Terminé",
+      "upcoming": "À venir",
+      "hiatus": "En pause",
+      "discontinued": "Abandonné"
+    },
+    "totalUnits": {
+      "episodes_one": "{{total}} épisode",
+      "episodes_many": "{{total}} épisodes",
+      "episodes_other": "{{total}} épisodes",
+      "chapters_one": "{{total}} chapitre",
+      "chapters_many": "{{total}} chapitres",
+      "chapters_other": "{{total}} chapitres"
     }
   },
   "mediaDetail": {
     "title": "Détails",
-    "placeholder": "{{kind}} n° {{id}} : détails bientôt disponibles",
+    "loading": "Chargement des détails",
+    "titles": {
+      "english": "Titre anglais : {{title}}",
+      "native": "Titre original : {{title}}"
+    },
+    "facts": {
+      "format": "Format",
+      "status": "Statut",
+      "totalUnits": "Longueur",
+      "score": "Note",
+      "year": "Année",
+      "unknown": "Inconnu",
+      "notScored": "Non noté"
+    },
+    "genres": {
+      "title": "Genres",
+      "empty": "Aucun genre"
+    },
+    "synopsis": {
+      "title": "Synopsis",
+      "empty": "Aucun synopsis disponible"
+    },
+    "hidden": {
+      "title": "Titre masqué",
+      "message": "Ce titre est un contenu pour adultes, masqué car le contenu pour adultes est désactivé dans les réglages."
+    },
+    "error": {
+      "notFound": {
+        "title": "Titre introuvable",
+        "message": "Cet anime ou ce manga n'existe pas dans le catalogue.",
+        "action": "Aller à Découvrir"
+      },
+      "offline": {
+        "title": "Vous êtes hors ligne",
+        "message": "Vérifiez votre connexion, puis réessayez."
+      },
+      "generic": {
+        "title": "Impossible de charger les détails",
+        "message": "Une erreur est survenue. Réessayez dans un instant."
+      },
+      "retry": "Réessayer"
+    },
     "invalidLink": {
       "title": "Ce lien n'est pas valide",
       "message": "Il ne mène à aucun anime ni manga.",
