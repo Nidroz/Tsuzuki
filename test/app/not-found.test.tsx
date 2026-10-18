@@ -8,6 +8,7 @@ import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { renderRouterAsync } from '../mobile/render-router';
 import { APP_ROUTES } from './app-routes';
+import { headerTitles, visibleBackButtons } from './native-header';
 
 // the device language, read by the root layout. the factory runs before this mock is initialized:
 // it calls it lazily
@@ -20,29 +21,8 @@ jest.mock('expo-localization', () => ({
 
 const NOT_FOUND_TEST_ID = 'not-found-screen';
 const UNKNOWN_PATH = '/nowhere/at/all';
-// the native stack header only shows up as this react-native-screens host component, whose title
-// prop is the header title
-const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
 
 const openLink = (url: string) => renderRouterAsync(APP_ROUTES, { initialUrl: url });
-
-// back button props of the visible headers: the route name of the screen below ("(tabs)") must
-// never show as a back title or in the ios back history menu
-const visibleBackButtons = () =>
-  screen.container
-    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
-    .map(({ props }) => props as Record<string, unknown>)
-    .filter(({ hidden }) => hidden !== true)
-    .map(({ backTitle, backButtonDisplayMode, backTitleVisible, disableBackButtonMenu }) => ({
-      backTitle,
-      minimal: backButtonDisplayMode === 'minimal' || backTitleVisible === false,
-      disableBackButtonMenu,
-    }));
-
-const headerTitles = () =>
-  screen.container
-    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
-    .map(({ props }) => (props as { title?: unknown }).title);
 
 describe('not found route', () => {
   beforeEach(() => {
