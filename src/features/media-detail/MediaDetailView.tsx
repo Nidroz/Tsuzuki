@@ -29,8 +29,8 @@ export interface MediaDetailViewProps {
 /**
  * the details of the media `mediaKey`, in this order of precedence while nothing is cached: an
  * error (not found, offline or generic), a spinner on the first load. once data is cached, it is
- * shown even when a refetch fails, so a viewed title stays readable offline: hidden when it is adult content
- * and the setting is off (BR-06), nothing of it shown, otherwise its details (FR-06)
+ * shown even when a refetch fails, so a viewed title stays readable offline: hidden when it is
+ * adult content and the setting is off (BR-06), nothing of it shown, otherwise its details (FR-06)
  */
 export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   const { t } = useTranslation();
