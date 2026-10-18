@@ -14,6 +14,8 @@ export { EmptyState } from './components/EmptyState';
 export type { EmptyStateProps, StateAction } from './components/EmptyState';
 export { ErrorState } from './components/ErrorState';
 export type { ErrorStateProps } from './components/ErrorState';
+export { Fact } from './components/Fact';
+export type { FactProps } from './components/Fact';
 export { IconButton } from './components/IconButton';
 export type { IconButtonProps, IconName } from './components/IconButton';
 export { Input } from './components/Input';

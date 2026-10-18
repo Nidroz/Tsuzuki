@@ -172,11 +172,66 @@
       "doujinshi": "Doujinshi",
       "oel": "OEL manga",
       "unknown": "Unknown format"
+    },
+    "status": {
+      "airing": "Airing",
+      "publishing": "Publishing",
+      "finished": "Finished",
+      "upcoming": "Upcoming",
+      "hiatus": "On hiatus",
+      "discontinued": "Discontinued"
+    },
+    "totalUnits": {
+      "episodes_one": "{{total}} episode",
+      "episodes_other": "{{total}} episodes",
+      "chapters_one": "{{total}} chapter",
+      "chapters_other": "{{total}} chapters"
     }
   },
   "mediaDetail": {
     "title": "Details",
-    "placeholder": "{{kind}} #{{id}}: details coming soon",
+    "loading": "Loading details",
+    "titles": {
+      "english": "English title: {{title}}",
+      "native": "Native title: {{title}}"
+    },
+    "facts": {
+      "format": "Format",
+      "status": "Status",
+      "totalUnits": "Length",
+      "score": "Score",
+      "year": "Year",
+      "unknown": "Unknown",
+      "notScored": "Not scored"
+    },
+    "genres": {
+      "title": "Genres",
+      "empty": "No genres"
+    },
+    "synopsis": {
+      "title": "Synopsis",
+      "empty": "No synopsis available"
+    },
+    "hidden": {
+      "title": "Title hidden",
+      "message": "This title is adult content, hidden because adult content is off in the settings."
+    },
+    "error": {
+      "notFound": {
+        "title": "Title not found",
+        "message": "This anime or manga does not exist in the catalog.",
+        "action": "Go to Discover"
+      },
+      "offline": {
+        "title": "You are offline",
+        "message": "Check your connection, then try again."
+      },
+      "generic": {
+        "title": "Details could not be loaded",
+        "message": "Something went wrong. Try again in a moment."
+      },
+      "retry": "Try again"
+    },
     "invalidLink": {
       "title": "This link is not valid",
       "message": "It does not lead to an anime or a manga.",

@@ -1,18 +1,8 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
 import { useTranslation } from '@core/i18n/index';
+import { englishTitleOf, FORMAT_KEYS, YEAR_FORMAT } from '@features/shared/media-labels';
 import { MediaListItem } from '@ui/index';
 import { memo, useCallback } from 'react';
-
-import { FORMAT_KEYS } from './format-keys';
-
-// a year is written without digit grouping in every language
-const YEAR_FORMAT: Intl.NumberFormatOptions = { useGrouping: false };
-
-/** the english title when it says more than the title: present and different ignoring case */
-export const englishTitleOf = (item: MediaSummary): string | undefined =>
-  item.titleEnglish !== null && item.titleEnglish.toLowerCase() !== item.title.toLowerCase()
-    ? item.titleEnglish
-    : undefined;
 
 /** the stable list key of a search result: its media key */
 export const searchResultKey = (item: MediaSummary): string =>

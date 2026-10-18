@@ -4,7 +4,7 @@ import { screen, userEvent } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { FRIEREN, FRIEREN_GOLDEN_LAND, SOLO_LEVELING } from './__fixtures__/search-results';
-import { englishTitleOf, SearchResultRow, searchResultKey } from './SearchResultRow';
+import { SearchResultRow, searchResultKey } from './SearchResultRow';
 
 const FRIEREN_TEST_ID = 'search-result-mal-anime-52991';
 const OPEN_HINT = 'Opens the details';
@@ -87,16 +87,6 @@ describe('SearchResultRow', () => {
         name: "Sousou no Frieren, Frieren: Beyond Journey's End, Film, 2023, Note 9,24",
       }),
     ).toHaveProp('accessibilityHint', 'Ouvre les détails');
-  });
-});
-
-describe('englishTitleOf', () => {
-  it.each<[string, string | null, string | undefined]>([
-    ['a different english title', "Frieren: Beyond Journey's End", "Frieren: Beyond Journey's End"],
-    ['the same title in another case', 'sousou no frieren', undefined],
-    ['no english title', null, undefined],
-  ])('gives %s', (_case, titleEnglish, expected) => {
-    expect(englishTitleOf({ ...FRIEREN, titleEnglish })).toBe(expected);
   });
 });
 

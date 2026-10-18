@@ -1,12 +1,37 @@
-import { describe, expect, it, jest } from '@jest/globals';
+import type { CatalogProvider, MediaDetail } from '@core/catalog/catalog-provider';
+import type * as FakeCatalogProvider from '@core/catalog/__fixtures__/fake-catalog-provider';
+import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
+import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
+import { CatalogHttpError } from '@core/errors/catalog-errors';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import { act, userEvent } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { router as appRouter } from 'expo-router';
 import { screen } from 'expo-router/testing-library';
+import { createMMKV } from 'react-native-mmkv';
 
 import en from '../../src/core/i18n/en.json';
+import {
+  BERSERK_DETAIL,
+  FRIEREN_DETAIL,
+} from '../../src/features/media-detail/__fixtures__/media-details';
 import { renderRouterAsync } from '../mobile/render-router';
+import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
+import { headerTitles, visibleBackButtons } from './native-header';
+
+// the composition root gets a fake provider instead of the tenrai one: no http
+jest.mock('@core/catalog/jikan/jikan-catalog-provider', () => {
+  const fake = jest.requireActual<typeof FakeCatalogProvider>(
+    '@core/catalog/__fixtures__/fake-catalog-provider',
+  );
+  const provider = fake.createStrictFakeCatalogProvider();
+  return {
+    ...jest.requireActual<typeof JikanProvider>('@core/catalog/jikan/jikan-catalog-provider'),
+    createJikanCatalogProvider: () => provider,
+  };
+});
 
 // an english device: the root layout resolves the language from it
 const DEVICE_LOCALES: readonly Pick<Localization.Locale, 'languageTag'>[] = [
@@ -18,55 +43,98 @@ jest.mock('expo-localization', () => ({
   useLocales: () => DEVICE_LOCALES,
 }));
 
+// the layout persists the query cache to its storage: the shared instance lets each test clear it,
+// so no test restores a detail another one fetched
+jest.mock('react-native-mmkv', () =>
+  jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+
+const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+
 const VALID_TEST_ID = 'media-detail-screen';
+const CONTENT_TEST_ID = 'media-detail-content';
+const MISSING_TEST_ID = 'media-detail-not-found';
 const INVALID_TEST_ID = 'media-detail-invalid';
 const NOT_FOUND_TEST_ID = 'not-found-screen';
-// the native stack header only shows up as this react-native-screens host component, whose title
-// prop is the header title
-const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
+const DISCOVER_TEST_ID = 'discover-screen';
+
+// the provider the root layout wraps: the mocked factory always returns the same one
+const getDetail = jest.mocked(
+  jest
+    .requireMock<typeof JikanProvider>('@core/catalog/jikan/jikan-catalog-provider')
+    .createJikanCatalogProvider(TENRAI_INSTANCE).getDetail,
+);
+
+// a detail for any requested key, so the header and navigation cases show a loaded screen
+const answersAnyKey: CatalogProvider['getDetail'] = (key) =>
+  Promise.resolve({ ...FRIEREN_DETAIL, key });
+
+const resolvesWith =
+  (detail: MediaDetail): CatalogProvider['getDetail'] =>
+  () =>
+    Promise.resolve(detail);
 
 // a cold deep link: the app starts on the url
 const openLink = (url: string) => renderRouterAsync(APP_ROUTES, { initialUrl: url });
 
-// back button props of the visible headers: the route name of the screen below ("(tabs)") must
-// never show as a back title or in the ios back history menu
-const visibleBackButtons = () =>
-  screen.container
-    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
-    .map(({ props }) => props as Record<string, unknown>)
-    .filter(({ hidden }) => hidden !== true)
-    .map(({ backTitle, backButtonDisplayMode, backTitleVisible, disableBackButtonMenu }) => ({
-      backTitle,
-      minimal: backButtonDisplayMode === 'minimal' || backTitleVisible === false,
-      disableBackButtonMenu,
-    }));
-
-const headerTitles = () =>
-  screen.container
-    .queryAll(({ type }) => type === NATIVE_HEADER_HOST)
-    .map(({ props }) => (props as { title?: unknown }).title);
+const linkTo = ({ key }: MediaDetail) =>
+  `/media/${key.namespace}/${key.kind}/${String(key.externalId)}`;
 
 describe('media detail route', () => {
+  beforeEach(() => {
+    appStorage.clearAll();
+    getDetail.mockReset();
+    getDetail.mockImplementation(answersAnyKey);
+  });
+
   it.each([
-    ['/media/mal/anime/1', 'Anime #1: details coming soon'],
-    ['/media/mal/manga/42', 'Manga #42: details coming soon'],
-  ])('shows the placeholder of the valid link %s', async (url, text) => {
+    ['anime', FRIEREN_DETAIL],
+    ['manga', BERSERK_DETAIL],
+  ])('shows the details of a valid %s link, fetched with its parsed key', async (_kind, detail) => {
+    getDetail.mockImplementation(resolvesWith(detail));
+    const url = linkTo(detail);
     const router = await openLink(url);
 
+    expect(await screen.findByTestId(CONTENT_TEST_ID)).toBeOnTheScreen();
     expect(router.getPathname()).toBe(url);
     expect(screen.getByTestId(VALID_TEST_ID)).toBeOnTheScreen();
-    expect(screen.getByText(text)).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: detail.title })).toBeOnTheScreen();
     expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(getDetail).toHaveBeenCalledTimes(1);
+    expect(getDetail).toHaveBeenCalledWith(
+      { namespace: 'mal', kind: detail.key.kind, externalId: detail.key.externalId },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('leads a link to a missing title to Discover, with nothing left to go back to', async () => {
+    getDetail.mockImplementation(() => Promise.reject(new CatalogHttpError(404, null)));
+    const user = userEvent.setup();
+    const router = await openLink('/media/mal/anime/3');
+
+    expect(await screen.findByTestId(MISSING_TEST_ID)).toBeOnTheScreen();
+    expect(screen.getByText(en.mediaDetail.error.notFound.title)).toBeOnTheScreen();
+
+    await user.press(screen.getByRole('button', { name: en.mediaDetail.error.notFound.action }));
+
+    expect(router.getPathname()).toBe('/');
+    expect(screen.getByTestId(DISCOVER_TEST_ID)).toBeOnTheScreen();
+    expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
+    // dismissed to the tabs below, not pushed: no missing title left to go back to
+    expect(appRouter.canGoBack()).toBe(false);
+    expect(getDetail).toHaveBeenCalledTimes(1);
   });
 
   it('titles its stack header in the app language', async () => {
     await openLink('/media/mal/anime/1');
 
+    expect(await screen.findByTestId(CONTENT_TEST_ID)).toBeOnTheScreen();
     expect(headerTitles()).toContain(en.mediaDetail.title);
   });
 
   it('keeps Discover below a cold deep link, so back leads to it', async () => {
     const router = await openLink('/media/mal/manga/42');
+    expect(await screen.findByTestId(CONTENT_TEST_ID)).toBeOnTheScreen();
 
     expect(appRouter.canGoBack()).toBe(true);
     await act(() => {
@@ -74,7 +142,7 @@ describe('media detail route', () => {
     });
 
     expect(router.getPathname()).toBe('/');
-    expect(screen.getByTestId('discover-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId(DISCOVER_TEST_ID)).toBeOnTheScreen();
   });
 
   it.each([
@@ -83,13 +151,14 @@ describe('media detail route', () => {
     ['an unknown kind', '/media/mal/movie/1'],
     ['an id that is not a number', '/media/mal/anime/abc'],
     ['an id that is not positive', '/media/mal/anime/0'],
-  ])('shows a translated error for %s', async (_case, url) => {
+  ])('shows a translated error for %s, fetching nothing', async (_case, url) => {
     await openLink(url);
 
     expect(screen.getByTestId(INVALID_TEST_ID)).toBeOnTheScreen();
     expect(screen.getByText(en.mediaDetail.invalidLink.title)).toBeOnTheScreen();
     expect(screen.getByText(en.mediaDetail.invalidLink.message)).toBeOnTheScreen();
     expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(getDetail).not.toHaveBeenCalled();
   });
 
   it('goes back to Discover from an invalid link', async () => {
@@ -99,7 +168,7 @@ describe('media detail route', () => {
     await user.press(screen.getByRole('button', { name: en.mediaDetail.invalidLink.action }));
 
     expect(router.getPathname()).toBe('/');
-    expect(screen.getByTestId('discover-screen')).toBeOnTheScreen();
+    expect(screen.getByTestId(DISCOVER_TEST_ID)).toBeOnTheScreen();
     expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
     // dismissed to the tabs below, not pushed: one Discover, no invalid link left to go back to
     expect(appRouter.canGoBack()).toBe(false);
@@ -111,10 +180,12 @@ describe('media detail route', () => {
     expect(screen.getByTestId(NOT_FOUND_TEST_ID)).toBeOnTheScreen();
     expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
     expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(getDetail).not.toHaveBeenCalled();
   });
 
   it('shows no untranslated back title or back menu over the tabs', async () => {
     await openLink('/media/mal/anime/1');
+    expect(await screen.findByTestId(CONTENT_TEST_ID)).toBeOnTheScreen();
 
     expect(visibleBackButtons()).toStrictEqual([
       { backTitle: undefined, minimal: true, disableBackButtonMenu: true },

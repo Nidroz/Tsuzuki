@@ -69,10 +69,12 @@ describe('tailwind config', () => {
     expect(config.theme.extend.width).toStrictEqual({
       'cover-sm': px(coverSizes.sm.width),
       'cover-md': px(coverSizes.md.width),
+      'cover-lg': px(coverSizes.lg.width),
     });
     expect(config.theme.extend.height).toStrictEqual({
       'cover-sm': px(coverSizes.sm.height),
       'cover-md': px(coverSizes.md.height),
+      'cover-lg': px(coverSizes.lg.height),
     });
   });
 });

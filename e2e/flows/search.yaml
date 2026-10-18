@@ -1,9 +1,9 @@
-# search flow (FR-01, FR-02): search a title, open a result, come back, find the search among the
-# recent searches, then clear them. runs in the development build like the smoke flow (see its
-# header and e2e/README.md), with clearState, so no recent search is stored at launch. elements
-# are found by id or by the typed text only, so the flow does not depend on the device language.
-# it queries the live catalog (Tenrai): the first result row is matched by its id prefix, never by
-# a title the catalog could reorder
+# search flow (FR-01, FR-02, FR-06): search a title, open a result and see its details, come
+# back, find the search among the recent searches, then clear them. runs in the development build
+# like the smoke flow (see its header and e2e/README.md), with clearState, so no recent search is
+# stored at launch. elements are found by id or by the typed text only, so the flow does not depend
+# on the device language. it queries the live catalog (Tenrai): the first result row is matched by
+# its id prefix, never by a title the catalog could reorder
 appId: io.github.nidroz.tsuzuki.dev
 ---
 - launchApp:
@@ -38,6 +38,13 @@ appId: io.github.nidroz.tsuzuki.dev
     visible:
       id: media-detail-screen
     timeout: 10000
+# the details come from the live catalog too
+- extendedWaitUntil:
+    visible:
+      id: media-detail-content
+    timeout: 30000
+- assertVisible:
+    id: media-detail-title
 - back
 - assertVisible:
     id: search-screen

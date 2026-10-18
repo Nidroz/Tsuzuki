@@ -1,7 +1,9 @@
+import { createStrictFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
+import { BERSERK_DETAIL, FRIEREN_DETAIL } from './__fixtures__/media-details';
 import { MediaDetailScreen } from './MediaDetailScreen';
 
 const INVALID_TITLE = 'This link is not valid';
@@ -19,6 +21,7 @@ jest.mock('expo-router', () => ({
 }));
 
 const VALID_TEST_ID = 'media-detail-screen';
+const CONTENT_TEST_ID = 'media-detail-content';
 const INVALID_TEST_ID = 'media-detail-invalid';
 
 describe('MediaDetailScreen', () => {
@@ -27,23 +30,38 @@ describe('MediaDetailScreen', () => {
   });
 
   it.each([
-    ['anime', '5114', 'Anime #5114: details coming soon'],
-    ['manga', '2', 'Manga #2: details coming soon'],
-  ])('shows the placeholder of a valid %s link', async (kind, id, text) => {
-    await renderWithProviders(<MediaDetailScreen params={{ namespace: MAL, kind, id }} />);
-
-    expect(screen.getByTestId(VALID_TEST_ID)).toBeOnTheScreen();
-    expect(screen.getByText(text)).toBeOnTheScreen();
-    expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
-  });
-
-  it('shows the placeholder in french', async () => {
+    ['anime', FRIEREN_DETAIL],
+    ['manga', BERSERK_DETAIL],
+  ])('shows the details of a valid %s link, fetched with its parsed key', async (kind, detail) => {
+    const provider = createStrictFakeCatalogProvider({
+      getDetail: () => Promise.resolve(detail),
+    });
     await renderWithProviders(
-      <MediaDetailScreen params={{ namespace: MAL, kind: 'anime', id: '1' }} />,
-      { language: 'fr' },
+      <MediaDetailScreen params={{ namespace: MAL, kind, id: String(detail.key.externalId) }} />,
+      { catalogProvider: provider },
     );
 
-    expect(screen.getByText('Anime n° 1 : détails bientôt disponibles')).toBeOnTheScreen();
+    expect(await screen.findByTestId(CONTENT_TEST_ID)).toBeOnTheScreen();
+    expect(screen.getByTestId(VALID_TEST_ID)).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: detail.title })).toBeOnTheScreen();
+    expect(screen.queryByTestId(INVALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(provider.getDetail).toHaveBeenCalledTimes(1);
+    expect(provider.getDetail).toHaveBeenCalledWith(
+      { namespace: MAL, kind, externalId: detail.key.externalId },
+      expect.any(AbortSignal),
+    );
+  });
+
+  it('shows the details in french', async () => {
+    const provider = createStrictFakeCatalogProvider({
+      getDetail: () => Promise.resolve(BERSERK_DETAIL),
+    });
+    await renderWithProviders(
+      <MediaDetailScreen params={{ namespace: MAL, kind: 'manga', id: '2' }} />,
+      { language: 'fr', catalogProvider: provider },
+    );
+
+    expect(await screen.findByLabelText('Statut, En cours de publication')).toBeOnTheScreen();
   });
 
   it.each<[string, unknown]>([
@@ -54,13 +72,17 @@ describe('MediaDetailScreen', () => {
     ['an id that is not a number', { namespace: MAL, kind: 'anime', id: 'abc' }],
     ['a missing id', { namespace: MAL, kind: 'manga' }],
     ['repeated params', { namespace: MAL, kind: 'anime', id: ['1', '2'] }],
-  ])('shows a translated error for %s', async (_case, params) => {
-    await renderWithProviders(<MediaDetailScreen params={params} />);
+  ])('shows a translated error for %s, fetching nothing', async (_case, params) => {
+    const provider = createStrictFakeCatalogProvider();
+    await renderWithProviders(<MediaDetailScreen params={params} />, {
+      catalogProvider: provider,
+    });
 
     expect(screen.getByTestId(INVALID_TEST_ID)).toBeOnTheScreen();
     expect(screen.getByText(INVALID_TITLE)).toBeOnTheScreen();
     expect(screen.getByText(INVALID_MESSAGE)).toBeOnTheScreen();
     expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
+    expect(provider.getDetail).not.toHaveBeenCalled();
   });
 
   it('goes back to Discover from an invalid link, without any other navigation', async () => {

@@ -4,10 +4,10 @@ import {
   type SearchableMediaFormat,
 } from '@core/domain/media';
 import { useTranslation } from '@core/i18n/index';
+import { FORMAT_KEYS } from '@features/shared/media-labels';
 import { useMemo } from 'react';
 
 import { FilterChoice, type FilterChoiceOption } from './FilterChoice';
-import { FORMAT_KEYS } from './format-keys';
 
 export interface FormatFilterProps {
   kind: MediaKind;

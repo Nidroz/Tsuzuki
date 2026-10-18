@@ -61,6 +61,30 @@ describe('Text', () => {
     },
   );
 
+  it.each(VARIANTS.filter((variant) => variant !== 'title'))(
+    'announces variant %s as a heading with heading',
+    async (variant) => {
+      await render(
+        <Text variant={variant} heading testID={TEST_ID}>
+          {CONTENT}
+        </Text>,
+      );
+
+      expect(screen.getByRole('header', { name: CONTENT })).toBeOnTheScreen();
+      expect(renderedClasses()[0]).toBe(`text-${variant}`);
+    },
+  );
+
+  it('keeps the title variant a heading with heading off', async () => {
+    await render(
+      <Text variant="title" heading={false}>
+        {CONTENT}
+      </Text>,
+    );
+
+    expect(screen.getByRole('header', { name: CONTENT })).toBeOnTheScreen();
+  });
+
   it.each(Object.entries(TONE_CLASSES) as [TextTone, string][])(
     'maps tone %s to %s',
     async (tone, className) => {

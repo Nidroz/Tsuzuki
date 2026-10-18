@@ -40,6 +40,8 @@ export interface TextProps {
   children: ReactNode;
   /** body by default; title is announced as a heading */
   variant?: TextVariant;
+  /** announces the text as a heading whatever its variant, e.g. a section title */
+  heading?: boolean;
   tone?: TextTone;
   align?: TextAlign;
   /** truncates with an ellipsis after this many lines */
@@ -53,6 +55,7 @@ export interface TextProps {
 export function Text({
   children,
   variant = 'body',
+  heading = false,
   tone = 'default',
   align,
   numberOfLines,
@@ -62,7 +65,7 @@ export function Text({
   return (
     <NativeText
       className={cx(VARIANT[variant], TONE[tone], align && ALIGN[align])}
-      accessibilityRole={variant === 'title' ? 'header' : 'text'}
+      accessibilityRole={heading || variant === 'title' ? 'header' : 'text'}
       {...(numberOfLines !== undefined && { numberOfLines })}
       {...(accessibilityLabel !== undefined && { accessibilityLabel })}
       testID={testID}

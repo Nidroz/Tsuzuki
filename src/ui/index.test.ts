@@ -15,6 +15,7 @@ describe('src/ui public api', () => {
         'DEFAULT_SIBLINGS',
         'EmptyState',
         'ErrorState',
+        'Fact',
         'IconButton',
         'Input',
         'List',
