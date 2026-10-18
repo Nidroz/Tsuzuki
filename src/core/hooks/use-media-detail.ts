@@ -32,7 +32,8 @@ const hideAdult: SelectVisibleMediaDetail = (media) => toVisible(media, false);
  * the details of the media `key` from the catalog provider (FR-06), hidden on the cached data when
  * it is adult content and the setting is off (BR-06): toggling the setting never refetches. served
  * from the cache for STALE_TIMES.mediaDetail, and persisted like every successful query, so a
- * viewed title reads offline. a request whose key is left is aborted down to the http client.
+ * viewed title reads offline (until A-05, a failed offline refetch drops it from the persisted
+ * cache: docs/ARCHITECTURE.md §6). a request whose key is left is aborted down to the http client.
  * never retried here: the catalog http client retries
  */
 export const useMediaDetail = (
