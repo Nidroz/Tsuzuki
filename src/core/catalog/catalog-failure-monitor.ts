@@ -8,6 +8,7 @@ import {
   CatalogProviderFailureError,
   CatalogResponseError,
   CatalogTimeoutError,
+  isCatalogNotFoundError,
   type CatalogFailureKind,
 } from '../errors/catalog-errors';
 import type { ErrorReporter } from '../errors/error-reporter';
@@ -25,7 +26,6 @@ export const CATALOG_FAILURE_REPORT_INTERVAL_MS = 1_800_000;
 const REPORT_SOURCE = 'catalog';
 const HTTP_SERVER_ERROR_MIN = 500;
 const HTTP_TOO_MANY_REQUESTS = 429;
-const HTTP_NOT_FOUND = 404;
 
 export interface CatalogFailureMonitorOptions {
   readonly reporter: ErrorReporter;
@@ -41,10 +41,10 @@ export interface CatalogFailureMonitorOptions {
 // offline device and a provider outage look the same until A-05 brings connectivity), an abort,
 // an input RangeError or an unknown error
 const failureKindOf = (error: unknown): CatalogFailureKind | null => {
+  if (isCatalogNotFoundError(error)) {
+    return null;
+  }
   if (error instanceof CatalogHttpError) {
-    if (error.status === HTTP_NOT_FOUND) {
-      return null;
-    }
     if (error.status >= HTTP_SERVER_ERROR_MIN) {
       return 'server_error';
     }

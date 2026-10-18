@@ -24,6 +24,15 @@ export class CatalogHttpError extends CatalogError {
   }
 }
 
+const HTTP_NOT_FOUND = 404;
+
+/**
+ * the provider has no such title: a 404, a normal answer for a missing id (gaps in MAL ids, a stale
+ * library row, a deep link to a missing id), shown as "not found" rather than as a failure.
+ */
+export const isCatalogNotFoundError = (error: unknown): boolean =>
+  error instanceof CatalogHttpError && error.status === HTTP_NOT_FOUND;
+
 /** the request or its body could not be transferred (offline, dns, connection reset). */
 export class CatalogNetworkError extends CatalogError {
   constructor() {

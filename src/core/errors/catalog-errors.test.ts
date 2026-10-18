@@ -9,6 +9,7 @@ import {
   CatalogProviderFailureError,
   CatalogResponseError,
   CatalogTimeoutError,
+  isCatalogNotFoundError,
 } from './catalog-errors';
 
 const RETRY_AFTER_MS = 2_000;
@@ -82,5 +83,21 @@ describe('catalog errors', () => {
       expect(error.message).toBe(`Catalog provider is failing: ${kind}`);
       expect(Object.keys(error).sort()).toStrictEqual(['kind', 'name']);
     }
+  });
+});
+
+describe('isCatalogNotFoundError', () => {
+  it('recognizes a 404 of the provider', () => {
+    expect(isCatalogNotFoundError(new CatalogHttpError(404, null))).toBe(true);
+  });
+
+  it.each<[string, unknown]>([
+    ['another client error', new CatalogHttpError(400, null)],
+    ['a server error', new CatalogHttpError(503, RETRY_AFTER_MS)],
+    ['a network error', new CatalogNetworkError()],
+    ['an error that is not a catalog error', new Error('404')],
+    ['a value that is not an error', { status: 404 }],
+  ])('does not take %s for a missing title', (_case, error) => {
+    expect(isCatalogNotFoundError(error)).toBe(false);
   });
 });
