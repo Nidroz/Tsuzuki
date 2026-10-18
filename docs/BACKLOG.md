@@ -135,7 +135,7 @@ Details:
 - [x] C-04 Search screen: debounced bar, recent searches, results list
 - [x] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [x] C-06 Interactive pagination with prefetch and position restore
-- [ ] C-07 Media detail screen
+- [x] C-07 Media detail screen
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
 
 Details:
@@ -171,6 +171,8 @@ Details:
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
 
 ### C-08 Discovery screen
+- Discover rows open the media detail like the search rows: `router.push({ pathname: '/media/[namespace]/[kind]/[id]', params: toMediaRouteParams(item.key) })`, with the labels of `src/features/shared/media-labels.ts` (C-07).
+- `StatusFilter` (`src/features/search/StatusFilter.tsx`) keeps its own `search.filters.status.*` keys, which duplicate the `media.status.*` keys the detail uses: switch it to `STATUS_KEYS` (`src/features/shared/media-labels.ts`) when touching the search filters (C-07).
 - Reuse the search pagination and its background prefetch for top and season pages (`CatalogRequestOptions`, C-06). Adding a format to `getTop` makes the positional optional parameters awkward (`getTop(kind, page, undefined, options)`): consider one options object for the signal, the format and the priority (C-06 review).
 - Pagination follow-ups from the C-06 review (`src/features/search/SearchResults.tsx`): show the pagination under the `ErrorState` when the requested page is above 1, as the empty state does; while the placeholder of another search is shown, the pagination shows that search's `lastPage`, so a tap can request a page past the new search's last one (it ends in the empty state with a way back): show only the current page then, or keep and document it.
 - Strengthen the C-06 tests: assert in `test/app/search-position.test.tsx` that going back does not scroll the list (no `scrollTo` call), and in `src/features/search/SearchScreen.pagination.test.tsx` that no foreground search of a new query asks for a page other than 1 (instead of `.at(-1)`), with a filters change case besides text and kind.
@@ -194,8 +196,11 @@ Details:
 - The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
 - Name the Postgres `integer` bound once in `src/core/domain/` (e.g. `POSTGRES_INTEGER_MAX`) and derive `EXTERNAL_ID_MAX` (`MAL_ID_MAX` before C-03) and the Jikan `TOTAL_UNITS_MAX` (`src/core/catalog/jikan/jikan-fields.ts`) from it (C-03 review).
 
+### L-03 Add/remove, status, progress, score, notes
+- The library snapshot refresh "when the detail screen is viewed" (`ARCHITECTURE.md` §5) and the detail screen's library actions (add, status, `+1`, score) come with this item; the favorite star comes with L-05 (C-07).
+
 ### L-06 Adult content setting wired to the filter
-- Replace the `DEFAULT_SHOW_ADULT` read of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet. Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
+- Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, and of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 
 ## Phase 4 — Accounts and sync
 
