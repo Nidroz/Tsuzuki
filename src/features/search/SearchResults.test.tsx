@@ -40,6 +40,9 @@ const renderResults = ({
       isPlaceholderData={isPlaceholderData}
       onRetry={onRetry}
       onOpen={onOpen}
+      currentPage={1}
+      onPageChange={jest.fn<(page: number) => void>()}
+      scrollToTopKey="frieren#1"
     />,
     { language },
   );
@@ -101,6 +104,12 @@ describe('SearchResults', () => {
 
     expect(screen.getByRole('progressbar', { name: 'Updating results' })).toBeOnTheScreen();
     expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+  });
+
+  it('shows no pagination for a single page', async () => {
+    await renderResults({ page: filteredPageOf(0, FRIEREN, FRIEREN_GOLDEN_LAND) });
+
+    expect(screen.queryByTestId('search-pagination')).not.toBeOnTheScreen();
   });
 
   it('says the device looks offline on a network error, with a retry', async () => {

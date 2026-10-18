@@ -49,6 +49,15 @@
       },
       "retry": "Try again"
     },
+    "pagination": {
+      "previous": "Previous page",
+      "next": "Next page",
+      "jumpTo": "Go to page",
+      "go": "Go",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} of {{pageCount}}, current page",
+      "morePages": "More pages"
+    },
     "filters": {
       "open": {
         "label": "Filters",

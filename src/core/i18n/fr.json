@@ -50,6 +50,15 @@
       },
       "retry": "Réessayer"
     },
+    "pagination": {
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "jumpTo": "Aller à la page",
+      "go": "Aller",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} sur {{pageCount}}, page actuelle",
+      "morePages": "Autres pages"
+    },
     "filters": {
       "open": {
         "label": "Filtres",
