@@ -10,6 +10,11 @@ import {
   CatalogResponseError,
   CatalogTimeoutError,
 } from '../../errors/catalog-errors';
+import {
+  expectNoPendingTimer,
+  neverAnswer,
+  settle,
+} from '../../../../test/core/catalog-http-test-support';
 import { createCatalogHttpClient, type CatalogHttpClientOptions } from './catalog-http-client';
 import type { RateLimitPolicy } from './rate-limiter';
 import { DEFAULT_RETRY_POLICY } from './retry-policy';
@@ -32,16 +37,6 @@ const SINGLE_ATTEMPT = { ...DEFAULT_RETRY_POLICY, maxAttempts: 1 };
 const createClient = (options: Partial<CatalogHttpClientOptions> = {}) =>
   createCatalogHttpClient({ rateLimit: UNLIMITED, ...options });
 
-// the outcome of a request, value or error, with its rejection handled from the start
-const settle = (request: Promise<unknown>): Promise<unknown> =>
-  request.catch((error: unknown) => error);
-
-// lets msw finish its bookkeeping, then checks that nothing is left scheduled
-const expectNoPendingTimer = async (): Promise<void> => {
-  await jest.advanceTimersByTimeAsync(0);
-  expect(jest.getTimerCount()).toBe(0);
-};
-
 // counts the requests to a url answered by the resolver
 const countRequests = (url: string, resolver: (count: number) => Response | Promise<Response>) => {
   const counter = { requests: 0 };
@@ -53,8 +48,6 @@ const countRequests = (url: string, resolver: (count: number) => Response | Prom
   );
   return counter;
 };
-
-const neverAnswer = (): Promise<Response> => new Promise<Response>(() => undefined);
 
 describe('createCatalogHttpClient', () => {
   it('returns the parsed json body and asks for json', async () => {

@@ -40,8 +40,10 @@ const pageOf = (...items: MediaSummary[]): Page<MediaSummary> => ({ ...EMPTY_PAG
 const FRIEREN: SearchParams = { kind: 'anime', query: 'frieren', page: 1 };
 const MUSHISHI: SearchParams = { kind: 'anime', query: 'mushishi', page: 1 };
 const FRIEREN_MANGA: SearchParams = { kind: 'manga', query: 'frieren', page: 1 };
+const MONONOKE: SearchParams = { kind: 'anime', query: 'mononoke', page: 1 };
 const CLEAN = summary(1);
 const ADULT = summary(2, true);
+const OTHER = summary(3);
 
 interface HookProps {
   readonly params: SearchParams | null;
@@ -76,6 +78,19 @@ const pendingUntilAborted: Search = (_params, signal) =>
       reject(new Error('aborted'));
     });
   });
+
+// a search that settles with the page the test answers, once the request started
+const searchAnsweredByTest = () => {
+  let settle: (page: Page<MediaSummary>) => void = () => undefined;
+  const search: Search = () =>
+    new Promise<Page<MediaSummary>>((resolve) => {
+      settle = resolve;
+    });
+  const answer = (page: Page<MediaSummary>): void => {
+    settle(page);
+  };
+  return { search, answer };
+};
 
 const resolvesWith =
   (page: Page<MediaSummary>): Search =>
@@ -232,6 +247,47 @@ describe('useSearch', () => {
 
     expect(result.current.isPlaceholderData).toBe(true);
     expect(result.current.data?.items).toStrictEqual([CLEAN]);
+  });
+
+  it('keeps the last settled results as placeholder data across two pending keys', async () => {
+    const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+    provider.search.mockImplementation(pendingUntilAborted);
+    rerender({ params: MUSHISHI, showAdult: false });
+    await waitFor(() => {
+      expect(provider.search).toHaveBeenCalledTimes(2);
+    });
+    expect(result.current.isPlaceholderData).toBe(true);
+    const third = searchAnsweredByTest();
+    provider.search.mockImplementation(third.search);
+
+    rerender({ params: MONONOKE, showAdult: false });
+
+    // the placeholder function alone would drop these results: their key is not the one just
+    // before. tanstack reuses the previous placeholder while `placeholderData` stays the same
+    // function object, which is what keeps them
+    expect(result.current.isPlaceholderData).toBe(true);
+    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+
+    await waitFor(() => {
+      expect(provider.search).toHaveBeenCalledTimes(3);
+    });
+
+    expect(provider.search).toHaveBeenLastCalledWith(MONONOKE, expect.any(AbortSignal));
+    expect(result.current.isPlaceholderData).toBe(true);
+    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+
+    act(() => {
+      third.answer(pageOf(OTHER));
+    });
+
+    await waitFor(() => {
+      expect(result.current.isPlaceholderData).toBe(false);
+    });
+    expect(result.current.isSuccess).toBe(true);
+    expect(result.current.data?.items).toStrictEqual([OTHER]);
   });
 
   it('shows no results while idle after a search', async () => {

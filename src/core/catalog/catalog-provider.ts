@@ -75,6 +75,22 @@ export interface Page<T> {
   readonly hasNextPage: boolean;
 }
 
+/** how urgent a paged request is for the provider's rate limiter. */
+export const CATALOG_REQUEST_PRIORITIES = ['foreground', 'background'] as const;
+
+export type CatalogRequestPriority = (typeof CATALOG_REQUEST_PRIORITIES)[number];
+
+/** per-call options of the paged methods. */
+export interface CatalogRequestOptions {
+  /**
+   * `foreground` (the default) for what the user is looking at; `background` for a prefetch, which
+   * never delays a foreground request in the provider's rate limiter. a foreground call for the
+   * same request joins a background one in flight and promotes it. results and errors are the
+   * same for both.
+   */
+  readonly priority?: CatalogRequestPriority;
+}
+
 /** the only way to the catalog: screens and hooks never see a provider directly. */
 export interface CatalogProvider {
   /**
@@ -101,9 +117,22 @@ export interface CatalogProvider {
    * (src/core/domain/search-filters.ts), so the genre filters it builds are always accepted.
    */
   readonly searchGenresMax: number;
-  search(params: SearchParams, signal?: AbortSignal): Promise<Page<MediaSummary>>;
+  search(
+    params: SearchParams,
+    signal?: AbortSignal,
+    options?: CatalogRequestOptions,
+  ): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
-  getTop(kind: MediaKind, page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;
-  getCurrentSeason(page: number, signal?: AbortSignal): Promise<Page<MediaSummary>>;
+  getTop(
+    kind: MediaKind,
+    page: number,
+    signal?: AbortSignal,
+    options?: CatalogRequestOptions,
+  ): Promise<Page<MediaSummary>>;
+  getCurrentSeason(
+    page: number,
+    signal?: AbortSignal,
+    options?: CatalogRequestOptions,
+  ): Promise<Page<MediaSummary>>;
   getGenres(kind: MediaKind, signal?: AbortSignal): Promise<readonly Genre[]>;
 }

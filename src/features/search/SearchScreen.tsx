@@ -29,17 +29,24 @@ import { SearchResults } from './SearchResults';
 const EDGES: readonly ScreenEdge[] = ['left', 'right'];
 
 const DEFAULT_KIND: MediaKind = 'anime';
-// pagination is C-06
 const FIRST_PAGE = 1;
 const MEDIA_DETAIL_PATHNAME = '/media/[namespace]/[kind]/[id]';
 
 // TODO(L-06): read the adult content setting
 const SHOW_ADULT = DEFAULT_SHOW_ADULT;
 
+/** the page requested, with the search it belongs to (null while there is nothing to search) */
+interface RequestedPage {
+  readonly search: string | null;
+  readonly page: number;
+}
+
+const INITIAL_REQUESTED_PAGE: RequestedPage = { search: null, page: FIRST_PAGE };
+
 /**
- * the search screen (FR-01, FR-02, FR-03, BR-06): a field, the kind and the filters, then the
- * recent searches while neither the field nor the filters hold anything to search, the results
- * otherwise. typing is debounced; a submitted or picked text is searched at once. a search is
+ * the search screen (FR-01, FR-02, FR-03, FR-04, BR-06): a field, the kind and the filters, then
+ * the recent searches while neither the field nor the filters hold anything to search, the results
+ * and their pages otherwise. typing is debounced; a submitted or picked text is searched at once. a search is
  * recorded on submit and when a result is opened, never while typing, and only its text: a search
  * by filters alone is never recorded
  */
@@ -58,9 +65,26 @@ export function SearchScreen() {
 
   const query = prepareSearchQuery(text === committedText ? text : debouncedText, maxLength);
   const filtering = hasActiveFilters(filters);
+
+  // the page belongs to the search it was requested in (FR-04): another kind, query or applied
+  // filters start again at page 1. stored information from the previous render, adjusted while
+  // rendering rather than in an effect, so no render ever pairs a new search with an old page
+  const search = query === null && !filtering ? null : JSON.stringify([kind, query, filters]);
+  const [requested, setRequested] = useState<RequestedPage>(INITIAL_REQUESTED_PAGE);
+  if (requested.search !== search) {
+    setRequested({ search, page: FIRST_PAGE });
+  }
+  const page = requested.search === search ? requested.page : FIRST_PAGE;
+  const changePage = useCallback(
+    (next: number) => {
+      setRequested({ search, page: next });
+    },
+    [search],
+  );
+
   const params = useMemo<SearchParams | null>(
-    () => (query === null && !filtering ? null : toSearchParams(kind, query, filters, FIRST_PAGE)),
-    [kind, query, filters, filtering],
+    () => (search === null ? null : toSearchParams(kind, query, filters, page)),
+    [search, kind, query, filters, page],
   );
   const { data, error, isPlaceholderData, refetch } = useSearch(params, { showAdult: SHOW_ADULT });
 
@@ -147,6 +171,9 @@ export function SearchScreen() {
             isPlaceholderData={isPlaceholderData}
             onRetry={retry}
             onOpen={openResult}
+            currentPage={page}
+            onPageChange={changePage}
+            scrollToTopKey={`${String(search)}#${String(page)}`}
           />
         ) : (
           <RecentSearchesList searches={searches} onSelect={searchAgain} onClear={clear} />

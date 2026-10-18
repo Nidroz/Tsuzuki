@@ -1,5 +1,6 @@
 // the http client of the catalog adapters: rate limited, deduplicated, retried with backoff
 // (docs/ARCHITECTURE.md §6). adapters parse what it returns with zod
+import type { CatalogRequestOptions } from '../catalog-provider';
 import {
   CatalogAbortedError,
   CatalogHttpError,
@@ -9,7 +10,7 @@ import {
 } from '../../errors/catalog-errors';
 import { onAbort, raceAbort, sleep } from './abortable';
 import { createInFlightDedup } from './in-flight-dedup';
-import { createRateLimiter, type RateLimitPolicy } from './rate-limiter';
+import { createRateLimiter, type BackgroundAcquire, type RateLimitPolicy } from './rate-limiter';
 import {
   DEFAULT_RETRY_POLICY,
   HTTP_SERVICE_UNAVAILABLE,
@@ -26,10 +27,12 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 export interface CatalogHttpClient {
   /**
    * fetches `url` (https only) and returns its parsed json body. identical urls in flight share one
-   * request; every attempt, retries included, takes a rate limiter token. rejects with a
-   * `CatalogError` subclass, or a `RangeError` for a url that is not https.
+   * request; every attempt, retries included, takes a rate limiter token. `priority: 'background'`
+   * (a prefetch) joins a request in flight, or starts one that takes its tokens behind every
+   * foreground request; a foreground call (the default) for a url in flight as background promotes
+   * it. rejects with a `CatalogError` subclass, or a `RangeError` for a url that is not https.
    */
-  getJson(url: string, signal?: AbortSignal): Promise<unknown>;
+  getJson(url: string, signal?: AbortSignal, options?: CatalogRequestOptions): Promise<unknown>;
 }
 
 export interface CatalogHttpClientOptions {
@@ -55,6 +58,14 @@ const HTTPS_PREFIX = 'https://';
 const REQUEST_HEADERS = { Accept: 'application/json' } as const;
 const RETRY_AFTER_HEADER = 'Retry-After';
 const SYNTAX_ERROR_NAME = 'SyntaxError';
+const BACKGROUND_PRIORITY = 'background';
+
+// the priority of a request in flight, beside its dedup entry. `pending` is the token wait of its
+// current attempt while the request is background, so a foreground caller can promote it
+interface RequestLane {
+  background: boolean;
+  pending: BackgroundAcquire | null;
+}
 
 // by name: a json parse error may come from another realm (node's fetch under jest), where
 // instanceof SyntaxError is false
@@ -139,10 +150,46 @@ export const createCatalogHttpClient = (options: CatalogHttpClientOptions): Cata
     }
   };
 
-  const withRetries = async (url: string, shared: AbortSignal): Promise<unknown> => {
-    const startedAt = now();
-    for (let attemptNumber = 1; ; attemptNumber += 1) {
+  // lane state per url, beside the dedup map: registered when a task starts and removed only by
+  // that task, since a later task may own the url once every caller of an older one left
+  const lanes = new Map<string, RequestLane>();
+
+  // a token for the next attempt: background while the request is, foreground once promoted
+  const takeToken = async (lane: RequestLane, shared: AbortSignal): Promise<void> => {
+    if (!lane.background) {
       await limiter.acquire(shared);
+      return;
+    }
+    const pending = limiter.acquireBackground(shared);
+    lane.pending = pending;
+    try {
+      await pending.granted;
+    } finally {
+      lane.pending = null;
+    }
+  };
+
+  const promote = (url: string): void => {
+    const lane = lanes.get(url);
+    if (lane?.background === true) {
+      lane.background = false;
+      // the attempt waiting for its token now; later attempts use acquire
+      lane.pending?.promote();
+    }
+  };
+
+  const withRetries = async (
+    url: string,
+    shared: AbortSignal,
+    lane: RequestLane,
+  ): Promise<unknown> => {
+    // the retry deadline of a foreground request counts from the call, its first token wait
+    // included. a request started in the background counts from its first token grant: its wait
+    // behind every foreground request is not on the user's clock, and a promotion keeps that start
+    let startedAt = lane.background ? null : now();
+    for (let attemptNumber = 1; ; attemptNumber += 1) {
+      await takeToken(lane, shared);
+      startedAt ??= now();
       try {
         return await attempt(url, shared);
       } catch (error: unknown) {
@@ -168,14 +215,36 @@ export const createCatalogHttpClient = (options: CatalogHttpClientOptions): Cata
     }
   };
 
+  // the task of a dedup entry: dedup starts it synchronously, so its lane is registered before any
+  // other caller can join
+  const run = async (url: string, shared: AbortSignal, background: boolean): Promise<unknown> => {
+    const lane: RequestLane = { background, pending: null };
+    lanes.set(url, lane);
+    try {
+      return await withRetries(url, shared, lane);
+    } finally {
+      if (lanes.get(url) === lane) {
+        lanes.delete(url);
+      }
+    }
+  };
+
   return {
-    getJson: (url, signal) => {
+    getJson: (url, signal, requestOptions) => {
       if (!url.startsWith(HTTPS_PREFIX)) {
         // the url may hold search text: it stays out of the message
         return Promise.reject(new RangeError('Catalog requests must use https'));
       }
-      // get requests only: the exact url is the dedup key
-      return dedup.run(url, (shared) => withRetries(url, shared), signal);
+      const background = requestOptions?.priority === BACKGROUND_PRIORITY;
+      // get requests only: the exact url is the dedup key. a background caller joins whatever is
+      // in flight, without an extra token
+      const result = dedup.run(url, (shared) => run(url, shared, background), signal);
+      // a foreground caller that joined a background request promotes it; one that left at once
+      // (signal already aborted) joined nothing
+      if (!background && signal?.aborted !== true) {
+        promote(url);
+      }
+      return result;
     },
   };
 };

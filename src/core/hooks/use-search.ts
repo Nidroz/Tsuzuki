@@ -12,6 +12,7 @@ import { queryKeys } from '../query/keys';
 import { SEARCH_GC_TIME, STALE_TIMES } from '../query/stale-times';
 import { selectFilteredPage, type FilteredPage } from './filtered-page';
 import { useCatalogProvider } from './use-catalog-provider';
+import { usePrefetchNextPage } from './use-prefetch-next-page';
 
 /** how long the search text stays unchanged before it is searched (FR-01), in milliseconds */
 export const SEARCH_DEBOUNCE_MS = 400;
@@ -27,7 +28,8 @@ export interface UseSearchOptions {
  * without data. a request whose key is left (new text, another kind) is aborted down to the http
  * client. the results of the search just before stay as placeholder data while a new key loads,
  * never across an idle state: after a cleared field, a new search starts without results. never
- * retried here: the catalog http client retries
+ * retried here: the catalog http client retries. once the page shown is settled, the next page is
+ * prefetched in the background (usePrefetchNextPage)
  */
 export const useSearch = (
   params: SearchParams | null,
@@ -55,7 +57,7 @@ export const useSearch = (
     [],
   );
 
-  return useQuery({
+  const result = useQuery({
     queryKey,
     queryFn: params === null ? skipToken : ({ signal }) => provider.search(params, signal),
     staleTime: STALE_TIMES.search,
@@ -64,4 +66,13 @@ export const useSearch = (
     ...(params !== null && { placeholderData: keepPreviousSearch }),
     select: selectFilteredPage(showAdult),
   });
+
+  usePrefetchNextPage(params, {
+    hasNextPage: result.data?.hasNextPage,
+    isPlaceholderData: result.isPlaceholderData,
+    isFetching: result.isFetching,
+    dataUpdatedAt: result.dataUpdatedAt,
+  });
+
+  return result;
 };

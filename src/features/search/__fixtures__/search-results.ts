@@ -81,3 +81,26 @@ export const filteredPageOf = (
   hiddenCount: number,
   ...items: MediaSummary[]
 ): FilteredPage<MediaSummary> => ({ ...pageOf(...items), hiddenCount });
+
+// the mal ids of the items of pagedResults: page n holds the id PAGED_ID_BASE + n
+const PAGED_ID_BASE = 1000;
+
+/** the synthetic anime of page `page` of pagedResults, titled after its page */
+export const itemOfPage = (page: number): MediaSummary => ({
+  ...FRIEREN,
+  key: { ...FRIEREN.key, externalId: PAGED_ID_BASE + page },
+  title: `Frieren page ${String(page)}`,
+  titleEnglish: null,
+});
+
+/** the test id of the row of itemOfPage(page) */
+export const rowOfPage = (page: number): string =>
+  `search-result-mal-anime-${String(PAGED_ID_BASE + page)}`;
+
+/** page `page` of a search of `lastPage` pages, as a provider returns it: one item, itemOfPage */
+export const pagedResults = (page: number, lastPage: number): Page<MediaSummary> => ({
+  items: page > lastPage ? [] : [itemOfPage(page)],
+  page,
+  lastPage,
+  hasNextPage: page < lastPage,
+});
