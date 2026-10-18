@@ -11,10 +11,11 @@ export const opacities = {
 } as const;
 
 // cover frames in density-independent pixels: 2:3 (width:height), the shape of catalog posters.
-// sm for compact rows, md for the rows of a result list
+// sm for compact rows, md for the rows of a result list, lg for the detail screen
 export const coverSizes = {
   sm: { width: 48, height: 72 },
   md: { width: 64, height: 96 },
+  lg: { width: 120, height: 180 },
 } as const;
 
 export type CoverSize = keyof typeof coverSizes;

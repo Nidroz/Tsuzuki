@@ -70,7 +70,7 @@ describe('CoverImage', () => {
     expect(style.color).toBe(palettes.light.textMuted);
   });
 
-  it('draws a medium 2:3 frame by default and a small one on request', async () => {
+  it('draws a medium 2:3 frame by default and a small or large one on request', async () => {
     const { rerender } = await renderWithTheme(<CoverImage url={URL} testID={TEST_ID} />);
 
     expect(classesOf(frame())).toStrictEqual(['h-cover-md', 'w-cover-md', ...FRAME_CLASSES]);
@@ -78,6 +78,17 @@ describe('CoverImage', () => {
     await rerender(<CoverImage url={URL} size="sm" testID={TEST_ID} />);
 
     expect(classesOf(frame())).toStrictEqual(['h-cover-sm', 'w-cover-sm', ...FRAME_CLASSES]);
+
+    await rerender(<CoverImage url={URL} size="lg" testID={TEST_ID} />);
+
+    expect(classesOf(frame())).toStrictEqual(['h-cover-lg', 'w-cover-lg', ...FRAME_CLASSES]);
+  });
+
+  it('draws the large frame as a placeholder too', async () => {
+    await renderWithTheme(<CoverImage url={null} size="lg" testID={TEST_ID} />);
+
+    expect(classesOf(frame())).toStrictEqual(['h-cover-lg', 'w-cover-lg', ...FRAME_CLASSES]);
+    expect(frame()).toContainElement(placeholder());
   });
 
   it.each([

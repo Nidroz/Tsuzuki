@@ -15,6 +15,7 @@ cssInterop(Image, { className: 'style' });
 const FRAME: Readonly<Record<CoverSize, string>> = {
   sm: 'h-cover-sm w-cover-sm',
   md: 'h-cover-md w-cover-md',
+  lg: 'h-cover-lg w-cover-lg',
 };
 
 const FRAME_CLASSES = 'items-center justify-center overflow-hidden rounded-sm bg-surface-muted';
