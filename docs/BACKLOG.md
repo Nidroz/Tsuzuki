@@ -134,7 +134,7 @@ Details:
 - [x] C-03 Jikan-compatible adapter (Tenrai by default): search, detail, top, season, genres, with Zod schemas and recorded fixtures
 - [x] C-04 Search screen: debounced bar, recent searches, results list
 - [x] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
-- [ ] C-06 Interactive pagination with prefetch and position restore
+- [x] C-06 Interactive pagination with prefetch and position restore
 - [ ] C-07 Media detail screen
 - [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
 
@@ -171,6 +171,11 @@ Details:
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
 
 ### C-08 Discovery screen
+- Reuse the search pagination and its background prefetch for top and season pages (`CatalogRequestOptions`, C-06). Adding a format to `getTop` makes the positional optional parameters awkward (`getTop(kind, page, undefined, options)`): consider one options object for the signal, the format and the priority (C-06 review).
+- Pagination follow-ups from the C-06 review (`src/features/search/SearchResults.tsx`): show the pagination under the `ErrorState` when the requested page is above 1, as the empty state does; while the placeholder of another search is shown, the pagination shows that search's `lastPage`, so a tap can request a page past the new search's last one (it ends in the empty state with a way back): show only the current page then, or keep and document it.
+- Strengthen the C-06 tests: assert in `test/app/search-position.test.tsx` that going back does not scroll the list (no `scrollTo` call), and in `src/features/search/SearchScreen.pagination.test.tsx` that no foreground search of a new query asks for a page other than 1 (instead of `.at(-1)`), with a filters change case besides text and kind.
+- `CATALOG_REQUEST_PRIORITIES` (`src/core/catalog/catalog-provider.ts`) is a runtime array used only for its type, and `catalog-http-client.ts` repeats the `'background'` string: use a union type, or `satisfies CatalogRequestPriority` at the use site (C-06 review).
+- Move the remaining copies of `settle`, `expectNoPendingTimer` and `elapsed` in `src/core/catalog/jikan/*.test.ts` to `test/core/catalog-http-test-support.ts`; split `src/core/hooks/use-search.test.tsx` (373 lines) and `src/core/catalog/catalog-failure-monitor.test.ts` (308 lines) under the ~300-line rule (C-06).
 - FR-05 format chips on top manga (manhwa, manhua) need a format on `CatalogProvider.getTop` (Jikan `/top/manga?type=`): a change to the interface and to the `top` query key (C-03).
 - Tenrai's `/seasons/now` also lists titles still airing from earlier seasons, without the `continuing` parameter (recorded 2026-10-14: a winter 2026 title in the fall 2026 list, C-03). Decide whether the current season section keeps them, or drops items whose `season` and `year` differ from the current season (the adapter does not read `season` today).
 
@@ -210,6 +215,7 @@ Details:
 - Every write names the media identity `(id_namespace, external_id)` from the `MediaKey` (`namespace`, `externalId`): `id_namespace` has no default (C-03, ADR-0013), and the upsert conflict target is `(user_id, id_namespace, media_kind, external_id)`.
 
 ### A-05 Offline write queue and replay
+- A foreground request that joins an in-flight background prefetch and fails is observed twice by the catalog failure monitor (once per provider call, C-06 review): count a shared failure once, or record it as accepted in `ARCHITECTURE.md` §3.
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
 - Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
