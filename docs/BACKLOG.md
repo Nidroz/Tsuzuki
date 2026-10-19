@@ -136,7 +136,7 @@ Details:
 - [x] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [x] C-06 Interactive pagination with prefetch and position restore
 - [x] C-07 Media detail screen
-- [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
+- [x] C-08 Discovery screen: top anime, top manga (format chips), current season
 
 Details:
 
