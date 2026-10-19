@@ -1,5 +1,4 @@
 import type { CatalogProvider, MediaDetail } from '@core/catalog/catalog-provider';
-import type * as FakeCatalogProvider from '@core/catalog/__fixtures__/fake-catalog-provider';
 import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
 import { CatalogHttpError } from '@core/errors/catalog-errors';
@@ -16,22 +15,16 @@ import {
   BERSERK_DETAIL,
   FRIEREN_DETAIL,
 } from '../../src/features/media-detail/__fixtures__/media-details';
+import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 import { headerTitles, visibleBackButtons } from './native-header';
 
 // the composition root gets a fake provider instead of the tenrai one: no http
-jest.mock('@core/catalog/jikan/jikan-catalog-provider', () => {
-  const fake = jest.requireActual<typeof FakeCatalogProvider>(
-    '@core/catalog/__fixtures__/fake-catalog-provider',
-  );
-  const provider = fake.createStrictFakeCatalogProvider();
-  return {
-    ...jest.requireActual<typeof JikanProvider>('@core/catalog/jikan/jikan-catalog-provider'),
-    createJikanCatalogProvider: () => provider,
-  };
-});
+jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>
+  jest.requireActual<typeof FakeJikanModule>('../mobile/fake-jikan-module').fakeJikanModule(),
+);
 
 // an english device: the root layout resolves the language from it
 const DEVICE_LOCALES: readonly Pick<Localization.Locale, 'languageTag'>[] = [

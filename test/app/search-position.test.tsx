@@ -1,5 +1,4 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
-import type * as FakeCatalogProvider from '@core/catalog/__fixtures__/fake-catalog-provider';
 import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
 import { SEARCH_DEBOUNCE_MS } from '@core/hooks/use-search';
@@ -10,6 +9,7 @@ import { router as appRouter } from 'expo-router';
 import { screen } from 'expo-router/testing-library';
 
 import { pagedResults, rowOfPage } from '../../src/features/search/__fixtures__/search-results';
+import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import { advance } from '../mobile/render-search-screen';
 import { APP_ROUTES } from './app-routes';
@@ -18,16 +18,9 @@ import { APP_ROUTES } from './app-routes';
 // page and the results the user left, without searching again
 
 // the composition root gets a fake provider instead of the tenrai one: no http
-jest.mock('@core/catalog/jikan/jikan-catalog-provider', () => {
-  const fake = jest.requireActual<typeof FakeCatalogProvider>(
-    '@core/catalog/__fixtures__/fake-catalog-provider',
-  );
-  const provider = fake.createStrictFakeCatalogProvider();
-  return {
-    ...jest.requireActual<typeof JikanProvider>('@core/catalog/jikan/jikan-catalog-provider'),
-    createJikanCatalogProvider: () => provider,
-  };
-});
+jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>
+  jest.requireActual<typeof FakeJikanModule>('../mobile/fake-jikan-module').fakeJikanModule(),
+);
 
 jest.mock('expo-localization', () => ({
   ...jest.requireActual<typeof Localization>('expo-localization'),

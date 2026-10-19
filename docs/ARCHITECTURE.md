@@ -121,7 +121,7 @@ tsuzuki/
 │   ├── features/                     # screen components rendered by the routes, e.g. discovery/DiscoveryScreen.tsx
 │   │   ├── media-list/               # shared by search and discovery (C-08): MediaPageList (states, hidden note, list, Pagination footer), MediaSummaryRow (memoized MediaSummary -> MediaListItem), mediaSummaryKey
 │   │   ├── search/                   # SearchScreen (field, kind switch, recent searches or results in a MediaPageList), SearchKindSwitch, RecentSearchesList; FiltersButton (active count), FiltersSheet (draft, Apply, Reset) and its sections (format, genres, status, year, minimum score, sort) (C-05); the page, held with the search it belongs to (C-06)
-│   │   ├── discovery/                # DiscoveryScreen (section chips, manga format chips, the page held with its list), TopMediaSection, SeasonSection (C-08)
+│   │   ├── discovery/                # DiscoveryScreen (section chips, manga format chips, the page held with its list), TopMediaSection, SeasonSection (one per hook), DiscoveryPageList (their MediaPageList: prefix discover, discovery.empty.*), ChoiceChips (a labelled group of single-select chips) (C-08)
 │   │   ├── library/                  # LibraryScreen (placeholder until L-04)
 │   │   ├── media-detail/             # MediaDetailScreen (parses the route params, invalid link state), MediaDetailView (useMediaDetail: not found, offline, generic error, loading, hidden, content), MediaDetailContent (FR-06: cover, titles, facts, genres, synopsis) (C-07); __fixtures__/media-details.ts (details from the recorded Tenrai responses, a synthetic adult one)
 │   │   ├── favorites/                # FavoritesScreen (placeholder until L-05)
@@ -136,7 +136,7 @@ tsuzuki/
 │   │   │   ├── global.css            # tailwind entry compiled by nativewind in metro
 │   │   │   ├── ThemeProvider.tsx     # system/light/dark, palette variables, status bar, navigation theme, native root view background
 │   │   │   └── theme-context.ts      # useThemeColors, for props that take a color value
-│   │   └── components/               # primitives: Screen, Box, Stack, Row, Spacer, Text (heading), Button, IconButton, TabBarIcon, Card, Input, Chip (selected, excluded), RadioGroup, Spinner, EmptyState, ErrorState, Pagination, List (FlashList; header, empty, footer, scrollToTopKey), CoverImage (expo-image), MediaListItem, Fact (label and value, one accessible element), Sheet (react-native Modal, slide-up)
+│   │   └── components/               # primitives: Screen, Box, Stack, Row (optional accessibilityLabel: a named radiogroup, for chip groups), Spacer, Text (heading), Button, IconButton, TabBarIcon, Card, Input, Chip (selected, excluded), RadioGroup, Spinner, EmptyState, ErrorState, Pagination, List (FlashList; header, empty, footer, scrollToTopKey), CoverImage (expo-image), MediaListItem, Fact (label and value, one accessible element), Sheet (react-native Modal, slide-up)
 │   │       ├── icons.ts              # glyph table by meaning (IconButton) + outline/filled pair per tab (TabBarIcon)
 │   │       ├── layout/               # token -> class tables shared by the primitives
 │   │       └── pagination/           # page window logic, PageButton, JumpToPage

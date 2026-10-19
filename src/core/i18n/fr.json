@@ -7,9 +7,19 @@
     "settings": "Réglages"
   },
   "discovery": {
-    "placeholder": {
-      "title": "Bientôt disponible",
-      "message": "Les meilleurs anime et manga et la saison en cours apparaîtront ici."
+    "sections": {
+      "label": "Listes",
+      "topAnime": "Top anime",
+      "topManga": "Top manga",
+      "season": "Cette saison"
+    },
+    "formats": {
+      "label": "Format du manga",
+      "all": "Tous"
+    },
+    "empty": {
+      "title": "Aucun titre",
+      "message": "Cette liste ne contient aucun titre ici pour le moment."
     }
   },
   "search": {

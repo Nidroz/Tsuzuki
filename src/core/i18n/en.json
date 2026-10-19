@@ -7,9 +7,19 @@
     "settings": "Settings"
   },
   "discovery": {
-    "placeholder": {
-      "title": "Coming soon",
-      "message": "Top anime, top manga and the current season will appear here."
+    "sections": {
+      "label": "Lists",
+      "topAnime": "Top anime",
+      "topManga": "Top manga",
+      "season": "This season"
+    },
+    "formats": {
+      "label": "Manga format",
+      "all": "All"
+    },
+    "empty": {
+      "title": "No titles",
+      "message": "This list has no titles here for now."
     }
   },
   "search": {
