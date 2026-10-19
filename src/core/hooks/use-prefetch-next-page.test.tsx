@@ -15,6 +15,7 @@ import { CatalogNetworkError } from '../errors/catalog-errors';
 import { queryKeys } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import { STALE_TIMES } from '../query/stale-times';
+import { settle } from './__fixtures__/catalog-pages';
 import { CatalogContextProvider } from './CatalogContextProvider';
 import { useSearch } from './use-search';
 
@@ -83,13 +84,6 @@ const setup = (params: SearchParams | null, search: Search) => {
 
 const backgroundCalls = (provider: ReturnType<typeof createFakeCatalogProvider>) =>
   provider.search.mock.calls.filter(([, , options]) => options?.priority === 'background');
-
-// lets the queries, their notifications and the prefetch settle
-const settle = async (): Promise<void> => {
-  await act(async () => {
-    await jest.advanceTimersByTimeAsync(0);
-  });
-};
 
 describe('useSearch next page prefetch (C-06)', () => {
   it('prefetches the next page once in the background when idle, filling its key', async () => {

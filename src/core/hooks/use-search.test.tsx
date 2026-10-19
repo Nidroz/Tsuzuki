@@ -1,105 +1,26 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
-import {
-  createFakeCatalogProvider,
-  EMPTY_PAGE,
-} from '../catalog/__fixtures__/fake-catalog-provider';
-import type {
-  CatalogProvider,
-  MediaSummary,
-  Page,
-  SearchParams,
-} from '../catalog/catalog-provider';
 import { CatalogNetworkError } from '../errors/catalog-errors';
 import { queryKeys } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import { SEARCH_GC_TIME, STALE_TIMES } from '../query/stale-times';
+import {
+  ADULT,
+  CLEAN,
+  FRIEREN,
+  pageOf,
+  rejectsWith,
+  resolvesWith,
+  setupSearch as setup,
+} from './__fixtures__/search-hook';
 import { MISSING_CATALOG_PROVIDER_MESSAGE } from './catalog-context';
-import { CatalogContextProvider } from './CatalogContextProvider';
 import { SEARCH_DEBOUNCE_MS, useSearch } from './use-search';
 
-const summary = (externalId: number, isAdult = false): MediaSummary => ({
-  key: { namespace: 'mal', kind: 'anime', externalId },
-  title: `Title ${String(externalId)}`,
-  titleEnglish: null,
-  imageUrl: null,
-  format: 'tv',
-  status: 'finished',
-  totalUnits: null,
-  score: null,
-  year: null,
-  genres: [],
-  isAdult,
-});
-
-const pageOf = (...items: MediaSummary[]): Page<MediaSummary> => ({ ...EMPTY_PAGE, items });
-
-const FRIEREN: SearchParams = { kind: 'anime', query: 'frieren', page: 1 };
-const MUSHISHI: SearchParams = { kind: 'anime', query: 'mushishi', page: 1 };
-const FRIEREN_MANGA: SearchParams = { kind: 'manga', query: 'frieren', page: 1 };
-const MONONOKE: SearchParams = { kind: 'anime', query: 'mononoke', page: 1 };
-const CLEAN = summary(1);
-const ADULT = summary(2, true);
-const OTHER = summary(3);
-
-interface HookProps {
-  readonly params: SearchParams | null;
-  readonly showAdult: boolean;
-}
-
-type Search = CatalogProvider['search'];
-
-// the provider answers with `search`, set before the first render, which starts the request
-const setup = (params: SearchParams | null, search?: Search, showAdult = false) => {
-  const provider = createFakeCatalogProvider();
-  if (search !== undefined) {
-    provider.search.mockImplementation(search);
-  }
-  const queryClient: QueryClient = createQueryClient();
-  const wrapper = ({ children }: { readonly children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
-    </QueryClientProvider>
-  );
-  const hook = renderHook(
-    ({ params: current, showAdult: show }: HookProps) => useSearch(current, { showAdult: show }),
-    { initialProps: { params, showAdult }, wrapper },
-  );
-  return { provider, queryClient, ...hook };
-};
-
-// a search that never settles by itself: it rejects when its signal aborts
-const pendingUntilAborted: Search = (_params, signal) =>
-  new Promise<Page<MediaSummary>>((_resolve, reject) => {
-    signal?.addEventListener('abort', () => {
-      reject(new Error('aborted'));
-    });
-  });
-
-// a search that settles with the page the test answers, once the request started
-const searchAnsweredByTest = () => {
-  let settle: (page: Page<MediaSummary>) => void = () => undefined;
-  const search: Search = () =>
-    new Promise<Page<MediaSummary>>((resolve) => {
-      settle = resolve;
-    });
-  const answer = (page: Page<MediaSummary>): void => {
-    settle(page);
-  };
-  return { search, answer };
-};
-
-const resolvesWith =
-  (page: Page<MediaSummary>): Search =>
-  () =>
-    Promise.resolve(page);
-const rejectsWith =
-  (error: Error): Search =>
-  () =>
-    Promise.reject(error);
+// the request, the cache, the content filter and the errors of useSearch. what happens when the
+// key changes (abort, placeholder data) lives in use-search-transitions.test.tsx
 
 describe('useSearch', () => {
   it('waits 400 ms of unchanged text before a search (FR-01)', () => {
@@ -194,138 +115,6 @@ describe('useSearch', () => {
     expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
     expect(provider.search).toHaveBeenCalledTimes(1);
     expect(result.current.query.isFetching).toBe(false);
-  });
-
-  it('aborts the request of a key it leaves', async () => {
-    const { provider, rerender } = setup(FRIEREN, pendingUntilAborted);
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(1);
-    });
-    const firstSignal = provider.search.mock.calls[0]?.[1];
-
-    expect(firstSignal?.aborted).toBe(false);
-
-    rerender({ params: FRIEREN_MANGA, showAdult: false });
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(2);
-    });
-
-    expect(firstSignal?.aborted).toBe(true);
-    expect(provider.search).toHaveBeenLastCalledWith(FRIEREN_MANGA, expect.any(AbortSignal));
-    expect(provider.search.mock.calls[1]?.[1]?.aborted).toBe(false);
-  });
-
-  it('aborts a pending request when the params go back to null', async () => {
-    const { provider, rerender, result } = setup(FRIEREN, pendingUntilAborted);
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(1);
-    });
-
-    rerender({ params: null, showAdult: false });
-
-    await waitFor(() => {
-      expect(provider.search.mock.calls[0]?.[1]?.aborted).toBe(true);
-    });
-    expect(result.current.query.fetchStatus).toBe('idle');
-  });
-
-  it('keeps the previous results as placeholder data while a new key loads', async () => {
-    const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
-    await waitFor(() => {
-      expect(result.current.query.isSuccess).toBe(true);
-    });
-    provider.search.mockImplementation(pendingUntilAborted);
-
-    rerender({ params: MUSHISHI, showAdult: false });
-
-    expect(result.current.query.isPlaceholderData).toBe(true);
-    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
-
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(2);
-    });
-
-    expect(result.current.query.isPlaceholderData).toBe(true);
-    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
-  });
-
-  it('keeps the last settled results as placeholder data across two pending keys', async () => {
-    const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
-    await waitFor(() => {
-      expect(result.current.query.isSuccess).toBe(true);
-    });
-    provider.search.mockImplementation(pendingUntilAborted);
-    rerender({ params: MUSHISHI, showAdult: false });
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(2);
-    });
-    expect(result.current.query.isPlaceholderData).toBe(true);
-    const third = searchAnsweredByTest();
-    provider.search.mockImplementation(third.search);
-
-    rerender({ params: MONONOKE, showAdult: false });
-
-    // the placeholder function alone would drop these results: their key is not the one just
-    // before. tanstack reuses the previous placeholder while `placeholderData` stays the same
-    // function object, which is what keeps them
-    expect(result.current.query.isPlaceholderData).toBe(true);
-    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
-
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(3);
-    });
-
-    expect(provider.search).toHaveBeenLastCalledWith(MONONOKE, expect.any(AbortSignal));
-    expect(result.current.query.isPlaceholderData).toBe(true);
-    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
-
-    act(() => {
-      third.answer(pageOf(OTHER));
-    });
-
-    await waitFor(() => {
-      expect(result.current.query.isPlaceholderData).toBe(false);
-    });
-    expect(result.current.query.isSuccess).toBe(true);
-    expect(result.current.query.data?.items).toStrictEqual([OTHER]);
-  });
-
-  it('shows no results while idle after a search', async () => {
-    const { result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
-    await waitFor(() => {
-      expect(result.current.query.isSuccess).toBe(true);
-    });
-
-    rerender({ params: null, showAdult: false });
-
-    expect(result.current.query.data).toBeUndefined();
-    expect(result.current.query.isPlaceholderData).toBe(false);
-  });
-
-  it('keeps no results from before an idle state as placeholder data', async () => {
-    const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
-    await waitFor(() => {
-      expect(result.current.query.isSuccess).toBe(true);
-    });
-    provider.search.mockImplementation(pendingUntilAborted);
-    rerender({ params: null, showAdult: false });
-
-    rerender({ params: MUSHISHI, showAdult: false });
-
-    expect(result.current.query.data).toBeUndefined();
-    expect(result.current.query.isPlaceholderData).toBe(false);
-
-    // the request starting updates the result again, after the new key is committed
-    await waitFor(() => {
-      expect(provider.search).toHaveBeenCalledTimes(2);
-    });
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(0);
-    });
-
-    expect(result.current.query.isPending).toBe(true);
-    expect(result.current.query.data).toBeUndefined();
-    expect(result.current.query.isPlaceholderData).toBe(false);
   });
 
   it('surfaces a provider error after a single call, never retrying', async () => {
