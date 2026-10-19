@@ -133,6 +133,37 @@ describe('GenresFilter', () => {
     expect(screen.getByRole('button', { name: 'Action, not filtered' })).toBeOnTheScreen();
   });
 
+  it('replaces the error with the spinner while the retry runs, and shows it again on a failure', async () => {
+    const user = userEvent.setup();
+    let failRetry: () => void = () => undefined;
+    const getGenres = jest
+      .fn<CatalogProvider['getGenres']>()
+      .mockRejectedValueOnce(new CatalogNetworkError())
+      .mockImplementation(
+        () =>
+          new Promise((_resolve, reject) => {
+            failRetry = () => {
+              reject(new CatalogNetworkError());
+            };
+          }),
+      );
+    await renderGenres({ getGenres });
+    expect(screen.getByTestId('filters-genres-error')).toBeOnTheScreen();
+
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+    await advance(0);
+
+    expect(screen.getByRole('progressbar', { name: 'Loading genres' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('filters-genres-error')).not.toBeOnTheScreen();
+
+    failRetry();
+    await advance(0);
+
+    expect(screen.getByTestId('filters-genres-error')).toBeOnTheScreen();
+    expect(screen.queryByTestId('filters-genres-loading')).not.toBeOnTheScreen();
+    expect(getGenres).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps the cached genres when a refetch fails', async () => {
     const queryClient = createQueryClient();
     const getGenres = jest

@@ -157,6 +157,33 @@ describe('MediaDetailView', () => {
     expect(mockRouter.dismissTo).not.toHaveBeenCalled();
   });
 
+  it('replaces the error with the spinner while the retry runs, and shows it again on a failure', async () => {
+    const user = userEvent.setup();
+    const { provider } = await renderView(rejectsWith(new CatalogNetworkError()));
+    expect(await screen.findByTestId(ERROR_TEST_ID)).toBeOnTheScreen();
+    let failRetry: () => void = () => undefined;
+    provider.getDetail.mockImplementation(
+      () =>
+        new Promise<MediaDetail>((_resolve, reject) => {
+          failRetry = () => {
+            reject(new CatalogNetworkError());
+          };
+        }),
+    );
+
+    await user.press(screen.getByRole('button', { name: RETRY }));
+
+    expect(await screen.findByTestId(LOADING_TEST_ID)).toBeOnTheScreen();
+    expect(screen.queryByTestId(ERROR_TEST_ID)).not.toBeOnTheScreen();
+    expect(screen.getByTestId(SCREEN_TEST_ID)).toBeOnTheScreen();
+
+    failRetry();
+
+    expect(await screen.findByTestId(ERROR_TEST_ID)).toBeOnTheScreen();
+    expect(screen.queryByTestId(LOADING_TEST_ID)).not.toBeOnTheScreen();
+    expect(provider.getDetail).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     ['a malformed response', new CatalogResponseError()],
     ['a timeout', new CatalogTimeoutError(10_000)],

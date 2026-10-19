@@ -28,14 +28,17 @@ export interface MediaDetailViewProps {
 
 /**
  * the details of the media `mediaKey`, in this order of precedence while nothing is cached: an
- * error (not found, offline or generic), a spinner on the first load. once data is cached, it is
+ * error (not found, offline or generic), replaced by the spinner while its retry runs, a spinner on
+ * the first load. once data is cached, it is
  * shown even when a refetch fails, so a viewed title stays readable offline: hidden when it is
  * adult content and the setting is off (BR-06), nothing of it shown, otherwise its details (FR-06)
  */
 export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { data, error, refetch } = useMediaDetail(mediaKey, { showAdult: SHOW_ADULT });
+  const { data, error, isFetching, refetch } = useMediaDetail(mediaKey, {
+    showAdult: SHOW_ADULT,
+  });
 
   const retry = useCallback(() => {
     void refetch();
@@ -46,7 +49,8 @@ export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   }, [router]);
 
   if (data === undefined) {
-    if (error !== null) {
+    // while the retry of an error runs, the spinner replaces it: a tap never restarts the request
+    if (error !== null && !isFetching) {
       return (
         <Screen edges={MEDIA_DETAIL_EDGES} testID={SCREEN_TEST_ID}>
           {isCatalogNotFoundError(error) ? (
