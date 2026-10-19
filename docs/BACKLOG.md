@@ -202,7 +202,7 @@ Details:
 - The library snapshot refresh "when the detail screen is viewed" (`ARCHITECTURE.md` §5) and the detail screen's library actions (add, status, `+1`, score) come with this item; the favorite star comes with L-05 (C-07).
 
 ### L-06 Adult content setting wired to the filter
-- Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, and of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
+- Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
 - Add a route-level BR-06 test in `test/app/media-detail.test.tsx`: an adult title through the real root layout shows `media-detail-hidden`, and the header titles equal the static `mediaDetail.title`, never the media title (C-07 review).
 
@@ -286,6 +286,7 @@ Details:
 - Run a jikan-rest instance (hosting, its own cache, MyAnimeList scraping limits, monitoring), https only.
 - Switch the app with one value: `EXPO_PUBLIC_JIKAN_BASE_URL` in the EAS environments (C-03), then a build, or an update published with its environment. The adapter applies `SELF_HOSTED_JIKAN_RATE_LIMIT` (the public Jikan's documented limits); tune it to the instance's real limits if needed.
 - Update the privacy policy (R-05) and ADR-0013's terms summary.
+- The Discover "This season" section shows Tenrai's `/seasons/now`, which also lists titles still airing from earlier seasons; a self-hosted Jikan without the `continuing` parameter (never sent, ADR-0004) lists only the season's new titles. Accepted difference (C-08): check it on the instance and mention it in the switch notes.
 - Before a self-hosted URL is used (C-03 review): `selfHostedJikanInstance` (`src/core/catalog/jikan/jikan-instances.ts`) checks only the https prefix and the trailing slash, and the app env URL pattern (`src/core/schemas/app-env.ts`) accepts `.` and `..` path segments. Export one core URL pattern, use it in both, and reject dot segments.
 
 ## Maintenance (recurring, never ticked)
