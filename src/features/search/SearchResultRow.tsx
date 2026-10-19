@@ -1,6 +1,5 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
-import { useTranslation } from '@core/i18n/index';
-import { englishTitleOf, FORMAT_KEYS, YEAR_FORMAT } from '@features/shared/media-labels';
+import { englishTitleOf, FORMAT_KEYS, useTranslation, YEAR_FORMAT } from '@core/i18n/index';
 import { MediaListItem } from '@ui/index';
 import { memo, useCallback } from 'react';
 

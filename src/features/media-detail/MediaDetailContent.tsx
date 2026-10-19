@@ -1,13 +1,13 @@
 import type { MediaDetail } from '@core/catalog/catalog-provider';
-import { useTranslation } from '@core/i18n/index';
 import {
   englishTitleOf,
   FORMAT_KEYS,
   nativeTitleOf,
   STATUS_KEYS,
   TOTAL_UNITS_KEYS,
+  useTranslation,
   YEAR_FORMAT,
-} from '@features/shared/media-labels';
+} from '@core/i18n/index';
 import { Chip, CoverImage, Fact, Row, Stack, Text } from '@ui/index';
 
 export interface MediaDetailContentProps {
