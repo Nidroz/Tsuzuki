@@ -27,37 +27,10 @@
       "clearLabel": "Effacer les recherches récentes"
     },
     "results": {
-      "loading": "Chargement des résultats",
-      "updating": "Mise à jour des résultats",
       "empty": {
         "title": "Aucun résultat",
         "message": "Essayez un autre titre, ou l'autre type."
-      },
-      "hidden_one": "{{count}} titre pour adultes a été masqué.",
-      "hidden_many": "{{count}} titres pour adultes ont été masqués.",
-      "hidden_other": "{{count}} titres pour adultes ont été masqués.",
-      "score": "Note {{score}}",
-      "openHint": "Ouvre les détails"
-    },
-    "error": {
-      "offline": {
-        "title": "Vous êtes hors ligne",
-        "message": "Vérifiez votre connexion, puis réessayez."
-      },
-      "generic": {
-        "title": "La recherche a échoué",
-        "message": "Une erreur est survenue. Réessayez dans un instant."
-      },
-      "retry": "Réessayer"
-    },
-    "pagination": {
-      "previous": "Page précédente",
-      "next": "Page suivante",
-      "jumpTo": "Aller à la page",
-      "go": "Aller",
-      "page": "Page {{page}}",
-      "currentPage": "Page {{page}} sur {{pageCount}}, page actuelle",
-      "morePages": "Autres pages"
+      }
     },
     "filters": {
       "open": {
@@ -121,6 +94,35 @@
           "desc": "Décroissant"
         }
       }
+    }
+  },
+  "mediaList": {
+    "loading": "Chargement des résultats",
+    "updating": "Mise à jour des résultats",
+    "hidden_one": "{{count}} titre pour adultes a été masqué.",
+    "hidden_many": "{{count}} titres pour adultes ont été masqués.",
+    "hidden_other": "{{count}} titres pour adultes ont été masqués.",
+    "score": "Note {{score}}",
+    "openHint": "Ouvre les détails",
+    "error": {
+      "offline": {
+        "title": "Vous êtes hors ligne",
+        "message": "Vérifiez votre connexion, puis réessayez."
+      },
+      "generic": {
+        "title": "Les résultats n'ont pas pu être chargés",
+        "message": "Une erreur est survenue. Réessayez dans un instant."
+      },
+      "retry": "Réessayer"
+    },
+    "pagination": {
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "jumpTo": "Aller à la page",
+      "go": "Aller",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} sur {{pageCount}}, page actuelle",
+      "morePages": "Autres pages"
     }
   },
   "library": {

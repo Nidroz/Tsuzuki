@@ -1,4 +1,4 @@
-// search results for the search feature tests, from the recorded tenrai search responses
+// search results for the search and media list tests, from the recorded tenrai search responses
 // (src/core/catalog/jikan/__fixtures__/tenrai/, 2026-10-14) as the jikan adapter maps them; the
 // adult items are synthetic placeholders, the recordings hold no adult title
 import type { MediaSummary, Page } from '@core/catalog/catalog-provider';

@@ -27,36 +27,10 @@
       "clearLabel": "Clear recent searches"
     },
     "results": {
-      "loading": "Loading results",
-      "updating": "Updating results",
       "empty": {
         "title": "No results",
         "message": "Try another title, or the other kind."
-      },
-      "hidden_one": "{{count}} adult title was hidden.",
-      "hidden_other": "{{count}} adult titles were hidden.",
-      "score": "Score {{score}}",
-      "openHint": "Opens the details"
-    },
-    "error": {
-      "offline": {
-        "title": "You are offline",
-        "message": "Check your connection, then try again."
-      },
-      "generic": {
-        "title": "Search failed",
-        "message": "Something went wrong. Try again in a moment."
-      },
-      "retry": "Try again"
-    },
-    "pagination": {
-      "previous": "Previous page",
-      "next": "Next page",
-      "jumpTo": "Go to page",
-      "go": "Go",
-      "page": "Page {{page}}",
-      "currentPage": "Page {{page}} of {{pageCount}}, current page",
-      "morePages": "More pages"
+      }
     },
     "filters": {
       "open": {
@@ -119,6 +93,34 @@
           "desc": "Descending"
         }
       }
+    }
+  },
+  "mediaList": {
+    "loading": "Loading results",
+    "updating": "Updating results",
+    "hidden_one": "{{count}} adult title was hidden.",
+    "hidden_other": "{{count}} adult titles were hidden.",
+    "score": "Score {{score}}",
+    "openHint": "Opens the details",
+    "error": {
+      "offline": {
+        "title": "You are offline",
+        "message": "Check your connection, then try again."
+      },
+      "generic": {
+        "title": "Results could not be loaded",
+        "message": "Something went wrong. Try again in a moment."
+      },
+      "retry": "Try again"
+    },
+    "pagination": {
+      "previous": "Previous page",
+      "next": "Next page",
+      "jumpTo": "Go to page",
+      "go": "Go",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} of {{pageCount}}, current page",
+      "morePages": "More pages"
     }
   },
   "library": {

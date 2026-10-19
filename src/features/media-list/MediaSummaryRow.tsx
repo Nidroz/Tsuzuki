@@ -3,17 +3,19 @@ import { englishTitleOf, FORMAT_KEYS, useTranslation, YEAR_FORMAT } from '@core/
 import { MediaListItem } from '@ui/index';
 import { memo, useCallback } from 'react';
 
-/** the stable list key of a search result: its media key */
-export const searchResultKey = (item: MediaSummary): string =>
+/** the stable list key of a media summary: its media key, `<namespace>:<kind>:<externalId>` */
+export const mediaSummaryKey = (item: MediaSummary): string =>
   `${item.key.namespace}:${item.key.kind}:${String(item.key.externalId)}`;
 
-export interface SearchResultRowProps {
+export interface MediaSummaryRowProps {
   item: MediaSummary;
   /** pass a stable function: a new one re-renders every row */
   onOpen: (item: MediaSummary) => void;
+  /** the row's testID is `<testIDPrefix>-<namespace>-<kind>-<externalId>` */
+  testIDPrefix: string;
 }
 
-function SearchResultRowView({ item, onOpen }: SearchResultRowProps) {
+function MediaSummaryRowView({ item, onOpen, testIDPrefix }: MediaSummaryRowProps) {
   const { t, formatNumber } = useTranslation();
   const open = useCallback(() => {
     onOpen(item);
@@ -22,9 +24,7 @@ function SearchResultRowView({ item, onOpen }: SearchResultRowProps) {
   const details = [
     t(FORMAT_KEYS[item.format]),
     ...(item.year === null ? [] : [formatNumber(item.year, YEAR_FORMAT)]),
-    ...(item.score === null
-      ? []
-      : [t('search.results.score', { score: formatNumber(item.score) })]),
+    ...(item.score === null ? [] : [t('mediaList.score', { score: formatNumber(item.score) })]),
   ];
 
   return (
@@ -34,11 +34,11 @@ function SearchResultRowView({ item, onOpen }: SearchResultRowProps) {
       details={details}
       imageUrl={item.imageUrl}
       onPress={open}
-      accessibilityHint={t('search.results.openHint')}
-      testID={`search-result-${item.key.namespace}-${item.key.kind}-${String(item.key.externalId)}`}
+      accessibilityHint={t('mediaList.openHint')}
+      testID={`${testIDPrefix}-${item.key.namespace}-${item.key.kind}-${String(item.key.externalId)}`}
     />
   );
 }
 
-/** a search result: cover, title, english title, format, year and score; opens its details */
-export const SearchResultRow = memo(SearchResultRowView);
+/** a listed title: cover, title, english title, format, year and score; opens its details */
+export const MediaSummaryRow = memo(MediaSummaryRowView);

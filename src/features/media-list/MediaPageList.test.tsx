@@ -9,45 +9,55 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent, within } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
-import { FRIEREN, FRIEREN_GOLDEN_LAND, filteredPageOf } from './__fixtures__/search-results';
-import { SearchResults } from './SearchResults';
+import {
+  FRIEREN,
+  FRIEREN_GOLDEN_LAND,
+  filteredPageOf,
+} from '../search/__fixtures__/search-results';
+import { MediaPageList, type MediaPageListProps } from './MediaPageList';
 
 const HTTP_SERVICE_UNAVAILABLE = 503;
 const FRIEREN_ROW = 'search-result-mal-anime-52991';
 const GOLDEN_LAND_ROW = 'search-result-mal-anime-63816';
+const GENERIC_TITLE = 'Results could not be loaded';
 
 interface ResultsState {
   readonly page?: FilteredPage<MediaSummary>;
   readonly error?: Error;
+  readonly isFetching?: boolean;
   readonly isPlaceholderData?: boolean;
   readonly onRetry?: () => void;
   readonly onOpen?: (item: MediaSummary) => void;
   readonly language?: 'en' | 'fr';
 }
 
-const renderResults = ({
+const propsOf = ({
   page,
   error,
+  isFetching = false,
   isPlaceholderData = false,
   onRetry = jest.fn<() => void>(),
   onOpen = jest.fn<(item: MediaSummary) => void>(),
-  language = 'en',
-}: ResultsState) =>
-  renderWithProviders(
-    <SearchResults
-      page={page}
-      error={error ?? null}
-      isPlaceholderData={isPlaceholderData}
-      onRetry={onRetry}
-      onOpen={onOpen}
-      currentPage={1}
-      onPageChange={jest.fn<(page: number) => void>()}
-      scrollToTopKey="frieren#1"
-    />,
-    { language },
-  );
+}: ResultsState): MediaPageListProps => ({
+  page,
+  error: error ?? null,
+  isFetching,
+  isPlaceholderData,
+  isPlaceholderFromOtherList: false,
+  onRetry,
+  onOpen,
+  currentPage: 1,
+  onPageChange: jest.fn<(page: number) => void>(),
+  scrollToTopKey: 'frieren#1',
+  testIDPrefix: 'search',
+  emptyTitle: 'No results',
+  emptyMessage: 'Try another title, or the other kind.',
+});
 
-describe('SearchResults', () => {
+const renderResults = (state: ResultsState) =>
+  renderWithProviders(<MediaPageList {...propsOf(state)} />, { language: state.language ?? 'en' });
+
+describe('MediaPageList', () => {
   it('shows a named spinner until a first page arrives', async () => {
     await renderResults({});
 
@@ -72,7 +82,7 @@ describe('SearchResults', () => {
     expect(onOpen).toHaveBeenCalledWith(FRIEREN_GOLDEN_LAND);
   });
 
-  it('says that nothing was found on an empty page', async () => {
+  it("shows the screen's empty state on an empty page", async () => {
     await renderResults({ page: filteredPageOf(0) });
 
     expect(screen.getByTestId('search-empty')).toBeOnTheScreen();
@@ -140,10 +150,49 @@ describe('SearchResults', () => {
   ])('shows the generic error for %s', async (_case, error) => {
     await renderResults({ error });
 
-    expect(screen.getByText('Search failed')).toBeOnTheScreen();
+    expect(screen.getByText(GENERIC_TITLE)).toBeOnTheScreen();
     expect(screen.getByText('Something went wrong. Try again in a moment.')).toBeOnTheScreen();
     expect(screen.queryByText('You are offline')).not.toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+  });
+
+  it('replaces the error with the spinner while its retry runs, and shows it again on a failure', async () => {
+    const user = userEvent.setup();
+    const onRetry = jest.fn<() => void>();
+    const error = new CatalogNetworkError();
+    const { rerender } = await renderResults({ error, onRetry });
+
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+
+    await rerender(<MediaPageList {...propsOf({ error, onRetry, isFetching: true })} />);
+
+    expect(screen.getByRole('progressbar', { name: 'Loading results' })).toHaveProp(
+      'testID',
+      'search-loading',
+    );
+    expect(screen.queryByTestId('search-error')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeOnTheScreen();
+
+    await rerender(<MediaPageList {...propsOf({ error, onRetry })} />);
+
+    expect(screen.getByTestId('search-error')).toBeOnTheScreen();
+    expect(screen.queryByTestId('search-loading')).not.toBeOnTheScreen();
+  });
+
+  it('uses the testID prefix for every state and row', async () => {
+    await renderWithProviders(
+      <MediaPageList
+        {...propsOf({ page: filteredPageOf(1, FRIEREN), isPlaceholderData: true })}
+        testIDPrefix="discover"
+      />,
+    );
+
+    expect(screen.getByTestId('discover-results')).toBeOnTheScreen();
+    expect(screen.getByTestId('discover-updating')).toBeOnTheScreen();
+    expect(screen.getByTestId('discover-hidden-note')).toBeOnTheScreen();
+    expect(screen.getByTestId('discover-result-mal-anime-52991')).toBeOnTheScreen();
   });
 
   it('is translated in french', async () => {

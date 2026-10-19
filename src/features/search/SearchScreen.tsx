@@ -15,6 +15,7 @@ import { useRecentSearches } from '@core/hooks/use-recent-searches';
 import { SEARCH_DEBOUNCE_MS, useSearch } from '@core/hooks/use-search';
 import { useTranslation } from '@core/i18n/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
+import { MediaPageList } from '@features/media-list/MediaPageList';
 import { Input, Row, Screen, Stack, type ScreenEdge } from '@ui/index';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -23,7 +24,6 @@ import { FiltersButton } from './FiltersButton';
 import { FiltersSheet } from './FiltersSheet';
 import { RecentSearchesList } from './RecentSearchesList';
 import { SearchKindSwitch } from './SearchKindSwitch';
-import { SearchResults } from './SearchResults';
 
 // under the navigator header and above the tab bar: only the sides need the safe area
 const EDGES: readonly ScreenEdge[] = ['left', 'right'];
@@ -86,7 +86,10 @@ export function SearchScreen() {
     () => (search === null ? null : toSearchParams(kind, query, filters, page)),
     [search, kind, query, filters, page],
   );
-  const { data, error, isPlaceholderData, refetch } = useSearch(params, { showAdult: SHOW_ADULT });
+  const {
+    query: { data, error, isFetching, isPlaceholderData, refetch },
+    isPlaceholderFromOtherList,
+  } = useSearch(params, { showAdult: SHOW_ADULT });
 
   // the query of the results on screen: while a new search loads, the previous results stay shown
   const shownQueryRef = useRef<string | null>(null);
@@ -165,15 +168,20 @@ export function SearchScreen() {
           <FiltersButton filters={filters} onPress={openFilters} />
         </Row>
         {hasSearch ? (
-          <SearchResults
+          <MediaPageList
             page={data}
             error={error}
+            isFetching={isFetching}
             isPlaceholderData={isPlaceholderData}
+            isPlaceholderFromOtherList={isPlaceholderFromOtherList}
             onRetry={retry}
             onOpen={openResult}
             currentPage={page}
             onPageChange={changePage}
             scrollToTopKey={`${String(search)}#${String(page)}`}
+            testIDPrefix="search"
+            emptyTitle={t('search.results.empty.title')}
+            emptyMessage={t('search.results.empty.message')}
           />
         ) : (
           <RecentSearchesList searches={searches} onSelect={searchAgain} onClear={clear} />

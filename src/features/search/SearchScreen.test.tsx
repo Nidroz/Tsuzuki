@@ -217,7 +217,7 @@ describe('SearchScreen', () => {
     await user.type(searchInput(), 'frieren');
     await advance(SEARCH_DEBOUNCE_MS);
 
-    expect(screen.getByText('Search failed')).toBeOnTheScreen();
+    expect(screen.getByText('Results could not be loaded')).toBeOnTheScreen();
     expect(screen.queryByText('You are offline')).not.toBeOnTheScreen();
   });
 

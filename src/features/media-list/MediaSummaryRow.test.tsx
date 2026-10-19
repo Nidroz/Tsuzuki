@@ -3,10 +3,11 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent } from '@testing-library/react-native';
 
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
-import { FRIEREN, FRIEREN_GOLDEN_LAND, SOLO_LEVELING } from './__fixtures__/search-results';
-import { SearchResultRow, searchResultKey } from './SearchResultRow';
+import { FRIEREN, FRIEREN_GOLDEN_LAND, SOLO_LEVELING } from '../search/__fixtures__/search-results';
+import { MediaSummaryRow, mediaSummaryKey } from './MediaSummaryRow';
 
-const FRIEREN_TEST_ID = 'search-result-mal-anime-52991';
+const PREFIX = 'search-result';
+const FRIEREN_TEST_ID = `${PREFIX}-mal-anime-52991`;
 const OPEN_HINT = 'Opens the details';
 
 const coverImage = (testID: string) =>
@@ -15,9 +16,9 @@ const coverPlaceholder = (testID: string) =>
   screen.queryByTestId(`${testID}-cover-placeholder`, { includeHiddenElements: true });
 
 const renderRow = (item: MediaSummary, onOpen = jest.fn<(item: MediaSummary) => void>()) =>
-  renderWithProviders(<SearchResultRow item={item} onOpen={onOpen} />);
+  renderWithProviders(<MediaSummaryRow item={item} onOpen={onOpen} testIDPrefix={PREFIX} />);
 
-describe('SearchResultRow', () => {
+describe('MediaSummaryRow', () => {
   it('is a button named by its title, english title, format, year and score, with a hint', async () => {
     await renderRow(FRIEREN);
 
@@ -62,6 +63,14 @@ describe('SearchResultRow', () => {
     ).toBeOnTheScreen();
   });
 
+  it('builds its testID from the prefix and the media key', async () => {
+    await renderWithProviders(
+      <MediaSummaryRow item={SOLO_LEVELING} onOpen={jest.fn()} testIDPrefix="discover-result" />,
+    );
+
+    expect(screen.getByTestId('discover-result-mal-manga-121496')).toBeOnTheScreen();
+  });
+
   it('loads exactly the item cover url, with no placeholder', async () => {
     await renderRow(FRIEREN);
 
@@ -78,7 +87,11 @@ describe('SearchResultRow', () => {
 
   it('translates the format and formats the score in french', async () => {
     await renderWithProviders(
-      <SearchResultRow item={{ ...FRIEREN, format: 'movie' }} onOpen={jest.fn()} />,
+      <MediaSummaryRow
+        item={{ ...FRIEREN, format: 'movie' }}
+        onOpen={jest.fn()}
+        testIDPrefix={PREFIX}
+      />,
       { language: 'fr' },
     );
 
@@ -90,9 +103,9 @@ describe('SearchResultRow', () => {
   });
 });
 
-describe('searchResultKey', () => {
+describe('mediaSummaryKey', () => {
   it('is the media key: namespace, kind and id', () => {
-    expect(searchResultKey(FRIEREN)).toBe('mal:anime:52991');
-    expect(searchResultKey(SOLO_LEVELING)).toBe('mal:manga:121496');
+    expect(mediaSummaryKey(FRIEREN)).toBe('mal:anime:52991');
+    expect(mediaSummaryKey(SOLO_LEVELING)).toBe('mal:manga:121496');
   });
 });

@@ -114,8 +114,8 @@ describe('useSearch', () => {
     });
 
     expect(provider.search).not.toHaveBeenCalled();
-    expect(result.current.fetchStatus).toBe('idle');
-    expect(result.current.data).toBeUndefined();
+    expect(result.current.query.fetchStatus).toBe('idle');
+    expect(result.current.query.data).toBeUndefined();
     expect(
       queryClient.getQueryCache().find({ queryKey: queryKeys.searchIdle('mal') }),
     ).toBeDefined();
@@ -125,20 +125,20 @@ describe('useSearch', () => {
     const { provider, queryClient, result } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
 
     expect(provider.search).toHaveBeenCalledTimes(1);
     expect(provider.search).toHaveBeenCalledWith(FRIEREN, expect.any(AbortSignal));
     expect(queryClient.getQueryData(queryKeys.search('mal', FRIEREN))).toStrictEqual(pageOf(CLEAN));
-    expect(result.current.data).toStrictEqual({ ...pageOf(CLEAN), hiddenCount: 0 });
+    expect(result.current.query.data).toStrictEqual({ ...pageOf(CLEAN), hiddenCount: 0 });
   });
 
   it('keeps unused searches in memory for SEARCH_GC_TIME', async () => {
     const { queryClient, result } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
 
     const query = queryClient.getQueryCache().find({ queryKey: queryKeys.search('mal', FRIEREN) });
@@ -149,21 +149,21 @@ describe('useSearch', () => {
   it('keeps results fresh for STALE_TIMES.search', async () => {
     const { result } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     // read before the time passes, so the hook re-renders when it changes
-    expect(result.current.isStale).toBe(false);
-    const freshUntil = result.current.dataUpdatedAt + STALE_TIMES.search;
+    expect(result.current.query.isStale).toBe(false);
+    const freshUntil = result.current.query.dataUpdatedAt + STALE_TIMES.search;
 
     await act(async () => {
       await jest.advanceTimersByTimeAsync(freshUntil - Date.now() - 1);
     });
 
-    expect(result.current.isStale).toBe(false);
+    expect(result.current.query.isStale).toBe(false);
 
     // the observer marks the data stale on a timer of its own, a millisecond after the stale time
     await waitFor(() => {
-      expect(result.current.isStale).toBe(true);
+      expect(result.current.query.isStale).toBe(true);
     });
   });
 
@@ -171,29 +171,29 @@ describe('useSearch', () => {
     const { result } = setup(FRIEREN, resolvesWith(pageOf(CLEAN, ADULT)));
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
 
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
-    expect(result.current.data?.hiddenCount).toBe(1);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.data?.hiddenCount).toBe(1);
   });
 
   it('filters the cached page again without a refetch when the setting changes', async () => {
     const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN, ADULT)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
 
     rerender({ params: FRIEREN, showAdult: true });
 
-    expect(result.current.data?.items).toStrictEqual([CLEAN, ADULT]);
-    expect(result.current.data?.hiddenCount).toBe(0);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN, ADULT]);
+    expect(result.current.query.data?.hiddenCount).toBe(0);
 
     rerender({ params: FRIEREN, showAdult: false });
 
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
     expect(provider.search).toHaveBeenCalledTimes(1);
-    expect(result.current.isFetching).toBe(false);
+    expect(result.current.query.isFetching).toBe(false);
   });
 
   it('aborts the request of a key it leaves', async () => {
@@ -226,40 +226,40 @@ describe('useSearch', () => {
     await waitFor(() => {
       expect(provider.search.mock.calls[0]?.[1]?.aborted).toBe(true);
     });
-    expect(result.current.fetchStatus).toBe('idle');
+    expect(result.current.query.fetchStatus).toBe('idle');
   });
 
   it('keeps the previous results as placeholder data while a new key loads', async () => {
     const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     provider.search.mockImplementation(pendingUntilAborted);
 
     rerender({ params: MUSHISHI, showAdult: false });
 
-    expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.isPlaceholderData).toBe(true);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
 
     await waitFor(() => {
       expect(provider.search).toHaveBeenCalledTimes(2);
     });
 
-    expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.isPlaceholderData).toBe(true);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
   });
 
   it('keeps the last settled results as placeholder data across two pending keys', async () => {
     const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     provider.search.mockImplementation(pendingUntilAborted);
     rerender({ params: MUSHISHI, showAdult: false });
     await waitFor(() => {
       expect(provider.search).toHaveBeenCalledTimes(2);
     });
-    expect(result.current.isPlaceholderData).toBe(true);
+    expect(result.current.query.isPlaceholderData).toBe(true);
     const third = searchAnsweredByTest();
     provider.search.mockImplementation(third.search);
 
@@ -268,52 +268,52 @@ describe('useSearch', () => {
     // the placeholder function alone would drop these results: their key is not the one just
     // before. tanstack reuses the previous placeholder while `placeholderData` stays the same
     // function object, which is what keeps them
-    expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.isPlaceholderData).toBe(true);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
 
     await waitFor(() => {
       expect(provider.search).toHaveBeenCalledTimes(3);
     });
 
     expect(provider.search).toHaveBeenLastCalledWith(MONONOKE, expect.any(AbortSignal));
-    expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.data?.items).toStrictEqual([CLEAN]);
+    expect(result.current.query.isPlaceholderData).toBe(true);
+    expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
 
     act(() => {
       third.answer(pageOf(OTHER));
     });
 
     await waitFor(() => {
-      expect(result.current.isPlaceholderData).toBe(false);
+      expect(result.current.query.isPlaceholderData).toBe(false);
     });
-    expect(result.current.isSuccess).toBe(true);
-    expect(result.current.data?.items).toStrictEqual([OTHER]);
+    expect(result.current.query.isSuccess).toBe(true);
+    expect(result.current.query.data?.items).toStrictEqual([OTHER]);
   });
 
   it('shows no results while idle after a search', async () => {
     const { result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
 
     rerender({ params: null, showAdult: false });
 
-    expect(result.current.data).toBeUndefined();
-    expect(result.current.isPlaceholderData).toBe(false);
+    expect(result.current.query.data).toBeUndefined();
+    expect(result.current.query.isPlaceholderData).toBe(false);
   });
 
   it('keeps no results from before an idle state as placeholder data', async () => {
     const { provider, result, rerender } = setup(FRIEREN, resolvesWith(pageOf(CLEAN)));
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     provider.search.mockImplementation(pendingUntilAborted);
     rerender({ params: null, showAdult: false });
 
     rerender({ params: MUSHISHI, showAdult: false });
 
-    expect(result.current.data).toBeUndefined();
-    expect(result.current.isPlaceholderData).toBe(false);
+    expect(result.current.query.data).toBeUndefined();
+    expect(result.current.query.isPlaceholderData).toBe(false);
 
     // the request starting updates the result again, after the new key is committed
     await waitFor(() => {
@@ -323,9 +323,9 @@ describe('useSearch', () => {
       await jest.advanceTimersByTimeAsync(0);
     });
 
-    expect(result.current.isPending).toBe(true);
-    expect(result.current.data).toBeUndefined();
-    expect(result.current.isPlaceholderData).toBe(false);
+    expect(result.current.query.isPending).toBe(true);
+    expect(result.current.query.data).toBeUndefined();
+    expect(result.current.query.isPlaceholderData).toBe(false);
   });
 
   it('surfaces a provider error after a single call, never retrying', async () => {
@@ -333,29 +333,29 @@ describe('useSearch', () => {
     const { provider, result } = setup(FRIEREN, rejectsWith(error));
 
     await waitFor(() => {
-      expect(result.current.isError).toBe(true);
+      expect(result.current.query.isError).toBe(true);
     });
     await act(async () => {
       await jest.advanceTimersByTimeAsync(STALE_TIMES.search);
     });
 
-    expect(result.current.error).toBe(error);
+    expect(result.current.query.error).toBe(error);
     expect(provider.search).toHaveBeenCalledTimes(1);
   });
 
   it('searches again on refetch', async () => {
     const { provider, result } = setup(FRIEREN, rejectsWith(new CatalogNetworkError()));
     await waitFor(() => {
-      expect(result.current.isError).toBe(true);
+      expect(result.current.query.isError).toBe(true);
     });
     provider.search.mockResolvedValue(pageOf(CLEAN));
 
     await act(async () => {
-      await result.current.refetch();
+      await result.current.query.refetch();
     });
 
     await waitFor(() => {
-      expect(result.current.data?.items).toStrictEqual([CLEAN]);
+      expect(result.current.query.data?.items).toStrictEqual([CLEAN]);
     });
     expect(provider.search).toHaveBeenCalledTimes(2);
   });
