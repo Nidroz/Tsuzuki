@@ -7,6 +7,7 @@ import { act, userEvent } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { router as appRouter } from 'expo-router';
 import { screen } from 'expo-router/testing-library';
+import { ScrollView } from 'react-native';
 
 import { pagedResults, rowOfPage } from '../../src/features/search/__fixtures__/search-results';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
@@ -46,19 +47,25 @@ describe('search position (FR-04)', () => {
     search.mockImplementation(answersEveryPage);
   });
 
-  it('keeps the page and its results after opening a result and going back', async () => {
+  it('keeps the page and its results after opening a result and going back, without scrolling', async () => {
     const user = userEvent.setup();
     const router = await renderRouterAsync(APP_ROUTES, { initialUrl: '/search' });
     await user.type(screen.getByTestId('search-input'), 'frieren');
     await advance(SEARCH_DEBOUNCE_MS);
+    // every scroll of the list ends in this mock, its scrollToOffset too (List.test.tsx): its calls
+    // outlive a test, hence the clear
+    const scrollTo = jest.spyOn(ScrollView.prototype, 'scrollTo').mockClear();
     await user.press(screen.getByRole('button', { name: 'Next page' }));
     await advance(0);
     expect(screen.getByTestId(rowOfPage(OPENED_PAGE))).toBeOnTheScreen();
+    // the page change scrolled to the top: the spy sees the scrolls of this list
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ y: 0, animated: false }));
     const searches = search.mock.calls.length;
 
     await user.press(screen.getByTestId(rowOfPage(OPENED_PAGE)));
     await advance(0);
     expect(screen.getByTestId('media-detail-screen')).toBeOnTheScreen();
+    scrollTo.mockClear();
 
     await act(() => {
       appRouter.back();
@@ -74,5 +81,6 @@ describe('search position (FR-04)', () => {
     ).toBeOnTheScreen();
     expect(screen.getByTestId('search-input')).toHaveDisplayValue('frieren');
     expect(search).toHaveBeenCalledTimes(searches);
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });
