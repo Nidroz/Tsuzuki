@@ -17,13 +17,20 @@ import {
   summaryOf,
 } from './__fixtures__/catalog-pages';
 import { MISSING_CATALOG_PROVIDER_MESSAGE } from './catalog-context';
-import { useTopMedia } from './use-top-media';
+import { useTopMedia, type UseTopMediaParams } from './use-top-media';
 
 type GetTop = CatalogProvider['getTop'];
 
 const TOP_ANIME: TopParams = { kind: 'anime', page: 1 };
 const TOP_MANHWA: TopParams = { kind: 'manga', format: 'manhwa', page: 1 };
 const BACKGROUND = { priority: 'background' } as const;
+
+// the hook params of the provider params expected: null for every format
+const requestOf = ({ kind, format, page }: TopParams): UseTopMediaParams => ({
+  kind,
+  format: format ?? null,
+  page,
+});
 
 // foreground requests answer their page at once, background ones never settle by themselves
 const answering: GetTop = (params, signal, options) =>
@@ -37,7 +44,7 @@ const setup = (params: TopParams, getTop: GetTop = answering) => {
   const queryClient = createQueryClient();
   const hook = renderHook(
     ({ params: current }: { readonly params: TopParams }) =>
-      useTopMedia(current, { showAdult: false }),
+      useTopMedia(requestOf(current), { showAdult: false }),
     { initialProps: { params }, wrapper: hookWrapper(queryClient, provider) },
   );
   return { provider, queryClient, ...hook };
@@ -47,7 +54,7 @@ const backgroundCalls = (provider: ReturnType<typeof createFakeCatalogProvider>)
   provider.getTop.mock.calls.filter(([, , options]) => options?.priority === 'background');
 
 describe('useTopMedia', () => {
-  it('fetches the top page with the query signal under the top key, without a format key', async () => {
+  it('fetches the top page with the query signal under the top key, no format key for null', async () => {
     const { provider, queryClient, result } = setup(TOP_ANIME);
 
     await waitFor(() => {
@@ -192,7 +199,7 @@ describe('useTopMedia', () => {
     );
 
     expect(() =>
-      renderHook(() => useTopMedia(TOP_ANIME, { showAdult: false }), { wrapper }),
+      renderHook(() => useTopMedia(requestOf(TOP_ANIME), { showAdult: false }), { wrapper }),
     ).toThrow(MISSING_CATALOG_PROVIDER_MESSAGE);
   });
 });

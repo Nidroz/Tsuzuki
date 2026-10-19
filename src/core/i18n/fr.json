@@ -19,7 +19,7 @@
     },
     "empty": {
       "title": "Aucun titre",
-      "message": "Cette liste ne contient aucun titre ici pour le moment."
+      "message": "Cette liste est vide pour le moment."
     }
   },
   "search": {

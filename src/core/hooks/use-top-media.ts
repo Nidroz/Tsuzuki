@@ -15,18 +15,27 @@ import {
 
 export type UseTopMediaOptions = CatalogListOptions;
 
+/** the top list asked for: TopParams with an explicit null for every format */
+export interface UseTopMediaParams {
+  readonly kind: MediaKind;
+  /** one format of the kind (the FR-05 chips), null for every format */
+  readonly format: SearchableMediaFormat | null;
+  // 1-based
+  readonly page: number;
+}
+
 // no format key without a format (exactOptionalPropertyTypes)
 const topParams = (
   kind: MediaKind,
-  format: SearchableMediaFormat | undefined,
+  format: SearchableMediaFormat | null,
   page: number,
-): TopParams => (format === undefined ? { kind, page } : { kind, format, page });
+): TopParams => (format === null ? { kind, page } : { kind, format, page });
 
 // the pages of the top list of a kind, of one format or of every format
 const topList = (
   provider: CatalogProvider,
   kind: MediaKind,
-  format: SearchableMediaFormat | undefined,
+  format: SearchableMediaFormat | null,
 ): CatalogPageList => ({
   listKey: queryKeys.top(provider.namespace, topParams(kind, format, LIST_KEY_PAGE)),
   pageKey: (page) => queryKeys.top(provider.namespace, topParams(kind, format, page)),
@@ -40,7 +49,7 @@ const topList = (
  * without one
  */
 export const useTopMedia = (
-  { kind, format, page }: TopParams,
+  { kind, format, page }: UseTopMediaParams,
   { showAdult }: UseTopMediaOptions,
 ): PagedCatalogListResult => {
   const provider = useCatalogProvider();
