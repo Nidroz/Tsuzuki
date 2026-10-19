@@ -33,8 +33,8 @@ const needsFetch = (state: QueryState | undefined, staleTime: number): boolean =
  * request joins the background one at the http client and promotes it. a prefetch is aborted when
  * the list changes (the hash of its list key), when the catalog provider changes (two instances
  * may share a namespace, so a key alone does not tell them apart) or on unmount, never when only
- * the page changes: the opened page's request has to join it. one attempt per target and per data update of the page
- * shown, so a failed prefetch is never retried in a loop. null prefetches nothing
+ * the page changes: the opened page's request has to join it. one attempt per target and per data
+ * update of the page shown, so a failed prefetch is never retried in a loop. null prefetches nothing
  */
 export const usePrefetchNextPage = (
   list: CatalogPageList | null,
