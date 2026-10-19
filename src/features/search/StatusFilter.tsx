@@ -3,24 +3,10 @@ import {
   type MediaKind,
   type SearchableMediaStatus,
 } from '@core/domain/media';
-import { useTranslation, type TranslationKey } from '@core/i18n/index';
+import { STATUS_KEYS, useTranslation } from '@core/i18n/index';
 import { useMemo } from 'react';
 
 import { FilterChoice, type FilterChoiceOption } from './FilterChoice';
-
-// an ongoing anime is airing, an ongoing manga publishing
-const STATUS_KEYS = {
-  anime: {
-    ongoing: 'search.filters.status.airing',
-    finished: 'search.filters.status.finished',
-    upcoming: 'search.filters.status.upcoming',
-  },
-  manga: {
-    ongoing: 'search.filters.status.publishing',
-    finished: 'search.filters.status.finished',
-    upcoming: 'search.filters.status.upcoming',
-  },
-} as const satisfies Record<MediaKind, Record<SearchableMediaStatus, TranslationKey>>;
 
 export interface StatusFilterProps {
   kind: MediaKind;
@@ -28,7 +14,7 @@ export interface StatusFilterProps {
   onChange: (status: SearchableMediaStatus | null) => void;
 }
 
-/** the publication status section of the filters sheet, worded for the kind */
+/** the publication status section of the filters sheet, worded for the kind: airing or publishing */
 export function StatusFilter({ kind, status, onChange }: StatusFilterProps) {
   const { t } = useTranslation();
   const options = useMemo<readonly FilterChoiceOption<SearchableMediaStatus>[]>(

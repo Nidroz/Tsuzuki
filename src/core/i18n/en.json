@@ -62,11 +62,7 @@
         "empty": "No genres to filter on."
       },
       "status": {
-        "title": "Status",
-        "airing": "Airing",
-        "publishing": "Publishing",
-        "finished": "Finished",
-        "upcoming": "Upcoming"
+        "title": "Status"
       },
       "year": {
         "label": "From year",

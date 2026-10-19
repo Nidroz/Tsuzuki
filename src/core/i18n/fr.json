@@ -63,11 +63,7 @@
         "empty": "Aucun genre à filtrer."
       },
       "status": {
-        "title": "Statut",
-        "airing": "En cours de diffusion",
-        "publishing": "En cours de publication",
-        "finished": "Terminé",
-        "upcoming": "À venir"
+        "title": "Statut"
       },
       "year": {
         "label": "À partir de l'année",
