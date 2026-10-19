@@ -1,0 +1,51 @@
+# discovery flow (FR-05, FR-04): show the top manga of one format, open a title and see its
+# details, then come back to the same section, format and list. runs in the development build like
+# the smoke flow (see its header and e2e/README.md), with clearState. elements are found by id only,
+# so the flow does not depend on the device language. it queries the live catalog (Tenrai): the
+# first row is matched by its id prefix, never by a title the catalog could reorder
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: discover-section-topManga
+# the manga formats show with the top manga section only
+- assertVisible:
+    id: discover-format
+- tapOn:
+    id: discover-format-manhwa
+# the catalog answer may take a few seconds
+- extendedWaitUntil:
+    visible:
+      id: discover-result-mal-manga-.*
+    timeout: 30000
+- tapOn:
+    id: discover-result-mal-manga-.*
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: media-detail-screen
+    timeout: 10000
+# the details come from the live catalog too
+- extendedWaitUntil:
+    visible:
+      id: media-detail-content
+    timeout: 30000
+- back
+# the same section, format and list as before opening the title
+- assertVisible:
+    id: discover-screen
+- assertVisible:
+    id: discover-section-topManga
+    checked: true
+- assertVisible:
+    id: discover-format-manhwa
+    checked: true
+- assertVisible:
+    id: discover-result-mal-manga-.*

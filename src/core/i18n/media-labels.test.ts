@@ -1,26 +1,33 @@
-import { MEDIA_FORMATS, MEDIA_KINDS, MEDIA_STATUSES } from '@core/domain/media';
-import { useTranslation, type Language } from '@core/i18n/index';
 import { describe, expect, it } from '@jest/globals';
-import { renderHook } from '@testing-library/react-native';
 
-import { providersFor } from '../../../test/mobile/render-with-providers';
+import { MEDIA_FORMATS, MEDIA_KINDS, MEDIA_STATUSES } from '../domain/media';
+import { createI18n } from './create-i18n';
+import { formatNumber } from './format';
+import type { Language } from './languages';
 import {
   englishTitleOf,
   FORMAT_KEYS,
   nativeTitleOf,
   STATUS_KEYS,
-  TOTAL_UNITS_KEYS,
+  TOTAL_UNITS_LABEL_KEYS,
   YEAR_FORMAT,
 } from './media-labels';
 
 const TITLE = 'Sousou no Frieren';
 
 // the translation of the real catalogs in `language`: a missing key fails the test
-const translationIn = async (language: Language) => {
-  const { result } = await renderHook(() => useTranslation(), {
-    wrapper: providersFor({ language }),
+const translationIn = (language: Language) => {
+  const instance = createI18n({
+    language,
+    onMissingKey: (missingIn, key) => {
+      throw new Error(`missing key ${key} in ${missingIn}`);
+    },
   });
-  return result.current;
+  return {
+    t: instance.getFixedT(language, 'translation'),
+    formatNumber: (value: number, options?: Intl.NumberFormatOptions) =>
+      formatNumber(value, language, options),
+  };
 };
 
 describe('englishTitleOf', () => {
@@ -47,9 +54,9 @@ describe('nativeTitleOf', () => {
 });
 
 describe('media label keys', () => {
-  it('names an ongoing anime airing and an ongoing manga publishing', async () => {
-    const en = await translationIn('en');
-    const fr = await translationIn('fr');
+  it('names an ongoing anime airing and an ongoing manga publishing', () => {
+    const en = translationIn('en');
+    const fr = translationIn('fr');
 
     expect(en.t(STATUS_KEYS.anime.ongoing)).toBe('Airing');
     expect(en.t(STATUS_KEYS.manga.ongoing)).toBe('Publishing');
@@ -57,16 +64,16 @@ describe('media label keys', () => {
     expect(fr.t(STATUS_KEYS.manga.ongoing)).toBe('En cours de publication');
   });
 
-  it.each(MEDIA_KINDS)('translates every status of a %s', async (kind) => {
-    const { t } = await translationIn('en');
+  it.each(MEDIA_KINDS)('translates every status of a %s', (kind) => {
+    const { t } = translationIn('en');
 
     for (const status of MEDIA_STATUSES) {
       expect(t(STATUS_KEYS[kind][status])).not.toBe(STATUS_KEYS[kind][status]);
     }
   });
 
-  it('translates every format', async () => {
-    const { t } = await translationIn('en');
+  it('translates every format', () => {
+    const { t } = translationIn('en');
 
     for (const format of MEDIA_FORMATS) {
       expect(t(FORMAT_KEYS[format])).not.toBe(FORMAT_KEYS[format]);
@@ -74,18 +81,16 @@ describe('media label keys', () => {
   });
 
   it.each<[(typeof MEDIA_KINDS)[number], string, string]>([
-    ['anime', '1 episode', '12 episodes'],
-    ['manga', '1 chapter', '12 chapters'],
-  ])('counts the units of a %s in the singular and the plural', async (kind, one, many) => {
-    const { t } = await translationIn('en');
-
-    expect(t(TOTAL_UNITS_KEYS[kind], { count: 1, total: '1' })).toBe(one);
-    expect(t(TOTAL_UNITS_KEYS[kind], { count: 12, total: '12' })).toBe(many);
+    ['anime', 'Episodes', 'Épisodes'],
+    ['manga', 'Chapters', 'Chapitres'],
+  ])('labels the total units of a %s', (kind, en, fr) => {
+    expect(translationIn('en').t(TOTAL_UNITS_LABEL_KEYS[kind])).toBe(en);
+    expect(translationIn('fr').t(TOTAL_UNITS_LABEL_KEYS[kind])).toBe(fr);
   });
 
-  it('writes a year without digit grouping', async () => {
-    const en = await translationIn('en');
-    const fr = await translationIn('fr');
+  it('writes a year without digit grouping', () => {
+    const en = translationIn('en');
+    const fr = translationIn('fr');
 
     expect(en.formatNumber(2023, YEAR_FORMAT)).toBe('2023');
     expect(fr.formatNumber(2023, YEAR_FORMAT)).toBe('2023');

@@ -7,12 +7,25 @@
     "settings": "Settings"
   },
   "discovery": {
-    "placeholder": {
-      "title": "Coming soon",
-      "message": "Top anime, top manga and the current season will appear here."
+    "sections": {
+      "label": "Lists",
+      "topAnime": "Top anime",
+      "topManga": "Top manga",
+      "season": "This season"
+    },
+    "formats": {
+      "label": "Manga format",
+      "all": "All"
+    },
+    "empty": {
+      "title": "No titles",
+      "message": "This list is empty for now."
     }
   },
   "search": {
+    "kind": {
+      "label": "Kind"
+    },
     "field": {
       "label": "Search",
       "placeholder": "Title of an anime or a manga"
@@ -27,36 +40,10 @@
       "clearLabel": "Clear recent searches"
     },
     "results": {
-      "loading": "Loading results",
-      "updating": "Updating results",
       "empty": {
         "title": "No results",
         "message": "Try another title, or the other kind."
-      },
-      "hidden_one": "{{count}} adult title was hidden.",
-      "hidden_other": "{{count}} adult titles were hidden.",
-      "score": "Score {{score}}",
-      "openHint": "Opens the details"
-    },
-    "error": {
-      "offline": {
-        "title": "You are offline",
-        "message": "Check your connection, then try again."
-      },
-      "generic": {
-        "title": "Search failed",
-        "message": "Something went wrong. Try again in a moment."
-      },
-      "retry": "Try again"
-    },
-    "pagination": {
-      "previous": "Previous page",
-      "next": "Next page",
-      "jumpTo": "Go to page",
-      "go": "Go",
-      "page": "Page {{page}}",
-      "currentPage": "Page {{page}} of {{pageCount}}, current page",
-      "morePages": "More pages"
+      }
     },
     "filters": {
       "open": {
@@ -88,11 +75,7 @@
         "empty": "No genres to filter on."
       },
       "status": {
-        "title": "Status",
-        "airing": "Airing",
-        "publishing": "Publishing",
-        "finished": "Finished",
-        "upcoming": "Upcoming"
+        "title": "Status"
       },
       "year": {
         "label": "From year",
@@ -119,6 +102,38 @@
           "desc": "Descending"
         }
       }
+    }
+  },
+  "mediaList": {
+    "loading": "Loading results",
+    "updating": "Updating results",
+    "hidden_one": "{{count}} adult title was hidden.",
+    "hidden_other": "{{count}} adult titles were hidden.",
+    "score": "Score {{score}}",
+    "openHint": "Opens the details",
+    "error": {
+      "offline": {
+        "title": "You are offline",
+        "message": "Check your connection, then try again."
+      },
+      "generic": {
+        "title": "Results could not be loaded",
+        "message": "Something went wrong. Try again in a moment."
+      },
+      "retry": "Try again"
+    },
+    "stale": {
+      "offline": "You are offline: this list could not be refreshed.",
+      "generic": "This list could not be refreshed."
+    },
+    "pagination": {
+      "previous": "Previous page",
+      "next": "Next page",
+      "jumpTo": "Go to page",
+      "go": "Go",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} of {{pageCount}}, current page",
+      "morePages": "More pages"
     }
   },
   "library": {
@@ -182,10 +197,8 @@
       "discontinued": "Discontinued"
     },
     "totalUnits": {
-      "episodes_one": "{{total}} episode",
-      "episodes_other": "{{total}} episodes",
-      "chapters_one": "{{total}} chapter",
-      "chapters_other": "{{total}} chapters"
+      "episodes": "Episodes",
+      "chapters": "Chapters"
     }
   },
   "mediaDetail": {
@@ -198,7 +211,6 @@
     "facts": {
       "format": "Format",
       "status": "Status",
-      "totalUnits": "Length",
       "score": "Score",
       "year": "Year",
       "unknown": "Unknown",

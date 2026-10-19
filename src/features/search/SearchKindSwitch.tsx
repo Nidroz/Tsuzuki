@@ -12,16 +12,22 @@ export interface SearchKindSwitchProps {
   onChange: (kind: MediaKind) => void;
 }
 
-/** the kind searched, anime or manga: one chip per kind, exactly one selected */
+/** the kind searched, anime or manga: a named radio group of one chip per kind, one checked */
 export function SearchKindSwitch({ kind, onChange }: SearchKindSwitchProps) {
   const { t } = useTranslation();
 
   return (
-    <Row gap="sm" testID="search-kind">
+    <Row
+      gap="sm"
+      accessibilityRole="radiogroup"
+      accessibilityLabel={t('search.kind.label')}
+      testID="search-kind"
+    >
       {MEDIA_KINDS.map((option) => (
         <Chip
           key={option}
           label={t(KIND_KEYS[option])}
+          role="radio"
           selected={option === kind}
           onPress={() => {
             onChange(option);

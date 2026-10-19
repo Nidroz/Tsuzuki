@@ -31,6 +31,9 @@ const renderScreen = (recentSearches: readonly string[] = ['mushishi']) =>
   renderSearchScreen({ search: answers(pageOf(FRIEREN)), getGenres: genresByKind, recentSearches });
 
 const button = (name: string) => screen.getByRole('button', { name });
+const radio = (name: string) => screen.getByRole('radio', { name });
+// a control of the filters sheet: a button, a genre chip or a single-select (radio) chip
+const control = (name: string) => screen.getByRole(/^(button|radio)$/, { name });
 
 describe('SearchScreen filters (FR-03)', () => {
   let user: ReturnType<typeof userEvent.setup>;
@@ -40,12 +43,12 @@ describe('SearchScreen filters (FR-03)', () => {
     user = userEvent.setup();
   });
 
-  // opens the sheet, presses the given buttons in it, then applies
+  // opens the sheet, presses the given controls in it, then applies
   const applyFilters = async (...names: string[]) => {
     await user.press(screen.getByTestId('search-filters'));
     await advance(0);
     for (const name of names) {
-      await user.press(button(name));
+      await user.press(control(name));
     }
     await user.press(screen.getByTestId('filters-apply'));
     await advance(0);
@@ -71,14 +74,14 @@ describe('SearchScreen filters (FR-03)', () => {
 
     await user.press(screen.getByTestId('search-filters'));
     await advance(0);
-    await user.press(button('TV'));
+    await user.press(radio('TV'));
     await user.press(button('Action, not filtered'));
     await user.press(button('Drama, not filtered'));
     await user.press(button('Drama, included'));
-    await user.press(button('Finished'));
+    await user.press(radio('Finished'));
     await user.type(screen.getByTestId('filters-year'), '2015');
-    await user.press(button('Score 7 or more'));
-    await user.press(button('Popularity'));
+    await user.press(radio('Score 7 or more'));
+    await user.press(radio('Popularity'));
     await user.press(screen.getByTestId('filters-apply'));
     await advance(0);
 
@@ -132,7 +135,7 @@ describe('SearchScreen filters (FR-03)', () => {
     await applyFilters('Movie', 'Action, not filtered', 'Score 7 or more');
     expect(button('Filters, 3 active')).toBeOnTheScreen();
 
-    await user.press(button('Manga'));
+    await user.press(radio('Manga'));
     await advance(0);
 
     expect(provider.search).toHaveBeenLastCalledWith(
@@ -142,7 +145,7 @@ describe('SearchScreen filters (FR-03)', () => {
     expect(button('Filters, 1 active')).toBeOnTheScreen();
 
     // pressing the current kind again changes nothing
-    await user.press(button('Manga'));
+    await user.press(radio('Manga'));
     await advance(0);
 
     expect(button('Filters, 1 active')).toBeOnTheScreen();
@@ -152,7 +155,7 @@ describe('SearchScreen filters (FR-03)', () => {
     const { provider } = await renderScreen();
     await user.press(screen.getByTestId('search-filters'));
     await advance(0);
-    await user.press(button('TV'));
+    await user.press(radio('TV'));
 
     await user.press(button('Close the filters without applying them'));
     await advance(SEARCH_DEBOUNCE_MS);

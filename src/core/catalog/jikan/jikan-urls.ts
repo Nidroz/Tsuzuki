@@ -18,6 +18,7 @@ import {
   type SearchParams,
   type SearchSortField,
   type SortDirection,
+  type TopParams,
 } from '../catalog-provider';
 import { normalizeSearchParams } from '../search-params';
 import { SCORE_MAX, isFourDigitYear } from './jikan-fields';
@@ -49,7 +50,7 @@ const ORDER_BY = {
   start_date: 'start_date',
 } as const satisfies Record<SearchSortField, string>;
 
-// formats without a jikan search type (unknown, oel) cannot be searched
+// formats without a jikan search type (unknown, oel) cannot be searched, nor filter a top list
 const ANIME_SEARCH_TYPE = {
   tv: 'tv',
   movie: 'movie',
@@ -153,7 +154,7 @@ const queryTextOf = (query: string): string => {
 const searchTypeOf = (tables: KindTables, formats: readonly string[]): string => {
   const [type, ...others] = formats.map((format) => tables.searchTypes.get(format));
   if (type === undefined || others.length > 0) {
-    throw new RangeError('Catalog search takes one searchable format of its kind');
+    throw new RangeError('Catalog request takes one searchable format of its kind');
   }
   return type;
 };
@@ -247,13 +248,23 @@ export const jikanDetailUrl = (baseUrl: string, key: MediaKey): string => {
   return `${baseUrl}/${kindOf(key.kind)}/${externalIdOf(key.externalId)}`;
 };
 
-/** `/top/anime` or `/top/manga`, without a type or filter. */
-export const jikanTopUrl = (baseUrl: string, kind: MediaKind, page: number): string =>
-  withQuery(baseUrl, `/top/${kindOf(kind)}`, paginationOf(page));
+/**
+ * `/top/anime` or `/top/manga`, then `type` (the search type of the format, when one is given),
+ * page, limit. never a content filter. probed on tenrai in C-08: `/top/manga?type=manhwa`
+ * lists only manhwa.
+ */
+export const jikanTopUrl = (baseUrl: string, params: TopParams): string => {
+  const { kind, format, page } = params;
+  const tables = tablesOf(kind);
+  const type: QueryParam[] = format === undefined ? [] : [['type', searchTypeOf(tables, [format])]];
+  return withQuery(baseUrl, `/top/${kind}`, [...type, ...paginationOf(page)]);
+};
 
 /**
  * `/seasons/now`, without the `continuing` parameter. tenrai still lists titles airing from earlier
- * seasons (recorded 2026-10-14); whether discovery keeps them is decided by C-08.
+ * seasons (recorded 2026-10-14), and discovery keeps them (C-08): a client-side cut by season would
+ * give pages of variable size and a wrong lastPage. a self-hosted jikan without `continuing` lists
+ * only the season's new titles, an accepted difference.
  */
 export const jikanSeasonNowUrl = (baseUrl: string, page: number): string =>
   withQuery(baseUrl, '/seasons/now', paginationOf(page));

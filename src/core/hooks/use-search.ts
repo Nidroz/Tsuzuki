@@ -1,78 +1,50 @@
-import {
-  hashKey,
-  skipToken,
-  useQuery,
-  type PlaceholderDataFunction,
-  type UseQueryResult,
-} from '@tanstack/react-query';
-import { useCallback, useEffect, useRef } from 'react';
+import { useMemo } from 'react';
 
-import type { MediaSummary, Page, SearchParams } from '../catalog/catalog-provider';
+import type { CatalogProvider, SearchParams } from '../catalog/catalog-provider';
 import { queryKeys } from '../query/keys';
-import { SEARCH_GC_TIME, STALE_TIMES } from '../query/stale-times';
-import { selectFilteredPage, type FilteredPage } from './filtered-page';
+import { STALE_TIMES } from '../query/stale-times';
 import { useCatalogProvider } from './use-catalog-provider';
-import { usePrefetchNextPage } from './use-prefetch-next-page';
+import {
+  LIST_KEY_PAGE,
+  usePagedCatalogList,
+  type CatalogListOptions,
+  type CatalogPageList,
+  type PagedCatalogListResult,
+} from './use-paged-catalog-list';
 
 /** how long the search text stays unchanged before it is searched (FR-01), in milliseconds */
 export const SEARCH_DEBOUNCE_MS = 400;
 
-export interface UseSearchOptions {
-  /** the adult content setting (BR-06): adult titles are hidden when false */
-  readonly showAdult: boolean;
-}
+export type UseSearchOptions = CatalogListOptions;
+
+// the pages of the search `params`, whatever its page. the query defaults of the search keys add
+// the search gc time (query-client.ts)
+const searchList = (provider: CatalogProvider, params: SearchParams): CatalogPageList => ({
+  listKey: queryKeys.search(provider.namespace, { ...params, page: LIST_KEY_PAGE }),
+  pageKey: (page) => queryKeys.search(provider.namespace, { ...params, page }),
+  fetchPage: (page, ...request) => provider.search({ ...params, page }, ...request),
+  staleTime: STALE_TIMES.search,
+});
 
 /**
- * one page of catalog search results for `params`, adult titles filtered on the cached data
- * (`hiddenCount` says how many). null searches nothing: the query stays idle under its own key,
- * without data. a request whose key is left (new text, another kind) is aborted down to the http
- * client. the results of the search just before stay as placeholder data while a new key loads,
- * never across an idle state: after a cleared field, a new search starts without results. never
- * retried here: the catalog http client retries. once the page shown is settled, the next page is
- * prefetched in the background (usePrefetchNextPage)
+ * one page of catalog search results for `params` (usePagedCatalogList). null searches nothing:
+ * the query stays idle under its own key, without data. the results of the search just before
+ * stay as placeholder data while a new key loads, whatever search they belong to, never across an
+ * idle state: after a cleared field, a new search starts without results
  */
 export const useSearch = (
   params: SearchParams | null,
   { showAdult }: UseSearchOptions,
-): UseQueryResult<FilteredPage<MediaSummary>> => {
+): PagedCatalogListResult => {
   const provider = useCatalogProvider();
-  const queryKey =
-    params === null
-      ? queryKeys.searchIdle(provider.namespace)
-      : queryKeys.search(provider.namespace, params);
-  const keyHash = hashKey(queryKey);
-
-  // the hash of the key of the last committed render: while a new key renders, the key before it
-  const previousKeyHashRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    previousKeyHashRef.current = keyHash;
-  }, [keyHash]);
-
-  // `previousQuery` is the last query of this observer that had data, which skips the idle key (it
-  // never has data): its results are kept only when it is the key just before. stable, so the
-  // observer reuses the placeholder while the key stays the same
-  const keepPreviousSearch = useCallback<PlaceholderDataFunction<Page<MediaSummary>>>(
-    (previous, previousQuery) =>
-      previousQuery?.queryHash === previousKeyHashRef.current ? previous : undefined,
-    [],
+  const list = useMemo(
+    () => (params === null ? null : searchList(provider, params)),
+    [provider, params],
   );
-
-  const result = useQuery({
-    queryKey,
-    queryFn: params === null ? skipToken : ({ signal }) => provider.search(params, signal),
-    staleTime: STALE_TIMES.search,
-    gcTime: SEARCH_GC_TIME,
-    // the idle key shows no placeholder: otherwise the next search would reuse it as its own
-    ...(params !== null && { placeholderData: keepPreviousSearch }),
-    select: selectFilteredPage(showAdult),
-  });
-
-  usePrefetchNextPage(params, {
-    hasNextPage: result.data?.hasNextPage,
-    isPlaceholderData: result.isPlaceholderData,
-    isFetching: result.isFetching,
-    dataUpdatedAt: result.dataUpdatedAt,
-  });
-
-  return result;
+  return usePagedCatalogList(
+    list === null || params === null
+      ? { list: null, idleKey: queryKeys.searchIdle(provider.namespace) }
+      : { list, page: params.page },
+    { showAdult, placeholder: 'previous-key' },
+  );
 };

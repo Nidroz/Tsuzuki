@@ -5,6 +5,7 @@ import {
   type MediaFormat,
   type MediaIdNamespace,
   type MediaKind,
+  type SearchableMediaFormat,
   type SearchableMediaStatus,
 } from '../../domain/media';
 import type { SearchSortField, SortDirection } from '../catalog-provider';
@@ -31,6 +32,7 @@ const GENRE_IDS_MAX = 25;
 const asNamespace = (value: string): MediaIdNamespace => value as MediaIdNamespace;
 const asKind = (value: string): MediaKind => value as MediaKind;
 const asFormat = (value: string): MediaFormat => value as MediaFormat;
+const asSearchableFormat = (value: string): SearchableMediaFormat => value as SearchableMediaFormat;
 const asStatus = (value: string): SearchableMediaStatus => value as SearchableMediaStatus;
 const asField = (value: string): SearchSortField => value as SearchSortField;
 const asDirection = (value: string): SortDirection => value as SortDirection;
@@ -61,7 +63,9 @@ describe('input guards', () => {
       expect(
         failureOf(() => jikanSearchUrl(BASE, { kind: 'anime', query: SEARCH_TEXT, page })),
       ).toStrictEqual(RANGE_ERROR);
-      expect(failureOf(() => jikanTopUrl(BASE, 'manga', page))).toStrictEqual(RANGE_ERROR);
+      expect(failureOf(() => jikanTopUrl(BASE, { kind: 'manga', page }))).toStrictEqual(
+        RANGE_ERROR,
+      );
       expect(failureOf(() => jikanSeasonNowUrl(BASE, page))).toStrictEqual(RANGE_ERROR);
     },
   );
@@ -120,6 +124,18 @@ describe('input guards', () => {
     ).toStrictEqual(RANGE_ERROR);
   });
 
+  it.each<[MediaKind, string]>([
+    ['manga', 'tv'],
+    ['anime', 'manhwa'],
+    ['manga', 'oel'],
+    ['anime', 'unknown'],
+    ['manga', 'constructor'],
+  ])('rejects the top %s format %p', (kind, format) => {
+    expect(
+      failureOf(() => jikanTopUrl(BASE, { kind, format: asSearchableFormat(format), page: 1 })),
+    ).toStrictEqual(RANGE_ERROR);
+  });
+
   it.each(['novel', 'constructor', ''])('rejects the kind %p', (kind) => {
     expect(
       failureOf(() => jikanSearchUrl(BASE, { kind: asKind(kind), query: SEARCH_TEXT, page: 1 })),
@@ -129,7 +145,9 @@ describe('input guards', () => {
         jikanDetailUrl(BASE, { namespace: 'mal', kind: asKind(kind), externalId: 1 }),
       ),
     ).toStrictEqual(RANGE_ERROR);
-    expect(failureOf(() => jikanTopUrl(BASE, asKind(kind), 1))).toStrictEqual(RANGE_ERROR);
+    expect(failureOf(() => jikanTopUrl(BASE, { kind: asKind(kind), page: 1 }))).toStrictEqual(
+      RANGE_ERROR,
+    );
     expect(failureOf(() => jikanGenresUrl(BASE, asKind(kind)))).toStrictEqual(RANGE_ERROR);
   });
 

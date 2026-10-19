@@ -99,7 +99,7 @@ export const fetchPage = (
     case 'search':
       return provider.search({ kind: call.kind, query: CONTRACT_QUERY, page }, signal);
     case 'getTop':
-      return provider.getTop(call.kind, page, signal);
+      return provider.getTop({ kind: call.kind, page }, signal);
     case 'getCurrentSeason':
       return provider.getCurrentSeason(page, signal);
   }

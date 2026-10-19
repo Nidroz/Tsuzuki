@@ -67,10 +67,7 @@ describe('MediaDetailContent', () => {
 
     expect(screen.getByLabelText('Format, TV')).toHaveProp('testID', 'media-detail-format');
     expect(screen.getByLabelText('Status, Finished')).toHaveProp('testID', 'media-detail-status');
-    expect(screen.getByLabelText('Length, 28 episodes')).toHaveProp(
-      'testID',
-      'media-detail-total-units',
-    );
+    expect(screen.getByLabelText('Episodes, 28')).toHaveProp('testID', 'media-detail-total-units');
     expect(screen.getByLabelText('Score, 9.24')).toHaveProp('testID', 'media-detail-score');
     // a year has no digit grouping
     expect(screen.getByLabelText('Year, 2023')).toHaveProp('testID', 'media-detail-year');
@@ -88,15 +85,15 @@ describe('MediaDetailContent', () => {
   });
 
   it.each<[string, MediaDetail, string]>([
-    ['one episode', { ...FRIEREN_DETAIL, totalUnits: 1 }, '1 episode'],
-    ['many episodes, grouped', { ...FRIEREN_DETAIL, totalUnits: 1100 }, '1,100 episodes'],
-    ['the chapters of a manga', SOLO_LEVELING_DETAIL, '201 chapters'],
-    ['one chapter', { ...SOLO_LEVELING_DETAIL, totalUnits: 1 }, '1 chapter'],
-    ['an unknown length', BERSERK_DETAIL, 'Unknown'],
-  ])('writes the length of %s', async (_case, media, length) => {
+    ['one episode', { ...FRIEREN_DETAIL, totalUnits: 1 }, 'Episodes, 1'],
+    ['many episodes, grouped', { ...FRIEREN_DETAIL, totalUnits: 1100 }, 'Episodes, 1,100'],
+    ['the chapters of a manga', SOLO_LEVELING_DETAIL, 'Chapters, 201'],
+    ['an unknown number of chapters', BERSERK_DETAIL, 'Chapters, Unknown'],
+    ['an unknown number of episodes', { ...FRIEREN_DETAIL, totalUnits: null }, 'Episodes, Unknown'],
+  ])('labels and writes the total units of %s', async (_case, media, fact) => {
     await renderContent(media);
 
-    expect(screen.getByLabelText(`Length, ${length}`)).toBeOnTheScreen();
+    expect(screen.getByLabelText(fact)).toHaveProp('testID', 'media-detail-total-units');
   });
 
   it('writes a missing score and year as not scored and unknown', async () => {
@@ -143,7 +140,7 @@ describe('MediaDetailContent', () => {
     await renderContent({ ...FRIEREN_DETAIL, status: 'ongoing' }, 'fr');
 
     expect(screen.getByLabelText('Statut, En cours de diffusion')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Longueur, 28 épisodes')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Épisodes, 28')).toBeOnTheScreen();
     expect(screen.getByLabelText('Note, 9,24')).toBeOnTheScreen();
     // no digit grouping either, where french would write 2 023
     expect(screen.getByLabelText('Année, 2023')).toBeOnTheScreen();
@@ -154,7 +151,7 @@ describe('MediaDetailContent', () => {
     await renderContent({ ...BERSERK_DETAIL, score: null, genres: [], synopsis: null }, 'fr');
 
     expect(screen.getByLabelText('Statut, En cours de publication')).toBeOnTheScreen();
-    expect(screen.getByLabelText('Longueur, Inconnu')).toBeOnTheScreen();
+    expect(screen.getByLabelText('Chapitres, Inconnu')).toBeOnTheScreen();
     expect(screen.getByLabelText('Note, Non noté')).toBeOnTheScreen();
     expect(screen.getByText('Aucun genre')).toBeOnTheScreen();
     expect(screen.getByText('Aucun synopsis disponible')).toBeOnTheScreen();

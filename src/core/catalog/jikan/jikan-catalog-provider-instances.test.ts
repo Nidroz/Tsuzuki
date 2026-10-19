@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
+import { settle } from '../../../../test/core/catalog-http-test-support';
 import { server } from '../../../../test/core/msw-server';
 import { CatalogAbortedError } from '../../errors/catalog-errors';
 import type { CatalogProvider } from '../catalog-provider';
@@ -50,9 +51,6 @@ const serveOn = (base: string, path: string, answer: JikanAnswer): readonly Jika
   server.use(handler);
   return requests;
 };
-
-// the outcome of a call, value or error, with its rejection handled from the start
-const settle = (call: Promise<unknown>): Promise<unknown> => call.catch((error: unknown) => error);
 
 // `count` detail calls of distinct anime ids from `firstId`, all cancelled by `signal`
 const detailCalls = (
@@ -112,7 +110,7 @@ describe('the instance of a jikan provider', () => {
     const results = Promise.all([
       provider.getDetail({ namespace: 'mal', kind: 'manga', externalId: 201 }),
       provider.search({ kind: 'anime', query: 'sample', page: 1 }),
-      provider.getTop('anime', 2),
+      provider.getTop({ kind: 'anime', page: 2 }),
       provider.getCurrentSeason(1),
       provider.getGenres('manga'),
     ]);

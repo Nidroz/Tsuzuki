@@ -136,7 +136,7 @@ Details:
 - [x] C-05 Filters sheet: kind, format, genres in/out, status, year, min score, sort
 - [x] C-06 Interactive pagination with prefetch and position restore
 - [x] C-07 Media detail screen
-- [ ] C-08 Discovery screen: top anime, top manga (format chips), current season
+- [x] C-08 Discovery screen: top anime, top manga (format chips), current season
 
 Details:
 
@@ -171,8 +171,8 @@ Details:
 - Move the native header helpers duplicated in `test/app/media-detail.test.tsx` and `test/app/not-found.test.tsx` (`NATIVE_HEADER_HOST`, `headerTitles`, `visibleBackButtons`) into a shared helper next to `test/app/app-routes.ts`.
 
 ### C-08 Discovery screen
-- Discover rows open the media detail like the search rows: `router.push({ pathname: '/media/[namespace]/[kind]/[id]', params: toMediaRouteParams(item.key) })`, with the labels of `src/features/shared/media-labels.ts` (C-07).
-- `StatusFilter` (`src/features/search/StatusFilter.tsx`) keeps its own `search.filters.status.*` keys, which duplicate the `media.status.*` keys the detail uses: switch it to `STATUS_KEYS` (`src/features/shared/media-labels.ts`) when touching the search filters (C-07).
+- Discover rows open the media detail like the search rows: `router.push({ pathname: '/media/[namespace]/[kind]/[id]', params: toMediaRouteParams(item.key) })`, with the labels of `src/core/i18n/media-labels.ts` (`@core/i18n/index`, C-07).
+- `StatusFilter` (`src/features/search/StatusFilter.tsx`) keeps its own `search.filters.status.*` keys, which duplicate the `media.status.*` keys the detail uses: switch it to `STATUS_KEYS` (`src/core/i18n/media-labels.ts`) when touching the search filters (C-07).
 - Retry feedback (C-07 review): the "Try again" action of `MediaDetailView` and of `SearchResults` keeps the `ErrorState` on screen while the refetch runs, and each extra tap cancels and restarts the request (`refetch()` cancels the one in flight): show a spinner while `isFetching`, or call `refetch({ cancelRefetch: false })`; apply the same to the discovery sections.
 - French wording (C-07 review): the total units fact is labelled "Longueur" (`mediaDetail.facts.totalUnits`, en "Length"), which reads unnaturally: use a label per kind ("Épisodes" / "Chapitres", "Episodes" / "Chapters") when the shared labels are touched.
 - Reuse the search pagination and its background prefetch for top and season pages (`CatalogRequestOptions`, C-06). Adding a format to `getTop` makes the positional optional parameters awkward (`getTop(kind, page, undefined, options)`): consider one options object for the signal, the format and the priority (C-06 review).
@@ -202,8 +202,9 @@ Details:
 - The library snapshot refresh "when the detail screen is viewed" (`ARCHITECTURE.md` §5) and the detail screen's library actions (add, status, `+1`, score) come with this item; the favorite star comes with L-05 (C-07).
 
 ### L-06 Adult content setting wired to the filter
-- Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, and of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
+- Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
+- Lists after a failed refetch (C-08 review), when touching `SearchScreen` and `DiscoveryScreen` here: add a screen-level test that a cached stale top page whose refetch fails shows its rows and `discover-stale-note` (only the `MediaPageList` props test covers it today); an own empty page whose refetch failed shows the `EmptyState` without the stale note and its retry, unlike a non-empty page: show the note there too. Split `src/core/hooks/use-prefetch-next-page.test.tsx` (308 lines) under the ~300-line rule.
 - Add a route-level BR-06 test in `test/app/media-detail.test.tsx`: an adult title through the real root layout shows `media-detail-hidden`, and the header titles equal the static `mediaDetail.title`, never the media title (C-07 review).
 
 ## Phase 4 — Accounts and sync
@@ -250,6 +251,8 @@ Details:
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
 
 ### R-03 Accessibility pass
+- The format, status and minimum score sections of the filters sheet are deselectable radio groups (a tap on the checked chip clears it), which is not standard radio behaviour: add an explicit "Any" chip (the `noneLabel` prop of `FilterChoice`, as the sort section does with "Relevance") and drop `deselectable` (C-08 review).
+- The stale note of `MediaPageList` (a list kept after a failed refetch) is not announced: make it a polite live region or announce it (C-08 review).
 - Filters sheet section titles (`src/features/search/FilterChoice.tsx`, `GenresFilter.tsx`) use `Text variant="subtitle"` without a header role: add a heading option to the ui `Text` (`accessibilityRole="header"`) so screen readers can jump between sections (C-05 review).
 - Genre chips announce their state twice: the label names it ("Action, included") and `accessibilityState.selected` adds "selected" ("excluded, not selected" for an excluded chip). Leave `selected` out of the state when the label already names it (C-05 review).
 - The `Sheet` primitive has no keyboard avoidance: the keyboard can cover the year field of the filters sheet on small screens. Use `KeyboardAvoidingView` or `automaticallyAdjustKeyboardInsets` on its scroll body (C-05).
@@ -286,6 +289,7 @@ Details:
 - Run a jikan-rest instance (hosting, its own cache, MyAnimeList scraping limits, monitoring), https only.
 - Switch the app with one value: `EXPO_PUBLIC_JIKAN_BASE_URL` in the EAS environments (C-03), then a build, or an update published with its environment. The adapter applies `SELF_HOSTED_JIKAN_RATE_LIMIT` (the public Jikan's documented limits); tune it to the instance's real limits if needed.
 - Update the privacy policy (R-05) and ADR-0013's terms summary.
+- The Discover "This season" section shows Tenrai's `/seasons/now`, which also lists titles still airing from earlier seasons; a self-hosted Jikan without the `continuing` parameter (never sent, ADR-0004) lists only the season's new titles. Accepted difference (C-08): check it on the instance and mention it in the switch notes.
 - Before a self-hosted URL is used (C-03 review): `selfHostedJikanInstance` (`src/core/catalog/jikan/jikan-instances.ts`) checks only the https prefix and the trailing slash, and the app env URL pattern (`src/core/schemas/app-env.ts`) accepts `.` and `..` path segments. Export one core URL pattern, use it in both, and reject dot segments.
 
 ## Maintenance (recurring, never ticked)

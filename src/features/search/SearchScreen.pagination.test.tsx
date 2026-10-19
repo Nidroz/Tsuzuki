@@ -10,6 +10,7 @@ import {
   renderSearchScreen,
   searchInput,
 } from '../../../test/mobile/render-search-screen';
+import { genresByKind } from './__fixtures__/genres';
 import { pagedResults, rowOfPage } from './__fixtures__/search-results';
 
 // fR-04, C-06: the pages of the search results on the search screen
@@ -116,30 +117,59 @@ describe('SearchScreen pagination (FR-04)', () => {
     expect(screen.getByRole('progressbar', { name: 'Updating results' })).toBeOnTheScreen();
   });
 
-  it('starts again at page 1 for a new text or another kind', async () => {
-    const { provider } = await searchFrieren();
-    await jumpTo(JUMP_PAGE);
+  // every foreground search of the new search asks for page 1: never the page left, even once
+  describe('a new search from a page past the first', () => {
+    // searches frieren, jumps to JUMP_PAGE, and returns the foreground searches made so far
+    const fromJumpPage = async () => {
+      const rendered = await renderSearchScreen({
+        search: answersEveryPage,
+        getGenres: genresByKind,
+      });
+      await user.type(searchInput(), 'frieren');
+      await advance(SEARCH_DEBOUNCE_MS);
+      await jumpTo(JUMP_PAGE);
+      expect(foregroundSearches(rendered.provider).at(-1)).toStrictEqual(frieren(JUMP_PAGE));
+      return { ...rendered, before: foregroundSearches(rendered.provider).length };
+    };
 
-    await user.type(searchInput(), ' arc');
-    await advance(SEARCH_DEBOUNCE_MS);
+    it('starts again at page 1 for a new text', async () => {
+      const { provider, before } = await fromJumpPage();
 
-    expect(foregroundSearches(provider).at(-1)).toStrictEqual({
-      kind: 'anime',
-      query: 'frieren arc',
-      page: 1,
+      await user.type(searchInput(), ' arc');
+      await advance(SEARCH_DEBOUNCE_MS);
+
+      expect(foregroundSearches(provider).slice(before)).toStrictEqual([
+        { kind: 'anime', query: 'frieren arc', page: 1 },
+      ]);
+      expect(currentPage(1, LAST_PAGE)).toBeOnTheScreen();
     });
-    expect(currentPage(1, LAST_PAGE)).toBeOnTheScreen();
 
-    await jumpTo(JUMP_PAGE);
-    await user.press(screen.getByRole('button', { name: 'Manga' }));
-    await advance(0);
+    it('starts again at page 1 for another kind', async () => {
+      const { provider, before } = await fromJumpPage();
 
-    expect(foregroundSearches(provider).at(-1)).toStrictEqual({
-      kind: 'manga',
-      query: 'frieren arc',
-      page: 1,
+      await user.press(screen.getByRole('radio', { name: 'Manga' }));
+      await advance(0);
+
+      expect(foregroundSearches(provider).slice(before)).toStrictEqual([
+        { kind: 'manga', query: 'frieren', page: 1 },
+      ]);
+      expect(currentPage(1, LAST_PAGE)).toBeOnTheScreen();
     });
-    expect(currentPage(1, LAST_PAGE)).toBeOnTheScreen();
+
+    it('starts again at page 1 for other filters', async () => {
+      const { provider, before } = await fromJumpPage();
+
+      await user.press(screen.getByTestId('search-filters'));
+      await advance(0);
+      await user.press(screen.getByRole('radio', { name: 'TV' }));
+      await user.press(screen.getByTestId('filters-apply'));
+      await advance(0);
+
+      expect(foregroundSearches(provider).slice(before)).toStrictEqual([
+        { kind: 'anime', query: 'frieren', formats: ['tv'], page: 1 },
+      ]);
+      expect(currentPage(1, LAST_PAGE)).toBeOnTheScreen();
+    });
   });
 
   it('scrolls the results back to the top on a page change', async () => {

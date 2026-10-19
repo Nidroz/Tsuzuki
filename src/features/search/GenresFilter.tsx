@@ -62,7 +62,7 @@ export interface GenresFilterProps {
  */
 export function GenresFilter({ kind, filters, showAdult, max, onCycle }: GenresFilterProps) {
   const { t } = useTranslation();
-  const { data, error, refetch } = useGenres(kind);
+  const { data, error, isFetching, refetch } = useGenres(kind);
   const genres = useMemo(
     () => data?.filter((genre) => showAdult || !isAdultGenreName(genre.name)),
     [data, showAdult],
@@ -73,8 +73,9 @@ export function GenresFilter({ kind, filters, showAdult, max, onCycle }: GenresF
   const full = filters.genresIncluded.length >= max || filters.genresExcluded.length >= max;
 
   const content = () => {
-    // a failed background refetch keeps the cached genres usable: the error shows only without them
-    if (error !== null && genres === undefined) {
+    // a failed background refetch keeps the cached genres usable: the error shows only without
+    // them, and the spinner replaces it while its retry runs, so a tap never restarts the request
+    if (error !== null && genres === undefined && !isFetching) {
       return (
         <ErrorState
           title={t('search.filters.genres.error')}

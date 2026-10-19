@@ -50,9 +50,10 @@ export const createJikanCatalogProvider = (
       const url = jikanDetailUrl(baseUrl, key);
       return parseJikanDetail(key, await client.getJson(url, signal));
     },
-    getTop: async (kind, page, signal, requestOptions) => {
-      const url = jikanTopUrl(baseUrl, kind, page);
-      return parseJikanPage(kind, page, await client.getJson(url, signal, requestOptions));
+    getTop: async (params, signal, requestOptions) => {
+      const url = jikanTopUrl(baseUrl, params);
+      const body = await client.getJson(url, signal, requestOptions);
+      return parseJikanPage(params.kind, params.page, body);
     },
     getCurrentSeason: async (page, signal, requestOptions) => {
       const url = jikanSeasonNowUrl(baseUrl, page);

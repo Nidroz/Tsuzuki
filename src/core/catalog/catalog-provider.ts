@@ -6,6 +6,7 @@ import type {
   MediaKey,
   MediaKind,
   MediaStatus,
+  SearchableMediaFormat,
   SearchableMediaStatus,
 } from '../domain/media';
 
@@ -67,6 +68,18 @@ export interface SearchParams {
   readonly page: number;
 }
 
+/** a page of the top list of a kind (FR-05). */
+export interface TopParams {
+  readonly kind: MediaKind;
+  /**
+   * one format of the kind with a provider type (the FR-05 chips); absent: every format. a format
+   * of the other kind or one without a provider type is a RangeError before any request.
+   */
+  readonly format?: SearchableMediaFormat;
+  // 1-based
+  readonly page: number;
+}
+
 /** one page of results; `page` and `lastPage` are 1-based. */
 export interface Page<T> {
   readonly items: readonly T[];
@@ -76,9 +89,7 @@ export interface Page<T> {
 }
 
 /** how urgent a paged request is for the provider's rate limiter. */
-export const CATALOG_REQUEST_PRIORITIES = ['foreground', 'background'] as const;
-
-export type CatalogRequestPriority = (typeof CATALOG_REQUEST_PRIORITIES)[number];
+export type CatalogRequestPriority = 'foreground' | 'background';
 
 /** per-call options of the paged methods. */
 export interface CatalogRequestOptions {
@@ -124,8 +135,7 @@ export interface CatalogProvider {
   ): Promise<Page<MediaSummary>>;
   getDetail(key: MediaKey, signal?: AbortSignal): Promise<MediaDetail>;
   getTop(
-    kind: MediaKind,
-    page: number,
+    params: TopParams,
     signal?: AbortSignal,
     options?: CatalogRequestOptions,
   ): Promise<Page<MediaSummary>>;

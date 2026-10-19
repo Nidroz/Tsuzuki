@@ -7,12 +7,25 @@
     "settings": "Réglages"
   },
   "discovery": {
-    "placeholder": {
-      "title": "Bientôt disponible",
-      "message": "Les meilleurs anime et manga et la saison en cours apparaîtront ici."
+    "sections": {
+      "label": "Listes",
+      "topAnime": "Top anime",
+      "topManga": "Top manga",
+      "season": "Cette saison"
+    },
+    "formats": {
+      "label": "Format du manga",
+      "all": "Tous"
+    },
+    "empty": {
+      "title": "Aucun titre",
+      "message": "Cette liste est vide pour le moment."
     }
   },
   "search": {
+    "kind": {
+      "label": "Type"
+    },
     "field": {
       "label": "Rechercher",
       "placeholder": "Titre d'un anime ou d'un manga"
@@ -27,37 +40,10 @@
       "clearLabel": "Effacer les recherches récentes"
     },
     "results": {
-      "loading": "Chargement des résultats",
-      "updating": "Mise à jour des résultats",
       "empty": {
         "title": "Aucun résultat",
         "message": "Essayez un autre titre, ou l'autre type."
-      },
-      "hidden_one": "{{count}} titre pour adultes a été masqué.",
-      "hidden_many": "{{count}} titres pour adultes ont été masqués.",
-      "hidden_other": "{{count}} titres pour adultes ont été masqués.",
-      "score": "Note {{score}}",
-      "openHint": "Ouvre les détails"
-    },
-    "error": {
-      "offline": {
-        "title": "Vous êtes hors ligne",
-        "message": "Vérifiez votre connexion, puis réessayez."
-      },
-      "generic": {
-        "title": "La recherche a échoué",
-        "message": "Une erreur est survenue. Réessayez dans un instant."
-      },
-      "retry": "Réessayer"
-    },
-    "pagination": {
-      "previous": "Page précédente",
-      "next": "Page suivante",
-      "jumpTo": "Aller à la page",
-      "go": "Aller",
-      "page": "Page {{page}}",
-      "currentPage": "Page {{page}} sur {{pageCount}}, page actuelle",
-      "morePages": "Autres pages"
+      }
     },
     "filters": {
       "open": {
@@ -90,11 +76,7 @@
         "empty": "Aucun genre à filtrer."
       },
       "status": {
-        "title": "Statut",
-        "airing": "En cours de diffusion",
-        "publishing": "En cours de publication",
-        "finished": "Terminé",
-        "upcoming": "À venir"
+        "title": "Statut"
       },
       "year": {
         "label": "À partir de l'année",
@@ -121,6 +103,39 @@
           "desc": "Décroissant"
         }
       }
+    }
+  },
+  "mediaList": {
+    "loading": "Chargement des résultats",
+    "updating": "Mise à jour des résultats",
+    "hidden_one": "{{count}} titre pour adultes a été masqué.",
+    "hidden_many": "{{count}} titres pour adultes ont été masqués.",
+    "hidden_other": "{{count}} titres pour adultes ont été masqués.",
+    "score": "Note {{score}}",
+    "openHint": "Ouvre les détails",
+    "error": {
+      "offline": {
+        "title": "Vous êtes hors ligne",
+        "message": "Vérifiez votre connexion, puis réessayez."
+      },
+      "generic": {
+        "title": "Les résultats n'ont pas pu être chargés",
+        "message": "Une erreur est survenue. Réessayez dans un instant."
+      },
+      "retry": "Réessayer"
+    },
+    "stale": {
+      "offline": "Vous êtes hors ligne : cette liste n'a pas pu être actualisée.",
+      "generic": "Cette liste n'a pas pu être actualisée."
+    },
+    "pagination": {
+      "previous": "Page précédente",
+      "next": "Page suivante",
+      "jumpTo": "Aller à la page",
+      "go": "Aller",
+      "page": "Page {{page}}",
+      "currentPage": "Page {{page}} sur {{pageCount}}, page actuelle",
+      "morePages": "Autres pages"
     }
   },
   "library": {
@@ -184,12 +199,8 @@
       "discontinued": "Abandonné"
     },
     "totalUnits": {
-      "episodes_one": "{{total}} épisode",
-      "episodes_many": "{{total}} épisodes",
-      "episodes_other": "{{total}} épisodes",
-      "chapters_one": "{{total}} chapitre",
-      "chapters_many": "{{total}} chapitres",
-      "chapters_other": "{{total}} chapitres"
+      "episodes": "Épisodes",
+      "chapters": "Chapitres"
     }
   },
   "mediaDetail": {
@@ -202,7 +213,6 @@
     "facts": {
       "format": "Format",
       "status": "Statut",
-      "totalUnits": "Longueur",
       "score": "Note",
       "year": "Année",
       "unknown": "Inconnu",

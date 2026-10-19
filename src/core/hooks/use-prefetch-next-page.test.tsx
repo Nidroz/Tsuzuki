@@ -15,6 +15,7 @@ import { CatalogNetworkError } from '../errors/catalog-errors';
 import { queryKeys } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import { STALE_TIMES } from '../query/stale-times';
+import { settle } from './__fixtures__/catalog-pages';
 import { CatalogContextProvider } from './CatalogContextProvider';
 import { useSearch } from './use-search';
 
@@ -84,13 +85,6 @@ const setup = (params: SearchParams | null, search: Search) => {
 const backgroundCalls = (provider: ReturnType<typeof createFakeCatalogProvider>) =>
   provider.search.mock.calls.filter(([, , options]) => options?.priority === 'background');
 
-// lets the queries, their notifications and the prefetch settle
-const settle = async (): Promise<void> => {
-  await act(async () => {
-    await jest.advanceTimersByTimeAsync(0);
-  });
-};
-
 describe('useSearch next page prefetch (C-06)', () => {
   it('prefetches the next page once in the background when idle, filling its key', async () => {
     const { provider, queryClient, result, rerender } = setup(
@@ -106,7 +100,7 @@ describe('useSearch next page prefetch (C-06)', () => {
     rerender({ params: frieren(1) });
     await settle();
 
-    expect(result.current.data?.page).toBe(1);
+    expect(result.current.query.data?.page).toBe(1);
     expect(provider.search).toHaveBeenCalledTimes(2);
     expect(provider.search).toHaveBeenNthCalledWith(1, frieren(1), expect.any(AbortSignal));
     expect(provider.search).toHaveBeenNthCalledWith(
@@ -129,8 +123,8 @@ describe('useSearch next page prefetch (C-06)', () => {
 
     rerender({ params: frieren(2) });
 
-    expect(result.current.data?.page).toBe(2);
-    expect(result.current.isPlaceholderData).toBe(false);
+    expect(result.current.query.data?.page).toBe(2);
+    expect(result.current.query.isPlaceholderData).toBe(false);
     await waitFor(() => {
       expect(backgroundCalls(provider)).toHaveLength(2);
     });
@@ -145,7 +139,7 @@ describe('useSearch next page prefetch (C-06)', () => {
     const { provider, result } = setup(frieren(LAST_PAGE), answering(pendingUntilAborted));
 
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     await settle();
 
@@ -162,8 +156,8 @@ describe('useSearch next page prefetch (C-06)', () => {
     rerender({ params: frieren(2) });
     await settle();
 
-    expect(result.current.isPlaceholderData).toBe(true);
-    expect(result.current.isFetching).toBe(true);
+    expect(result.current.query.isPlaceholderData).toBe(true);
+    expect(result.current.query.isFetching).toBe(true);
     // the foreground request of page 2, and still no prefetch of page 3
     expect(provider.search).toHaveBeenCalledTimes(3);
     expect(backgroundCalls(provider)).toHaveLength(1);
@@ -175,7 +169,7 @@ describe('useSearch next page prefetch (C-06)', () => {
 
     rerender({ params: frieren(1) });
     await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
+      expect(result.current.query.isSuccess).toBe(true);
     });
     await settle();
 
@@ -186,7 +180,7 @@ describe('useSearch next page prefetch (C-06)', () => {
     });
     // a refetch of the page shown is a new data update: the stale next page is fetched again
     await act(async () => {
-      await result.current.refetch();
+      await result.current.query.refetch();
     });
     await settle();
 
@@ -221,6 +215,37 @@ describe('useSearch next page prefetch (C-06)', () => {
     expect(prefetchSignal?.aborted).toBe(true);
   });
 
+  it('aborts the prefetch and runs it again on the new catalog provider', async () => {
+    const first = createFakeCatalogProvider();
+    const second = createFakeCatalogProvider();
+    first.search.mockImplementation(answering(pendingUntilAborted));
+    second.search.mockImplementation(answering(pendingUntilAborted));
+    const queryClient = createQueryClient();
+    // the same namespace: the list key alone does not tell the providers apart
+    let provider: CatalogProvider = first;
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
+      </QueryClientProvider>
+    );
+    const { rerender } = renderHook(() => useSearch(frieren(1), { showAdult: false }), {
+      wrapper,
+    });
+    await waitFor(() => {
+      expect(backgroundCalls(first)).toHaveLength(1);
+    });
+    const prefetchSignal = backgroundCalls(first)[0]?.[1];
+
+    provider = second;
+    rerender();
+    await settle();
+
+    expect(prefetchSignal?.aborted).toBe(true);
+    expect(backgroundCalls(second)).toStrictEqual([
+      [frieren(2), expect.any(AbortSignal), BACKGROUND],
+    ]);
+  });
+
   it('aborts the prefetch on unmount', async () => {
     const { provider, unmount } = setup(frieren(1), answering(pendingUntilAborted));
     await waitFor(() => {
@@ -251,8 +276,8 @@ describe('useSearch next page prefetch (C-06)', () => {
 
     expect(backgroundCalls(provider)).toHaveLength(1);
     expect(queryClient.getQueryState(queryKeys.search('mal', frieren(2)))).toBeUndefined();
-    expect(result.current.data?.page).toBe(1);
-    expect(result.current.error).toBeNull();
+    expect(result.current.query.data?.page).toBe(1);
+    expect(result.current.query.error).toBeNull();
   });
 
   it('never overwrites data newer than the prefetch start', async () => {

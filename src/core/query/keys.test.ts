@@ -13,7 +13,13 @@ const animeKey = (externalId: number): MediaKey => ({
 describe('queryKeys', () => {
   it('builds media, top, season and genres keys from primitives', () => {
     expect(queryKeys.media(animeKey(1))).toStrictEqual(['media', 'mal', 'anime', 1]);
-    expect(queryKeys.top('mal', 'manga', 2)).toStrictEqual(['top', 'mal', 'manga', 2]);
+    expect(queryKeys.top('mal', { kind: 'manga', page: 2 })).toStrictEqual([
+      'top',
+      'mal',
+      'manga',
+      null,
+      2,
+    ]);
     expect(queryKeys.season('mal', 3)).toStrictEqual(['season', 'mal', 3]);
     expect(queryKeys.genres('mal', 'anime')).toStrictEqual(['genres', 'mal', 'anime']);
   });
@@ -47,6 +53,37 @@ describe('queryKeys', () => {
     };
     expect(queryKeys.media(key)).toStrictEqual(queryKeys.media(animeKey(9)));
     expect(queryKeys.library.entry(key)).toStrictEqual(['library', 'mal', 'anime', 9]);
+  });
+});
+
+describe('queryKeys.top', () => {
+  it('holds the format, or null for every format, before the page', () => {
+    expect(queryKeys.top('mal', { kind: 'manga', format: 'manhwa', page: 3 })).toStrictEqual([
+      'top',
+      'mal',
+      'manga',
+      'manhwa',
+      3,
+    ]);
+    expect(queryKeys.top('mal', { kind: 'manga', page: 3 }).at(-2)).toBeNull();
+  });
+
+  it('gives different keys for a different format or page, equal keys for equal params', () => {
+    const key = queryKeys.top('mal', { kind: 'manga', format: 'manhwa', page: 1 });
+    expect(queryKeys.top('mal', { kind: 'manga', format: 'manhwa', page: 1 })).toStrictEqual(key);
+    expect(queryKeys.top('mal', { kind: 'manga', format: 'manhua', page: 1 })).not.toStrictEqual(
+      key,
+    );
+    expect(queryKeys.top('mal', { kind: 'manga', page: 1 })).not.toStrictEqual(key);
+    expect(queryKeys.top('mal', { kind: 'manga', format: 'manhwa', page: 2 })).not.toStrictEqual(
+      key,
+    );
+  });
+
+  it('holds only the fields of the params', () => {
+    // an untyped caller passing extra fields changes nothing
+    const params = { kind: 'anime', format: 'tv', page: 1, priority: 'background' } as const;
+    expect(queryKeys.top('mal', params)).toStrictEqual(['top', 'mal', 'anime', 'tv', 1]);
   });
 });
 
@@ -89,7 +126,7 @@ describe('queryKeys.search', () => {
     expect(queryKeys.search('mal', base)[0]).toBe(SEARCH_KEY_ROOT);
     const others = [
       queryKeys.media(animeKey(1)),
-      queryKeys.top('mal', 'anime', 1),
+      queryKeys.top('mal', { kind: 'anime', page: 1 }),
       queryKeys.season('mal', 1),
       queryKeys.genres('mal', 'anime'),
       queryKeys.library.all(),

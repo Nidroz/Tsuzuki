@@ -1,4 +1,4 @@
-import type { SearchParams } from '../catalog/catalog-provider';
+import type { SearchParams, TopParams } from '../catalog/catalog-provider';
 import { searchKeyParts } from '../catalog/search-params';
 import type { MediaIdNamespace, MediaKey, MediaKind } from '../domain/media';
 
@@ -10,8 +10,9 @@ export const SEARCH_KEY_ROOT = 'search';
 // hold the id namespace, never a server or instance id: switching instances keeps the cache
 export const queryKeys = {
   media: (key: MediaKey) => ['media', key.namespace, key.kind, key.externalId] as const,
-  top: (namespace: MediaIdNamespace, kind: MediaKind, page: number) =>
-    ['top', namespace, kind, page] as const,
+  // an absent format (every format) is null, page last
+  top: (namespace: MediaIdNamespace, { kind, format, page }: TopParams) =>
+    ['top', namespace, kind, format ?? null, page] as const,
   season: (namespace: MediaIdNamespace, page: number) => ['season', namespace, page] as const,
   // params are normalized first: equivalent searches share one key, page last
   search: (namespace: MediaIdNamespace, params: SearchParams) =>

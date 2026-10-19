@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { http, HttpResponse } from 'msw';
 
+import { settle } from '../../../../test/core/catalog-http-test-support';
 import { server } from '../../../../test/core/msw-server';
 import {
   CatalogAbortedError,
@@ -32,9 +33,6 @@ const TIMEOUT_MS = 1_000;
 // the tenrai policy grants 2 requests at once, then one every 750 ms
 const BURST = 2;
 const REFILL_MS = 750;
-
-// the outcome of a call, value or error, with its rejection handled from the start
-const settle = (call: Promise<unknown>): Promise<unknown> => call.catch((error: unknown) => error);
 
 const neverAnswer = (): Promise<Response> => new Promise<Response>(() => undefined);
 
@@ -101,7 +99,7 @@ describe('createJikanCatalogProvider', () => {
     const provider = createJikanCatalogProvider(TENRAI_INSTANCE);
 
     const results = Promise.all([
-      provider.getTop('manga', 1),
+      provider.getTop({ kind: 'manga', page: 1 }),
       provider.getCurrentSeason(3),
       provider.getGenres('anime'),
     ]);

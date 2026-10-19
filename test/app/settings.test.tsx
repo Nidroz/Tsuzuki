@@ -12,11 +12,18 @@ import { createMMKV } from 'react-native-mmkv';
 import DiscoverRoute from '../../app/(tabs)/index';
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
+import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { appRoutesWithDiscover } from './app-routes';
 
 type ColorScheme = 'light' | 'dark';
+
+// the composition root gets a fake provider instead of the tenrai one: the Discover route, the
+// initial tab, loads its top list without http
+jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>
+  jest.requireActual<typeof FakeJikanModule>('../mobile/fake-jikan-module').fakeJikanModule(),
+);
 
 // an english device: the language picker, not the device, switches the app to french
 const DEVICE_LOCALES: readonly Pick<Localization.Locale, 'languageTag'>[] = [

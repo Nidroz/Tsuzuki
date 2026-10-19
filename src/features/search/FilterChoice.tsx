@@ -20,13 +20,13 @@ export interface FilterChoiceProps<T extends string | number> {
   deselectable: boolean;
   /** a first chip standing for no value (null), e.g. "Relevance"; none by default */
   noneLabel?: string;
-  /** each chip gets `${testID}-${value}`, the none chip `${testID}-none` */
+  /** each chip gets `${testID}-${value}`, the none chip `${testID}-none`, the chips row `-group` */
   testID: string;
 }
 
 /**
- * a titled group of single-select chips, one per option: the chosen one is selected. a section of
- * the filters sheet (FR-03)
+ * a titled radio group of chips, one per option, named by the title: the chosen one is checked,
+ * none while nothing is chosen. a section of the filters sheet (FR-03)
  */
 export function FilterChoice<T extends string | number>({
   title,
@@ -44,10 +44,17 @@ export function FilterChoice<T extends string | number>({
   return (
     <Stack gap="sm" testID={testID}>
       <Text variant="subtitle">{title}</Text>
-      <Row gap="sm" wrap>
+      <Row
+        gap="sm"
+        wrap
+        accessibilityRole="radiogroup"
+        accessibilityLabel={title}
+        testID={`${testID}-group`}
+      >
         {noneLabel === undefined ? null : (
           <Chip
             label={noneLabel}
+            role="radio"
             selected={value === null}
             onPress={() => {
               onChange(null);
@@ -62,6 +69,7 @@ export function FilterChoice<T extends string | number>({
             {...(option.accessibilityLabel !== undefined && {
               accessibilityLabel: option.accessibilityLabel,
             })}
+            role="radio"
             selected={option.value === value}
             onPress={() => {
               choose(option.value);

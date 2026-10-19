@@ -29,19 +29,23 @@ const renderChoice = async (props: Partial<FilterChoiceProps<Size>> = {}) => {
 };
 
 describe('FilterChoice', () => {
-  it('shows its title and one chip per option, the chosen one alone selected', async () => {
+  it('shows its title and a radio group named by it, the chosen chip checked', async () => {
     await renderChoice({ value: 'small' });
 
     expect(screen.getByText('Size')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Small' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Large size' })).not.toBeSelected();
+    // the group is not an accessible element itself: role queries miss it (RadioGroup.test.tsx)
+    const group = screen.getByTestId('choice-group');
+    expect(group).toHaveProp('accessibilityRole', 'radiogroup');
+    expect(group).toHaveProp('accessibilityLabel', 'Size');
+    expect(screen.getByRole('radio', { name: 'Small' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Large size' })).not.toBeChecked();
     expect(screen.getByTestId('choice-large')).toHaveTextContent('Large');
   });
 
   it('chooses the pressed option', async () => {
     const { onChange, user } = await renderChoice({ value: 'small' });
 
-    await user.press(screen.getByRole('button', { name: 'Large size' }));
+    await user.press(screen.getByRole('radio', { name: 'Large size' }));
 
     expect(onChange).toHaveBeenCalledWith('large');
   });
@@ -49,7 +53,7 @@ describe('FilterChoice', () => {
   it('clears the choice when the chosen chip is pressed again, if deselectable', async () => {
     const { onChange, user } = await renderChoice({ value: 'small' });
 
-    await user.press(screen.getByRole('button', { name: 'Small' }));
+    await user.press(screen.getByRole('radio', { name: 'Small' }));
 
     expect(onChange).toHaveBeenCalledWith(null);
   });
@@ -57,17 +61,17 @@ describe('FilterChoice', () => {
   it('keeps the choice when the chosen chip is pressed again, if not deselectable', async () => {
     const { onChange, user } = await renderChoice({ value: 'small', deselectable: false });
 
-    await user.press(screen.getByRole('button', { name: 'Small' }));
+    await user.press(screen.getByRole('radio', { name: 'Small' }));
 
     expect(onChange).toHaveBeenCalledWith('small');
   });
 
-  it('offers a first chip for no value, selected while nothing is chosen', async () => {
+  it('offers a first chip for no value, checked while nothing is chosen', async () => {
     const { onChange, user } = await renderChoice({ noneLabel: 'Any', deselectable: false });
 
-    const none = screen.getByRole('button', { name: 'Any' });
-    expect(none).toBeSelected();
-    expect(screen.getAllByRole('button')[0]).toBe(none);
+    const none = screen.getByRole('radio', { name: 'Any' });
+    expect(none).toBeChecked();
+    expect(screen.getAllByRole('radio')[0]).toBe(none);
 
     await user.press(none);
 

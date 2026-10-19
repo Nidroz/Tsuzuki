@@ -53,6 +53,7 @@ const renderSheet = async ({
 };
 
 const button = (name: string) => screen.getByRole('button', { name });
+const radio = (name: string) => screen.getByRole('radio', { name });
 const yearField = () => screen.getByTestId('filters-year');
 const applyButton = () => screen.getByTestId('filters-apply');
 
@@ -81,24 +82,24 @@ describe('FiltersSheet', () => {
   it('starts from the applied filters', async () => {
     await renderSheet({ filters: APPLIED });
 
-    expect(button('Movie')).toBeSelected();
-    expect(button('Score 8 or more')).toBeSelected();
-    expect(button('Relevance')).toBeSelected();
+    expect(radio('Movie')).toBeChecked();
+    expect(radio('Score 8 or more')).toBeChecked();
+    expect(radio('Relevance')).toBeChecked();
     expect(yearField()).toHaveProp('value', '2010');
   });
 
   it('FR-03: applies every edited section at once, then closes', async () => {
     const { onApply, onClose, user } = await renderSheet();
 
-    await user.press(button('TV'));
+    await user.press(radio('TV'));
     await user.press(button('Action, not filtered'));
     await user.press(button('Adventure, not filtered'));
     await user.press(button('Adventure, included'));
-    await user.press(button('Airing'));
+    await user.press(radio('Airing'));
     await user.type(yearField(), '2015');
-    await user.press(button('Score 7 or more'));
-    await user.press(button('Score'));
-    await user.press(button('Ascending'));
+    await user.press(radio('Score 7 or more'));
+    await user.press(radio('Score'));
+    await user.press(radio('Ascending'));
 
     expect(onApply).not.toHaveBeenCalled();
 
@@ -119,8 +120,8 @@ describe('FiltersSheet', () => {
 
   it('discards the draft on close: reopening starts from the applied filters again', async () => {
     const { onApply, onClose, setVisible, user } = await renderSheet({ filters: APPLIED });
-    await user.press(button('TV'));
-    await user.press(button('Score 8 or more'));
+    await user.press(radio('TV'));
+    await user.press(radio('Score 8 or more'));
     await user.clear(yearField());
 
     await user.press(button('Close the filters without applying them'));
@@ -132,9 +133,9 @@ describe('FiltersSheet', () => {
     await setVisible(false);
     await setVisible(true);
 
-    expect(button('Movie')).toBeSelected();
-    expect(button('TV')).not.toBeSelected();
-    expect(button('Score 8 or more')).toBeSelected();
+    expect(radio('Movie')).toBeChecked();
+    expect(radio('TV')).not.toBeChecked();
+    expect(radio('Score 8 or more')).toBeChecked();
     expect(yearField()).toHaveProp('value', '2010');
   });
 
@@ -145,9 +146,9 @@ describe('FiltersSheet', () => {
 
     await user.press(button('Reset'));
 
-    expect(button('Movie')).not.toBeSelected();
+    expect(radio('Movie')).not.toBeChecked();
     expect(button('Action, not filtered')).toBeOnTheScreen();
-    expect(button('Relevance')).toBeSelected();
+    expect(radio('Relevance')).toBeChecked();
     expect(yearField()).toHaveProp('value', '');
     expect(onApply).not.toHaveBeenCalled();
 
@@ -199,9 +200,9 @@ describe('FiltersSheet', () => {
   it('offers the manga formats, statuses and genres for manga', async () => {
     const { provider } = await renderSheet({ kind: 'manga' });
 
-    expect(button('Manhwa')).toBeOnTheScreen();
-    expect(screen.queryByRole('button', { name: 'TV' })).not.toBeOnTheScreen();
-    expect(button('Publishing')).toBeOnTheScreen();
+    expect(radio('Manhwa')).toBeOnTheScreen();
+    expect(screen.queryByRole('radio', { name: 'TV' })).not.toBeOnTheScreen();
+    expect(radio('Publishing')).toBeOnTheScreen();
     expect(button('Isekai, not filtered')).toBeOnTheScreen();
     expect(provider.getGenres).toHaveBeenCalledWith('manga', expect.any(AbortSignal));
   });

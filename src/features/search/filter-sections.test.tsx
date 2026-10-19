@@ -13,21 +13,21 @@ import { YearFilter } from './YearFilter';
 // the single-select sections of the filters sheet and its year field, each alone; the sheet
 // itself is tested in FiltersSheet.test.tsx
 
-const buttonNames = () =>
-  screen.getAllByRole('button').map((button) => button.props.accessibilityLabel as string);
+const radioNames = () =>
+  screen.getAllByRole('radio').map((radio) => radio.props.accessibilityLabel as string);
 
 describe('FormatFilter', () => {
   it('offers the searchable anime formats, without unknown', async () => {
     await renderWithProviders(<FormatFilter kind="anime" format={null} onChange={jest.fn()} />);
 
     expect(screen.getByText('Format')).toBeOnTheScreen();
-    expect(buttonNames()).toStrictEqual(['TV', 'Movie', 'OVA', 'ONA', 'Special', 'Music']);
+    expect(radioNames()).toStrictEqual(['TV', 'Movie', 'OVA', 'ONA', 'Special', 'Music']);
   });
 
   it('offers the searchable manga formats, without oel and unknown', async () => {
     await renderWithProviders(<FormatFilter kind="manga" format={null} onChange={jest.fn()} />);
 
-    expect(buttonNames()).toStrictEqual([
+    expect(radioNames()).toStrictEqual([
       'Manga',
       'Manhwa',
       'Manhua',
@@ -43,10 +43,10 @@ describe('FormatFilter', () => {
     const onChange = jest.fn<(format: SearchableMediaFormat | null) => void>();
     await renderWithProviders(<FormatFilter kind="anime" format="movie" onChange={onChange} />);
 
-    expect(screen.getByRole('button', { name: 'Movie' })).toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Movie' })).toBeChecked();
 
-    await user.press(screen.getByRole('button', { name: 'Movie' }));
-    await user.press(screen.getByRole('button', { name: 'TV' }));
+    await user.press(screen.getByRole('radio', { name: 'Movie' }));
+    await user.press(screen.getByRole('radio', { name: 'TV' }));
 
     expect(onChange.mock.calls).toStrictEqual([[null], ['tv']]);
   });
@@ -57,7 +57,7 @@ describe('StatusFilter', () => {
     await renderWithProviders(<StatusFilter kind="anime" status={null} onChange={jest.fn()} />);
 
     expect(screen.getByText('Status')).toBeOnTheScreen();
-    expect(buttonNames()).toStrictEqual(['Airing', 'Finished', 'Upcoming']);
+    expect(radioNames()).toStrictEqual(['Airing', 'Finished', 'Upcoming']);
   });
 
   it('words the statuses for manga, in french too', async () => {
@@ -65,8 +65,8 @@ describe('StatusFilter', () => {
       language: 'fr',
     });
 
-    expect(buttonNames()).toStrictEqual(['En cours de publication', 'Terminé', 'À venir']);
-    expect(screen.getByRole('button', { name: 'En cours de publication' })).toBeSelected();
+    expect(radioNames()).toStrictEqual(['En cours de publication', 'Terminé', 'À venir']);
+    expect(screen.getByRole('radio', { name: 'En cours de publication' })).toBeChecked();
   });
 
   it('selects a status, and clears it when its chip is pressed again', async () => {
@@ -74,8 +74,8 @@ describe('StatusFilter', () => {
     const onChange = jest.fn<(status: SearchableMediaStatus | null) => void>();
     await renderWithProviders(<StatusFilter kind="manga" status="finished" onChange={onChange} />);
 
-    await user.press(screen.getByRole('button', { name: 'Finished' }));
-    await user.press(screen.getByRole('button', { name: 'Upcoming' }));
+    await user.press(screen.getByRole('radio', { name: 'Finished' }));
+    await user.press(screen.getByRole('radio', { name: 'Upcoming' }));
 
     expect(onChange.mock.calls).toStrictEqual([[null], ['upcoming']]);
   });
@@ -86,7 +86,7 @@ describe('MinScoreFilter', () => {
     await renderWithProviders(<MinScoreFilter minScore={7} onChange={jest.fn()} />);
 
     expect(screen.getByText('Minimum score')).toBeOnTheScreen();
-    expect(buttonNames()).toStrictEqual([
+    expect(radioNames()).toStrictEqual([
       'Score 5 or more',
       'Score 6 or more',
       'Score 7 or more',
@@ -94,7 +94,7 @@ describe('MinScoreFilter', () => {
       'Score 9 or more',
     ]);
     expect(screen.getByTestId('filters-min-score-7')).toHaveTextContent('7+');
-    expect(screen.getByRole('button', { name: 'Score 7 or more' })).toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Score 7 or more' })).toBeChecked();
   });
 
   it('selects a score, and clears it when its chip is pressed again', async () => {
@@ -102,8 +102,8 @@ describe('MinScoreFilter', () => {
     const onChange = jest.fn<(minScore: number | null) => void>();
     await renderWithProviders(<MinScoreFilter minScore={7} onChange={onChange} />);
 
-    await user.press(screen.getByRole('button', { name: 'Score 7 or more' }));
-    await user.press(screen.getByRole('button', { name: 'Score 9 or more' }));
+    await user.press(screen.getByRole('radio', { name: 'Score 7 or more' }));
+    await user.press(screen.getByRole('radio', { name: 'Score 9 or more' }));
 
     expect(onChange.mock.calls).toStrictEqual([[null], [9]]);
   });
@@ -126,25 +126,19 @@ describe('SortFilter', () => {
   it('selects relevance and hides the direction while no field is chosen', async () => {
     await renderSort(null);
 
-    expect(buttonNames()).toStrictEqual([
-      'Relevance',
-      'Score',
-      'Popularity',
-      'Title',
-      'Start date',
-    ]);
-    expect(screen.getByRole('button', { name: 'Relevance' })).toBeSelected();
+    expect(radioNames()).toStrictEqual(['Relevance', 'Score', 'Popularity', 'Title', 'Start date']);
+    expect(screen.getByRole('radio', { name: 'Relevance' })).toBeChecked();
     expect(screen.queryByText('Order')).not.toBeOnTheScreen();
   });
 
   it('shows the direction of the chosen field', async () => {
     await renderSort({ field: 'title', direction: 'asc' });
 
-    expect(screen.getByRole('button', { name: 'Title' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Relevance' })).not.toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Title' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Relevance' })).not.toBeChecked();
     expect(screen.getByText('Order')).toBeOnTheScreen();
-    expect(screen.getByRole('button', { name: 'Ascending' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Descending' })).not.toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Ascending' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Descending' })).not.toBeChecked();
   });
 
   it('asks for a field, relevance and a direction; the chosen field is kept', async () => {
@@ -154,11 +148,11 @@ describe('SortFilter', () => {
       direction: 'desc',
     });
 
-    await user.press(screen.getByRole('button', { name: 'Score' }));
-    await user.press(screen.getByRole('button', { name: 'Popularity' }));
-    await user.press(screen.getByRole('button', { name: 'Relevance' }));
-    await user.press(screen.getByRole('button', { name: 'Ascending' }));
-    await user.press(screen.getByRole('button', { name: 'Descending' }));
+    await user.press(screen.getByRole('radio', { name: 'Score' }));
+    await user.press(screen.getByRole('radio', { name: 'Popularity' }));
+    await user.press(screen.getByRole('radio', { name: 'Relevance' }));
+    await user.press(screen.getByRole('radio', { name: 'Ascending' }));
+    await user.press(screen.getByRole('radio', { name: 'Descending' }));
 
     expect(onFieldChange.mock.calls).toStrictEqual([['score'], ['popularity'], [null]]);
     expect(onDirectionChange.mock.calls).toStrictEqual([['asc'], ['desc']]);

@@ -25,7 +25,7 @@ describe('createQueryClient', () => {
 
   it('keeps the default lifetimes for keys outside the search root', () => {
     const client = createQueryClient();
-    const key = queryKeys.top('mal', 'anime', 1);
+    const key = queryKeys.top('mal', { kind: 'anime', page: 1 });
 
     client.setQueryData(key, { items: [], page: 1, lastPage: 1, hasNextPage: false });
 

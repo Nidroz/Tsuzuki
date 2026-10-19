@@ -6,9 +6,16 @@ import { screen } from 'expo-router/testing-library';
 
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
+import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import { APP_ROUTES } from './app-routes';
 import { headerTitles, visibleBackButtons } from './native-header';
+
+// the composition root gets a fake provider instead of the tenrai one: the Discover route, the
+// initial tab, loads its top list without http
+jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>
+  jest.requireActual<typeof FakeJikanModule>('../mobile/fake-jikan-module').fakeJikanModule(),
+);
 
 // the device language, read by the root layout. the factory runs before this mock is initialized:
 // it calls it lazily

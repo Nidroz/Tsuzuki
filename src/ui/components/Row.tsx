@@ -11,7 +11,16 @@ import {
   type JustifyToken,
 } from './layout/layout-classes';
 
-export interface RowProps {
+/**
+ * a row of the options of a single choice, e.g. chips with `role="radio"`: announced as a group
+ * named by its translated label (radiogroup role on android; ios has no group trait), like
+ * RadioGroup. a plain row has neither
+ */
+export type RowGroupProps =
+  | { accessibilityRole?: never; accessibilityLabel?: never }
+  | { accessibilityRole: 'radiogroup'; accessibilityLabel: string };
+
+export type RowProps = RowGroupProps & {
   children?: ReactNode;
   /** space between children, horizontally and between wrapped lines */
   gap: SpacingToken;
@@ -24,7 +33,7 @@ export interface RowProps {
   /** fills the remaining space of its parent */
   flex?: boolean;
   testID?: string;
-}
+};
 
 /** lays its children out horizontally, separated by a spacing token */
 export function Row({
@@ -34,6 +43,8 @@ export function Row({
   justify,
   wrap = false,
   flex = false,
+  accessibilityRole,
+  accessibilityLabel,
   testID,
 }: RowProps) {
   const className = cx(
@@ -44,8 +55,13 @@ export function Row({
     wrap && 'flex-wrap',
     flex && 'flex-1',
   );
+  // a plain row has no role: only a radio group is announced as one
   return (
-    <View className={className} testID={testID}>
+    <View
+      className={className}
+      {...(accessibilityRole !== undefined && { accessibilityRole, accessibilityLabel })}
+      testID={testID}
+    >
       {children}
     </View>
   );

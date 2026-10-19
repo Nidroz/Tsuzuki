@@ -15,6 +15,14 @@ export {
 } from './languages';
 export type { Language, LanguagePreference } from './languages';
 export type { LocaleAdapter } from './locale-adapter';
+export {
+  englishTitleOf,
+  FORMAT_KEYS,
+  nativeTitleOf,
+  STATUS_KEYS,
+  TOTAL_UNITS_LABEL_KEYS,
+  YEAR_FORMAT,
+} from './media-labels';
 export { resolveLanguage } from './resolve-language';
 export { useTranslation } from './use-translation';
 export type { Translation, TranslationKey } from './use-translation';
