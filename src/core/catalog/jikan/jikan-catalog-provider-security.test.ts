@@ -1,5 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
+import { expectNoPendingTimer, settle } from '../../../../test/core/catalog-http-test-support';
 import { server } from '../../../../test/core/msw-server';
 import type { MediaIdNamespace } from '../../domain/media';
 import {
@@ -59,9 +60,6 @@ const serveJikan = (path: string, answer: JikanAnswer): readonly JikanRequest[] 
   return requests;
 };
 
-// the outcome of a call, value or error, with its rejection handled from the start
-const settle = (call: Promise<unknown>): Promise<unknown> => call.catch((error: unknown) => error);
-
 const asError = (value: unknown): Error => {
   if (!(value instanceof Error)) {
     throw new TypeError('the call did not fail with an error');
@@ -85,12 +83,6 @@ const reportableTextOf = (error: Error): string =>
 const leaksOf = (error: Error): string[] => {
   const text = reportableTextOf(error);
   return LEAK_MARKERS.filter((marker) => text.includes(marker));
-};
-
-// lets msw finish its bookkeeping, then checks that nothing is left scheduled
-const expectNoPendingTimer = async (): Promise<void> => {
-  await jest.advanceTimersByTimeAsync(0);
-  expect(jest.getTimerCount()).toBe(0);
 };
 
 describe('the BR-06 adult flag', () => {

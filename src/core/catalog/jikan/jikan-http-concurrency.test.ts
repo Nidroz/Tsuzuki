@@ -1,7 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { delay, http, HttpResponse } from 'msw';
 
-import { FIXED_NOW } from '../../../../test/core/fixed-clock';
+import { elapsed } from '../../../../test/core/catalog-http-test-support';
 import { server } from '../../../../test/core/msw-server';
 import { createCatalogHttpClient } from '../http/catalog-http-client';
 import type { RateLimitPolicy } from '../http/rate-limiter';
@@ -74,8 +74,6 @@ const createLcg = (seed: number) => {
     return state / 2 ** 32;
   };
 };
-
-const elapsed = (): number => Date.now() - FIXED_NOW;
 
 const urlOf = (id: number): string => `${BASE_URL}/${String(id)}`;
 

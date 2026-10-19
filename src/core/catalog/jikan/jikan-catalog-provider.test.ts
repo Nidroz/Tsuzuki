@@ -1,6 +1,7 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { delay } from 'msw';
 
+import { expectNoPendingTimer, settle } from '../../../../test/core/catalog-http-test-support';
 import { server } from '../../../../test/core/msw-server';
 import {
   CatalogAbortedError,
@@ -47,16 +48,7 @@ const serveJikan = (path: string, answer: JikanAnswer): readonly JikanRequest[] 
   return requests;
 };
 
-// the outcome of a call, value or error, with its rejection handled from the start
-const settle = (call: Promise<unknown>): Promise<unknown> => call.catch((error: unknown) => error);
-
 const timesOf = (requests: readonly JikanRequest[]): number[] => requests.map(({ at }) => at);
-
-// lets msw finish its bookkeeping, then checks that nothing is left scheduled
-const expectNoPendingTimer = async (): Promise<void> => {
-  await jest.advanceTimersByTimeAsync(0);
-  expect(jest.getTimerCount()).toBe(0);
-};
 
 describe.each(JIKAN_ENDPOINTS)('$name', ({ scenarios, empty, mismatch }) => {
   const [main] = scenarios;

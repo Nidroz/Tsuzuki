@@ -4,7 +4,9 @@ import { http } from 'msw';
 import { FIXED_NOW } from './fixed-clock';
 import { server } from './msw-server';
 
-// helpers shared by the catalog http test suites (src/core/catalog/http). test/ is outside the
+// helpers shared by the catalog http and jikan test suites (src/core/catalog/http and
+// src/core/catalog/jikan). they need the node msw server, so a jsdom test (core-dom) cannot load
+// them: a hook test keeps its own act-based settle (src/core/hooks). test/ is outside the
 // coverage, and jest runs only its *.test.ts files. not a src/core/**/__tests__ folder: src/ never
 // imports test/ outside a *.test.ts file, and these helpers need the msw server and the clock
 
