@@ -112,7 +112,7 @@ describe('the instance of a jikan provider', () => {
     const results = Promise.all([
       provider.getDetail({ namespace: 'mal', kind: 'manga', externalId: 201 }),
       provider.search({ kind: 'anime', query: 'sample', page: 1 }),
-      provider.getTop('anime', 2),
+      provider.getTop({ kind: 'anime', page: 2 }),
       provider.getCurrentSeason(1),
       provider.getGenres('manga'),
     ]);

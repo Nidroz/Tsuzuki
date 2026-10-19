@@ -111,7 +111,7 @@ describe('renderWithProviders', () => {
 
     expect(seen.provider).toBe(catalogProvider);
     expect(seen.queryClient).toBe(queryClient);
-    await expect(catalogProvider.getTop('anime', 1)).resolves.toBe(EMPTY_PAGE);
+    await expect(catalogProvider.getTop({ kind: 'anime', page: 1 })).resolves.toBe(EMPTY_PAGE);
     expect(screen.getByTestId(SEARCHES_TEST_ID)).toHaveTextContent('frieren|mushishi');
   });
 

@@ -1,6 +1,6 @@
 // the http client of the catalog adapters: rate limited, deduplicated, retried with backoff
 // (docs/ARCHITECTURE.md §6). adapters parse what it returns with zod
-import type { CatalogRequestOptions } from '../catalog-provider';
+import type { CatalogRequestOptions, CatalogRequestPriority } from '../catalog-provider';
 import {
   CatalogAbortedError,
   CatalogHttpError,
@@ -58,7 +58,7 @@ const HTTPS_PREFIX = 'https://';
 const REQUEST_HEADERS = { Accept: 'application/json' } as const;
 const RETRY_AFTER_HEADER = 'Retry-After';
 const SYNTAX_ERROR_NAME = 'SyntaxError';
-const BACKGROUND_PRIORITY = 'background';
+const BACKGROUND_PRIORITY = 'background' satisfies CatalogRequestPriority;
 
 // the priority of a request in flight, beside its dedup entry. `pending` is the token wait of its
 // current attempt while the request is background, so a foreground caller can promote it

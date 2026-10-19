@@ -35,7 +35,13 @@ const PAGED_CASES: readonly PagedCase[] = [
   {
     name: 'getTop',
     path: '/top/anime',
-    call: (provider, page, options) => provider.getTop('anime', page, undefined, options),
+    call: (provider, page, options) => provider.getTop({ kind: 'anime', page }, undefined, options),
+  },
+  {
+    name: 'getTop with a format',
+    path: '/top/anime',
+    call: (provider, page, options) =>
+      provider.getTop({ kind: 'anime', format: 'tv', page }, undefined, options),
   },
   {
     name: 'getCurrentSeason',

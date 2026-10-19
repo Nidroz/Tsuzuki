@@ -17,12 +17,14 @@ import {
   type MediaIdNamespace,
   type MediaKey,
   type MediaKind,
+  type SearchableMediaFormat,
 } from '@core/domain/media';
 
 import type { ContractCall, ContractScenario, PageCall } from './catalog-provider-contract-support';
 
 export const SEARCH_ANIME: ContractCall = { method: 'search', kind: 'anime' };
 const TOP_ANIME: ContractCall = { method: 'getTop', kind: 'anime' };
+const TOP_MANGA: ContractCall = { method: 'getTop', kind: 'manga' };
 const DETAIL_ANIME: ContractCall = { method: 'getDetail', kind: 'anime' };
 const DETAIL_MANGA: ContractCall = { method: 'getDetail', kind: 'manga' };
 const GENRES_ANIME: ContractCall = { method: 'getGenres', kind: 'anime' };
@@ -30,6 +32,8 @@ const GENRES_ANIME: ContractCall = { method: 'getGenres', kind: 'anime' };
 // out-of-contract inputs, as a caller bypassing the types would pass them
 const UNKNOWN_KIND = 'novel' as unknown as MediaKind;
 const FOREIGN_NAMESPACE = 'contract-foreign' as unknown as MediaIdNamespace;
+// a manga format without a jikan type, outside SEARCHABLE_MANGA_FORMATS
+const OEL_FORMAT = 'oel' as unknown as SearchableMediaFormat;
 
 // page 2 proves that `page` echoes the request, not the payload
 export const PAGE_CASES: readonly {
@@ -81,8 +85,8 @@ export const GUARD_CASES: readonly {
   },
   {
     label: 'top page 0',
-    call: { method: 'getTop', kind: 'manga' },
-    run: (p) => p.getTop('manga', 0),
+    call: TOP_MANGA,
+    run: (p) => p.getTop({ kind: 'manga', page: 0 }),
   },
   {
     label: 'season page 1.5',
@@ -94,7 +98,21 @@ export const GUARD_CASES: readonly {
     call: SEARCH_ANIME,
     run: (p) => p.search({ kind: UNKNOWN_KIND, page: 1 }),
   },
-  { label: 'top of an unknown kind', call: TOP_ANIME, run: (p) => p.getTop(UNKNOWN_KIND, 1) },
+  {
+    label: 'top of an unknown kind',
+    call: TOP_ANIME,
+    run: (p) => p.getTop({ kind: UNKNOWN_KIND, page: 1 }),
+  },
+  {
+    label: 'a top format of the other kind',
+    call: TOP_MANGA,
+    run: (p) => p.getTop({ kind: 'manga', format: 'tv', page: 1 }),
+  },
+  {
+    label: 'a top format without a provider type',
+    call: TOP_MANGA,
+    run: (p) => p.getTop({ kind: 'manga', format: OEL_FORMAT, page: 1 }),
+  },
   { label: 'genres of an unknown kind', call: GENRES_ANIME, run: (p) => p.getGenres(UNKNOWN_KIND) },
   {
     label: 'a detail of an unknown kind',

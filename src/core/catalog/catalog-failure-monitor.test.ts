@@ -81,13 +81,13 @@ describe('monitorCatalogProvider', () => {
 
     expect(await monitored.search(params, signal, background)).toBe(EMPTY_PAGE);
     expect(await monitored.getDetail(key)).toBe(SAMPLE_DETAIL);
-    expect(await monitored.getTop('manga', 3, signal)).toBe(EMPTY_PAGE);
+    expect(await monitored.getTop({ kind: 'manga', page: 3 }, signal)).toBe(EMPTY_PAGE);
     expect(await monitored.getCurrentSeason(4, undefined, background)).toBe(EMPTY_PAGE);
     expect(await monitored.getGenres('anime', signal)).toBe(genres);
     expect(fake.search.mock.calls).toStrictEqual([[params, signal, background]]);
     expect(fake.search.mock.calls[0]?.[1]).toBe(signal);
     expect(fake.getDetail.mock.calls).toStrictEqual([[key]]);
-    expect(fake.getTop.mock.calls).toStrictEqual([['manga', 3, signal]]);
+    expect(fake.getTop.mock.calls).toStrictEqual([[{ kind: 'manga', page: 3 }, signal]]);
     expect(fake.getCurrentSeason.mock.calls).toStrictEqual([[4, undefined, background]]);
     expect(fake.getGenres.mock.calls).toStrictEqual([['anime', signal]]);
   });
@@ -104,7 +104,7 @@ describe('monitorCatalogProvider', () => {
 
       await expect(monitored.search({ kind: 'anime', page: 1 })).rejects.toBe(error);
       await expect(monitored.getDetail(SAMPLE_DETAIL.key)).rejects.toBe(error);
-      await expect(monitored.getTop('anime', 1)).rejects.toBe(error);
+      await expect(monitored.getTop({ kind: 'anime', page: 1 })).rejects.toBe(error);
       await expect(monitored.getCurrentSeason(1)).rejects.toBe(error);
       await expect(monitored.getGenres('anime')).rejects.toBe(error);
     }
@@ -197,7 +197,7 @@ describe('a sustained failure', () => {
     // `count` failures, each followed by `move`
     const failAndMove = async (count: number, move: () => void): Promise<void> => {
       for (let failure = 0; failure < count; failure += 1) {
-        await monitored.getTop('anime', 1).catch(() => undefined);
+        await monitored.getTop({ kind: 'anime', page: 1 }).catch(() => undefined);
         move();
       }
     };

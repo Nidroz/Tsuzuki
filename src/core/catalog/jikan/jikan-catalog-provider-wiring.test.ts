@@ -101,7 +101,7 @@ describe('createJikanCatalogProvider', () => {
     const provider = createJikanCatalogProvider(TENRAI_INSTANCE);
 
     const results = Promise.all([
-      provider.getTop('manga', 1),
+      provider.getTop({ kind: 'manga', page: 1 }),
       provider.getCurrentSeason(3),
       provider.getGenres('anime'),
     ]);

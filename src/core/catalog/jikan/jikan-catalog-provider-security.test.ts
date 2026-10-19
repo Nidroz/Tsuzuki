@@ -235,7 +235,7 @@ describe('invalid input', () => {
       (provider: CatalogProvider) =>
         provider.search({ kind: 'anime', query: SECRET_QUERY, formats: ['tv', 'movie'], page: 1 }),
     ],
-    ['a top page of 0', (provider: CatalogProvider) => provider.getTop('manga', 0)],
+    ['a top page of 0', (provider: CatalogProvider) => provider.getTop({ kind: 'manga', page: 0 })],
     ['a season page of 1.5', (provider: CatalogProvider) => provider.getCurrentSeason(1.5)],
     [
       'a search text over 300 characters',

@@ -174,7 +174,7 @@ export const TOP_ENDPOINT: JikanEndpoint = {
       path: '/top/manga',
       url: `${TENRAI_BASE}/top/manga?page=3&limit=25`,
       limit: PAGE_LIMIT,
-      call: (provider, signal) => provider.getTop('manga', 3, signal),
+      call: (provider, signal) => provider.getTop({ kind: 'manga', page: 3 }, signal),
       body: buildJikanPage(
         [
           buildJikanManga({

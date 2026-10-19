@@ -99,8 +99,9 @@ describe('jikanSearchUrl', () => {
     const urls = [
       jikanSearchUrl(BASE, { kind: 'anime', query: 'sample', page: 1 }),
       jikanSearchUrl(BASE, { kind: 'manga', formats: ['doujinshi'], page: 1 }),
-      jikanTopUrl(BASE, 'anime', 1),
-      jikanTopUrl(BASE, 'manga', 1),
+      jikanTopUrl(BASE, { kind: 'anime', page: 1 }),
+      jikanTopUrl(BASE, { kind: 'manga', page: 1 }),
+      jikanTopUrl(BASE, { kind: 'manga', format: 'doujinshi', page: 1 }),
       jikanSeasonNowUrl(BASE, 1),
       jikanGenresUrl(BASE, 'anime'),
       jikanDetailUrl(BASE, { namespace: 'mal', kind: 'anime', externalId: 1 }),
@@ -208,8 +209,14 @@ describe('the other endpoints', () => {
     expect(
       jikanDetailUrl(BASE, { namespace: 'mal', kind: 'manga', externalId: EXTERNAL_ID_MAX }),
     ).toBe(`${BASE}/manga/${String(EXTERNAL_ID_MAX)}`);
-    expect(jikanTopUrl(BASE, 'anime', 2)).toBe(`${BASE}/top/anime?page=2&limit=25`);
-    expect(jikanTopUrl(BASE, 'manga', 1)).toBe(`${BASE}/top/manga?page=1&limit=25`);
+    expect(jikanTopUrl(BASE, { kind: 'anime', page: 2 })).toBe(`${BASE}/top/anime?page=2&limit=25`);
+    expect(jikanTopUrl(BASE, { kind: 'manga', page: 1 })).toBe(`${BASE}/top/manga?page=1&limit=25`);
+    expect(jikanTopUrl(BASE, { kind: 'manga', format: 'manhwa', page: 3 })).toBe(
+      `${BASE}/top/manga?type=manhwa&page=3&limit=25`,
+    );
+    expect(jikanTopUrl(BASE, { kind: 'anime', format: 'tv', page: 1 })).toBe(
+      `${BASE}/top/anime?type=tv&page=1&limit=25`,
+    );
     expect(jikanSeasonNowUrl(BASE, 4)).toBe(`${BASE}/seasons/now?page=4&limit=25`);
     expect(jikanGenresUrl(BASE, 'anime')).toBe(`${BASE}/genres/anime`);
     expect(jikanGenresUrl(BASE, 'manga')).toBe(`${BASE}/genres/manga`);
@@ -222,7 +229,7 @@ describe('the base url', () => {
     expect([
       jikanSearchUrl(SELF_HOSTED_BASE, { kind: 'anime', page: 1 }),
       jikanDetailUrl(SELF_HOSTED_BASE, key),
-      jikanTopUrl(SELF_HOSTED_BASE, 'anime', 1),
+      jikanTopUrl(SELF_HOSTED_BASE, { kind: 'anime', page: 1 }),
       jikanSeasonNowUrl(SELF_HOSTED_BASE, 1),
       jikanGenresUrl(SELF_HOSTED_BASE, 'anime'),
     ]).toStrictEqual([

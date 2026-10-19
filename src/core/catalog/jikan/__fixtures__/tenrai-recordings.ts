@@ -64,13 +64,13 @@ export const PAGE_RECORDINGS = {
     file: 'top-anime.json',
     path: '/top/anime',
     body: topAnime,
-    call: (provider) => provider.getTop('anime', 1),
+    call: (provider) => provider.getTop({ kind: 'anime', page: 1 }),
   },
   topManga: {
     file: 'top-manga.json',
     path: '/top/manga',
     body: topManga,
-    call: (provider) => provider.getTop('manga', 1),
+    call: (provider) => provider.getTop({ kind: 'manga', page: 1 }),
   },
   seasonNow: {
     file: 'season-now.json',
