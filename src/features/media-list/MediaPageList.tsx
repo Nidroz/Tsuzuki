@@ -3,10 +3,12 @@ import { CatalogNetworkError } from '@core/errors/catalog-errors';
 import type { FilteredPage } from '@core/hooks/filtered-page';
 import { useTranslation } from '@core/i18n/index';
 import {
+  Button,
   EmptyState,
   ErrorState,
   List,
   Pagination,
+  Row,
   Spinner,
   Stack,
   Text,
@@ -17,6 +19,9 @@ import { useCallback, useMemo, type ReactElement } from 'react';
 import { MediaSummaryRow, mediaSummaryKey } from './MediaSummaryRow';
 
 const FIRST_PAGE = 1;
+
+// a network error is most likely the device being offline
+const isOffline = (error: Error): boolean => error instanceof CatalogNetworkError;
 
 export interface MediaPageListProps {
   /** the filtered page shown, undefined until a first page arrives */
@@ -39,7 +44,7 @@ export interface MediaPageListProps {
   scrollToTopKey: string;
   /**
    * the prefix of the testIDs: `<prefix>-error`, `-loading`, `-empty`, `-results`, `-updating`,
-   * `-hidden-note`, `-pagination`, and `<prefix>-result` for the rows
+   * `-stale-note`, `-hidden-note`, `-pagination`, and `<prefix>-result` for the rows
    */
   testIDPrefix: string;
   /** the translated empty state of the screen */
@@ -48,11 +53,14 @@ export interface MediaPageListProps {
 }
 
 /**
- * one page of a catalog list, in this order of precedence: the loading spinner while the retry of
- * an error runs, the error with a retry, a spinner on the first load, an empty state when nothing
- * was found, otherwise the list. a note says how many adult titles were hidden (BR-06). the pages
- * (FR-04) follow the list, and the empty state, the error or its retry on a page past the first
- * one, so a page past the last or a failed page stays a way back
+ * one page of a catalog list. without data of its own (no page, or only a placeholder), in this
+ * order of precedence: the loading spinner while the retry of an error runs, the error with a
+ * retry, a spinner on the first load. with its own page, cached or fetched, the page is shown even
+ * when a refetch fails, so a persisted list stays readable offline: an empty state when nothing
+ * was found, otherwise the list, headed by a note that it could not be refreshed with a retry
+ * (the updating spinner while the retry runs). a note says how many adult titles were hidden
+ * (BR-06). the pages (FR-04) follow the list, and the empty state, the error or its retry on a
+ * page past the first one, so a page past the last or a failed page stays a way back
  */
 export function MediaPageList({
   page,
@@ -122,13 +130,14 @@ export function MediaPageList({
     </Stack>
   );
 
-  if (error !== null) {
+  // a refetch error never hides the list's own page: only a missing or placeholder page gives way
+  const ownPage = page !== undefined && !isPlaceholderData;
+  if (error !== null && !ownPage) {
     // the retry runs: a spinner, so a tap never cancels and restarts the request
     if (isFetching) {
       return withPagination(loading);
     }
-    // a network error is most likely the device being offline
-    const offline = error instanceof CatalogNetworkError;
+    const offline = isOffline(error);
     return withPagination(
       <ErrorState
         title={offline ? t('mediaList.error.offline.title') : t('mediaList.error.generic.title')}
@@ -152,23 +161,15 @@ export function MediaPageList({
     );
   }
 
-  const header =
-    isPlaceholderData || page.hiddenCount > 0 ? (
-      <Stack gap="xs" align="start">
-        {isPlaceholderData ? (
-          <Spinner
-            size="small"
-            accessibilityLabel={t('mediaList.updating')}
-            testID={`${testIDPrefix}-updating`}
-          />
-        ) : null}
-        {page.hiddenCount > 0 ? (
-          <Text variant="caption" tone="muted" testID={`${testIDPrefix}-hidden-note`}>
-            {t('mediaList.hidden', { count: page.hiddenCount })}
-          </Text>
-        ) : null}
-      </Stack>
-    ) : null;
+  const header = (
+    <MediaPageListHeader
+      updating={isPlaceholderData || (error !== null && isFetching)}
+      staleError={isFetching ? null : error}
+      hiddenCount={page.hiddenCount}
+      onRetry={onRetry}
+      testIDPrefix={testIDPrefix}
+    />
+  );
 
   return (
     <List
@@ -180,5 +181,53 @@ export function MediaPageList({
       scrollToTopKey={scrollToTopKey}
       testID={`${testIDPrefix}-results`}
     />
+  );
+}
+
+interface MediaPageListHeaderProps {
+  /** a placeholder is shown, or the retry of a failed refetch runs */
+  updating: boolean;
+  /** the failed refetch of the page shown, null when it is fresh or its retry runs */
+  staleError: Error | null;
+  hiddenCount: number;
+  onRetry: () => void;
+  testIDPrefix: string;
+}
+
+// the notes above the rows: nothing when the page shown is fresh and complete
+function MediaPageListHeader({
+  updating,
+  staleError,
+  hiddenCount,
+  onRetry,
+  testIDPrefix,
+}: MediaPageListHeaderProps) {
+  const { t } = useTranslation();
+  if (!updating && staleError === null && hiddenCount === 0) {
+    return null;
+  }
+  return (
+    <Stack gap="xs" align="start">
+      {updating ? (
+        <Spinner
+          size="small"
+          accessibilityLabel={t('mediaList.updating')}
+          testID={`${testIDPrefix}-updating`}
+        />
+      ) : null}
+      {staleError === null ? null : (
+        <Row gap="sm" wrap testID={`${testIDPrefix}-stale-note`}>
+          <Text variant="caption" tone="muted">
+            {isOffline(staleError) ? t('mediaList.stale.offline') : t('mediaList.stale.generic')}
+          </Text>
+          <Button label={t('mediaList.error.retry')} onPress={onRetry} variant="ghost" />
+        </Row>
+      )}
+      {hiddenCount > 0 ? (
+        <Text variant="caption" tone="muted" testID={`${testIDPrefix}-hidden-note`}>
+          {t('mediaList.hidden', { count: hiddenCount })}
+        </Text>
+      ) : null}
+    </Stack>
   );
 }

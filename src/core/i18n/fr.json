@@ -121,6 +121,10 @@
       },
       "retry": "Réessayer"
     },
+    "stale": {
+      "offline": "Vous êtes hors ligne : cette liste n'a pas pu être actualisée.",
+      "generic": "Cette liste n'a pas pu être actualisée."
+    },
     "pagination": {
       "previous": "Page précédente",
       "next": "Page suivante",

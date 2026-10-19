@@ -125,18 +125,12 @@ describe('MediaPageList', () => {
   it('says the device looks offline on a network error, with a retry', async () => {
     const user = userEvent.setup();
     const onRetry = jest.fn<() => void>();
-    await renderResults({
-      page: filteredPageOf(0, FRIEREN),
-      error: new CatalogNetworkError(),
-      onRetry,
-    });
+    await renderResults({ error: new CatalogNetworkError(), onRetry });
 
     // the container is not an accessible element: role queries miss it (ErrorState.test.tsx)
     expect(screen.getByTestId('search-error')).toHaveProp('accessibilityRole', 'alert');
     expect(screen.getByText('You are offline')).toBeOnTheScreen();
     expect(screen.getByText('Check your connection, then try again.')).toBeOnTheScreen();
-    // the error wins over the results kept from before
-    expect(screen.queryByTestId(FRIEREN_ROW)).not.toBeOnTheScreen();
 
     await user.press(screen.getByRole('button', { name: 'Try again' }));
 
@@ -181,6 +175,54 @@ describe('MediaPageList', () => {
     expect(screen.queryByTestId('search-loading')).not.toBeOnTheScreen();
   });
 
+  it.each([
+    ['offline', new CatalogNetworkError(), 'You are offline: this list could not be refreshed.'],
+    ['generic', new CatalogResponseError(), 'This list could not be refreshed.'],
+  ])(
+    'keeps its own page when a refetch fails, with a %s note and a retry',
+    async (_case, error, note) => {
+      const user = userEvent.setup();
+      const onRetry = jest.fn<() => void>();
+      await renderResults({ page: filteredPageOf(1, FRIEREN), error, onRetry });
+
+      expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+      expect(screen.getByTestId('search-stale-note')).toHaveTextContent(new RegExp(`^${note}`));
+      expect(screen.getByTestId('search-hidden-note')).toBeOnTheScreen();
+      expect(screen.queryByTestId('search-error')).not.toBeOnTheScreen();
+      expect(screen.queryByTestId('search-updating')).not.toBeOnTheScreen();
+
+      await user.press(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(onRetry).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('replaces the note with the updating spinner while the retry of its page runs', async () => {
+    await renderResults({
+      page: filteredPageOf(0, FRIEREN),
+      error: new CatalogNetworkError(),
+      isFetching: true,
+    });
+
+    expect(screen.getByRole('progressbar', { name: 'Updating results' })).toBeOnTheScreen();
+    expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+    expect(screen.queryByTestId('search-stale-note')).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeOnTheScreen();
+  });
+
+  it('shows the error, not the placeholder page, when the requested page fails', async () => {
+    await renderResults({
+      page: filteredPageOf(0, FRIEREN),
+      error: new CatalogNetworkError(),
+      isPlaceholderData: true,
+    });
+
+    expect(screen.getByTestId('search-error')).toBeOnTheScreen();
+    expect(screen.getByText('You are offline')).toBeOnTheScreen();
+    expect(screen.queryByTestId(FRIEREN_ROW)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('search-stale-note')).not.toBeOnTheScreen();
+  });
+
   it('uses the testID prefix for every state and row', async () => {
     await renderWithProviders(
       <MediaPageList
@@ -207,6 +249,19 @@ describe('MediaPageList', () => {
     await renderResults({ error: new CatalogNetworkError(), language: 'fr' });
 
     expect(screen.getByText('Vous êtes hors ligne')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Réessayer' })).toBeOnTheScreen();
+  });
+
+  it('notes a failed refetch in french', async () => {
+    await renderResults({
+      page: filteredPageOf(0, FRIEREN),
+      error: new CatalogNetworkError(),
+      language: 'fr',
+    });
+
+    expect(screen.getByTestId('search-stale-note')).toHaveTextContent(
+      /^Vous êtes hors ligne : cette liste n'a pas pu être actualisée\./,
+    );
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeOnTheScreen();
   });
 });

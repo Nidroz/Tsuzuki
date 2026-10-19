@@ -119,6 +119,10 @@
       },
       "retry": "Try again"
     },
+    "stale": {
+      "offline": "You are offline: this list could not be refreshed.",
+      "generic": "This list could not be refreshed."
+    },
     "pagination": {
       "previous": "Previous page",
       "next": "Next page",
