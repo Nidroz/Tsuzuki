@@ -63,22 +63,29 @@ describe('Row', () => {
     ]);
   });
 
-  it('has no role nor label without a group label', async () => {
+  it('has no role nor label unless it is a radio group', async () => {
     await render(<Row gap="sm" testID={TEST_ID} />);
 
     expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessibilityRole');
     expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessibilityLabel');
   });
 
-  it('is announced as a named group with a group label', async () => {
+  it('is announced as a named radio group when asked', async () => {
     await render(
-      <Row gap="sm" accessibilityLabel="Lists" testID={TEST_ID}>
+      <Row gap="sm" accessibilityRole="radiogroup" accessibilityLabel="Lists" testID={TEST_ID}>
         <Text>left</Text>
       </Row>,
     );
 
     expect(screen.getByTestId(TEST_ID)).toHaveProp('accessibilityRole', 'radiogroup');
     expect(screen.getByTestId(TEST_ID)).toHaveProp('accessibilityLabel', 'Lists');
+  });
+
+  it('takes a group label only with the radio group role', async () => {
+    // @ts-expect-error(type-test): a group label without its role is refused
+    await render(<Row gap="sm" accessibilityLabel="Lists" testID={TEST_ID} />);
+
+    expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessibilityLabel');
   });
 
   it('accepts spacing tokens only, not raw numbers', async () => {

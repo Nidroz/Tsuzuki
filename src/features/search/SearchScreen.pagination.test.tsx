@@ -147,7 +147,7 @@ describe('SearchScreen pagination (FR-04)', () => {
     it('starts again at page 1 for another kind', async () => {
       const { provider, before } = await fromJumpPage();
 
-      await user.press(screen.getByRole('button', { name: 'Manga' }));
+      await user.press(screen.getByRole('radio', { name: 'Manga' }));
       await advance(0);
 
       expect(foregroundSearches(provider).slice(before)).toStrictEqual([
@@ -161,7 +161,7 @@ describe('SearchScreen pagination (FR-04)', () => {
 
       await user.press(screen.getByTestId('search-filters'));
       await advance(0);
-      await user.press(screen.getByRole('button', { name: 'TV' }));
+      await user.press(screen.getByRole('radio', { name: 'TV' }));
       await user.press(screen.getByTestId('filters-apply'));
       await advance(0);
 

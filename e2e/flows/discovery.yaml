@@ -43,9 +43,9 @@ appId: io.github.nidroz.tsuzuki.dev
     id: discover-screen
 - assertVisible:
     id: discover-section-topManga
-    selected: true
+    checked: true
 - assertVisible:
     id: discover-format-manhwa
-    selected: true
+    checked: true
 - assertVisible:
     id: discover-result-mal-manga-.*

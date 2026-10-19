@@ -26,26 +26,27 @@ const renderChips = (value: Fruit, onChange = jest.fn<(value: Fruit) => void>())
   );
 
 describe('ChoiceChips', () => {
-  it('is a group named by its label, with one button per option in order', async () => {
+  it('is a radio group named by its label, with one radio per option in order', async () => {
     await renderChips('apple');
 
+    // the group is not an accessible element itself: role queries miss it (RadioGroup.test.tsx)
     const group = screen.getByTestId(TEST_ID);
     expect(group).toHaveProp('accessibilityRole', 'radiogroup');
     expect(group).toHaveProp('accessibilityLabel', GROUP_LABEL);
-    expect(screen.getAllByRole('button')).toStrictEqual([
+    expect(screen.getAllByRole('radio')).toStrictEqual([
       screen.getByTestId('fruit-apple'),
       screen.getByTestId('fruit-pear'),
       screen.getByTestId('fruit-plum'),
     ]);
-    expect(screen.getByRole('button', { name: 'Pear' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
   });
 
-  it('selects the chosen option alone', async () => {
+  it('checks the chosen option alone', async () => {
     await renderChips('pear');
 
-    expect(screen.getByRole('button', { name: 'Pear' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Apple' })).not.toBeSelected();
-    expect(screen.getByRole('button', { name: 'Plum' })).not.toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Pear' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Apple' })).not.toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Plum' })).not.toBeChecked();
   });
 
   it('asks for the option of a pressed chip', async () => {
@@ -53,7 +54,7 @@ describe('ChoiceChips', () => {
     const onChange = jest.fn<(value: Fruit) => void>();
     await renderChips('apple', onChange);
 
-    await user.press(screen.getByRole('button', { name: 'Plum' }));
+    await user.press(screen.getByRole('radio', { name: 'Plum' }));
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('plum');
@@ -64,7 +65,7 @@ describe('ChoiceChips', () => {
     const onChange = jest.fn<(value: Fruit) => void>();
     await renderChips('apple', onChange);
 
-    await user.press(screen.getByRole('button', { name: 'Apple' }));
+    await user.press(screen.getByRole('radio', { name: 'Apple' }));
 
     expect(onChange).not.toHaveBeenCalled();
   });

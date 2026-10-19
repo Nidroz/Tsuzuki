@@ -41,6 +41,11 @@ export interface ChipProps {
   accessibilityLabel?: string;
   /** makes the chip a toggle button (filters, formats) */
   onPress?: () => void;
+  /**
+   * `radio`: a pressable chip is one option of a single choice, announced as a radio checked when
+   * selected (put the chips in a Row radio group). a toggle button by default
+   */
+  role?: 'radio';
   disabled?: boolean;
   testID?: string;
 }
@@ -59,13 +64,14 @@ function ExcludedGlyph() {
   );
 }
 
-/** a compact label, or a toggle button when onPress is given */
+/** a compact label, or a toggle button (a radio with `role="radio"`) when onPress is given */
 export function Chip({
   label,
   selected = false,
   excluded = false,
   accessibilityLabel = label,
   onPress,
+  role,
   disabled = false,
   testID,
 }: ChipProps) {
@@ -101,9 +107,11 @@ export function Chip({
       className={cx(className, 'active:opacity-pressed')}
       onPress={onPress}
       disabled={disabled}
-      accessibilityRole="button"
+      accessibilityRole={role ?? 'button'}
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ selected, disabled }}
+      accessibilityState={
+        role === 'radio' ? { checked: selected, disabled } : { selected, disabled }
+      }
       testID={testID}
     >
       {content}

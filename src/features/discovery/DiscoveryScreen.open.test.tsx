@@ -65,7 +65,7 @@ describe('DiscoveryScreen rows and states', () => {
   it('opens a top manga with its own kind and id', async () => {
     await renderDiscoveryScreen();
     await advance(0);
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
 
     await user.press(screen.getByTestId(rowOf('manga', 1)));
@@ -94,7 +94,7 @@ describe('DiscoveryScreen rows and states', () => {
 
     expect(screen.getByTestId('discover-empty')).toBeOnTheScreen();
     expect(screen.getByText('No titles')).toBeOnTheScreen();
-    expect(screen.getByText('This list has no titles here for now.')).toBeOnTheScreen();
+    expect(screen.getByText('This list is empty for now.')).toBeOnTheScreen();
   });
 
   it('shows the offline error, then the list after a retry', async () => {

@@ -67,7 +67,7 @@ describe('SearchScreen', () => {
     expect(searchInput()).toHaveAccessibleName('Search');
     expect(searchInput()).toHaveProp('maxLength', FAKE_SEARCH_QUERY_MAX_LENGTH);
     expect(searchInput()).toHaveProp('placeholder', 'Title of an anime or a manga');
-    expect(screen.getByTestId('search-kind-anime')).toBeSelected();
+    expect(screen.getByTestId('search-kind-anime')).toBeChecked();
     expect(screen.getByTestId('search-idle')).toBeOnTheScreen();
   });
 
@@ -127,14 +127,14 @@ describe('SearchScreen', () => {
     await user.type(searchInput(), 'solo leveling');
     await advance(SEARCH_DEBOUNCE_MS);
 
-    await user.press(screen.getByRole('button', { name: 'Manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Manga' }));
     await advance(0);
 
     expect(provider.search).toHaveBeenLastCalledWith(
       { kind: 'manga', query: 'solo leveling', page: 1 },
       expect.any(AbortSignal),
     );
-    expect(screen.getByTestId('search-kind-manga')).toBeSelected();
+    expect(screen.getByTestId('search-kind-manga')).toBeChecked();
     expect(screen.getByTestId('search-result-mal-manga-121496')).toBeOnTheScreen();
   });
 

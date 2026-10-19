@@ -29,7 +29,7 @@ interface HarnessProps {
 
 // the result of the top anime hook at PAGE, given to the list as a section does
 function Harness({ onOpen, onPageChange }: HarnessProps) {
-  const result = useTopMedia({ kind: 'anime', page: PAGE }, { showAdult: false });
+  const result = useTopMedia({ kind: 'anime', format: null, page: PAGE }, { showAdult: false });
   return (
     <DiscoveryPageList
       result={result}
@@ -84,7 +84,7 @@ describe('DiscoveryPageList', () => {
 
     expect(screen.getByTestId('discover-empty')).toBeOnTheScreen();
     expect(screen.getByText('No titles')).toBeOnTheScreen();
-    expect(screen.getByText('This list has no titles here for now.')).toBeOnTheScreen();
+    expect(screen.getByText('This list is empty for now.')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Previous page' })).toBeOnTheScreen();
   });
 

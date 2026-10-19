@@ -77,7 +77,7 @@ describe('SearchScreen recent searches (FR-02)', () => {
       search: answers(pageOf(SOLO_LEVELING)),
       recentSearches: ['frieren', 'solo leveling'],
     });
-    await user.press(screen.getByRole('button', { name: 'Manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Manga' }));
 
     await user.press(screen.getByRole('button', { name: 'solo leveling' }));
     await advance(0);
@@ -143,7 +143,7 @@ describe('SearchScreen opening a result', () => {
 
   it('opens a manga with its own kind and id', async () => {
     await renderSearchScreen({ search: answers(pageOf(SOLO_LEVELING)) });
-    await user.press(screen.getByRole('button', { name: 'Manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Manga' }));
     await user.type(searchInput(), 'solo leveling');
     await advance(SEARCH_DEBOUNCE_MS);
 

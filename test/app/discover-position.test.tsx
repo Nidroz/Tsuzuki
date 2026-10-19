@@ -83,8 +83,8 @@ describe('Discover position (FR-04, FR-05)', () => {
 
     expect(router.getPathname()).toBe('/');
     expect(screen.getByTestId('discover-screen')).toBeOnTheScreen();
-    expect(screen.getByTestId(MANGA_SECTION)).toBeSelected();
-    expect(screen.getByTestId(MANHWA_FORMAT)).toBeSelected();
+    expect(screen.getByTestId(MANGA_SECTION)).toBeChecked();
+    expect(screen.getByTestId(MANHWA_FORMAT)).toBeChecked();
     expect(screen.getByTestId(rowOf('manga', OPENED_PAGE))).toBeOnTheScreen();
     expect(
       screen.getByRole('button', {

@@ -122,6 +122,47 @@ describe('Chip', () => {
     });
   });
 
+  describe('radio', () => {
+    it('is a radio announced with its label, checked when selected', async () => {
+      await render(
+        <Chip label={LABEL} role="radio" onPress={jest.fn()} selected testID={TEST_ID} />,
+      );
+
+      const chip = screen.getByRole('radio', { name: LABEL });
+
+      expect(chip).toBe(screen.getByTestId(TEST_ID));
+      expect(chip).toBeChecked();
+      expect(chip).toHaveProp('accessibilityState', { checked: true, disabled: false });
+      expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+      expect(classesOf(chip)).toContain('bg-primary');
+    });
+
+    it('is not checked when unselected, and calls onPress when pressed', async () => {
+      const onPress = jest.fn();
+      const user = userEvent.setup();
+      await render(<Chip label={LABEL} role="radio" onPress={onPress} />);
+
+      const chip = screen.getByRole('radio', { name: LABEL });
+      expect(chip).not.toBeChecked();
+
+      await user.press(chip);
+
+      expect(onPress).toHaveBeenCalledTimes(1);
+    });
+
+    it('is disabled and ignores presses when disabled', async () => {
+      const onPress = jest.fn();
+      const user = userEvent.setup();
+      await render(<Chip label={LABEL} role="radio" onPress={onPress} disabled />);
+
+      const chip = screen.getByRole('radio', { name: LABEL });
+      await user.press(chip);
+
+      expect(onPress).not.toHaveBeenCalled();
+      expect(chip).toBeDisabled();
+    });
+  });
+
   describe('excluded', () => {
     it('is drawn in the danger color with a glyph, and wins over selected', async () => {
       await renderWithTheme(

@@ -35,7 +35,7 @@ const FORMATS_TEST_ID = 'discover-format';
 // the accessible names of the chips of a chip group
 const chipNames = (testID: string) =>
   within(screen.getByTestId(testID))
-    .getAllByRole('button')
+    .getAllByRole('radio')
     .map((chip) => chip.props.accessibilityLabel as unknown);
 
 // a chip group is announced with its name
@@ -52,15 +52,15 @@ describe('DiscoveryScreen', () => {
     user = userEvent.setup();
   });
 
-  it('shows the labelled section chips, top anime selected, without the format chips', async () => {
+  it('shows the labelled section chips, top anime checked, without the format chips', async () => {
     await renderDiscoveryScreen();
     await advance(0);
 
     expect(screen.getByTestId('discover-screen')).toBeOnTheScreen();
     expectGroup(SECTIONS_TEST_ID, 'Lists');
     expect(chipNames(SECTIONS_TEST_ID)).toStrictEqual(SECTION_LABELS);
-    expect(screen.getByRole('button', { name: 'Top anime' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Top manga' })).not.toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Top anime' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Top manga' })).not.toBeChecked();
     expect(screen.queryByTestId(FORMATS_TEST_ID)).not.toBeOnTheScreen();
   });
 
@@ -84,17 +84,17 @@ describe('DiscoveryScreen', () => {
     expect(screen.getByRole('progressbar', { name: 'Loading results' })).toBeOnTheScreen();
   });
 
-  it('shows the format chips on top manga, all selected, and loads every manga format', async () => {
+  it('shows the format chips on top manga, all checked, and loads every manga format', async () => {
     const { provider } = await renderDiscoveryScreen();
     await advance(0);
 
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
 
-    expect(screen.getByRole('button', { name: 'Top manga' })).toBeSelected();
+    expect(screen.getByRole('radio', { name: 'Top manga' })).toBeChecked();
     expectGroup(FORMATS_TEST_ID, 'Manga format');
     expect(chipNames(FORMATS_TEST_ID)).toStrictEqual(FORMAT_LABELS);
-    expect(screen.getByTestId('discover-format-all')).toBeSelected();
+    expect(screen.getByTestId('discover-format-all')).toBeChecked();
     expect(foregroundTops(provider)).toStrictEqual([
       { kind: 'anime', page: 1 },
       { kind: 'manga', page: 1 },
@@ -105,14 +105,14 @@ describe('DiscoveryScreen', () => {
   it('loads page 1 of the manhwa top list when manhwa is chosen', async () => {
     const { provider } = await renderDiscoveryScreen();
     await advance(0);
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
 
     await user.press(screen.getByTestId('discover-format-manhwa'));
     await advance(0);
 
-    expect(screen.getByTestId('discover-format-manhwa')).toBeSelected();
-    expect(screen.getByTestId('discover-format-all')).not.toBeSelected();
+    expect(screen.getByTestId('discover-format-manhwa')).toBeChecked();
+    expect(screen.getByTestId('discover-format-all')).not.toBeChecked();
     expect(foregroundTops(provider).at(-1)).toStrictEqual({
       kind: 'manga',
       format: 'manhwa',
@@ -127,37 +127,37 @@ describe('DiscoveryScreen', () => {
   it('shows every manga format again when all is chosen after a format', async () => {
     await renderDiscoveryScreen();
     await advance(0);
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
     await user.press(screen.getByTestId('discover-format-manhwa'));
     await advance(0);
 
-    await user.press(screen.getByRole('button', { name: 'All' }));
+    await user.press(screen.getByRole('radio', { name: 'All' }));
     await advance(0);
 
-    expect(screen.getByTestId('discover-format-all')).toBeSelected();
-    expect(screen.getByTestId('discover-format-manhwa')).not.toBeSelected();
+    expect(screen.getByTestId('discover-format-all')).toBeChecked();
+    expect(screen.getByTestId('discover-format-manhwa')).not.toBeChecked();
     expect(screen.getByTestId(rowOf('manga', 1))).toBeOnTheScreen();
   });
 
   it('keeps the chosen manga format while another section is shown', async () => {
     const { provider } = await renderDiscoveryScreen();
     await advance(0);
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
     await user.press(screen.getByTestId('discover-format-manhwa'));
     await advance(0);
 
-    await user.press(screen.getByRole('button', { name: 'Top anime' }));
+    await user.press(screen.getByRole('radio', { name: 'Top anime' }));
     await advance(0);
 
     expect(screen.queryByTestId(FORMATS_TEST_ID)).not.toBeOnTheScreen();
     expect(screen.getByTestId(rowOf('anime', 1))).toBeOnTheScreen();
 
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
 
-    expect(screen.getByTestId('discover-format-manhwa')).toBeSelected();
+    expect(screen.getByTestId('discover-format-manhwa')).toBeChecked();
     expect(screen.getByTestId(rowOf('manga', 1))).toBeOnTheScreen();
     expect(foregroundTops(provider)).toStrictEqual([
       { kind: 'anime', page: 1 },
@@ -170,10 +170,10 @@ describe('DiscoveryScreen', () => {
     const { provider } = await renderDiscoveryScreen();
     await advance(0);
 
-    await user.press(screen.getByRole('button', { name: 'This season' }));
+    await user.press(screen.getByRole('radio', { name: 'This season' }));
     await advance(0);
 
-    expect(screen.getByRole('button', { name: 'This season' })).toBeSelected();
+    expect(screen.getByRole('radio', { name: 'This season' })).toBeChecked();
     expect(screen.queryByTestId(FORMATS_TEST_ID)).not.toBeOnTheScreen();
     expect(foregroundSeasons(provider)).toStrictEqual([1]);
     expect(provider.getCurrentSeason).toHaveBeenCalledWith(1, expect.any(AbortSignal));
@@ -185,13 +185,13 @@ describe('DiscoveryScreen', () => {
     await advance(0);
 
     expectGroup(SECTIONS_TEST_ID, 'Listes');
-    expect(screen.getByRole('button', { name: 'Cette saison' })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Cette saison' })).toBeOnTheScreen();
 
-    await user.press(screen.getByRole('button', { name: 'Top manga' }));
+    await user.press(screen.getByRole('radio', { name: 'Top manga' }));
     await advance(0);
 
     expectGroup(FORMATS_TEST_ID, 'Format du manga');
-    expect(screen.getByRole('button', { name: 'Tous' })).toBeSelected();
-    expect(screen.getByRole('button', { name: 'Roman' })).toBeOnTheScreen();
+    expect(screen.getByRole('radio', { name: 'Tous' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Roman' })).toBeOnTheScreen();
   });
 });

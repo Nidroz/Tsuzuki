@@ -23,6 +23,9 @@
     }
   },
   "search": {
+    "kind": {
+      "label": "Kind"
+    },
     "field": {
       "label": "Search",
       "placeholder": "Title of an anime or a manga"

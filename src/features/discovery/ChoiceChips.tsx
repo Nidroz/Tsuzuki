@@ -19,7 +19,7 @@ export interface ChoiceChipsProps<T extends string> {
   testID: string;
 }
 
-/** a named group of single-select chips, one per option: exactly one is selected */
+/** a named radio group of chips, one per option: exactly one is checked */
 export function ChoiceChips<T extends string>({
   accessibilityLabel,
   options,
@@ -28,11 +28,18 @@ export function ChoiceChips<T extends string>({
   testID,
 }: ChoiceChipsProps<T>) {
   return (
-    <Row gap="sm" wrap accessibilityLabel={accessibilityLabel} testID={testID}>
+    <Row
+      gap="sm"
+      wrap
+      accessibilityRole="radiogroup"
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+    >
       {options.map((option) => (
         <Chip
           key={option.value}
           label={option.label}
+          role="radio"
           selected={option.value === value}
           onPress={() => {
             if (option.value !== value) {

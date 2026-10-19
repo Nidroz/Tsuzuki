@@ -31,8 +31,9 @@ describe('DiscoveryScreen pagination (FR-04)', () => {
     user = userEvent.setup();
   });
 
-  const pressAndSettle = async (name: string) => {
-    await user.press(screen.getByRole('button', { name }));
+  // presses a chip (a radio) or a button
+  const pressAndSettle = async (name: string, role: 'radio' | 'button' = 'radio') => {
+    await user.press(screen.getByRole(role, { name }));
     await advance(0);
   };
 
@@ -69,7 +70,7 @@ describe('DiscoveryScreen pagination (FR-04)', () => {
     expect(provider.getCurrentSeason).not.toHaveBeenCalled();
 
     // the prefetched page opens from the cache
-    await pressAndSettle('Next page');
+    await pressAndSettle('Next page', 'button');
 
     expect(screen.getByTestId(rowOf('anime', 2))).toBeOnTheScreen();
     expect(foregroundTops(provider)).toStrictEqual([{ kind: 'anime', page: 1 }]);
