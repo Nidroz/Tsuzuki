@@ -204,6 +204,7 @@ Details:
 ### L-06 Adult content setting wired to the filter
 - Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
+- Lists after a failed refetch (C-08 review), when touching `SearchScreen` and `DiscoveryScreen` here: add a screen-level test that a cached stale top page whose refetch fails shows its rows and `discover-stale-note` (only the `MediaPageList` props test covers it today); an own empty page whose refetch failed shows the `EmptyState` without the stale note and its retry, unlike a non-empty page: show the note there too. Split `src/core/hooks/use-prefetch-next-page.test.tsx` (308 lines) under the ~300-line rule.
 - Add a route-level BR-06 test in `test/app/media-detail.test.tsx`: an adult title through the real root layout shows `media-detail-hidden`, and the header titles equal the static `mediaDetail.title`, never the media title (C-07 review).
 
 ## Phase 4 — Accounts and sync
@@ -250,6 +251,8 @@ Details:
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
 
 ### R-03 Accessibility pass
+- The format, status and minimum score sections of the filters sheet are deselectable radio groups (a tap on the checked chip clears it), which is not standard radio behaviour: add an explicit "Any" chip (the `noneLabel` prop of `FilterChoice`, as the sort section does with "Relevance") and drop `deselectable` (C-08 review).
+- The stale note of `MediaPageList` (a list kept after a failed refetch) is not announced: make it a polite live region or announce it (C-08 review).
 - Filters sheet section titles (`src/features/search/FilterChoice.tsx`, `GenresFilter.tsx`) use `Text variant="subtitle"` without a header role: add a heading option to the ui `Text` (`accessibilityRole="header"`) so screen readers can jump between sections (C-05 review).
 - Genre chips announce their state twice: the label names it ("Action, included") and `accessibilityState.selected` adds "selected" ("excluded, not selected" for an excluded chip). Leave `selected` out of the state when the label already names it (C-05 review).
 - The `Sheet` primitive has no keyboard avoidance: the keyboard can cover the year field of the filters sheet on small screens. Use `KeyboardAvoidingView` or `automaticallyAdjustKeyboardInsets` on its scroll body (C-05).
