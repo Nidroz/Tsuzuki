@@ -9,7 +9,7 @@ import {
   FORMAT_KEYS,
   nativeTitleOf,
   STATUS_KEYS,
-  TOTAL_UNITS_KEYS,
+  TOTAL_UNITS_LABEL_KEYS,
   YEAR_FORMAT,
 } from './media-labels';
 
@@ -81,13 +81,11 @@ describe('media label keys', () => {
   });
 
   it.each<[(typeof MEDIA_KINDS)[number], string, string]>([
-    ['anime', '1 episode', '12 episodes'],
-    ['manga', '1 chapter', '12 chapters'],
-  ])('counts the units of a %s in the singular and the plural', (kind, one, many) => {
-    const { t } = translationIn('en');
-
-    expect(t(TOTAL_UNITS_KEYS[kind], { count: 1, total: '1' })).toBe(one);
-    expect(t(TOTAL_UNITS_KEYS[kind], { count: 12, total: '12' })).toBe(many);
+    ['anime', 'Episodes', 'Épisodes'],
+    ['manga', 'Chapters', 'Chapitres'],
+  ])('labels the total units of a %s', (kind, en, fr) => {
+    expect(translationIn('en').t(TOTAL_UNITS_LABEL_KEYS[kind])).toBe(en);
+    expect(translationIn('fr').t(TOTAL_UNITS_LABEL_KEYS[kind])).toBe(fr);
   });
 
   it('writes a year without digit grouping', () => {

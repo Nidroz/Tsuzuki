@@ -4,7 +4,7 @@ import {
   FORMAT_KEYS,
   nativeTitleOf,
   STATUS_KEYS,
-  TOTAL_UNITS_KEYS,
+  TOTAL_UNITS_LABEL_KEYS,
   useTranslation,
   YEAR_FORMAT,
 } from '@core/i18n/index';
@@ -16,8 +16,8 @@ export interface MediaDetailContentProps {
 }
 
 /**
- * the details of a title (FR-06): its cover and titles, its facts (format, status, total units,
- * score, year), its genres and its synopsis. provider text is shown as plain text
+ * the details of a title (FR-06): its cover and titles, its facts (format, status, episodes or
+ * chapters, score, year), its genres and its synopsis. provider text is shown as plain text
  */
 export function MediaDetailContent({ media }: MediaDetailContentProps) {
   const { t, formatNumber } = useTranslation();
@@ -26,13 +26,7 @@ export function MediaDetailContent({ media }: MediaDetailContentProps) {
   const nativeTitle = nativeTitleOf(media);
   const unknown = t('mediaDetail.facts.unknown');
 
-  const totalUnits =
-    media.totalUnits === null
-      ? unknown
-      : t(TOTAL_UNITS_KEYS[kind], {
-          count: media.totalUnits,
-          total: formatNumber(media.totalUnits),
-        });
+  const totalUnits = media.totalUnits === null ? unknown : formatNumber(media.totalUnits);
   const score = media.score === null ? t('mediaDetail.facts.notScored') : formatNumber(media.score);
   const year = media.year === null ? unknown : formatNumber(media.year, YEAR_FORMAT);
 
@@ -77,7 +71,7 @@ export function MediaDetailContent({ media }: MediaDetailContentProps) {
           testID="media-detail-status"
         />
         <Fact
-          label={t('mediaDetail.facts.totalUnits')}
+          label={t(TOTAL_UNITS_LABEL_KEYS[kind])}
           value={totalUnits}
           testID="media-detail-total-units"
         />

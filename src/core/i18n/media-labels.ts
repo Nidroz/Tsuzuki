@@ -41,8 +41,8 @@ export const STATUS_KEYS = {
   },
 } as const satisfies Record<MediaKind, Record<MediaStatus, TranslationKey>>;
 
-/** the plural translation key of the total units of each kind: episodes or chapters */
-export const TOTAL_UNITS_KEYS = {
+/** the translation key of the label of the total units of each kind: episodes or chapters */
+export const TOTAL_UNITS_LABEL_KEYS = {
   anime: 'media.totalUnits.episodes',
   manga: 'media.totalUnits.chapters',
 } as const satisfies Record<MediaKind, TranslationKey>;

@@ -20,7 +20,7 @@ export {
   FORMAT_KEYS,
   nativeTitleOf,
   STATUS_KEYS,
-  TOTAL_UNITS_KEYS,
+  TOTAL_UNITS_LABEL_KEYS,
   YEAR_FORMAT,
 } from './media-labels';
 export { resolveLanguage } from './resolve-language';
