@@ -215,6 +215,37 @@ describe('useSearch next page prefetch (C-06)', () => {
     expect(prefetchSignal?.aborted).toBe(true);
   });
 
+  it('aborts the prefetch and runs it again on the new catalog provider', async () => {
+    const first = createFakeCatalogProvider();
+    const second = createFakeCatalogProvider();
+    first.search.mockImplementation(answering(pendingUntilAborted));
+    second.search.mockImplementation(answering(pendingUntilAborted));
+    const queryClient = createQueryClient();
+    // the same namespace: the list key alone does not tell the providers apart
+    let provider: CatalogProvider = first;
+    const wrapper = ({ children }: { readonly children: ReactNode }) => (
+      <QueryClientProvider client={queryClient}>
+        <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
+      </QueryClientProvider>
+    );
+    const { rerender } = renderHook(() => useSearch(frieren(1), { showAdult: false }), {
+      wrapper,
+    });
+    await waitFor(() => {
+      expect(backgroundCalls(first)).toHaveLength(1);
+    });
+    const prefetchSignal = backgroundCalls(first)[0]?.[1];
+
+    provider = second;
+    rerender();
+    await settle();
+
+    expect(prefetchSignal?.aborted).toBe(true);
+    expect(backgroundCalls(second)).toStrictEqual([
+      [frieren(2), expect.any(AbortSignal), BACKGROUND],
+    ]);
+  });
+
   it('aborts the prefetch on unmount', async () => {
     const { provider, unmount } = setup(frieren(1), answering(pendingUntilAborted));
     await waitFor(() => {

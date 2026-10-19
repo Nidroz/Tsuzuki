@@ -1,6 +1,7 @@
 import { hashKey, useQueryClient, type QueryState } from '@tanstack/react-query';
 import { useEffect, useRef } from 'react';
 
+import { useCatalogProvider } from './use-catalog-provider';
 import type { CatalogPageList } from './use-paged-catalog-list';
 
 /** what the next page prefetch needs to know of the page shown */
@@ -30,8 +31,9 @@ const needsFetch = (state: QueryState | undefined, staleTime: number): boolean =
  * query in a fetching state, so a page opened meanwhile would wait on the background request,
  * which tanstack query cannot promote; with a direct call, the opened page's own foreground
  * request joins the background one at the http client and promotes it. a prefetch is aborted when
- * the list changes (the hash of its list key) or on unmount, never when only the page changes: the
- * opened page's request has to join it. one attempt per target and per data update of the page
+ * the list changes (the hash of its list key), when the catalog provider changes (two instances
+ * may share a namespace, so a key alone does not tell them apart) or on unmount, never when only
+ * the page changes: the opened page's request has to join it. one attempt per target and per data update of the page
  * shown, so a failed prefetch is never retried in a loop. null prefetches nothing
  */
 export const usePrefetchNextPage = (
@@ -39,14 +41,16 @@ export const usePrefetchNextPage = (
   page: number,
   { hasNextPage, isPlaceholderData, isFetching, dataUpdatedAt }: ShownPageState,
 ): void => {
+  const provider = useCatalogProvider();
   const queryClient = useQueryClient();
   const listHash = list === null ? null : hashKey(list.listKey);
 
   // the target and the data update of the page shown of the last attempt
   const attemptRef = useRef<string | null>(null);
 
-  // one controller per list: declared before the prefetch effect, so a new list aborts the
-  // prefetch of the previous one before it starts its own. an aborted attempt may run again
+  // one controller per list and provider: declared before the prefetch effect, so a new list or
+  // provider aborts the prefetch of the previous one before it starts its own. an aborted attempt
+  // may run again
   const controllerRef = useRef<AbortController | null>(null);
   useEffect(() => {
     const controller = new AbortController();
@@ -55,7 +59,7 @@ export const usePrefetchNextPage = (
       controller.abort();
       attemptRef.current = null;
     };
-  }, [listHash]);
+  }, [listHash, provider]);
 
   useEffect(() => {
     const controller = controllerRef.current;
