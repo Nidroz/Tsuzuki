@@ -63,6 +63,24 @@ describe('Row', () => {
     ]);
   });
 
+  it('has no role nor label without a group label', async () => {
+    await render(<Row gap="sm" testID={TEST_ID} />);
+
+    expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessibilityRole');
+    expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessibilityLabel');
+  });
+
+  it('is announced as a named group with a group label', async () => {
+    await render(
+      <Row gap="sm" accessibilityLabel="Lists" testID={TEST_ID}>
+        <Text>left</Text>
+      </Row>,
+    );
+
+    expect(screen.getByTestId(TEST_ID)).toHaveProp('accessibilityRole', 'radiogroup');
+    expect(screen.getByTestId(TEST_ID)).toHaveProp('accessibilityLabel', 'Lists');
+  });
+
   it('accepts spacing tokens only, not raw numbers', async () => {
     // @ts-expect-error(type-test): raw numbers are not spacing tokens
     await render(<Row gap={4} testID={TEST_ID} />);

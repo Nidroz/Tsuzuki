@@ -23,6 +23,11 @@ export interface RowProps {
   wrap?: boolean;
   /** fills the remaining space of its parent */
   flex?: boolean;
+  /**
+   * translated name of a group of controls, e.g. single-select chips: the row is announced as a
+   * group with it (radiogroup role on android; ios has no group trait), like RadioGroup
+   */
+  accessibilityLabel?: string;
   testID?: string;
 }
 
@@ -34,6 +39,7 @@ export function Row({
   justify,
   wrap = false,
   flex = false,
+  accessibilityLabel,
   testID,
 }: RowProps) {
   const className = cx(
@@ -44,8 +50,16 @@ export function Row({
     wrap && 'flex-wrap',
     flex && 'flex-1',
   );
+  // a plain row has no role: only a named group is announced as one
   return (
-    <View className={className} testID={testID}>
+    <View
+      className={className}
+      {...(accessibilityLabel !== undefined && {
+        accessibilityRole: 'radiogroup',
+        accessibilityLabel,
+      })}
+      testID={testID}
+    >
       {children}
     </View>
   );
