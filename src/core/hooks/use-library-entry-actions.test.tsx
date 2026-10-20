@@ -142,6 +142,32 @@ describe('useLibraryEntryActions: rules', () => {
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(15);
   });
 
+  it('writes coalesced `+1` taps once with BR-02 and BR-03, the tap past the total a no-op', async () => {
+    const total = 2;
+    const planned = entryWithMedia(
+      { totalUnits: total },
+      { status: 'planned', progress: 0, startedAt: null, finishedAt: null },
+    );
+    const { result, repository } = await renderLoaded([planned], { ...MEDIA, totalUnits: total });
+
+    await act(async () => {
+      result.current.actions.incrementProgress();
+      result.current.actions.incrementProgress();
+      result.current.actions.incrementProgress();
+      await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS);
+    });
+
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(ENTRY_KEY)).toMatchObject({
+      status: 'completed',
+      progress: total,
+      startedAt: TODAY,
+      finishedAt: TODAY,
+    });
+    expect(result.current.entry.data).toStrictEqual(repository.stored(ENTRY_KEY));
+    expect(result.current.actions.error).toBeNull();
+  });
+
   it('sets the score, and saves blank notes as no notes (BR-07)', async () => {
     const { result, repository } = await renderLoaded([ENTRY], MEDIA);
 
