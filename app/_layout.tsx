@@ -5,6 +5,7 @@ import { monitorCatalogProvider } from '@core/catalog/catalog-failure-monitor';
 import { createJikanCatalogProvider } from '@core/catalog/jikan/jikan-catalog-provider';
 import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import {
   hasIntlPluralRules,
@@ -23,6 +24,7 @@ import {
 } from '@core/preferences/index';
 import { createPersistOptions, createQueryPersister } from '@core/query/persister';
 import { createQueryClient } from '@core/query/query-client';
+import { createLocalLibraryRepository } from '@core/repositories/local/library-repository';
 import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
@@ -85,8 +87,8 @@ const reportThemeError = (error: unknown) => {
   reporter.captureError(error, { source: THEME_SOURCE });
 };
 
-// the app's single key-value storage: it holds the preferences, the recent searches and the
-// persisted query cache. module level, so the persist options stay one stable object for
+// the app's single key-value storage: it holds the preferences, the recent searches, the guest
+// library and the persisted query cache. module level, so the persist options stay one stable object for
 // PersistQueryClientProvider
 const storage = createStorage();
 
@@ -109,6 +111,10 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
   maxQueryLength: catalogProvider.searchQueryMaxLength,
 });
 
+// the guest library on the device (FR-20); a damaged store is reported, never thrown. the only
+// library until A-03 picks the repository from the auth state, in this provider's prop only
+const libraryRepository = createLocalLibraryRepository(storage, { reporter });
+
 // the root stack, inside I18nProvider because its header titles are translated
 function RootStack() {
   const { t } = useTranslation();
@@ -124,10 +130,11 @@ function RootStack() {
   );
 }
 
-// the composition root: it owns the storage, the catalog provider, the recent searches repository,
-// the query client and the preferences, and gives the tree the query cache (persisted to the
-// storage), the catalog provider and the recent searches (the data dependencies, next to the query
-// client), then the preferences, the translations and the theme. the stored preferences are read
+// the composition root: it owns the storage, the catalog provider, the recent searches and library
+// repositories, the query client and the preferences, and gives the tree the query cache
+// (persisted to the storage), the catalog provider, the recent searches and the library (the data
+// dependencies, next to the query client; the library writer keeps its optimistic entries in that
+// cache), then the preferences, the translations and the theme. the stored preferences are read
 // synchronously on mount, so the first frame already uses them. expo-router's root already
 // provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
 // gives navigators their theme
@@ -154,18 +161,20 @@ export default function RootLayout() {
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
       <CatalogContextProvider provider={catalogProvider}>
         <RecentSearchesContextProvider repository={recentSearchesRepository}>
-          <PreferencesProvider
-            theme={themePreference}
-            language={languagePreference}
-            onThemeChange={changeTheme}
-            onLanguageChange={changeLanguage}
-          >
-            <I18nProvider language={language} onMissingKey={reportMissingKey}>
-              <ThemeProvider preference={themePreference} onError={reportThemeError}>
-                <RootStack />
-              </ThemeProvider>
-            </I18nProvider>
-          </PreferencesProvider>
+          <LibraryContextProvider repository={libraryRepository}>
+            <PreferencesProvider
+              theme={themePreference}
+              language={languagePreference}
+              onThemeChange={changeTheme}
+              onLanguageChange={changeLanguage}
+            >
+              <I18nProvider language={language} onMissingKey={reportMissingKey}>
+                <ThemeProvider preference={themePreference} onError={reportThemeError}>
+                  <RootStack />
+                </ThemeProvider>
+              </I18nProvider>
+            </PreferencesProvider>
+          </LibraryContextProvider>
         </RecentSearchesContextProvider>
       </CatalogContextProvider>
     </PersistQueryClientProvider>
