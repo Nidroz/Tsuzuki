@@ -3,9 +3,14 @@ import { describe, expect, it, jest } from '@jest/globals';
 import {
   DEFAULT_LIBRARY_STATUS,
   LIBRARY_STATUSES,
+  NOTES_MAX_LENGTH,
+  SCORE_MAX,
+  SCORE_MIN,
   createLibraryEntry,
   favoriteMedia,
   isLibraryStatus,
+  isValidNotes,
+  isValidScore,
   libraryWriteContextAt,
   setFavorite,
   updateLibraryEntry,
@@ -178,5 +183,61 @@ describe('BR-09 updateLibraryEntry', () => {
     const next = updateLibraryEntry(entry, other, CTX);
     expect(next).toStrictEqual({ ...entry, notes: 'other', updatedAt: CTX.now });
     expect(updateLibraryEntry(entry, { ...other, notes: null }, CTX)).toBe(entry);
+  });
+});
+
+describe('BR-07 isValidScore', () => {
+  it('bounds the score to 1..10', () => {
+    expect(SCORE_MIN).toBe(1);
+    expect(SCORE_MAX).toBe(10);
+  });
+
+  it.each<[string, number | null]>([
+    ['no score', null],
+    ['the minimum', SCORE_MIN],
+    ['the maximum', SCORE_MAX],
+    ['a middle score', 7],
+  ])('accepts %s', (_label, score) => {
+    expect(isValidScore(score)).toBe(true);
+  });
+
+  it.each<[string, number]>([
+    ['zero', 0],
+    ['one past the maximum', SCORE_MAX + 1],
+    ['a fraction', 5.5],
+    ['NaN', Number.NaN],
+    ['infinity', Number.POSITIVE_INFINITY],
+    ['a negative score', -1],
+  ])('rejects %s', (_label, score) => {
+    expect(isValidScore(score)).toBe(false);
+  });
+});
+
+describe('BR-07 isValidNotes', () => {
+  // the emoji U+1F600: two utf-16 units, one code point
+  const ASTRAL = '\u{1F600}';
+
+  it('bounds notes to 2000 code points', () => {
+    expect(NOTES_MAX_LENGTH).toBe(2000);
+  });
+
+  it.each<[string, string | null]>([
+    ['no notes', null],
+    ['empty notes', ''],
+    ['short notes', 'rewatch the finale'],
+    ['exactly 2000 ascii characters', 'a'.repeat(NOTES_MAX_LENGTH)],
+    ['exactly 2000 astral code points (4000 utf-16 units)', ASTRAL.repeat(NOTES_MAX_LENGTH)],
+  ])('accepts %s', (_label, notes) => {
+    expect(isValidNotes(notes)).toBe(true);
+  });
+
+  it.each<[string, string]>([
+    ['2001 code points', 'a'.repeat(NOTES_MAX_LENGTH + 1)],
+    ['2001 astral code points', ASTRAL.repeat(NOTES_MAX_LENGTH + 1)],
+    ['a NUL', 'before\u0000after'],
+    ['a lone high surrogate', 'note \uD83D'],
+    ['a lone low surrogate', '\uDE00 note'],
+  ])('rejects %s', (_label, notes) => {
+    expect(isValidNotes(notes)).toBe(false);
   });
 });

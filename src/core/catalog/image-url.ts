@@ -1,9 +1,13 @@
 // image urls from a provider payload are untrusted input: only an https url on one of the
 // provider's cdn hosts is kept. plain string checks, no url parser: react native's URL polyfill
 // lacks hostname, so jest and the device would read the same url differently
+import { MEDIA_IMAGE_URL_MAX_LENGTH } from '../domain/database-limits';
 
-/** the longest image url kept, as the database check on library_entries.media_image_url. */
-export const IMAGE_URL_MAX_LENGTH = 2048;
+/**
+ * the longest image url kept: the database bound of library_entries.media_image_url. a kept url is
+ * ascii only, so its utf-16 length is its code point length.
+ */
+export const IMAGE_URL_MAX_LENGTH = MEDIA_IMAGE_URL_MAX_LENGTH;
 
 const HTTPS_PREFIX = 'https://';
 const PATH_START = '/';

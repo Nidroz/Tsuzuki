@@ -1,5 +1,7 @@
 // a library entry: one media in the user's library, with its per-user snapshot (ADR-0009),
-// favorites rule BR-05 and the BR-09 write convention shared by every library mutation
+// favorites rule BR-05, the score and notes rule BR-07 and the BR-09 write convention shared by
+// every library mutation
+import { codePointLength, isStorableText } from './database-limits';
 import type { MediaFormat, MediaKey } from './media';
 
 /** the library statuses, in the order of the `library_status` enum (docs/ARCHITECTURE.md §5). */
@@ -13,6 +15,31 @@ export const isLibraryStatus = (value: string): value is LibraryStatus =>
 
 /** the status of a new entry, the column default of library_entries.status. */
 export const DEFAULT_LIBRARY_STATUS: LibraryStatus = 'planned';
+
+/** the lowest score (BR-07, library_entries_score_check). */
+export const SCORE_MIN = 1;
+
+/** the highest score (BR-07, library_entries_score_check). */
+export const SCORE_MAX = 10;
+
+/** the longest notes, in code points as postgres char_length counts them (BR-07). */
+export const NOTES_MAX_LENGTH = 2000;
+
+/**
+ * whether a score is valid (BR-07): null (no score) or an integer in SCORE_MIN..SCORE_MAX. NaN,
+ * infinities and fractions are invalid.
+ */
+export const isValidScore = (score: number | null): boolean =>
+  score === null || (Number.isInteger(score) && score >= SCORE_MIN && score <= SCORE_MAX);
+
+/**
+ * whether notes are valid (BR-07): null (no notes) or storable text (isStorableText: no NUL, no
+ * lone surrogate) of at most NOTES_MAX_LENGTH code points. an empty string is valid, as the
+ * database accepts it; turning blank notes into null is a choice of the notes editor (L-03), not
+ * a validity rule.
+ */
+export const isValidNotes = (notes: string | null): boolean =>
+  notes === null || (codePointLength(notes) <= NOTES_MAX_LENGTH && isStorableText(notes));
 
 /** a calendar day `YYYY-MM-DD`, stored in a postgres `date` column. */
 export type CalendarDate = string;
