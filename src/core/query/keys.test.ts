@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { SearchParams } from '../catalog/catalog-provider';
 import type { MediaKey } from '../domain/media';
-import { SEARCH_KEY_ROOT, queryKeys } from './keys';
+import { LIBRARY_KEY_ROOT, SEARCH_KEY_ROOT, queryKeys } from './keys';
 
 const animeKey = (externalId: number): MediaKey => ({
   namespace: 'mal',
@@ -35,6 +35,21 @@ describe('queryKeys', () => {
     const all = queryKeys.library.all();
     const entry = queryKeys.library.entry(animeKey(5));
     expect(entry.slice(0, all.length)).toStrictEqual(all);
+  });
+
+  it('starts library keys with LIBRARY_KEY_ROOT, which no other key family starts with', () => {
+    expect(LIBRARY_KEY_ROOT).toBe('library');
+    expect(queryKeys.library.all()[0]).toBe(LIBRARY_KEY_ROOT);
+    expect(queryKeys.library.entry(animeKey(1))[0]).toBe(LIBRARY_KEY_ROOT);
+    const others = [
+      queryKeys.media(animeKey(1)),
+      queryKeys.top('mal', { kind: 'anime', page: 1 }),
+      queryKeys.season('mal', 1),
+      queryKeys.genres('mal', 'anime'),
+      queryKeys.search('mal', { kind: 'anime', query: 'library', page: 1 }),
+      queryKeys.searchIdle('mal'),
+    ];
+    expect(others.map((key) => key[0])).not.toContain(LIBRARY_KEY_ROOT);
   });
 
   it('returns equal keys for equal inputs', () => {

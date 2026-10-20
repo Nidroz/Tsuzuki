@@ -13,7 +13,7 @@ import {
   createQueryPersister,
 } from './persister';
 import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
-import { queryKeys } from './keys';
+import { LIBRARY_KEY_ROOT, queryKeys } from './keys';
 import { createQueryClient } from './query-client';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
@@ -22,6 +22,7 @@ const PREVIOUS_APP_VERSION = '0.9.0';
 const MEDIA_KEY = ['media', 'mal', 'anime', 1];
 const MEDIA = { title: 'Frieren' };
 const OTHER_MEDIA = { title: 'Mushishi' };
+const LIBRARY_NOTES = 'private note';
 
 type MemoryStorage = StorageAdapter & { values: Map<string, string> };
 
@@ -149,6 +150,25 @@ describe('createQueryPersister', () => {
     expect(storage.values.get(QUERY_CACHE_STORAGE_KEY)).not.toContain('search');
     const restored = await restore(storage);
     expect(restored.getQueryData(searchKey)).toBeUndefined();
+    expect(restored.getQueryData(MEDIA_KEY)).toStrictEqual(MEDIA);
+  });
+
+  it('does not persist library queries, even when successful', async () => {
+    const storage = createMemoryStorage();
+    const source = createQueryClient();
+    const entryKey = queryKeys.library.entry({ namespace: 'mal', kind: 'anime', externalId: 1 });
+    const listKey = queryKeys.library.all();
+    source.setQueryData(entryKey, { progress: 3, notes: LIBRARY_NOTES });
+    source.setQueryData(listKey, [{ progress: 3, notes: LIBRARY_NOTES }]);
+    source.setQueryData(MEDIA_KEY, MEDIA);
+    await save(source, storage);
+
+    const stored = storage.values.get(QUERY_CACHE_STORAGE_KEY);
+    expect(stored).not.toContain(LIBRARY_KEY_ROOT);
+    expect(stored).not.toContain(LIBRARY_NOTES);
+    const restored = await restore(storage);
+    expect(restored.getQueryData(entryKey)).toBeUndefined();
+    expect(restored.getQueryData(listKey)).toBeUndefined();
     expect(restored.getQueryData(MEDIA_KEY)).toStrictEqual(MEDIA);
   });
 

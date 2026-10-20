@@ -5,6 +5,9 @@ import type { MediaIdNamespace, MediaKey, MediaKind } from '../domain/media';
 /** the first element of every search key: the persister skips the keys that start with it. */
 export const SEARCH_KEY_ROOT = 'search';
 
+/** the first element of every library key: the persister skips the keys that start with it. */
+export const LIBRARY_KEY_ROOT = 'library';
+
 // query keys are built only here: readonly tuples of primitives, so they hash and compare stably.
 // a key that starts with another one is covered when the shorter one is invalidated. catalog keys
 // hold the id namespace, never a server or instance id: switching instances keeps the cache
@@ -21,8 +24,8 @@ export const queryKeys = {
   searchIdle: (namespace: MediaIdNamespace) => [SEARCH_KEY_ROOT, namespace, 'idle'] as const,
   genres: (namespace: MediaIdNamespace, kind: MediaKind) => ['genres', namespace, kind] as const,
   library: {
-    all: () => ['library'] as const,
+    all: () => [LIBRARY_KEY_ROOT] as const,
     // starts with all(): invalidating the library refetches every entry
-    entry: (key: MediaKey) => ['library', key.namespace, key.kind, key.externalId] as const,
+    entry: (key: MediaKey) => [LIBRARY_KEY_ROOT, key.namespace, key.kind, key.externalId] as const,
   },
 } as const;
