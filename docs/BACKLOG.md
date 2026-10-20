@@ -185,7 +185,7 @@ Details:
 
 ## Phase 3 — Library (guest first)
 
-- [ ] L-01 Library domain rules BR-01 to BR-05, BR-09 as pure functions
+- [x] L-01 Library domain rules BR-01 to BR-05, BR-09 as pure functions
 - [ ] L-02 Local (guest) library repository
 - [ ] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
 - [ ] L-04 Library screen: grouping, filters, sorting
@@ -196,7 +196,7 @@ Details:
 
 ### L-02 Local (guest) library repository
 - The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
-- Name the Postgres `integer` bound once in `src/core/domain/` (e.g. `POSTGRES_INTEGER_MAX`) and derive `EXTERNAL_ID_MAX` (`MAL_ID_MAX` before C-03) and the Jikan `TOTAL_UNITS_MAX` (`src/core/catalog/jikan/jikan-fields.ts`) from it (C-03 review).
+- `LibraryEntry.createdAt` / `updatedAt` are ISO strings: Supabase returns `+00:00` with microseconds, `toISOString()` gives `Z` with milliseconds. The row schemas normalize timestamps to one format, so the BR-08 "most recent `updated_at` wins" comparison (A-04) never compares two string formats (L-01 review).
 
 ### L-03 Add/remove, status, progress, score, notes
 - The library snapshot refresh "when the detail screen is viewed" (`ARCHITECTURE.md` §5) and the detail screen's library actions (add, status, `+1`, score) come with this item; the favorite star comes with L-05 (C-07).
