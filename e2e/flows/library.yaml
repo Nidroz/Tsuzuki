@@ -4,7 +4,8 @@
 # e2e/README.md), with clearState, so the guest library is empty at launch. elements are found by
 # id, and texts are matched on digits only ("2 / 28", "8 / 10"), so the flow does not depend on
 # the device language. it queries the live catalog (Tenrai): the first result row is matched by its
-# id prefix, never by a title the catalog could reorder, and the total of episodes is not assumed
+# id prefix, never by a title the catalog could reorder; it assumes a total of at least two
+# episodes or an unknown one, so both +1 taps apply
 appId: io.github.nidroz.tsuzuki.dev
 ---
 - launchApp:

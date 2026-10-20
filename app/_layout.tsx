@@ -88,8 +88,8 @@ const reportThemeError = (error: unknown) => {
 };
 
 // the app's single key-value storage: it holds the preferences, the recent searches, the guest
-// library and the persisted query cache. module level, so the persist options stay one stable object for
-// PersistQueryClientProvider
+// library and the persisted query cache. module level, so the persist options stay one stable
+// object for PersistQueryClientProvider
 const storage = createStorage();
 
 // a new app version or cache schema version drops the persisted cache
