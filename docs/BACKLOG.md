@@ -186,7 +186,7 @@ Details:
 ## Phase 3 — Library (guest first)
 
 - [x] L-01 Library domain rules BR-01 to BR-05, BR-09 as pure functions
-- [ ] L-02 Local (guest) library repository
+- [x] L-02 Local (guest) library repository
 - [ ] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
 - [ ] L-04 Library screen: grouping, filters, sorting
 - [ ] L-05 Favorites (toggle + tab)
@@ -194,16 +194,12 @@ Details:
 
 Details:
 
-### L-02 Local (guest) library repository
-- The media snapshot built from `MediaSummary` validates the database limits (title 1-500 characters, which the Jikan adapter does not bound; https image url up to 2048 characters) and always sets `isAdult`, like the A-03 snapshot schema (C-03 review).
-- `LibraryEntry.createdAt` / `updatedAt` are ISO strings: Supabase returns `+00:00` with microseconds, `toISOString()` gives `Z` with milliseconds. The row schemas normalize timestamps to one format, so the BR-08 "most recent `updated_at` wins" comparison (A-04) never compares two string formats (L-01 review).
-
 ### L-03 Add/remove, status, progress, score, notes
 - The library snapshot refresh "when the detail screen is viewed" (`ARCHITECTURE.md` §5) and the detail screen's library actions (add, status, `+1`, score) come with this item; the favorite star comes with L-05 (C-07).
 - Wire `createLocalLibraryRepository(storage, { reporter })` (`src/core/repositories/local/library-repository.ts`) in the composition root together with the first library hook, through a context in `src/core/hooks/` that provides the `LibraryRepository` interface (L-02). Snapshots come from `toLibraryMediaSnapshot` (`src/core/schemas/library-entry.ts`); the score and notes fields validate with `isValidScore` and `isValidNotes` (BR-07, NUL and lone surrogates included), and the notes editor decides whether blank notes are saved as `null` (L-02).
 
 ### L-04 Library screen: grouping, filters, sorting
-- Snapshot image urls read back from the guest store (and from rows in A-03) are untrusted: the entry schema checks only `https://`, the length and storable text, not the provider's CDN hosts (CONTRIBUTING.md §7). Before rendering library covers, pass them through `toAllowedImageUrl` with the hosts of the namespace's provider (for example a `CatalogProvider.imageHosts` field), so a tampered store cannot load images from any host (L-02).
+- Snapshot image urls read back from the guest store (and from rows in A-03) are untrusted: the entry schema checks only `https://`, the length and storable text, not the provider's CDN hosts (CONTRIBUTING.md §7). Before rendering library covers, pass them through `toAllowedImageUrl` with the hosts of the namespace's provider (for example a `CatalogProvider.imageHosts` field), so a tampered store cannot load images from any host. Never move that check into `libraryEntrySchema`: a rejected entry is dropped from the guest store, so an unknown host must give a null url, never a lost entry (L-02).
 
 ### L-06 Adult content setting wired to the filter
 - Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
@@ -288,6 +284,7 @@ Details:
 - Starts only after AniList authorizes the app. Terms to recheck first: free under $150 of revenue per month, a commercial licence above, so any monetization triggers a review; the app name must not contain "AniList".
 - A new adapter folder next to `jikan/` (GraphQL over POST: the catalog http client gains a dedup key that includes the body), added to `CATALOG_ADAPTER_FOLDERS` and the provider host lint guard, passing the shared contract suite (`test/core/catalog-provider-contract.ts`), with its own rate limiter instance and recorded fixtures.
 - Media id namespace (deferred from C-03): AniList ids get their own namespace (`anilist`) unless this item decides a mapping to `mal` through `idMal`. Add the AniList cross-reference column on `library_entries` (an AniList id next to the MAL `external_id`, nullable, per-user unique) in a new migration with pgTAP tests, so existing `mal` entries and AniList results can be matched.
+- A new `MediaIdNamespace` value is rejected by the version 1 guest store reader, which drops the entry and loses it on the next write after a rollback: store it under a new envelope version and key, with a migration from `guest-library` (`ARCHITECTURE.md` §4 "Envelope versions", L-02).
 - Distinct from A-07 (AniList account sync).
 - Before a second adapter relies on the contract suite (C-03 review): its `page` and `detail` scenarios only check that `isAdult` is a boolean, so an adapter flagging every item adult passes. Require these scenarios to serve non-adult items (harness doc in `test/core/catalog-provider-contract-support.ts`) and assert `isAdult === false` for them.
 
