@@ -292,7 +292,7 @@
       "cancel": "Cancel",
       "status": {
         "title": "My status",
-        "editLabel": "Change my status",
+        "editLabel": "Edit my status",
         "close": "Close without changing the status"
       },
       "progress": {
@@ -304,7 +304,7 @@
       },
       "score": {
         "title": "My score",
-        "editLabel": "Change my score",
+        "editLabel": "Edit my score",
         "close": "Close without changing the score"
       },
       "notes": {

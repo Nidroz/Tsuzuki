@@ -44,12 +44,7 @@ describe('LibraryEntryPanel', () => {
     expect(fact('score')).toHaveAccessibleName('My score, 9 / 10');
     expect(fact('notes')).toHaveAccessibleName(`My notes, ${NOTES}`);
     expect(button('Add one episode')).toBeEnabled();
-    for (const label of [
-      'Change my status',
-      'Edit the progress',
-      'Change my score',
-      'Edit my notes',
-    ]) {
+    for (const label of ['Edit my status', 'Edit the progress', 'Edit my score', 'Edit my notes']) {
       expect(button(label)).toHaveTextContent('Edit');
     }
     expect(button('Remove from library')).toBeOnTheScreen();
@@ -89,7 +84,7 @@ describe('LibraryEntryPanel', () => {
   it('opens the status sheet and saves the chosen status', async () => {
     const { actions, user } = await renderPanel();
 
-    await user.press(button('Change my status'));
+    await user.press(button('Edit my status'));
     await user.press(screen.getByRole('radio', { name: 'Paused' }));
     await user.press(button('Save'));
 
@@ -110,7 +105,7 @@ describe('LibraryEntryPanel', () => {
   it('opens the score sheet and clears the score', async () => {
     const { actions, user } = await renderPanel();
 
-    await user.press(button('Change my score'));
+    await user.press(button('Edit my score'));
     await user.press(screen.getByRole('radio', { name: 'No score' }));
     await user.press(button('Save'));
 

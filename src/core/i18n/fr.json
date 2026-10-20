@@ -298,7 +298,7 @@
       "cancel": "Annuler",
       "status": {
         "title": "Mon statut",
-        "editLabel": "Changer mon statut",
+        "editLabel": "Modifier mon statut",
         "close": "Fermer sans changer le statut"
       },
       "progress": {
@@ -310,7 +310,7 @@
       },
       "score": {
         "title": "Ma note",
-        "editLabel": "Changer ma note",
+        "editLabel": "Modifier ma note",
         "close": "Fermer sans changer la note"
       },
       "notes": {
@@ -324,7 +324,7 @@
       },
       "remove": {
         "action": "Retirer de la bibliothèque",
-        "title": "Retirer de la bibliothèque ?",
+        "title": "Retirer de la bibliothèque ?",
         "message": "Votre statut, votre progression, votre note et vos notes personnelles pour ce titre seront supprimés.",
         "confirm": "Retirer",
         "close": "Fermer sans retirer"

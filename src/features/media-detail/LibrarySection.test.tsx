@@ -159,7 +159,7 @@ describe('LibrarySection', () => {
     await settle();
     repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
 
-    await user.press(button('Change my score'));
+    await user.press(button('Edit my score'));
     await user.press(screen.getByRole('radio', { name: '8 / 10' }));
     await user.press(button('Save'));
     await settle();
