@@ -3,9 +3,9 @@
 // differently, and the result must be the same on the device and in jest
 import { z } from 'zod';
 
-// an RFC 3339 timestamp with an uppercase T, an optional fraction of 1 to 9 digits and an offset: Z, ±HH:MM,
-// ±HHMM or ±HH. groups: year, month, day, hours, minutes, seconds, fraction, offset sign,
-// offset hours, offset minutes
+// an RFC 3339 timestamp with an uppercase T, an optional fraction of 1 to 9 digits and an
+// offset: Z, ±HH:MM, ±HHMM or ±HH. groups: year, month, day, hours, minutes, seconds, fraction,
+// offset sign, offset hours, offset minutes
 const TIMESTAMP_PATTERN =
   /^([0-9]{4})-([0-9]{2})-([0-9]{2})T([0-9]{2}):([0-9]{2}):([0-9]{2})(?:\.([0-9]{1,9}))?(?:Z|([+-])([0-9]{2})(?::?([0-9]{2}))?)$/;
 

@@ -7,14 +7,8 @@
  * version 1 envelope, some entries failed the entry schema and were dropped, or several entries
  * had the same key and only the most recent was kept.
  */
-export const LIBRARY_STORAGE_ERROR_REASONS = [
-  'invalid-json',
-  'invalid-envelope',
-  'invalid-entries',
-  'duplicate-keys',
-] as const;
-
-export type LibraryStorageReason = (typeof LIBRARY_STORAGE_ERROR_REASONS)[number];
+export type LibraryStorageReason =
+  'invalid-json' | 'invalid-envelope' | 'invalid-entries' | 'duplicate-keys';
 
 /**
  * the guest library store is damaged; reported, never thrown on read. it holds the reason only.

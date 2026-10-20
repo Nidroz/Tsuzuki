@@ -62,7 +62,7 @@ export const truncateToCodePoints = (text: string, maxLength: number): string =>
 
 // postgres text rejects U+0000
 const NUL = 0x0000;
-const REPLACEMENT_CHARACTER = '�';
+const REPLACEMENT_CHARACTER = '\uFFFD';
 
 /**
  * whether postgres can store `text` in a text column: false when it holds U+0000 (NUL, rejected

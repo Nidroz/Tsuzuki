@@ -15,7 +15,7 @@ const LONE_HIGH = '\uD83D';
 const LONE_LOW = '\uDE00';
 // the emoji U+1F600, the surrogate pair LONE_HIGH + LONE_LOW
 const PAIR = '\u{1F600}';
-const REPLACEMENT = '�';
+const REPLACEMENT = '\uFFFD';
 
 describe('POSTGRES_INTEGER_MAX', () => {
   it('is the largest signed 32-bit integer', () => {

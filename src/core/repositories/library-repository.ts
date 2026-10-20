@@ -1,5 +1,5 @@
-// the library repositories (docs/ARCHITECTURE.md §4): the user's library entries, on the device for
-// a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03). types only
+// the library repositories (docs/ARCHITECTURE.md §4): the user's library entries, on the device
+// for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03). types only
 import type { LibraryEntry } from '../domain/library-entry';
 import type { MediaKey } from '../domain/media';
 

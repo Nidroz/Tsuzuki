@@ -16,7 +16,7 @@ const ASTRAL = '\u{1F600}';
 const NUL = '\u0000';
 const LONE_HIGH = '\uD83D';
 const LONE_LOW = '\uDE00';
-const REPLACEMENT = '�';
+const REPLACEMENT = '\uFFFD';
 const HTTPS = 'https://';
 
 const accepts = (value: unknown): boolean => libraryMediaSnapshotSchema.safeParse(value).success;

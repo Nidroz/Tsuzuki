@@ -13,7 +13,7 @@ import { libraryEntrySchema } from '../../schemas/library-entry';
  * or use a new key: an older bundle reads an unknown version as empty and replaces it on its next
  * write (docs/ARCHITECTURE.md §4).
  */
-export const GUEST_LIBRARY_ENVELOPE_VERSION = 1;
+const GUEST_LIBRARY_ENVELOPE_VERSION = 1;
 
 // the envelope is checked here, every entry on its own below, so one bad entry drops alone
 const envelopeSchema = z.object({
@@ -48,7 +48,7 @@ export const isSameMediaKey = (a: MediaKey, b: MediaKey): boolean =>
  * the media key order: namespace then kind in the order of MEDIA_ID_NAMESPACES and MEDIA_KINDS
  * (the postgres enum order), then externalId, ascending.
  */
-export const compareMediaKeys = (a: MediaKey, b: MediaKey): number =>
+const compareMediaKeys = (a: MediaKey, b: MediaKey): number =>
   rankOf(MEDIA_ID_NAMESPACES, a.namespace) - rankOf(MEDIA_ID_NAMESPACES, b.namespace) ||
   rankOf(MEDIA_KINDS, a.kind) - rankOf(MEDIA_KINDS, b.kind) ||
   a.externalId - b.externalId;
@@ -57,7 +57,7 @@ export const compareMediaKeys = (a: MediaKey, b: MediaKey): number =>
  * the list order of LibraryRepository: `updatedAt` descending (normalized timestamps compare as
  * strings), then the key ascending.
  */
-export const compareLibraryEntries = (a: LibraryEntry, b: LibraryEntry): number => {
+const compareLibraryEntries = (a: LibraryEntry, b: LibraryEntry): number => {
   if (a.updatedAt !== b.updatedAt) {
     return a.updatedAt > b.updatedAt ? -1 : 1;
   }
