@@ -1,0 +1,101 @@
+# library flow (FR-10 to FR-13, BR-01, BR-02): search a title, open its details, add it to the
+# library, add two episodes with +1, change the status, set a score, then remove it after the
+# confirmation. runs in the development build like the smoke flow (see its header and
+# e2e/README.md), with clearState, so the guest library is empty at launch. elements are found by
+# id, and texts are matched on digits only ("2 / 28", "8 / 10"), so the flow does not depend on
+# the device language. it queries the live catalog (Tenrai): the first result row is matched by its
+# id prefix, never by a title the catalog could reorder, and the total of episodes is not assumed
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: tab-search
+- tapOn:
+    id: search-input
+- inputText: Frieren
+# typing searches after the debounce; the catalog answer may take a few seconds
+- extendedWaitUntil:
+    visible:
+      id: search-result-mal-anime-.*
+    timeout: 30000
+- hideKeyboard
+- tapOn:
+    id: search-result-mal-anime-.*
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: media-detail-content
+    timeout: 30000
+# a title outside the library: the section offers to add it
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-add
+    timeout: 10000
+- tapOn:
+    id: media-detail-library-add
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-progress-increment
+    timeout: 10000
+# two +1 taps: 2 episodes, out of the total when the catalog knows it (BR-01, BR-02)
+- tapOn:
+    id: media-detail-library-progress-increment
+- tapOn:
+    id: media-detail-library-progress-increment
+- assertVisible:
+    id: media-detail-library-progress
+    text: '.*, 2( / \S+)? .*'
+# change the status to paused, then check it in the sheet
+- tapOn:
+    id: media-detail-library-status-edit
+- assertVisible:
+    id: media-detail-library-status-sheet-confirm
+- tapOn:
+    id: media-detail-library-status-options-paused
+- tapOn:
+    id: media-detail-library-status-sheet-confirm
+- tapOn:
+    id: media-detail-library-status-edit
+- assertVisible:
+    id: media-detail-library-status-options-paused
+    checked: true
+- tapOn:
+    id: media-detail-library-status-sheet-cancel
+# set a score of 8; the sheet lists "No score" then 1 to 10
+- tapOn:
+    id: media-detail-library-score-edit
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-score-options-8
+    direction: DOWN
+- tapOn:
+    id: media-detail-library-score-options-8
+- tapOn:
+    id: media-detail-library-score-sheet-confirm
+- assertVisible:
+    id: media-detail-library-score
+    text: '.*, 8 / 10'
+# remove it after the confirmation: the section offers to add it again
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-remove
+    direction: DOWN
+- tapOn:
+    id: media-detail-library-remove
+- tapOn:
+    id: media-detail-library-remove-sheet-confirm
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-add
+    direction: UP
+- assertVisible:
+    id: media-detail-library-add
+- assertNotVisible:
+    id: media-detail-library-progress
