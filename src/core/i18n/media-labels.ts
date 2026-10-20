@@ -1,6 +1,8 @@
 // the translation keys and label rules of a media, shared by the screens that show one: search
-// results, discovery and the detail screen. pure mappings, exported through the public api index.ts
+// results, discovery and the detail screen, and of its library entry (the detail screen, later the
+// library list). pure mappings, exported through the public api index.ts
 import type { MediaDetail, MediaSummary } from '../catalog/catalog-provider';
+import type { LibraryStatus } from '../domain/library-entry';
 import type { MediaFormat, MediaKind, MediaStatus } from '../domain/media';
 import type { TranslationKey } from './use-translation';
 
@@ -46,6 +48,48 @@ export const TOTAL_UNITS_LABEL_KEYS = {
   anime: 'media.totalUnits.episodes',
   manga: 'media.totalUnits.chapters',
 } as const satisfies Record<MediaKind, TranslationKey>;
+
+/**
+ * the translation key of each library status, per kind (FR-11): a current anime is being watched,
+ * a current manga read, and a planned one is to watch or to read
+ */
+export const LIBRARY_STATUS_KEYS = {
+  anime: {
+    current: 'library.status.watching',
+    planned: 'library.status.planToWatch',
+    completed: 'library.status.completed',
+    paused: 'library.status.paused',
+    dropped: 'library.status.dropped',
+  },
+  manga: {
+    current: 'library.status.reading',
+    planned: 'library.status.planToRead',
+    completed: 'library.status.completed',
+    paused: 'library.status.paused',
+    dropped: 'library.status.dropped',
+  },
+} as const satisfies Record<MediaKind, Record<LibraryStatus, TranslationKey>>;
+
+/**
+ * the progress texts of an entry, per kind, in episodes or chapters. plural keys, with `progress`
+ * and `total` already formatted: `ofTotal` ("12 / 28 episodes") takes the total as `count`,
+ * `alone` ("12 episodes", the total unknown) the progress. `increment` labels the `+1` button and
+ * `field` the progress field
+ */
+export const PROGRESS_LABEL_KEYS = {
+  anime: {
+    ofTotal: 'library.progress.episodesOfTotal',
+    alone: 'library.progress.episodes',
+    increment: 'library.progress.addEpisode',
+    field: 'library.progress.episodesField',
+  },
+  manga: {
+    ofTotal: 'library.progress.chaptersOfTotal',
+    alone: 'library.progress.chapters',
+    increment: 'library.progress.addChapter',
+    field: 'library.progress.chaptersField',
+  },
+} as const satisfies Record<MediaKind, Record<string, TranslationKey>>;
 
 /** a year is written without digit grouping in every language */
 export const YEAR_FORMAT: Intl.NumberFormatOptions = { useGrouping: false };
