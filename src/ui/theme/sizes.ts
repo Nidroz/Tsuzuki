@@ -1,6 +1,9 @@
 // minimum touch target of every pressable (material 48dp, above the 44pt of apple's guidelines)
 export const TOUCH_TARGET = 48;
 
+// minimum height of a multiline Input: five lines of body text (line height 24)
+export const TEXT_AREA_MIN_HEIGHT = 120;
+
 // ionicons glyph size of IconButton and TabBarIcon
 export const ICON_SIZE = 24;
 

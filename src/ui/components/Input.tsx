@@ -5,10 +5,14 @@ import { useThemeColors } from '../theme/theme-context';
 import { cx } from './layout/layout-classes';
 import { Text } from './Text';
 
-const FIELD = 'min-h-touch rounded-md border bg-surface px-md py-sm text-body text-text';
+const FIELD = 'rounded-md border bg-surface px-md py-sm text-body text-text';
+// one line of text: a full touch target
+const SINGLE_LINE = 'min-h-touch';
 // the focus border would hide the danger border while the field is focused
 const BORDER = 'border-border focus:border-focus';
 const ERROR_BORDER = 'border-danger';
+// several lines of text, typed from the top: taller than the touch target
+const TEXT_AREA = 'min-h-text-area';
 
 export type InputKeyboardType = 'default' | 'email-address' | 'number-pad' | 'numeric' | 'url';
 export type InputReturnKeyType = 'done' | 'go' | 'next' | 'search' | 'send';
@@ -30,11 +34,13 @@ export interface InputProps {
   autoCorrect?: boolean;
   /** the longest text the field accepts, in utf-16 code units */
   maxLength?: number;
+  /** a text area for free text (e.g. notes): several lines, the return key adds a line */
+  multiline?: boolean;
   /** the error text gets `${testID}-error`, its live region `${testID}-error-region` */
   testID?: string;
 }
 
-/** a labelled single-line text field with an optional error message */
+/** a labelled text field, single-line by default, with an optional error message */
 export function Input({
   label,
   value,
@@ -48,6 +54,7 @@ export function Input({
   autoCapitalize,
   autoCorrect,
   maxLength,
+  multiline = false,
   testID,
 }: InputProps) {
   const colors = useThemeColors();
@@ -67,7 +74,7 @@ export function Input({
         <Text variant="label">{label}</Text>
       </View>
       <TextInput
-        className={cx(FIELD, hasError ? ERROR_BORDER : BORDER)}
+        className={cx(FIELD, multiline ? TEXT_AREA : SINGLE_LINE, hasError ? ERROR_BORDER : BORDER)}
         value={value}
         onChangeText={onChangeText}
         placeholderTextColor={colors.textMuted}
@@ -82,6 +89,7 @@ export function Input({
         {...(autoCapitalize !== undefined && { autoCapitalize })}
         {...(autoCorrect !== undefined && { autoCorrect })}
         {...(maxLength !== undefined && { maxLength })}
+        {...(multiline && { multiline, textAlignVertical: 'top' as const })}
         testID={testID}
       />
       {/* talkback reads a live region when its content changes, not when it mounts with it: the

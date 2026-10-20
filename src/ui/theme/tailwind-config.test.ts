@@ -3,7 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import { COLOR_TOKENS } from './colors';
 import { colorClassKey, colorVariable } from './css-variables';
 import { radii } from './radii';
-import { coverSizes, opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, opacities, TEXT_AREA_MIN_HEIGHT, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import config from './tailwind.config';
 import { fontWeights, textVariants } from './typography';
@@ -56,12 +56,15 @@ describe('tailwind config', () => {
     expect(config.theme.fontWeight).toBe(fontWeights);
   });
 
-  it('exposes the opacity tokens and the touch target', () => {
+  it('exposes the opacity tokens, the touch target and the text area height', () => {
     expect(config.theme.opacity).toStrictEqual({
       disabled: String(opacities.disabled),
       pressed: String(opacities.pressed),
     });
-    expect(config.theme.extend.minHeight).toStrictEqual({ touch: px(TOUCH_TARGET) });
+    expect(config.theme.extend.minHeight).toStrictEqual({
+      touch: px(TOUCH_TARGET),
+      'text-area': px(TEXT_AREA_MIN_HEIGHT),
+    });
     expect(config.theme.extend.minWidth).toStrictEqual({ touch: px(TOUCH_TARGET) });
   });
 

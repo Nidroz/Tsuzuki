@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { radii } from './radii';
-import { coverSizes, ICON_SIZE, opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, ICON_SIZE, opacities, TEXT_AREA_MIN_HEIGHT, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import { fontWeights, textVariants } from './typography';
 
@@ -37,6 +37,11 @@ describe('radii', () => {
 describe('sizes', () => {
   it('gives pressables a touch target of at least 44', () => {
     expect(TOUCH_TARGET).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET);
+  });
+
+  // a text area replaces the touch target height of a single-line field
+  it('makes a text area taller than the touch target', () => {
+    expect(TEXT_AREA_MIN_HEIGHT).toBeGreaterThan(TOUCH_TARGET);
   });
 
   it('fits the icon inside the touch target', () => {

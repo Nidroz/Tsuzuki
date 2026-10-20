@@ -18,6 +18,8 @@ export { Fact } from './components/Fact';
 export type { FactProps } from './components/Fact';
 export { IconButton } from './components/IconButton';
 export type { IconButtonProps, IconName } from './components/IconButton';
+export { InlineError } from './components/InlineError';
+export type { InlineErrorProps } from './components/InlineError';
 export { Input } from './components/Input';
 export type { InputKeyboardType, InputProps, InputReturnKeyType } from './components/Input';
 export type { AlignToken, JustifyToken, SurfaceToken } from './components/layout/layout-classes';
