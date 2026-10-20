@@ -13,8 +13,8 @@ export interface MediaDetailScreenProps {
 /**
  * the media detail screen of a `media/[namespace]/[kind]/[id]` route, such as
  * `tsuzuki://media/mal/anime/52991`: the namespace says whose catalog ids the id is. a deep link
- * never triggers a write: this screen only reads its params and the catalog, and calls no
- * repository and no mutation
+ * never triggers a write: opening it only reads its params, the catalog and the library entry of
+ * the media; the library is written only when the user taps one of its actions
  */
 export function MediaDetailScreen({ params }: MediaDetailScreenProps) {
   const { t } = useTranslation();

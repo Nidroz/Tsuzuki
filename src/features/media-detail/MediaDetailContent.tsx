@@ -9,17 +9,21 @@ import {
   YEAR_FORMAT,
 } from '@core/i18n/index';
 import { Chip, CoverImage, Fact, Row, Stack, Text } from '@ui/index';
+import type { ReactNode } from 'react';
 
 export interface MediaDetailContentProps {
   /** a visible media: never an adult title while the setting is off (BR-06) */
   media: MediaDetail;
+  /** the library section, right under the cover and titles so its main action is in view */
+  library?: ReactNode;
 }
 
 /**
- * the details of a title (FR-06): its cover and titles, its facts (format, status, episodes or
- * chapters, score, year), its genres and its synopsis. provider text is shown as plain text
+ * the details of a title (FR-06): its cover and titles, the `library` section when given, its
+ * facts (format, status, episodes or chapters, score, year), its genres and its synopsis.
+ * provider text is shown as plain text
  */
-export function MediaDetailContent({ media }: MediaDetailContentProps) {
+export function MediaDetailContent({ media, library }: MediaDetailContentProps) {
   const { t, formatNumber } = useTranslation();
   const { kind } = media.key;
   const englishTitle = englishTitleOf(media);
@@ -58,6 +62,8 @@ export function MediaDetailContent({ media }: MediaDetailContentProps) {
           )}
         </Stack>
       </Row>
+
+      {library}
 
       <Stack gap="md">
         <Fact
