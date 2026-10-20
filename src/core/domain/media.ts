@@ -1,4 +1,5 @@
 // a media is a catalog title identified by (namespace, kind, externalId), see SPEC.md
+import { POSTGRES_INTEGER_MAX } from './database-limits';
 
 /** the kinds of media the catalog serves. */
 export const MEDIA_KINDS = ['anime', 'manga'] as const;
@@ -22,7 +23,7 @@ export interface MediaKey {
 }
 
 // the postgres integer bound of library_entries.external_id, docs/ARCHITECTURE.md §5
-export const EXTERNAL_ID_MAX = 2_147_483_647;
+export const EXTERNAL_ID_MAX = POSTGRES_INTEGER_MAX;
 
 /** whether a string is exactly one of the media kinds (case-sensitive, no trimming). */
 export const isMediaKind = (value: string): value is MediaKind =>
