@@ -41,7 +41,7 @@ Targets: Android and iOS, published on Google Play and the App Store.
 | FR-12 | Progress: current unit, `+1` button from the list and the detail screen, manual edit |
 | FR-13 | Personal score (integer 1–10, optional) and free-text notes |
 | FR-14 | Library list grouped/filterable by status and kind, sortable by last update, title, score |
-| FR-15 | Favorites: star toggle on detail and list rows, dedicated Favorites tab |
+| FR-15 | Favorites: favorite toggle on detail and list rows, dedicated Favorites tab |
 
 ### Account & sync
 
