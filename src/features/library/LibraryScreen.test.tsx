@@ -7,6 +7,7 @@ import {
   createDeferred,
   createFakeLibraryRepository,
 } from '../../../test/core/fake-library-repository';
+import type * as FakeFocusEffect from '../../../test/mobile/fake-focus-effect';
 import {
   renderLibraryScreen,
   settle,
@@ -18,9 +19,13 @@ import { BERSERK, FRIEREN, LIBRARY } from './__fixtures__/library-entries';
 
 const mockNavigate = jest.fn<(href: Href) => void>();
 
-// the real module otherwise: the theme provider builds the navigation theme from it
+// the real module otherwise: the theme provider builds the navigation theme from it. no navigator
+// around the screen: focused once mounted
 jest.mock('expo-router', () => ({
   ...jest.requireActual<object>('expo-router'),
+  useFocusEffect: jest.requireActual<typeof FakeFocusEffect>(
+    '../../../test/mobile/fake-focus-effect',
+  ).useFakeFocusEffect,
   useRouter: () => ({ push: jest.fn(), navigate: mockNavigate }),
 }));
 

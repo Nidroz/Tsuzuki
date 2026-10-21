@@ -10,6 +10,7 @@ import {
   createFakeLibraryRepository,
   type FakeLibraryRepository,
 } from '../../../test/core/fake-library-repository';
+import type * as FakeFocusEffect from '../../../test/mobile/fake-focus-effect';
 import { renderLibraryScreen, settle } from '../../../test/mobile/render-library-screen';
 import {
   ADULT,
@@ -25,9 +26,13 @@ import { libraryEntryTestID } from './LibraryEntryRow';
 
 const mockPush = jest.fn<(href: Href) => void>();
 
-// the real module otherwise: the theme provider builds the navigation theme from it
+// the real module otherwise: the theme provider builds the navigation theme from it. no navigator
+// around the screen: focused once mounted
 jest.mock('expo-router', () => ({
   ...jest.requireActual<object>('expo-router'),
+  useFocusEffect: jest.requireActual<typeof FakeFocusEffect>(
+    '../../../test/mobile/fake-focus-effect',
+  ).useFakeFocusEffect,
   useRouter: () => ({ push: mockPush, navigate: jest.fn() }),
 }));
 
@@ -131,16 +136,6 @@ describe('LibraryScreen rows', () => {
     expect(row(FRIEREN_ROW)).toHaveAccessibleName(
       'Sousou no Frieren, TV, 13 / 28 episodes, My score 9 / 10',
     );
-  });
-
-  it('moves a planned entry to the entries in progress on its first episode (BR-02)', async () => {
-    const { user } = await renderLibraryScreen();
-    await settle();
-
-    await user.press(screen.getByRole('button', { name: 'Add one episode, Monster' }));
-
-    expect(screen.getByRole('header', { name: 'In progress (3)' })).toBeOnTheScreen();
-    expect(screen.queryByRole('header', { name: 'Planned (1)' })).not.toBeOnTheScreen();
   });
 
   it('disables `+1` at the known total (BR-01)', async () => {

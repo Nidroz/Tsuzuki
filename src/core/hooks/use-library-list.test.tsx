@@ -50,6 +50,8 @@ const ADULT = entryWithMedia(
 const LIBRARY = [FRIEREN, MANGA, AKIRA, ADULT];
 
 const LIST_FAILURE = new Error('storage is unreadable');
+// one layout generation: the layout rule has its own tests (use-library-list-layout.test.tsx)
+const LAYOUT_KEY = 0;
 
 interface ListProps {
   readonly options: LibraryViewOptions;
@@ -71,7 +73,7 @@ const render = (
   );
   const rendered = renderHook(
     ({ options, showAdult }: ListProps) => ({
-      list: useLibraryList(options, { showAdult }),
+      list: useLibraryList(options, { showAdult, layoutKey: LAYOUT_KEY }),
       // a list row's actions: no catalog data, the entry seeded by the list
       row: useLibraryEntryActions(MANGA_KEY, { media: null }),
     }),
@@ -82,9 +84,9 @@ const render = (
 
 const loaded = async (rendered: ReturnType<typeof render>): Promise<LibraryView> => {
   await waitFor(() => {
-    expect(rendered.result.current.list.isSuccess).toBe(true);
+    expect(rendered.result.current.list.query.isSuccess).toBe(true);
   });
-  const view = rendered.result.current.list.data;
+  const view = rendered.result.current.list.view;
   if (view === undefined) {
     throw new Error('the library view is not loaded');
   }
@@ -119,7 +121,7 @@ describe('useLibraryList (FR-14)', () => {
 
     rendered.rerender({ options: DEFAULT_LIBRARY_VIEW, showAdult: true });
 
-    expect(rendered.result.current.list.data).toMatchObject({ visibleCount: 4, hiddenCount: 0 });
+    expect(rendered.result.current.list.view).toMatchObject({ visibleCount: 4, hiddenCount: 0 });
   });
 
   it('nulls a cover off the provider hosts, keeping the entry and the cached data', async () => {
@@ -163,7 +165,7 @@ describe('useLibraryList (FR-14)', () => {
 
     rendered.rerender({ options: { ...DEFAULT_LIBRARY_VIEW }, showAdult: true });
 
-    expect(rendered.result.current.list.data).toBe(before);
+    expect(rendered.result.current.list.view).toBe(before);
 
     rendered.rerender({ options: { ...DEFAULT_LIBRARY_VIEW, status: 'planned' }, showAdult: true });
 
@@ -175,7 +177,7 @@ describe('useLibraryList (FR-14)', () => {
     const rendered = render({ options: DEFAULT_LIBRARY_VIEW, showAdult: true });
     await loaded(rendered);
     const scoreOfManga = () =>
-      rendered.result.current.list.data?.groups
+      rendered.result.current.list.view?.groups
         .flatMap((group) => group.entries)
         .find((entry) => entry.key === MANGA_KEY)?.score;
 
@@ -206,14 +208,14 @@ describe('useLibraryList (FR-14)', () => {
     const rendered = render({ options: DEFAULT_LIBRARY_VIEW, showAdult: true });
     await loaded(rendered);
     const shownManga = () =>
-      rendered.result.current.list.data?.groups
+      rendered.result.current.list.view?.groups
         .flatMap((group) => group.entries)
         .find((entry) => entry.key === MANGA_KEY);
 
     for (let tap = 0; tap < 3; tap += 1) {
       await act(async () => {
         rendered.result.current.row.incrementProgress();
-        await rendered.result.current.list.refetch();
+        await rendered.result.current.list.query.refetch();
         // each tap restarts the window: still pending after it
         await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS - 1);
       });
@@ -241,8 +243,8 @@ describe('useLibraryList (FR-14)', () => {
     const rendered = render({ options: DEFAULT_LIBRARY_VIEW, showAdult: true }, repository);
 
     await waitFor(() => {
-      expect(rendered.result.current.list.isError).toBe(true);
+      expect(rendered.result.current.list.query.isError).toBe(true);
     });
-    expect(rendered.result.current.list.error).toBe(LIST_FAILURE);
+    expect(rendered.result.current.list.query.error).toBe(LIST_FAILURE);
   });
 });

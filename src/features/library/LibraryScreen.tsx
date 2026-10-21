@@ -5,7 +5,7 @@ import { useLibraryList } from '@core/hooks/use-library-list';
 import { useTranslation } from '@core/i18n/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
 import { EmptyState, ErrorState, Screen, Spinner, Stack, type ScreenEdge } from '@ui/index';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
 import { LibraryList } from './LibraryList';
@@ -15,6 +15,9 @@ const EDGES: readonly ScreenEdge[] = ['left', 'right'];
 
 const MEDIA_DETAIL_PATHNAME = '/media/[namespace]/[kind]/[id]';
 const SEARCH_PATHNAME = '/search';
+
+// the layout key of the first focus; each focus adds one
+const FIRST_LAYOUT_KEY = 0;
 
 // TODO(L-06): read the adult content setting
 const SHOW_ADULT = DEFAULT_SHOW_ADULT;
@@ -30,13 +33,24 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * the library screen (FR-14, FR-12, BR-06): the entries grouped by status, filtered by kind and
  * status and sorted, each with its `+1` button. without data, a spinner on the first load or an
  * error with a retry; an empty library says how to add titles. a failed refetch keeps the rows.
- * the options are kept while the tabs stay mounted, never persisted
+ * the options are kept while the tabs stay mounted, never persisted. a row acted on keeps its
+ * place (useLibraryList): the list is laid out again on an option change or when the screen gains
+ * focus (a tab switch, back from the detail)
  */
 export function LibraryScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const [options, setOptions] = useState<LibraryViewOptions>(DEFAULT_LIBRARY_VIEW);
-  const { data, error, isFetching, refetch } = useLibraryList(options, { showAdult: SHOW_ADULT });
+  const [layoutKey, setLayoutKey] = useState(FIRST_LAYOUT_KEY);
+  // stable: useFocusEffect reruns a new callback, which would lay the list out on every render
+  const layOutAgain = useCallback(() => {
+    setLayoutKey((key) => key + 1);
+  }, []);
+  useFocusEffect(layOutAgain);
+  const {
+    query: { error, isFetching, refetch },
+    view,
+  } = useLibraryList(options, { showAdult: SHOW_ADULT, layoutKey });
 
   const retry = useCallback(() => {
     // a retry tap while the read runs never restarts it
@@ -58,7 +72,7 @@ export function LibraryScreen() {
   }, []);
 
   let content: ReactElement;
-  if (data === undefined) {
+  if (view === undefined) {
     // while the retry of an error runs, the spinner replaces it
     content =
       error !== null && !isFetching ? (
@@ -73,7 +87,7 @@ export function LibraryScreen() {
           <Spinner accessibilityLabel={t('library.list.loading')} testID={`${TEST_ID}-loading`} />
         </Stack>
       );
-  } else if (data.totalCount === 0) {
+  } else if (view.totalCount === 0) {
     content = (
       <EmptyState
         title={t('library.list.empty.title')}
@@ -85,7 +99,7 @@ export function LibraryScreen() {
   } else {
     content = (
       <LibraryList
-        view={data}
+        view={view}
         options={options}
         onOptionsChange={setOptions}
         onResetFilters={hasDefaultFilters(options) ? null : resetFilters}

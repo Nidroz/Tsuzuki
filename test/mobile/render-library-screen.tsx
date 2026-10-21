@@ -45,9 +45,11 @@ export const settle = async (ms = 0) => {
   });
 };
 
+type ShownElement = ReturnType<typeof screen.getByText>;
+
 // the item index of the list cell holding `element`: flashlist renders its cells in recycling
 // order, so the tree order says nothing of the list order once the items change
-const cellIndexOf = (element: ReturnType<typeof screen.getByText>): number => {
+const cellIndexOf = (element: ShownElement): number => {
   for (let node = element.parent; node !== null; node = node.parent) {
     const index: unknown = node.props.index;
     if (typeof index === 'number') {
@@ -57,10 +59,13 @@ const cellIndexOf = (element: ReturnType<typeof screen.getByText>): number => {
   throw new Error('the element is not in a list cell');
 };
 
+/** `elements` (each in a list cell) in the order of the list items */
+export const inListOrder = (elements: readonly ShownElement[]): readonly ShownElement[] =>
+  elements
+    .map((element) => ({ element, index: cellIndexOf(element) }))
+    .sort((a, b) => a.index - b.index)
+    .map(({ element }) => element);
+
 /** the texts matching `pattern` (section headers, row titles), in the order of the list items */
 export const textsInListOrder = (pattern: RegExp): readonly string[] =>
-  screen
-    .getAllByText(pattern)
-    .map((element) => ({ index: cellIndexOf(element), text: String(element.props.children) }))
-    .sort((a, b) => a.index - b.index)
-    .map(({ text }) => text);
+  inListOrder(screen.getAllByText(pattern)).map((element) => String(element.props.children));
