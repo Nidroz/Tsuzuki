@@ -22,6 +22,18 @@ export interface MediaKey {
   readonly externalId: number;
 }
 
+// the rank of a value in its ordered list, the order of its postgres enum
+const rankOf = (values: readonly string[], value: string): number => values.indexOf(value);
+
+/**
+ * the media key order: namespace then kind in the order of MEDIA_ID_NAMESPACES and MEDIA_KINDS
+ * (the postgres enum order), then externalId, ascending. 0 only for the same media.
+ */
+export const compareMediaKeys = (a: MediaKey, b: MediaKey): number =>
+  rankOf(MEDIA_ID_NAMESPACES, a.namespace) - rankOf(MEDIA_ID_NAMESPACES, b.namespace) ||
+  rankOf(MEDIA_KINDS, a.kind) - rankOf(MEDIA_KINDS, b.kind) ||
+  a.externalId - b.externalId;
+
 // the postgres integer bound of library_entries.external_id, docs/ARCHITECTURE.md §5
 export const EXTERNAL_ID_MAX = POSTGRES_INTEGER_MAX;
 
