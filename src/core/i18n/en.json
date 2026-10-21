@@ -235,6 +235,18 @@
         "en": "English",
         "fr": "Français"
       }
+    },
+    "adultContent": {
+      "title": "Adult content",
+      "label": "Show adult content",
+      "description": "While this is off, adult titles are hidden in search, Discover, details and the library.",
+      "confirm": {
+        "title": "Show adult content?",
+        "message": "Adult titles may be unsuitable for minors. By turning this on, you confirm that you want to see them, at your own risk.",
+        "close": "Close without showing adult content",
+        "cancel": "Cancel",
+        "confirm": "Turn on"
+      }
     }
   },
   "media": {

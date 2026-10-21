@@ -18,18 +18,22 @@ const renderScreen = (
       language="fr"
       onThemeChange={onThemeChange}
       onLanguageChange={onLanguageChange}
+      showAdult={false}
+      onShowAdultChange={jest.fn<(showAdult: boolean) => void>()}
     >
       <SettingsScreen />
     </PreferencesProvider>,
   );
 
 describe('SettingsScreen', () => {
-  it('renders the theme and language pickers in a scroll view', async () => {
+  it('renders the theme, language and adult content settings in a scroll view', async () => {
     await renderScreen();
 
     expect(screen.getByTestId('settings-screen')).toBeOnTheScreen();
     expect(screen.getByTestId('theme-picker')).toBeOnTheScreen();
     expect(screen.getByTestId('language-picker')).toBeOnTheScreen();
+    expect(screen.getByTestId('settings-adult-content')).toBeOnTheScreen();
+    expect(screen.getByRole('switch', { name: 'Show adult content' })).not.toBeChecked();
     // the only child of the safe area is the scroll view, so long text sizes stay reachable
     expect(screen.getByTestId('settings-screen').children[0]).toHaveProperty(
       'type',

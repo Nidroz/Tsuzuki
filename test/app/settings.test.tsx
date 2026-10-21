@@ -1,7 +1,11 @@
-import { LANGUAGE_PREFERENCE_KEY, THEME_PREFERENCE_KEY } from '@core/preferences/index';
+import {
+  LANGUAGE_PREFERENCE_KEY,
+  SHOW_ADULT_PREFERENCE_KEY,
+  THEME_PREFERENCE_KEY,
+} from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
-import { userEvent, within } from '@testing-library/react-native';
+import { fireEvent, userEvent, within } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { useTheme } from 'expo-router';
 import { screen } from 'expo-router/testing-library';
@@ -77,6 +81,14 @@ const tabLabel = (id: keyof typeof en.tabs, label: string) =>
 
 const navigationScheme = () => screen.getByTestId(NAVIGATION_SCHEME_TEST_ID);
 
+const ADULT_SWITCH_TEST_ID = 'settings-adult-content-switch';
+const ADULT_CONFIRM_TEST_ID = 'settings-adult-content-confirm-confirm';
+
+// the switch is a native control: flipping it sends its new value
+const flipAdultContent = async (value: boolean) => {
+  await fireEvent(screen.getByTestId(ADULT_SWITCH_TEST_ID), 'valueChange', value);
+};
+
 describe('settings route', () => {
   // the storage outlives each test: every test starts with nothing stored
   beforeEach(() => {
@@ -104,6 +116,37 @@ describe('settings route', () => {
 
     expect(appStorage.getString(THEME_PREFERENCE_KEY)).toBe('dark');
     expect(appStorage.getString(LANGUAGE_PREFERENCE_KEY)).toBe('fr');
+  });
+
+  it('opens with the stored adult content setting on', async () => {
+    appStorage.set(SHOW_ADULT_PREFERENCE_KEY, 'true');
+    const user = userEvent.setup();
+    await renderApp();
+
+    await user.press(screen.getByTestId('tab-settings'));
+
+    expect(screen.getByTestId(ADULT_SWITCH_TEST_ID)).toBeChecked();
+  });
+
+  it('stores adult content as shown only once confirmed, and as hidden at once', async () => {
+    const user = userEvent.setup();
+    await renderApp();
+    await user.press(screen.getByTestId('tab-settings'));
+    expect(screen.getByTestId(ADULT_SWITCH_TEST_ID)).not.toBeChecked();
+
+    await flipAdultContent(true);
+
+    expect(appStorage.getString(SHOW_ADULT_PREFERENCE_KEY)).toBeUndefined();
+
+    await user.press(screen.getByTestId(ADULT_CONFIRM_TEST_ID));
+
+    expect(appStorage.getString(SHOW_ADULT_PREFERENCE_KEY)).toBe('true');
+    expect(screen.getByTestId(ADULT_SWITCH_TEST_ID)).toBeChecked();
+
+    await flipAdultContent(false);
+
+    expect(appStorage.getString(SHOW_ADULT_PREFERENCE_KEY)).toBe('false');
+    expect(screen.getByTestId(ADULT_SWITCH_TEST_ID)).not.toBeChecked();
   });
 
   it('opens from its tab with the system theme and language checked', async () => {

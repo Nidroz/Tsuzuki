@@ -44,6 +44,7 @@ const tabButton = (id: TabId) => screen.getByTestId(`tab-${id}`);
 // layout owns them (settings.test.tsx, root-layout-library.test.tsx)
 const ignoreTheme: (theme: ThemePreference) => void = () => undefined;
 const ignoreLanguage: (language: LanguagePreference) => void = () => undefined;
+const ignoreShowAdult: (showAdult: boolean) => void = () => undefined;
 
 const withPreferences = (language: Language): ComponentType<{ readonly children: ReactNode }> => {
   const Providers = providersFor({ language });
@@ -55,6 +56,8 @@ const withPreferences = (language: Language): ComponentType<{ readonly children:
         language={language}
         onThemeChange={ignoreTheme}
         onLanguageChange={ignoreLanguage}
+        showAdult={false}
+        onShowAdultChange={ignoreShowAdult}
       >
         <Providers>
           <LibraryContextProvider repository={libraryRepository}>{children}</LibraryContextProvider>

@@ -242,6 +242,18 @@
         "en": "English",
         "fr": "Français"
       }
+    },
+    "adultContent": {
+      "title": "Contenu adulte",
+      "label": "Afficher le contenu adulte",
+      "description": "Tant que ce réglage est désactivé, les titres pour adultes sont masqués dans la recherche, Découvrir, les fiches et la bibliothèque.",
+      "confirm": {
+        "title": "Afficher le contenu adulte ?",
+        "message": "Les titres pour adultes peuvent ne pas convenir aux mineurs. En activant ce réglage, vous confirmez vouloir les voir, à vos propres risques.",
+        "close": "Fermer sans afficher le contenu adulte",
+        "cancel": "Annuler",
+        "confirm": "Activer"
+      }
     }
   },
   "media": {

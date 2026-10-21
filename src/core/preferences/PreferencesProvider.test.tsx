@@ -11,17 +11,21 @@ const THEME_TEST_ID = 'theme';
 const LANGUAGE_TEST_ID = 'language';
 const DARK_BUTTON = 'dark';
 const FRENCH_BUTTON = 'french';
+const SHOW_ADULT_TEST_ID = 'show-adult';
+const SHOW_ADULT_BUTTON = 'show adult';
 
 type ThemeHandler = (theme: ThemePreference) => void;
 type LanguageHandler = (language: LanguagePreference) => void;
+type ShowAdultHandler = (showAdult: boolean) => void;
 
 // shows what usePreferences gives a consumer, with buttons that call the setters
 function PreferencesProbe() {
-  const { theme, language, setTheme, setLanguage } = usePreferences();
+  const { theme, language, showAdult, setTheme, setLanguage, setShowAdult } = usePreferences();
   return (
     <>
       <p data-testid={THEME_TEST_ID}>{theme}</p>
       <p data-testid={LANGUAGE_TEST_ID}>{language}</p>
+      <p data-testid={SHOW_ADULT_TEST_ID}>{String(showAdult)}</p>
       <button
         type="button"
         onClick={() => {
@@ -37,6 +41,14 @@ function PreferencesProbe() {
         }}
       >
         {FRENCH_BUTTON}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setShowAdult(true);
+        }}
+      >
+        {SHOW_ADULT_BUTTON}
       </button>
     </>
   );
@@ -57,10 +69,13 @@ interface TreeOptions {
   readonly language?: LanguagePreference;
   readonly onThemeChange?: ThemeHandler;
   readonly onLanguageChange?: LanguageHandler;
+  readonly showAdult?: boolean;
+  readonly onShowAdultChange?: ShowAdultHandler;
 }
 
 const noTheme: ThemeHandler = () => undefined;
 const noLanguage: LanguageHandler = () => undefined;
+const noShowAdult: ShowAdultHandler = () => undefined;
 
 const tree = (
   {
@@ -68,6 +83,8 @@ const tree = (
     language = 'system',
     onThemeChange = noTheme,
     onLanguageChange = noLanguage,
+    showAdult = false,
+    onShowAdultChange = noShowAdult,
   }: TreeOptions,
   child = <PreferencesProbe />,
 ) => (
@@ -76,6 +93,8 @@ const tree = (
     language={language}
     onThemeChange={onThemeChange}
     onLanguageChange={onLanguageChange}
+    showAdult={showAdult}
+    onShowAdultChange={onShowAdultChange}
   >
     {child}
   </PreferencesProvider>
@@ -93,6 +112,25 @@ describe('PreferencesProvider', () => {
 
     expect(textOf(THEME_TEST_ID)).toBe(theme);
     expect(textOf(LANGUAGE_TEST_ID)).toBe(language);
+  });
+
+  it.each([false, true])('exposes the adult content setting %s', (showAdult) => {
+    render(tree({ showAdult }));
+
+    expect(textOf(SHOW_ADULT_TEST_ID)).toBe(String(showAdult));
+  });
+
+  it('calls onShowAdultChange from setShowAdult, and holds no state of its own', () => {
+    const onShowAdultChange = jest.fn<ShowAdultHandler>();
+    const onThemeChange = jest.fn<ThemeHandler>();
+    render(tree({ onShowAdultChange, onThemeChange }));
+
+    fireEvent.click(screen.getByRole('button', { name: SHOW_ADULT_BUTTON }));
+
+    expect(onShowAdultChange).toHaveBeenCalledTimes(1);
+    expect(onShowAdultChange).toHaveBeenCalledWith(true);
+    expect(onThemeChange).not.toHaveBeenCalled();
+    expect(textOf(SHOW_ADULT_TEST_ID)).toBe('false');
   });
 
   it('calls onThemeChange from setTheme, and holds no state of its own', () => {
@@ -143,12 +181,24 @@ describe('PreferencesProvider', () => {
     rerender(tree({}, capture()));
     rerender(tree({ theme: 'dark' }, capture()));
     rerender(tree({ theme: 'dark', onLanguageChange: jest.fn<LanguageHandler>() }, capture()));
+    rerender(tree({ theme: 'dark', showAdult: true }, capture()));
+    rerender(tree({ theme: 'dark', showAdult: true }, capture()));
+    rerender(
+      tree(
+        { theme: 'dark', showAdult: true, onShowAdultChange: jest.fn<ShowAdultHandler>() },
+        capture(),
+      ),
+    );
 
-    const [first, same, newTheme, newHandler] = values;
-    expect(values).toHaveLength(4);
+    const [first, same, newTheme, newHandler, newShowAdult, sameShowAdult, newShowAdultHandler] =
+      values;
+    expect(values).toHaveLength(7);
     expect(same).toBe(first);
     expect(newTheme).not.toBe(first);
     expect(newHandler).not.toBe(newTheme);
+    expect(newShowAdult).not.toBe(newHandler);
+    expect(sameShowAdult).toBe(newShowAdult);
+    expect(newShowAdultHandler).not.toBe(sameShowAdult);
   });
 });
 

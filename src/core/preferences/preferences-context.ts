@@ -8,6 +8,9 @@ export interface Preferences {
   readonly language: LanguagePreference;
   readonly setTheme: (theme: ThemePreference) => void;
   readonly setLanguage: (language: LanguagePreference) => void;
+  /** whether adult titles are shown (BR-06, FR-32), false by default */
+  readonly showAdult: boolean;
+  readonly setShowAdult: (showAdult: boolean) => void;
 }
 
 /** the preferences and their setters, set by PreferencesProvider */

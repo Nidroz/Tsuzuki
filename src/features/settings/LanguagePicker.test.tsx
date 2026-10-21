@@ -29,6 +29,8 @@ const renderPicker = (
       language={language}
       onThemeChange={jest.fn<(theme: ThemePreference) => void>()}
       onLanguageChange={onLanguageChange}
+      showAdult={false}
+      onShowAdultChange={jest.fn<(showAdult: boolean) => void>()}
     >
       <LanguagePicker />
     </PreferencesProvider>,
