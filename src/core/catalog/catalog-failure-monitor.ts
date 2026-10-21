@@ -115,6 +115,7 @@ export const monitorCatalogProvider = (
     instanceId: provider.instanceId,
     searchQueryMaxLength: provider.searchQueryMaxLength,
     searchGenresMax: provider.searchGenresMax,
+    imageHosts: provider.imageHosts,
     search: (...args) => observe(provider.search(...args)),
     getDetail: (...args) => observe(provider.getDetail(...args)),
     getTop: (...args) => observe(provider.getTop(...args)),

@@ -9,7 +9,12 @@ import {
   type CatalogHttpClientOptions,
 } from '../http/catalog-http-client';
 import { JIKAN_NAMESPACE, type JikanInstance } from './jikan-instances';
-import { parseJikanDetail, parseJikanGenres, parseJikanPage } from './jikan-mappers';
+import {
+  JIKAN_IMAGE_HOSTS,
+  parseJikanDetail,
+  parseJikanGenres,
+  parseJikanPage,
+} from './jikan-mappers';
 import {
   JIKAN_GENRE_IDS_MAX,
   JIKAN_QUERY_MAX_LENGTH,
@@ -40,6 +45,8 @@ export const createJikanCatalogProvider = (
     instanceId: instance.id,
     searchQueryMaxLength: JIKAN_QUERY_MAX_LENGTH,
     searchGenresMax: JIKAN_GENRE_IDS_MAX,
+    // the same hosts for every instance, so a configured base url never widens them
+    imageHosts: JIKAN_IMAGE_HOSTS,
     search: async (params, signal, requestOptions) => {
       // built first: an invalid param throws before any request
       const url = jikanSearchUrl(baseUrl, params);

@@ -128,6 +128,13 @@ export interface CatalogProvider {
    * (src/core/domain/search-filters.ts), so the genre filters it builds are always accepted.
    */
   readonly searchGenresMax: number;
+  /**
+   * the lowercase cdn hosts its image urls come from: the hosts its adapter keeps with
+   * toAllowedImageUrl (src/core/catalog/image-url.ts). library covers read back from storage are
+   * untrusted: for entries of this provider's namespace, they are passed through
+   * `toAllowedImageUrl(url, provider.imageHosts)` before rendering (CONTRIBUTING.md §7).
+   */
+  readonly imageHosts: readonly string[];
   search(
     params: SearchParams,
     signal?: AbortSignal,

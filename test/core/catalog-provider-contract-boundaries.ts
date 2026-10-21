@@ -138,6 +138,10 @@ export const describeCatalogProviderBoundaries = <TRequest>(
       expect(harness.allowedImageHosts.length).toBeGreaterThan(0);
     });
 
+    it('exposes the image allowlist as its image hosts', () => {
+      expect(harness.createProvider().imageHosts).toStrictEqual(harness.allowedImageHosts);
+    });
+
     it.each(PAGE_CASES)(
       '$label: every cover is absent or allowed, and some are present',
       async ({ call }) => {
