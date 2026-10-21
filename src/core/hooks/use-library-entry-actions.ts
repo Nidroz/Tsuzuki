@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { MediaSummary } from '../catalog/catalog-provider';
 import { setNotes, setScore, notesFromInput } from '../domain/library-details';
@@ -10,7 +10,7 @@ import {
 } from '../domain/library-entry';
 import { incrementProgress, setProgress, setStatus } from '../domain/library-progress';
 import { refreshMediaSnapshot } from '../domain/library-snapshot';
-import type { MediaKey } from '../domain/media';
+import { compareMediaKeys, type MediaKey } from '../domain/media';
 import { toLibraryMediaSnapshot } from '../schemas/library-entry';
 import type { LibraryApplyOptions, LibraryChange } from './library-writer';
 import { useLibraryContext } from './use-library-context';
@@ -39,13 +39,22 @@ export interface LibraryEntryActions {
   readonly setScore: (score: number | null) => void;
   /** saves the notes editor text: blank text clears the notes (notesFromInput, BR-07) */
   readonly setNotes: (text: string) => void;
-  /** the error of the last failed action, null when none; each new action clears it */
+  /**
+   * the error of the last failed action of this key, null when none; each new action clears it.
+   * a failure of an earlier key (a recycled list row) is never shown
+   */
   readonly error: unknown;
   /** clears `error` */
   readonly dismissError: () => void;
 }
 
 type EntryRule = (entry: LibraryEntry, ctx: LibraryWriteContext) => LibraryEntry;
+
+// a failed action, with the key it was made for
+interface KeyedFailure {
+  readonly key: MediaKey;
+  readonly error: unknown;
+}
 
 // a programming error: the ui enables add once the catalog data is loaded
 const ADD_WITHOUT_MEDIA_MESSAGE = 'library add needs the media summary';
@@ -70,23 +79,16 @@ export const useLibraryEntryActions = (
   const { namespace, kind, externalId } = key;
   // the key's values, so a new key object with the same media keeps the callbacks stable
   const mediaKey = useMemo(() => ({ namespace, kind, externalId }), [namespace, kind, externalId]);
-  const [error, setError] = useState<unknown>(null);
-  const mountedRef = useRef(false);
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-    };
-  }, []);
+  // a state update after unmount is a no-op: a write settling after the screen left shows nothing
+  const [failure, setFailure] = useState<KeyedFailure | null>(null);
+  const error =
+    failure !== null && compareMediaKeys(failure.key, mediaKey) === 0 ? failure.error : null;
 
   const run = useCallback(
     (change: LibraryChange, options?: LibraryApplyOptions) => {
-      setError(null);
+      setFailure(null);
       writer.apply(mediaKey, change, options).catch((reason: unknown) => {
-        // a write may settle after the screen left: nothing to show then
-        if (mountedRef.current) {
-          setError(reason);
-        }
+        setFailure({ key: mediaKey, error: reason });
       });
     },
     [writer, mediaKey],
@@ -149,7 +151,7 @@ export const useLibraryEntryActions = (
     [run, onEntry],
   );
   const dismissError = useCallback(() => {
-    setError(null);
+    setFailure(null);
   }, []);
 
   return useMemo(

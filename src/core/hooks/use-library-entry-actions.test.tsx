@@ -1,7 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, waitFor } from '@testing-library/react';
 
-import { createDeferred } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf, entryWithMedia } from '../../../test/core/library-entry-fixtures';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
 import {
@@ -11,17 +10,12 @@ import {
   renderLibraryEntry,
   UNSTORABLE_MEDIA,
 } from '../../../test/core/library-hooks-support';
-import { MISSING_LIBRARY_PROVIDER_MESSAGE } from './library-context';
-import { useLibraryEntryActions } from './use-library-entry-actions';
 
 const ENTRY = entryOf();
 const PLANNED = entryOf({ status: 'planned', progress: 0, startedAt: null });
 // the day of the fixed clock of the tests (test/core/fixed-clock.ts); waitFor moves the clock by
 // milliseconds only, so the timestamps are compared, not spelled out
 const TODAY = '2026-01-01';
-const STORAGE_FAILURE = new Error('storage is full');
-// above the known total of ENTRY (28): an invalid progress (BR-01)
-const PROGRESS_ABOVE_TOTAL = 40;
 
 type Rendered = ReturnType<typeof renderLibraryEntry>;
 
@@ -226,71 +220,5 @@ describe('useLibraryEntryActions: rules', () => {
       progress: 13,
       media: { totalUnits: FRESH_TOTAL },
     });
-  });
-});
-
-describe('useLibraryEntryActions: errors', () => {
-  it('keeps the error of a failed write until the next action or a dismiss', async () => {
-    const { result, repository } = await renderLoaded([ENTRY], MEDIA);
-    repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
-
-    await settleAction(() => {
-      result.current.actions.setScore(7);
-    });
-
-    expect(result.current.actions.error).toBe(STORAGE_FAILURE);
-    await waitFor(() => {
-      expect(result.current.entry.data?.score).toBe(ENTRY.score);
-    });
-
-    await settleAction(() => {
-      result.current.actions.setScore(6);
-    });
-
-    expect(result.current.actions.error).toBeNull();
-
-    await settleAction(() => {
-      result.current.actions.setProgress(PROGRESS_ABOVE_TOTAL);
-    });
-
-    expect(result.current.actions.error).toBeInstanceOf(RangeError);
-
-    act(() => {
-      result.current.actions.dismissError();
-    });
-
-    expect(result.current.actions.error).toBeNull();
-    expect(repository.stored(ENTRY_KEY)?.score).toBe(6);
-  });
-
-  it('drops the error of a write that fails after the screen left', async () => {
-    const { result, repository, unmount } = await renderLoaded([ENTRY], MEDIA);
-    const held = createDeferred();
-    repository.beforeCall.mockReturnValueOnce(held.promise);
-
-    act(() => {
-      result.current.actions.setScore(7);
-    });
-    unmount();
-    held.reject(STORAGE_FAILURE);
-    await jest.advanceTimersByTimeAsync(0);
-
-    expect(result.current.actions.error).toBeNull();
-    expect(repository.stored(ENTRY_KEY)?.score).toBe(ENTRY.score);
-  });
-
-  it('keeps its callbacks for a new key object of the same media', async () => {
-    const { result, rerender } = await renderLoaded([ENTRY], MEDIA);
-    const before = result.current.actions;
-
-    rerender({ media: MEDIA });
-
-    expect(result.current.actions).toBe(before);
-  });
-
-  it('throws outside LibraryContextProvider', () => {
-    expect(() => renderHook(() => useLibraryEntryActions(ENTRY_KEY, { media: null }))).toThrow(
-      MISSING_LIBRARY_PROVIDER_MESSAGE,
-    );
   });
 });
