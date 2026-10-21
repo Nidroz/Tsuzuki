@@ -107,6 +107,26 @@ describe('FavoritesScreen', () => {
     expect(shownInOrder()).toStrictEqual(['Planned (1)', 'Monster']);
   });
 
+  it('keeps the last favorite unfavorited until the screen gains focus, then shows the empty state', async () => {
+    const { user, repository } = await renderFavorites(
+      createFakeLibraryRepository([{ ...FRIEREN, isFavorite: true }, BERSERK]),
+    );
+    await settle();
+
+    await user.press(
+      screen.getByRole('button', { name: 'Remove Sousou no Frieren from favorites' }),
+    );
+    await settle();
+
+    expect(repository.stored(FRIEREN.key)).toMatchObject({ isFavorite: false });
+    expect(screen.queryByTestId('favorites-empty')).not.toBeOnTheScreen();
+    expect(shownInOrder()).toStrictEqual(['In progress (1)', 'Sousou no Frieren']);
+
+    await refocusScreens();
+
+    expect(screen.getByTestId('favorites-empty')).toBeOnTheScreen();
+  });
+
   it('says how to add favorites when there is none, and opens Search', async () => {
     const { user } = await renderFavorites(createFakeLibraryRepository(LIBRARY));
     await settle();

@@ -104,7 +104,8 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
           <Spinner accessibilityLabel={t('library.list.loading')} testID={`${testID}-loading`} />
         </Stack>
       );
-  } else if (view.totalCount === 0) {
+  } else if (view.totalCount === 0 && view.visibleCount === 0) {
+    // a row kept by the layout (the last favorite just unfavorited) stays until the next focus
     content = (
       <EmptyState
         title={empty.title}
