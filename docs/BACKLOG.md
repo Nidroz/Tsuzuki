@@ -208,6 +208,7 @@ Details:
 - A detail no snapshot can hold (`toLibraryMediaSnapshot` throws in the `useLibraryEntry` select) shows the library read error with a Try again that cannot succeed: give it its own message without a retry when touching `LibrarySection` (L-03 review).
 
 ### L-06 Adult content setting wired to the filter
+- The library list keeps its layout while the user acts on it (`keepLibraryLayout`, L-04): a kept entry stays shown even when it no longer matches the filters, so only the layout scope of `useLibraryList` (`sameScope`, `src/core/hooks/use-library-list.ts`, which includes `showAdult` and the options) keeps adult entries hidden (BR-06). When wiring the setting, add a hook test that turning `showAdult` off lays the list out again and hides the adult entries, and one for a status filter change (the option test changes only the kind); add a comment in `keepLibraryLayout` pointing to that dependency (L-04 review).
 - Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
 - Lists after a failed refetch (C-08 review), when touching `SearchScreen` and `DiscoveryScreen` here: add a screen-level test that a cached stale top page whose refetch fails shows its rows and `discover-stale-note` (only the `MediaPageList` props test covers it today); an own empty page whose refetch failed shows the `EmptyState` without the stale note and its retry, unlike a non-empty page: show the note there too. Split `src/core/hooks/use-prefetch-next-page.test.tsx` (308 lines) under the ~300-line rule.
@@ -257,6 +258,7 @@ Details:
 Details:
 
 ### R-01 E2E suite complete
+- Library tab focus (L-04 review): the tabs stay mounted and the layout is laid out again by `useFocusEffect`, which runs after paint, so coming back after a `+1` on the detail may show the old order for a frame, then re-sort. Check it on a device; if visible, lay out again on blur (the effect cleanup) or do not keep the layout while unfocused.
 - Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04).
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
