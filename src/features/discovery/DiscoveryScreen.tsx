@@ -3,11 +3,11 @@ import { DEFAULT_SHOW_ADULT } from '@core/domain/content-filter';
 import { SEARCHABLE_MANGA_FORMATS, type SearchableMangaFormat } from '@core/domain/media';
 import { FORMAT_KEYS, useTranslation, type TranslationKey } from '@core/i18n/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
+import { ChoiceChips, type ChoiceChipOption } from '@features/media-list/ChoiceChips';
 import { Screen, Stack, type ScreenEdge } from '@ui/index';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 
-import { ChoiceChips, type ChoiceChipOption } from './ChoiceChips';
 import type { DiscoveryListProps } from './DiscoveryPageList';
 import { SeasonSection } from './SeasonSection';
 import { TopMediaSection } from './TopMediaSection';

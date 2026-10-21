@@ -1,8 +1,10 @@
 import type { CatalogProvider, MediaDetail } from '@core/catalog/catalog-provider';
 import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
+import { PROGRESS_WRITE_COALESCE_MS } from '@core/domain/library-progress';
 import { CatalogHttpError } from '@core/errors/catalog-errors';
 import { GUEST_LIBRARY_STORAGE_KEY } from '@core/repositories/local/library-repository';
+import { serializeGuestLibrary } from '@core/repositories/local/library-store';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import { act, userEvent } from '@testing-library/react-native';
@@ -16,6 +18,7 @@ import {
   BERSERK_DETAIL,
   FRIEREN_DETAIL,
 } from '../../src/features/media-detail/__fixtures__/media-details';
+import { entryOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
@@ -122,6 +125,30 @@ describe('media detail route', () => {
     expect(screen.getByTestId(`${LIBRARY_TEST_ID}-status`)).toHaveAccessibleName(
       `${en.mediaDetail.library.status.title}, ${en.library.status.planToWatch}`,
     );
+  });
+
+  it('shows the stored entry of a deep link to a title in the library, writing nothing', async () => {
+    // its snapshot differs from the catalog detail (another cover): opening never refreshes it
+    const stored = serializeGuestLibrary([entryOf({ status: 'completed', progress: 28 })]);
+    appStorage.set(GUEST_LIBRARY_STORAGE_KEY, stored);
+    getDetail.mockImplementation(resolvesWith(FRIEREN_DETAIL));
+    await openLink(linkTo(FRIEREN_DETAIL));
+
+    expect(await screen.findByTestId(`${LIBRARY_TEST_ID}-status`)).toHaveAccessibleName(
+      `${en.mediaDetail.library.status.title}, ${en.library.status.completed}`,
+    );
+    expect(screen.getByTestId(`${LIBRARY_TEST_ID}-progress`)).toHaveAccessibleName(
+      `${en.mediaDetail.library.progress.title}, 28 / 28 episodes`,
+    );
+    expect(
+      screen.queryByRole('button', { name: en.mediaDetail.library.add }),
+    ).not.toBeOnTheScreen();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS * 2);
+    });
+
+    expect(appStorage.getString(GUEST_LIBRARY_STORAGE_KEY)).toBe(stored);
   });
 
   it('shows no library section for an invalid link, and writes nothing', async () => {

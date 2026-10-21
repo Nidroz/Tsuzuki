@@ -13,6 +13,9 @@ export const FAKE_SEARCH_QUERY_MAX_LENGTH = 42;
 /** the genre id limit of the fake provider, unlike any real one so forwarding shows. */
 export const FAKE_SEARCH_GENRES_MAX = 7;
 
+/** the image hosts of the fake provider, unlike any real one so forwarding shows. */
+export const FAKE_IMAGE_HOSTS: readonly string[] = ['images.fake.test'];
+
 /** an empty first page. */
 export const EMPTY_PAGE: Page<MediaSummary> = {
   items: [],
@@ -45,6 +48,7 @@ export const createFakeCatalogProvider = () =>
     instanceId: FAKE_INSTANCE_ID,
     searchQueryMaxLength: FAKE_SEARCH_QUERY_MAX_LENGTH,
     searchGenresMax: FAKE_SEARCH_GENRES_MAX,
+    imageHosts: FAKE_IMAGE_HOSTS,
     search: jest.fn<CatalogProvider['search']>(),
     getDetail: jest.fn<CatalogProvider['getDetail']>(),
     getTop: jest.fn<CatalogProvider['getTop']>(),

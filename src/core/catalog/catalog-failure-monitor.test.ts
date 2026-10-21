@@ -7,6 +7,7 @@ import {
 } from '../errors/catalog-errors';
 import {
   EMPTY_PAGE,
+  FAKE_IMAGE_HOSTS,
   FAKE_INSTANCE_ID,
   FAKE_SEARCH_GENRES_MAX,
   FAKE_SEARCH_QUERY_MAX_LENGTH,
@@ -30,6 +31,12 @@ describe('monitorCatalogProvider', () => {
     expect(monitored.instanceId).toBe(FAKE_INSTANCE_ID);
     expect(monitored.searchQueryMaxLength).toBe(FAKE_SEARCH_QUERY_MAX_LENGTH);
     expect(monitored.searchGenresMax).toBe(FAKE_SEARCH_GENRES_MAX);
+  });
+
+  it('keeps the image hosts of the provider', () => {
+    const { monitored } = setup();
+
+    expect(monitored.imageHosts).toBe(FAKE_IMAGE_HOSTS);
   });
 
   it('forwards the arguments and passes values and errors through by identity', async () => {

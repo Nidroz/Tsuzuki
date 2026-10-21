@@ -79,6 +79,41 @@ describe('LibrarySection', () => {
     expect(repository.remove).not.toHaveBeenCalled();
   });
 
+  it('shows the fresh snapshot of a stale entry without writing it until a tap (ADR-0009)', async () => {
+    // stored with an older title, cover, format and total than the catalog's
+    const stale = entryWithMedia({
+      title: 'Frieren',
+      imageUrl: 'https://cdn.myanimelist.net/images/anime/1/1.jpg',
+      format: 'ona',
+      totalUnits: 24,
+    });
+    const { repository, user } = await renderSection([stale]);
+
+    expect(await screen.findByTestId(`${TEST_ID}-progress`)).toHaveAccessibleName(
+      'Progress, 12 / 28 episodes',
+    );
+    await settle(PROGRESS_WRITE_COALESCE_MS * 2);
+
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(repository.stored(FRIEREN_DETAIL.key)).toBe(stale);
+
+    await user.press(button('Edit my score'));
+    await user.press(screen.getByRole('radio', { name: '8 / 10' }));
+    await user.press(button('Save'));
+    await settle();
+
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(FRIEREN_DETAIL.key)).toMatchObject({
+      score: 8,
+      media: {
+        title: FRIEREN_DETAIL.title,
+        imageUrl: FRIEREN_DETAIL.imageUrl,
+        format: FRIEREN_DETAIL.format,
+        totalUnits: FRIEREN_DETAIL.totalUnits,
+      },
+    });
+  });
+
   it('adds the media as a planned entry with its snapshot on Add (FR-10)', async () => {
     const { repository, user } = await renderSection();
 

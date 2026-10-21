@@ -118,6 +118,20 @@ describe('List', () => {
     expect(screen.getByText(FOOTER)).toBeOnTheScreen();
   });
 
+  it('asks the kind of each item, so a cell is recycled for its own kind only', async () => {
+    const itemTypeOf = jest.fn((item: Item) => (item.id === 'a' ? 'header' : 'row'));
+    await renderWithTheme(
+      <List items={ITEMS} renderItem={renderItem} keyOf={keyOf} itemTypeOf={itemTypeOf} />,
+    );
+
+    expect(screen.getByText('Monster')).toBeOnTheScreen();
+    for (const item of ITEMS) {
+      expect(itemTypeOf).toHaveBeenCalledWith(item, expect.anything());
+    }
+    expect(itemTypeOf).toHaveReturnedWith('header');
+    expect(itemTypeOf).toHaveReturnedWith('row');
+  });
+
   describe('scrollToTopKey', () => {
     // the jest mock of ScrollView keeps its instance methods on the prototype, as jest.fn: a spy
     // on it is that mock, whose calls outlive a test

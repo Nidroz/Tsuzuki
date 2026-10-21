@@ -1,8 +1,9 @@
 // the translation keys and label rules of a media, shared by the screens that show one: search
-// results, discovery and the detail screen, and of its library entry (the detail screen, later the
+// results, discovery and the detail screen, and of its library entry (the detail screen and the
 // library list). pure mappings, exported through the public api index.ts
 import type { MediaDetail, MediaSummary } from '../catalog/catalog-provider';
 import type { LibraryStatus } from '../domain/library-entry';
+import type { LibraryKindFilter, LibrarySortField } from '../domain/library-view';
 import type { MediaFormat, MediaKind, MediaStatus } from '../domain/media';
 import type { TranslationKey } from './use-translation';
 
@@ -69,6 +70,29 @@ export const LIBRARY_STATUS_KEYS = {
     dropped: 'library.status.dropped',
   },
 } as const satisfies Record<MediaKind, Record<LibraryStatus, TranslationKey>>;
+
+/**
+ * the translation key of each library status under a kind filter of the library list (FR-14):
+ * the words of the kind when one is chosen, kind-neutral ones ("In progress", "Planned") when the
+ * list mixes anime and manga
+ */
+export const LIBRARY_VIEW_STATUS_KEYS = {
+  all: {
+    current: 'library.status.inProgress',
+    planned: 'library.status.planned',
+    completed: 'library.status.completed',
+    paused: 'library.status.paused',
+    dropped: 'library.status.dropped',
+  },
+  ...LIBRARY_STATUS_KEYS,
+} as const satisfies Record<LibraryKindFilter, Record<LibraryStatus, TranslationKey>>;
+
+/** the translation key of each sort field of the library list (FR-14) */
+export const LIBRARY_SORT_KEYS = {
+  updated: 'library.list.sort.updated',
+  title: 'library.list.sort.title',
+  score: 'library.list.sort.score',
+} as const satisfies Record<LibrarySortField, TranslationKey>;
 
 /**
  * the progress texts of an entry, per kind, in episodes or chapters. plural keys, with `progress`

@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { CoverImage } from './CoverImage';
+import { cx } from './layout/layout-classes';
 import { Text } from './Text';
 
 // screen readers pause on a comma between the parts of the row
@@ -19,13 +21,21 @@ export interface MediaListItemProps {
   /** read instead of the visible lines; the title and lines joined by commas by default */
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  /** the cover gets `${testID}-cover` */
+  /**
+   * an action of its own at the end of the row, e.g. an IconButton: outside the row's button, so
+   * the row and the action stay two separate controls
+   */
+  trailing?: ReactElement;
+  /** the row's button gets `${testID}`, its cover `${testID}-cover` */
   testID?: string;
 }
 
 const NO_DETAILS: readonly string[] = [];
 
-/** a pressable row of a title list: its cover, its title and secondary lines */
+/**
+ * a pressable row of a title list: its cover, its title and secondary lines, and an optional
+ * trailing action beside the row's button
+ */
 export function MediaListItem({
   title,
   subtitle,
@@ -34,15 +44,19 @@ export function MediaListItem({
   onPress,
   accessibilityLabel,
   accessibilityHint,
+  trailing,
   testID,
 }: MediaListItemProps) {
   const label =
     accessibilityLabel ??
     [title, ...(subtitle === undefined ? [] : [subtitle]), ...details].join(LABEL_SEPARATOR);
 
-  return (
+  const button = (
     <Pressable
-      className="min-h-touch flex-row items-start gap-md py-sm active:opacity-pressed"
+      className={cx(
+        'min-h-touch flex-row items-start gap-md py-sm active:opacity-pressed',
+        trailing !== undefined && 'flex-1',
+      )}
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
@@ -71,5 +85,15 @@ export function MediaListItem({
         )}
       </View>
     </Pressable>
+  );
+
+  // a button nested in a pressable is not reachable on its own: the action sits beside the row
+  return trailing === undefined ? (
+    button
+  ) : (
+    <View className="flex-row items-center gap-sm">
+      {button}
+      {trailing}
+    </View>
   );
 }

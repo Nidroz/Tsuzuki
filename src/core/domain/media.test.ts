@@ -10,7 +10,9 @@ import {
   MEDIA_KINDS,
   MEDIA_STATUSES,
   SEARCHABLE_MEDIA_STATUSES,
+  compareMediaKeys,
   isMediaKind,
+  type MediaKey,
 } from './media';
 
 describe('MEDIA_KINDS', () => {
@@ -99,4 +101,26 @@ describe('MEDIA_STATUSES', () => {
       expect(MEDIA_STATUSES).not.toContain(name);
     },
   );
+});
+
+describe('compareMediaKeys', () => {
+  const key = (kind: MediaKey['kind'], externalId: number): MediaKey => ({
+    namespace: 'mal',
+    kind,
+    externalId,
+  });
+
+  it('orders the kinds as MEDIA_KINDS, before the external id', () => {
+    expect(compareMediaKeys(key('anime', 9), key('manga', 1))).toBeLessThan(0);
+    expect(compareMediaKeys(key('manga', 1), key('anime', 9))).toBeGreaterThan(0);
+  });
+
+  it('orders the external ids of one kind ascending', () => {
+    expect(compareMediaKeys(key('manga', 2), key('manga', 10))).toBeLessThan(0);
+    expect(compareMediaKeys(key('manga', 10), key('manga', 2))).toBeGreaterThan(0);
+  });
+
+  it('is 0 for the same media only', () => {
+    expect(compareMediaKeys(key('anime', 5), key('anime', 5))).toBe(0);
+  });
 });

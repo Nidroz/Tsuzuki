@@ -10,6 +10,11 @@ export interface ListProps<T> {
   renderItem: (item: T) => ReactElement;
   /** a stable, unique key per item; pass a stable function */
   keyOf: (item: T) => string;
+  /**
+   * the kind of an item, when the list mixes kinds (e.g. section headers and rows): a recycled
+   * cell is reused for an item of its own kind only. pass a stable function
+   */
+  itemTypeOf?: (item: T) => string;
   /** shown above the items, scrolled with them */
   header?: ReactElement | null;
   /** shown instead of the items when there are none */
@@ -32,6 +37,7 @@ export function List<T>({
   items,
   renderItem,
   keyOf,
+  itemTypeOf,
   header,
   empty,
   footer,
@@ -59,6 +65,7 @@ export function List<T>({
       data={items}
       renderItem={renderListItem}
       keyExtractor={keyOf}
+      {...(itemTypeOf !== undefined && { getItemType: itemTypeOf })}
       ListHeaderComponent={header}
       ListEmptyComponent={empty}
       ListFooterComponent={footer}

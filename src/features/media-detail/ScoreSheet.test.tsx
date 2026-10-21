@@ -70,6 +70,37 @@ describe('ScoreSheet', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('leaves the draft alone when the entry score changes while open, then starts from it', async () => {
+    const onSave = jest.fn<(score: number | null) => void>();
+    const onClose = jest.fn();
+    const sheet = (visible: boolean, score: number | null) => (
+      <ScoreSheet visible={visible} score={score} onSave={onSave} onClose={onClose} />
+    );
+    const { rerender } = await renderWithProviders(sheet(true, 9));
+    const user = userEvent.setup();
+
+    // an untouched draft keeps the score of the opening
+    await rerender(sheet(true, 5));
+
+    expect(radio('9 / 10')).toBeChecked();
+
+    // an edited draft keeps the edit
+    await user.press(radio('2 / 10'));
+    await rerender(sheet(true, 6));
+
+    expect(radio('2 / 10')).toBeChecked();
+
+    await user.press(button('Save'));
+
+    expect(onSave).toHaveBeenCalledWith(2);
+
+    // the next opening starts from the latest entry score
+    await rerender(sheet(false, 6));
+    await rerender(sheet(true, 6));
+
+    expect(radio('6 / 10')).toBeChecked();
+  });
+
   it('discards the draft on close: the next opening starts from the entry score', async () => {
     const { onSave, setVisible, user } = await renderSheet(9);
 

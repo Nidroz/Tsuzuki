@@ -3,6 +3,7 @@ import { screen, userEvent, within } from '@testing-library/react-native';
 
 import { classesOf } from '../../../test/mobile/class-names';
 import { renderWithTheme } from '../../../test/mobile/render-with-theme';
+import { IconButton } from './IconButton';
 import { MediaListItem } from './MediaListItem';
 
 const TITLE = 'Sousou no Frieren';
@@ -142,5 +143,72 @@ describe('MediaListItem', () => {
     expect(classesOf(row())).toEqual(
       expect.arrayContaining(['min-h-touch', 'flex-row', 'gap-md', 'active:opacity-pressed']),
     );
+  });
+
+  describe('trailing', () => {
+    const ACTION = 'Add one episode, Frieren';
+    const ACTION_TEST_ID = 'row-action';
+
+    const renderWithAction = (onPress = jest.fn(), onAction = jest.fn()) =>
+      renderWithTheme(
+        <MediaListItem
+          title={TITLE}
+          details={DETAILS}
+          imageUrl={null}
+          onPress={onPress}
+          trailing={
+            <IconButton
+              icon="add"
+              accessibilityLabel={ACTION}
+              onPress={onAction}
+              testID={ACTION_TEST_ID}
+            />
+          }
+          testID={TEST_ID}
+        />,
+      );
+
+    it('shows the action beside the row button, not inside it', async () => {
+      await renderWithAction();
+
+      const action = screen.getByRole('button', { name: ACTION });
+
+      expect(action).toBe(screen.getByTestId(ACTION_TEST_ID));
+      expect(row()).not.toContainElement(action);
+      expect(screen.getByRole('button', { name: [TITLE, ...DETAILS].join(', ') })).toBe(row());
+      expect(screen.getAllByRole('button')).toHaveLength(2);
+    });
+
+    it('lets the row grow beside the action', async () => {
+      await renderWithAction();
+
+      expect(classesOf(row())).toEqual(expect.arrayContaining(['flex-1', 'min-h-touch']));
+    });
+
+    it('calls the action alone when it is pressed, and the row alone when the row is', async () => {
+      const onPress = jest.fn();
+      const onAction = jest.fn();
+      const user = userEvent.setup();
+      await renderWithAction(onPress, onAction);
+
+      await user.press(screen.getByRole('button', { name: ACTION }));
+
+      expect(onAction).toHaveBeenCalledTimes(1);
+      expect(onPress).not.toHaveBeenCalled();
+
+      await user.press(row());
+
+      expect(onPress).toHaveBeenCalledTimes(1);
+      expect(onAction).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps a row without an action a single button that does not grow', async () => {
+      await renderWithTheme(
+        <MediaListItem title={TITLE} imageUrl={null} onPress={jest.fn()} testID={TEST_ID} />,
+      );
+
+      expect(screen.getAllByRole('button')).toStrictEqual([row()]);
+      expect(classesOf(row())).not.toContain('flex-1');
+    });
   });
 });

@@ -188,7 +188,7 @@ Details:
 - [x] L-01 Library domain rules BR-01 to BR-05, BR-09 as pure functions
 - [x] L-02 Local (guest) library repository
 - [x] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
-- [ ] L-04 Library screen: grouping, filters, sorting
+- [x] L-04 Library screen: grouping, filters, sorting
 - [ ] L-05 Favorites (toggle + tab)
 - [ ] L-06 Adult content setting wired to the filter
 
@@ -208,6 +208,7 @@ Details:
 - A detail no snapshot can hold (`toLibraryMediaSnapshot` throws in the `useLibraryEntry` select) shows the library read error with a Try again that cannot succeed: give it its own message without a retry when touching `LibrarySection` (L-03 review).
 
 ### L-06 Adult content setting wired to the filter
+- The library list keeps its layout while the user acts on it (`keepLibraryLayout`, L-04): a kept entry stays shown even when it no longer matches the filters, so only the layout scope of `useLibraryList` (`sameScope`, `src/core/hooks/use-library-list.ts`, which includes `showAdult` and the options) keeps adult entries hidden (BR-06). When wiring the setting, add a hook test that turning `showAdult` off lays the list out again and hides the adult entries, and one for a status filter change (the option test changes only the kind); add a comment in `keepLibraryLayout` pointing to that dependency (L-04 review).
 - Replace the `DEFAULT_SHOW_ADULT` reads of `SearchScreen` (`// TODO(L-06)`), which also feeds the filters sheet, of `MediaDetailView` (`src/features/media-detail/MediaDetailView.tsx`, `// TODO(L-06)`, C-07) and of the Discover sections (`src/features/discovery/`, `// TODO(L-06)`, C-08). Decide what happens to an adult genre already included or excluded when the setting is turned off: its chip is hidden (`isAdultGenreName`), but the applied filters still send it (C-05).
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
 - Lists after a failed refetch (C-08 review), when touching `SearchScreen` and `DiscoveryScreen` here: add a screen-level test that a cached stale top page whose refetch fails shows its rows and `discover-stale-note` (only the `MediaPageList` props test covers it today); an own empty page whose refetch failed shows the `EmptyState` without the stale note and its retry, unlike a non-empty page: show the note there too. Split `src/core/hooks/use-prefetch-next-page.test.tsx` (308 lines) under the ~300-line rule.
@@ -225,6 +226,7 @@ Details:
 Details:
 
 ### A-03 Supabase library repository
+- The library read error (`library.list.error.message`, en and fr) says the library is stored on this device: reword it for the account library (L-04 review).
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
 - `library_entries.media_is_adult` defaults to `false`, which fails open (BR-06): snapshot writes must always set it from `MediaSummary.isAdult`; consider dropping the default in a migration (C-03 review).
 - Two `throws_ok` cases of `supabase/tests/database/030-library-entries.test.sql` (the external id check and the duplicate entry) pass a null message, so the constraint names `library_entries_external_id_check` and `library_entries_user_media_key` are never asserted (C-03 review): assert the Postgres messages that name them.
@@ -232,6 +234,7 @@ Details:
 - The row schema maps a row to the domain shape and reuses `libraryEntrySchema` and `timestampSchema` (`src/core/schemas/`, L-02); the Supabase repository runs the shared contract `describeLibraryRepositoryContract` (`test/core/library-repository-contract.ts`). When the repository switches on the auth state, reset the `['library']` queries or key them per owner, so one user's entries never show under another (L-02). The switch is the `repository` prop of `LibraryContextProvider` alone: the swap already flushes the pending coalesced writes to the old repository (`flushAll` of the old writer, L-03); a flushed write that succeeds still sets its entry in the shared query cache (`setQueryData` of the old writer), so the reset must happen after the flush settles (the cleanup does not expose it today), or the keys must hold the owner.
 
 ### A-05 Offline write queue and replay
+- No test fails if the library writer stops pruning idle key states (`src/core/hooks/library-writer-list.test.ts`, L-04 review): when touching the writer for the queue, make pruning observable (for example a count of active keys exposed to tests only) and assert the map is empty once every call settled.
 - A foreground request that joins an in-flight background prefetch and fails is observed twice by the catalog failure monitor (once per provider call, C-06 review): count a shared failure once, or record it as accepted in `ARCHITECTURE.md` §3.
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). This also keeps a viewed media detail in the persisted cache: today a stale detail opened offline fails its refetch, goes to `error` and is left out of the next persister write (`shouldDehydrateQuery`, `src/core/query/persister.ts`), so it no longer reads after the next offline cold start (C-07 review); add a test that a failed offline refetch keeps the persisted detail. `onlineManager` covers the offline device only: a refetch failing while online (timeout, 5xx) still drops the detail from the stored cache; decide whether to persist the last successful data of a failed query too. A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
 - Coalesced `+1` taps not yet written (the `PROGRESS_WRITE_COALESCE_MS` window, 500 ms) are lost if the app is killed: consider flushing on app background (`LibraryWriter.flushAll`) together with the offline queue (L-03).
@@ -255,6 +258,8 @@ Details:
 Details:
 
 ### R-01 E2E suite complete
+- Library tab focus (L-04 review): the tabs stay mounted and the layout is laid out again by `useFocusEffect`, which runs after paint, so coming back after a `+1` on the detail may show the old order for a frame, then re-sort. Check it on a device; if visible, lay out again on blur (the effect cleanup) or do not keep the layout while unfocused.
+- Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04).
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 

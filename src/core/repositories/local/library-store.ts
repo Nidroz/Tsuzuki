@@ -4,7 +4,8 @@
 import { z } from 'zod';
 
 import type { LibraryEntry } from '../../domain/library-entry';
-import { MEDIA_ID_NAMESPACES, MEDIA_KINDS, type MediaKey } from '../../domain/media';
+import { compareLibraryEntries } from '../../domain/library-view';
+import type { MediaKey } from '../../domain/media';
 import type { LibraryStorageReason } from '../../errors/library-errors';
 import { libraryEntrySchema } from '../../schemas/library-entry';
 
@@ -38,35 +39,19 @@ const failedRead = (reason: LibraryStorageReason): GuestLibraryRead => ({
 const mediaKeyIdOf = (key: MediaKey): string =>
   `${key.namespace}:${key.kind}:${String(key.externalId)}`;
 
-const rankOf = (values: readonly string[], value: string): number => values.indexOf(value);
-
 /** whether two media keys name the same media. */
 export const isSameMediaKey = (a: MediaKey, b: MediaKey): boolean =>
   mediaKeyIdOf(a) === mediaKeyIdOf(b);
 
 /**
- * the media key order: namespace then kind in the order of MEDIA_ID_NAMESPACES and MEDIA_KINDS
- * (the postgres enum order), then externalId, ascending.
- */
-const compareMediaKeys = (a: MediaKey, b: MediaKey): number =>
-  rankOf(MEDIA_ID_NAMESPACES, a.namespace) - rankOf(MEDIA_ID_NAMESPACES, b.namespace) ||
-  rankOf(MEDIA_KINDS, a.kind) - rankOf(MEDIA_KINDS, b.kind) ||
-  a.externalId - b.externalId;
-
-/**
  * the list order of LibraryRepository: `updatedAt` descending (normalized timestamps compare as
- * strings), then the key ascending.
+ * strings), then the key ascending (compareMediaKeys), the `updated` sort of the library view.
  */
-const compareLibraryEntries = (a: LibraryEntry, b: LibraryEntry): number => {
-  if (a.updatedAt !== b.updatedAt) {
-    return a.updatedAt > b.updatedAt ? -1 : 1;
-  }
-  return compareMediaKeys(a.key, b.key);
-};
+const compareListOrder = compareLibraryEntries('updated');
 
 /** `entries` in the list order, as a new array. */
 export const sortLibraryEntries = (entries: readonly LibraryEntry[]): LibraryEntry[] =>
-  [...entries].sort(compareLibraryEntries);
+  [...entries].sort(compareListOrder);
 
 const parseJson = (stored: string): { readonly ok: true; readonly value: unknown } | null => {
   try {
