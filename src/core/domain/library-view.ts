@@ -2,7 +2,7 @@
 // setting is off (BR-06), sorted, then grouped by status. docs/ARCHITECTURE.md §6 "Library"
 import { applyContentFilter } from './content-filter';
 import { LIBRARY_STATUSES, type LibraryEntry, type LibraryStatus } from './library-entry';
-import { compareMediaKeys, type MediaKind } from './media';
+import { compareMediaKeys, type MediaKey, type MediaKind } from './media';
 
 /**
  * the fields the library can be sorted by (FR-14): `updated` the last change first, `title` the
@@ -145,4 +145,52 @@ export const buildLibraryView = (
     entries: shown.filter((entry) => entry.status === status),
   })).filter((group) => group.entries.length > 0);
   return { groups, visibleCount: shown.length, hiddenCount, totalCount: entries.length };
+};
+
+/**
+ * the identity of a library entry as a string, `<namespace>:<kind>:<externalId>`: two entries of
+ * one library never share it. namespaces and kinds hold no colon.
+ */
+export const libraryEntryId = (key: MediaKey): string =>
+  `${key.namespace}:${key.kind}:${String(key.externalId)}`;
+
+const groupEntriesOf = (view: LibraryView, status: LibraryStatus): readonly LibraryEntry[] =>
+  view.groups.find((group) => group.status === status)?.entries ?? [];
+
+/**
+ * `fresh` laid out like `frozen`: each entry shown in `frozen` keeps its group and position
+ * with its current value from `current` (a status change does not move it, a filter it no longer
+ * matches does not hide it), an entry gone from `current` is dropped, and an entry of `fresh`
+ * absent from `frozen` is inserted at the top of its fresh group (a group created if needed, groups
+ * in LIBRARY_STATUSES order); empty groups are left out. visibleCount is recounted; hiddenCount and
+ * totalCount come from `fresh`. returns `fresh` itself when `frozen` is null.
+ */
+export const keepLibraryLayout = (
+  fresh: LibraryView,
+  current: ReadonlyMap<string, LibraryEntry>,
+  frozen: LibraryView | null,
+): LibraryView => {
+  if (frozen === null) {
+    return fresh;
+  }
+  const frozenIds = new Set(
+    frozen.groups.flatMap((group) => group.entries.map((entry) => libraryEntryId(entry.key))),
+  );
+  const groups = LIBRARY_STATUSES.map((status) => {
+    const inserted = groupEntriesOf(fresh, status).filter(
+      (entry) => !frozenIds.has(libraryEntryId(entry.key)),
+    );
+    const kept = groupEntriesOf(frozen, status).flatMap((entry) => {
+      const value = current.get(libraryEntryId(entry.key));
+      return value === undefined ? [] : [value];
+    });
+    return { status, entries: [...inserted, ...kept] };
+  }).filter((group) => group.entries.length > 0);
+  const visibleCount = groups.reduce((count, group) => count + group.entries.length, 0);
+  return {
+    groups,
+    visibleCount,
+    hiddenCount: fresh.hiddenCount,
+    totalCount: fresh.totalCount,
+  };
 };
