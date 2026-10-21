@@ -16,7 +16,10 @@ import {
   SNAPSHOT,
 } from '../../../test/core/library-entry-fixtures';
 import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
+import type { CatalogProvider } from '../catalog/catalog-provider';
 import type { LibraryEntry } from '../domain/library-entry';
+import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
+import type { MediaIdNamespace } from '../domain/media';
 import {
   DEFAULT_LIBRARY_VIEW,
   type LibraryView,
@@ -56,9 +59,9 @@ interface ListProps {
 const render = (
   initialProps: ListProps,
   repository: FakeLibraryRepository = createFakeLibraryRepository(LIBRARY),
+  provider: CatalogProvider = createFakeCatalogProvider(),
 ) => {
   const queryClient = createQueryClient();
-  const provider = createFakeCatalogProvider();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={provider}>
@@ -132,6 +135,28 @@ describe('useLibraryList (FR-14)', () => {
     ).toStrictEqual(LIBRARY);
   });
 
+  it("nulls every cover of an entry stored by another provider's namespace", async () => {
+    // the only namespace today is 'mal': a provider of another one needs a cast, test only
+    const provider = {
+      ...createFakeCatalogProvider(),
+      namespace: 'other' as MediaIdNamespace,
+    };
+    const rendered = render(
+      { options: DEFAULT_LIBRARY_VIEW, showAdult: true },
+      createFakeLibraryRepository(LIBRARY),
+      provider,
+    );
+
+    const shown = (await loaded(rendered)).groups.flatMap((group) => group.entries);
+
+    // the cover of AKIRA is on the provider's hosts, yet not of its namespace
+    expect(shown.find((entry) => entry.key === AKIRA.key)?.media).toStrictEqual({
+      ...AKIRA.media,
+      imageUrl: null,
+    });
+    expect(shown.map((entry) => entry.media.imageUrl)).toStrictEqual(LIBRARY.map(() => null));
+  });
+
   it('selects again on an option change, never refetching', async () => {
     const rendered = render({ options: DEFAULT_LIBRARY_VIEW, showAdult: true });
     const before = await loaded(rendered);
@@ -175,6 +200,39 @@ describe('useLibraryList (FR-14)', () => {
     });
     expect(rendered.result.current.row.error).toBeNull();
     expect(rendered.repository.stored(MANGA_KEY)?.score).toBe(3);
+  });
+
+  it('writes three coalesced row `+1` taps once, whatever list refetches run between (BR-09)', async () => {
+    const rendered = render({ options: DEFAULT_LIBRARY_VIEW, showAdult: true });
+    await loaded(rendered);
+    const shownManga = () =>
+      rendered.result.current.list.data?.groups
+        .flatMap((group) => group.entries)
+        .find((entry) => entry.key === MANGA_KEY);
+
+    for (let tap = 0; tap < 3; tap += 1) {
+      await act(async () => {
+        rendered.result.current.row.incrementProgress();
+        await rendered.result.current.list.refetch();
+        // each tap restarts the window: still pending after it
+        await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS - 1);
+      });
+    }
+
+    expect(rendered.repository.list).toHaveBeenCalledTimes(4);
+    expect(shownManga()).toMatchObject({ status: 'current', progress: 3 });
+    expect(rendered.repository.save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(1);
+    });
+
+    expect(rendered.repository.save).toHaveBeenCalledTimes(1);
+    expect(rendered.repository.stored(MANGA_KEY)).toMatchObject({
+      status: 'current',
+      progress: 3,
+      media: MANGA.media,
+    });
   });
 
   it('is an error when the library cannot be read', async () => {

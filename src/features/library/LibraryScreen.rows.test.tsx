@@ -1,4 +1,7 @@
+import type { MediaDetail } from '@core/catalog/catalog-provider';
 import { PROGRESS_WRITE_COALESCE_MS } from '@core/domain/library-progress';
+import { queryKeys } from '@core/query/keys';
+import { createQueryClient } from '@core/query/query-client';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react-native';
 import type { Href } from 'expo-router';
@@ -95,6 +98,39 @@ describe('LibraryScreen rows', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.stored(FRIEREN.key)).toMatchObject({ progress: 14 });
+  });
+
+  it('never refreshes the snapshot from a row `+1`, even with fresher catalog data cached', async () => {
+    const queryClient = createQueryClient();
+    // the detail of FRIEREN as the catalog now has it: another title, cover and total
+    const detail: MediaDetail = {
+      key: FRIEREN.key,
+      title: 'Frieren',
+      titleEnglish: null,
+      titleNative: null,
+      imageUrl: 'https://cdn.myanimelist.net/images/anime/1015/138006l.webp',
+      format: 'tv',
+      status: 'finished',
+      totalUnits: 30,
+      score: null,
+      year: 2023,
+      genres: [],
+      isAdult: false,
+      synopsis: null,
+    };
+    queryClient.setQueryData(queryKeys.media(FRIEREN.key), detail);
+    const { user, repository } = await renderLibraryScreen({ queryClient });
+    await settle();
+
+    await user.press(screen.getByRole('button', { name: ADD_EPISODE }));
+    await settle(PROGRESS_WRITE_COALESCE_MS);
+
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(FRIEREN.key)).toMatchObject({ progress: 13 });
+    expect(repository.stored(FRIEREN.key)?.media).toStrictEqual(FRIEREN.media);
+    expect(row(FRIEREN_ROW)).toHaveAccessibleName(
+      'Sousou no Frieren, TV, 13 / 28 episodes, My score 9 / 10',
+    );
   });
 
   it('moves a planned entry to the entries in progress on its first episode (BR-02)', async () => {

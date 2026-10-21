@@ -124,6 +124,25 @@ describe('createLibraryWriter: list', () => {
     expect(cached(OTHER_KEY)).toBeUndefined();
   });
 
+  it('overlays a key being written and seeds an idle one, in the same list', async () => {
+    const { repository, writer, load, cached } = setupWriter([ENTRY, OTHER_ENTRY]);
+    await load();
+    const held = createDeferred();
+    repository.beforeCall.mockReturnValueOnce(held.promise);
+    const applying = writer.apply(ENTRY_KEY, scoreOf(7));
+    await flushMicrotasks();
+    const optimistic = cached();
+
+    await expect(writer.list()).resolves.toStrictEqual([optimistic, OTHER_ENTRY]);
+
+    // the stored entry never replaces the optimistic one; the idle key needs no load
+    expect(cached()).toBe(optimistic);
+    expect(cached(OTHER_KEY)).toBe(OTHER_ENTRY);
+
+    held.resolve();
+    await applying;
+  });
+
   it('never waits for the writes of a key', async () => {
     const { repository, writer, load } = setupWriter();
     await load();
@@ -182,6 +201,26 @@ describe('createLibraryWriter: cached list data', () => {
     await writer.apply(NEW_KEY, addNew);
 
     expect(listed()?.map((entry) => entry.key)).toStrictEqual([NEW_KEY, ENTRY_KEY]);
+  });
+
+  it('drops an entry removed from the detail at once, a list refetch meanwhile included', async () => {
+    const { queryClient, repository, writer, listed } = await setupWithList();
+    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    const held = createDeferred();
+    repository.beforeCall.mockReturnValueOnce(held.promise);
+
+    const removing = writer.apply(OTHER_KEY, removeEntry);
+    await flushMicrotasks();
+
+    expect(listed()).toStrictEqual([ENTRY]);
+    expect(repository.stored(OTHER_KEY)).toBe(OTHER_ENTRY);
+    await expect(writer.list()).resolves.toStrictEqual([ENTRY]);
+
+    held.resolve();
+    await removing;
+
+    expect(listed()).toStrictEqual([ENTRY]);
+    expect(repository.stored(OTHER_KEY)).toBeNull();
   });
 
   it('leaves the list alone while it has no data', async () => {
