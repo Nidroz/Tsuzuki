@@ -1,3 +1,4 @@
+import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import type { Language, LanguagePreference } from '@core/i18n/index';
 import { PreferencesProvider, type ThemePreference } from '@core/preferences/index';
 import { describe, expect, it } from '@jest/globals';
@@ -7,6 +8,7 @@ import type { ComponentType, ReactNode } from 'react';
 
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
+import { createFakeLibraryRepository } from '../core/fake-library-repository';
 import { renderRouterAsync } from '../mobile/render-router';
 import { providersFor } from '../mobile/render-with-providers';
 import { APP_ROUTES } from './app-routes';
@@ -38,12 +40,14 @@ const nameStartingWith = (label: string) => new RegExp(`^${label}(?:,|$)`);
 
 const tabButton = (id: TabId) => screen.getByTestId(`tab-${id}`);
 
-// the settings tab reads the preferences: fixed here, the root layout owns them (settings.test.tsx)
+// the settings tab reads the preferences and the library tab the library: fixed here, the root
+// layout owns them (settings.test.tsx, root-layout-library.test.tsx)
 const ignoreTheme: (theme: ThemePreference) => void = () => undefined;
 const ignoreLanguage: (language: LanguagePreference) => void = () => undefined;
 
 const withPreferences = (language: Language): ComponentType<{ readonly children: ReactNode }> => {
   const Providers = providersFor({ language });
+  const libraryRepository = createFakeLibraryRepository();
   return function PreferencesAndProviders({ children }) {
     return (
       <PreferencesProvider
@@ -52,14 +56,16 @@ const withPreferences = (language: Language): ComponentType<{ readonly children:
         onThemeChange={ignoreTheme}
         onLanguageChange={ignoreLanguage}
       >
-        <Providers>{children}</Providers>
+        <Providers>
+          <LibraryContextProvider repository={libraryRepository}>{children}</LibraryContextProvider>
+        </Providers>
       </PreferencesProvider>
     );
   };
 };
 
-// a new wrapper per render, so each test gets its own query client, catalog provider and recent
-// searches; a rerender keeps them
+// a new wrapper per render, so each test gets its own query client, catalog provider, recent
+// searches and library; a rerender keeps them
 const renderTabs = (language: Language = 'en') =>
   renderRouterAsync(ROUTES, { wrapper: withPreferences(language) });
 

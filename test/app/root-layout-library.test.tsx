@@ -1,12 +1,16 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
+import { PROGRESS_WRITE_COALESCE_MS } from '@core/domain/library-progress';
 import { useLibraryContext } from '@core/hooks/use-library-context';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
-import type { LibraryRepository } from '@core/repositories/library-repository';
+import type {
+  GuestLibraryRepository,
+  LibraryRepository,
+} from '@core/repositories/library-repository';
 import type * as LocalLibrary from '@core/repositories/local/library-repository';
 import { describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
-import { act } from '@testing-library/react-native';
+import { act, userEvent } from '@testing-library/react-native';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
@@ -17,7 +21,8 @@ import { createMMKV } from 'react-native-mmkv';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
-import { appRoutesWithDiscover } from './app-routes';
+import { entryOf } from '../core/library-entry-fixtures';
+import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 
 // the library wiring (L-03): the composition root (app/_layout.tsx) creates the guest library repository over the app
 // storage, once, when the layout module loads, and gives it to the library hooks. the factory
@@ -110,6 +115,32 @@ describe('root layout library wiring (L-03)', () => {
     await expect(seen.repository?.get(MEDIA.key)).resolves.toMatchObject({
       key: MEDIA.key,
       status: 'planned',
+    });
+  });
+
+  it('lists the guest library in the library tab, and persists a `+1` from the list (L-04)', async () => {
+    appStorage.clearAll();
+    // the repository the layout created when it loaded
+    const guestLibrary = createLocalLibrary.mock.results[0]?.value as
+      GuestLibraryRepository | undefined;
+    const entry = entryOf({ media: { ...entryOf().media, imageUrl: null } });
+    await guestLibrary?.save(entry);
+    const user = userEvent.setup();
+
+    await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
+
+    expect(await screen.findByTestId('library-entry-mal-anime-52991')).toHaveTextContent(
+      entry.media.title,
+      { exact: false },
+    );
+
+    await user.press(screen.getByRole('button', { name: 'Add one episode, Sousou no Frieren' }));
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS);
+    });
+
+    await expect(guestLibrary?.get(entry.key)).resolves.toMatchObject({
+      progress: entry.progress + 1,
     });
   });
 });

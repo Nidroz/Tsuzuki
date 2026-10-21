@@ -137,10 +137,6 @@
     }
   },
   "library": {
-    "placeholder": {
-      "title": "Coming soon",
-      "message": "The anime and manga you follow will appear here."
-    },
     "status": {
       "watching": "Watching",
       "reading": "Reading",
@@ -148,7 +144,9 @@
       "planToRead": "Plan to read",
       "completed": "Completed",
       "paused": "Paused",
-      "dropped": "Dropped"
+      "dropped": "Dropped",
+      "inProgress": "In progress",
+      "planned": "Planned"
     },
     "progress": {
       "episodesOfTotal_one": "{{progress}} / {{total}} episode",
@@ -170,6 +168,44 @@
     },
     "notes": {
       "none": "No notes"
+    },
+    "list": {
+      "loading": "Loading your library",
+      "error": {
+        "title": "Your library could not be loaded",
+        "message": "It is stored on this device. Try again in a moment.",
+        "retry": "Try again"
+      },
+      "empty": {
+        "title": "Your library is empty",
+        "message": "Search for an anime or a manga, then add it to your library from its page.",
+        "action": "Search titles"
+      },
+      "noMatch": {
+        "title": "No titles match these filters",
+        "message": "Choose other filters to see more of your library.",
+        "reset": "Reset filters"
+      },
+      "hidden_one": "{{count}} adult title is hidden.",
+      "hidden_other": "{{count}} adult titles are hidden.",
+      "filters": {
+        "kind": "Type",
+        "status": "Status",
+        "sort": "Sort by",
+        "all": "All",
+        "anime": "Anime",
+        "manga": "Manga"
+      },
+      "sort": {
+        "updated": "Last updated",
+        "title": "Title",
+        "score": "My score"
+      },
+      "group": "{{status}} ({{size}})",
+      "score": "My score {{score}} / {{max}}",
+      "increment": "{{action}}, {{title}}",
+      "writeError": "Your change could not be saved.",
+      "dismiss": "Dismiss"
     }
   },
   "favorites": {

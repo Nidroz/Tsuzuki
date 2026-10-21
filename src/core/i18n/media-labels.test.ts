@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { LIBRARY_STATUSES } from '../domain/library-entry';
+import { LIBRARY_SORT_FIELDS } from '../domain/library-view';
 import { MEDIA_FORMATS, MEDIA_KINDS, MEDIA_STATUSES } from '../domain/media';
 import { createI18n } from './create-i18n';
 import { formatNumber } from './format';
@@ -8,7 +9,9 @@ import type { Language } from './languages';
 import {
   englishTitleOf,
   FORMAT_KEYS,
+  LIBRARY_SORT_KEYS,
   LIBRARY_STATUS_KEYS,
+  LIBRARY_VIEW_STATUS_KEYS,
   nativeTitleOf,
   PROGRESS_LABEL_KEYS,
   STATUS_KEYS,
@@ -119,6 +122,37 @@ describe('library label keys', () => {
     for (const status of LIBRARY_STATUSES) {
       expect(t(LIBRARY_STATUS_KEYS[kind][status])).not.toBe(LIBRARY_STATUS_KEYS[kind][status]);
     }
+  });
+
+  it('names the statuses of the list with every kind without the words of one kind (FR-14)', () => {
+    const en = translationIn('en');
+    const fr = translationIn('fr');
+
+    expect(
+      LIBRARY_STATUSES.map((status) => en.t(LIBRARY_VIEW_STATUS_KEYS.all[status])),
+    ).toStrictEqual(['In progress', 'Planned', 'Completed', 'Paused', 'Dropped']);
+    expect(fr.t(LIBRARY_VIEW_STATUS_KEYS.all.current)).toBe('En cours');
+    expect(fr.t(LIBRARY_VIEW_STATUS_KEYS.all.planned)).toBe('Prévu');
+  });
+
+  it.each(MEDIA_KINDS)('names the statuses of the list with the %s kind as its entries', (kind) => {
+    expect(LIBRARY_VIEW_STATUS_KEYS[kind]).toBe(LIBRARY_STATUS_KEYS[kind]);
+  });
+
+  it('names every sort field of the list', () => {
+    const en = translationIn('en');
+    const fr = translationIn('fr');
+
+    expect(LIBRARY_SORT_FIELDS.map((sort) => en.t(LIBRARY_SORT_KEYS[sort]))).toStrictEqual([
+      'Last updated',
+      'Title',
+      'My score',
+    ]);
+    expect(LIBRARY_SORT_FIELDS.map((sort) => fr.t(LIBRARY_SORT_KEYS[sort]))).toStrictEqual([
+      'Dernière modification',
+      'Titre',
+      'Ma note',
+    ]);
   });
 
   it.each<[(typeof MEDIA_KINDS)[number], string, string, string, string]>([

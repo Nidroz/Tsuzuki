@@ -18,7 +18,9 @@ export type { LocaleAdapter } from './locale-adapter';
 export {
   englishTitleOf,
   FORMAT_KEYS,
+  LIBRARY_SORT_KEYS,
   LIBRARY_STATUS_KEYS,
+  LIBRARY_VIEW_STATUS_KEYS,
   nativeTitleOf,
   PROGRESS_LABEL_KEYS,
   STATUS_KEYS,
