@@ -1,8 +1,17 @@
 import { createStrictFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
+import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent } from '@testing-library/react-native';
+import type { ReactElement } from 'react';
 
-import { renderWithProviders } from '../../../test/mobile/render-with-providers';
+import {
+  createFakeLibraryRepository,
+  type FakeLibraryRepository,
+} from '../../../test/core/fake-library-repository';
+import {
+  renderWithProviders,
+  type ProvidersOptions,
+} from '../../../test/mobile/render-with-providers';
 import { BERSERK_DETAIL, FRIEREN_DETAIL } from './__fixtures__/media-details';
 import { MediaDetailScreen } from './MediaDetailScreen';
 
@@ -20,6 +29,19 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ dismissTo: mockDismissTo }),
 }));
 
+// the screen inside the library provider of the composition root, over an in-memory repository
+const renderScreen = async (
+  element: ReactElement,
+  options: ProvidersOptions,
+  library: FakeLibraryRepository = createFakeLibraryRepository(),
+) => {
+  await renderWithProviders(
+    <LibraryContextProvider repository={library}>{element}</LibraryContextProvider>,
+    options,
+  );
+  return library;
+};
+
 const VALID_TEST_ID = 'media-detail-screen';
 const CONTENT_TEST_ID = 'media-detail-content';
 const INVALID_TEST_ID = 'media-detail-invalid';
@@ -36,7 +58,7 @@ describe('MediaDetailScreen', () => {
     const provider = createStrictFakeCatalogProvider({
       getDetail: () => Promise.resolve(detail),
     });
-    await renderWithProviders(
+    const library = await renderScreen(
       <MediaDetailScreen params={{ namespace: MAL, kind, id: String(detail.key.externalId) }} />,
       { catalogProvider: provider },
     );
@@ -50,18 +72,26 @@ describe('MediaDetailScreen', () => {
       { namespace: MAL, kind, externalId: detail.key.externalId },
       expect.any(AbortSignal),
     );
+    // a link reads the library entry of its media and writes nothing (CONTRIBUTING.md section 7)
+    expect(await screen.findByRole('button', { name: 'Add to library' })).toBeOnTheScreen();
+    expect(library.get).toHaveBeenCalledWith(detail.key);
+    expect(library.save).not.toHaveBeenCalled();
+    expect(library.remove).not.toHaveBeenCalled();
   });
 
   it('shows the details in french', async () => {
     const provider = createStrictFakeCatalogProvider({
       getDetail: () => Promise.resolve(BERSERK_DETAIL),
     });
-    await renderWithProviders(
-      <MediaDetailScreen params={{ namespace: MAL, kind: 'manga', id: '2' }} />,
-      { language: 'fr', catalogProvider: provider },
-    );
+    await renderScreen(<MediaDetailScreen params={{ namespace: MAL, kind: 'manga', id: '2' }} />, {
+      language: 'fr',
+      catalogProvider: provider,
+    });
 
     expect(await screen.findByLabelText('Statut, En cours de publication')).toBeOnTheScreen();
+    expect(
+      await screen.findByRole('button', { name: 'Ajouter à la bibliothèque' }),
+    ).toBeOnTheScreen();
   });
 
   it.each<[string, unknown]>([
@@ -74,7 +104,7 @@ describe('MediaDetailScreen', () => {
     ['repeated params', { namespace: MAL, kind: 'anime', id: ['1', '2'] }],
   ])('shows a translated error for %s, fetching nothing', async (_case, params) => {
     const provider = createStrictFakeCatalogProvider();
-    await renderWithProviders(<MediaDetailScreen params={params} />, {
+    const library = await renderScreen(<MediaDetailScreen params={params} />, {
       catalogProvider: provider,
     });
 
@@ -83,11 +113,12 @@ describe('MediaDetailScreen', () => {
     expect(screen.getByText(INVALID_MESSAGE)).toBeOnTheScreen();
     expect(screen.queryByTestId(VALID_TEST_ID)).not.toBeOnTheScreen();
     expect(provider.getDetail).not.toHaveBeenCalled();
+    expect(library.get).not.toHaveBeenCalled();
   });
 
   it('goes back to Discover from an invalid link, without any other navigation', async () => {
     const user = userEvent.setup();
-    await renderWithProviders(<MediaDetailScreen params={{ namespace: MAL, kind: 'anime' }} />, {
+    await renderScreen(<MediaDetailScreen params={{ namespace: MAL, kind: 'anime' }} />, {
       language: 'fr',
     });
 

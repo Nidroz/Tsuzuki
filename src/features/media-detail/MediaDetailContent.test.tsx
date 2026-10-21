@@ -2,6 +2,7 @@ import type { MediaDetail } from '@core/catalog/catalog-provider';
 import type { Language } from '@core/i18n/index';
 import { describe, expect, it } from '@jest/globals';
 import { screen, within } from '@testing-library/react-native';
+import { Text } from '@ui/index';
 
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { BERSERK_DETAIL, FRIEREN_DETAIL, SOLO_LEVELING_DETAIL } from './__fixtures__/media-details';
@@ -17,6 +18,12 @@ const coverImage = () =>
 const coverPlaceholder = () =>
   screen.queryByTestId(`${COVER_TEST_ID}-placeholder`, { includeHiddenElements: true });
 const fact = (testID: string) => screen.getByTestId(`media-detail-${testID}`);
+// the test ids of the direct children of the content, in order
+const contentOrder = () =>
+  screen
+    .getByTestId('media-detail-content')
+    .children.filter((child) => typeof child !== 'string')
+    .map((child) => child.props.testID as unknown);
 
 describe('MediaDetailContent', () => {
   it('loads exactly the cover url of the detail, with no placeholder', async () => {
@@ -107,6 +114,31 @@ describe('MediaDetailContent', () => {
     await renderContent(SOLO_LEVELING_DETAIL);
 
     expect(screen.getByLabelText('Format, Manhwa')).toBeOnTheScreen();
+  });
+
+  it('shows the library slot right under the cover and titles, before the facts', async () => {
+    await renderWithProviders(
+      <MediaDetailContent
+        media={FRIEREN_DETAIL}
+        library={<Text testID="library-slot">library</Text>}
+      />,
+    );
+
+    expect(contentOrder().slice(1, 2)).toStrictEqual(['library-slot']);
+    expect(screen.getByTestId('media-detail-content')).toContainElement(
+      screen.getByTestId('library-slot'),
+    );
+  });
+
+  it('shows no library slot by default', async () => {
+    await renderContent(FRIEREN_DETAIL);
+
+    expect(contentOrder()).toStrictEqual([
+      undefined,
+      undefined,
+      'media-detail-genres',
+      'media-detail-synopsis',
+    ]);
   });
 
   it('lists the genres and the synopsis under their headings', async () => {

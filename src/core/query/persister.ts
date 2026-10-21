@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 import type { StorageAdapter } from '../repositories/storage-adapter';
 import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
-import { SEARCH_KEY_ROOT } from './keys';
+import { LIBRARY_KEY_ROOT, SEARCH_KEY_ROOT } from './keys';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
 /** storage key of the persisted query cache. */
@@ -99,17 +99,25 @@ interface PersistOptionsInput {
   cacheSchemaVersion?: number;
 }
 
-// only successful queries are kept, searches excepted: every debounced prefix of a typed search
-// would be stored for days and rewritten on each save, and search text stays off the stored cache
+// keys starting with one of these roots are never persisted
+const NOT_PERSISTED_KEY_ROOTS: ReadonlySet<unknown> = new Set([SEARCH_KEY_ROOT, LIBRARY_KEY_ROOT]);
+
+// only successful queries are kept, except:
+// - searches: every debounced prefix of a typed search would be stored for days and rewritten on
+//   each save, and search text stays off the stored cache
+// - the library: the repository is the source of truth (the guest store is already on the
+//   device); the throttled copy can lag it, and an action fired before the restored entry
+//   refetches would write over newer data; a restored entry skips its schema; and notes would be
+//   duplicated in the stored cache
 const shouldDehydrateQuery = (query: {
   readonly queryKey: readonly unknown[];
   readonly state: { readonly status: string };
 }): boolean =>
-  query.state.status === QUERY_STATUS_PERSISTED && query.queryKey[0] !== SEARCH_KEY_ROOT;
+  query.state.status === QUERY_STATUS_PERSISTED && !NOT_PERSISTED_KEY_ROOTS.has(query.queryKey[0]);
 
 /**
  * persistence options: a new app version or cache schema version drops the cache,
- * only successful queries are kept, never a search.
+ * only successful queries are kept, never a search nor a library query.
  */
 export const createPersistOptions = ({
   persister,

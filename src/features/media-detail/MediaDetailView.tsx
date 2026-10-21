@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, Screen, Spinner, Stack, type ScreenEdge } from 
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
 
+import { LibrarySection } from './LibrarySection';
 import { MediaDetailContent } from './MediaDetailContent';
 
 // under the stack header: the top inset is the header's
@@ -32,6 +33,7 @@ export interface MediaDetailViewProps {
  * the first load. once data is cached, it is
  * shown even when a refetch fails, so a viewed title stays readable offline: hidden when it is
  * adult content and the setting is off (BR-06), nothing of it shown, otherwise its details (FR-06)
+ * with its library section (FR-10 to FR-13). the library is read only for a visible title
  */
 export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   const { t } = useTranslation();
@@ -89,7 +91,10 @@ export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
 
   return (
     <Screen edges={MEDIA_DETAIL_EDGES} scroll testID={SCREEN_TEST_ID}>
-      <MediaDetailContent media={data.media} />
+      <MediaDetailContent
+        media={data.media}
+        library={<LibrarySection mediaKey={mediaKey} media={data.media} />}
+      />
     </Screen>
   );
 }

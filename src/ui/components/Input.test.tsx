@@ -257,7 +257,30 @@ describe('Input', () => {
       'autoCapitalize',
       'autoCorrect',
       'maxLength',
+      'multiline',
+      'textAlignVertical',
     ]) {
+      expect(field().props).not.toHaveProperty(prop);
+    }
+    expect(classesOf(field())).not.toContain('min-h-text-area');
+  });
+
+  it('is a text area with multiline: several lines typed from the top, a taller field', async () => {
+    await renderWithTheme(<Input label={LABEL} value="" onChangeText={jest.fn()} multiline />);
+
+    expect(field()).toHaveProp('multiline', true);
+    expect(field()).toHaveProp('textAlignVertical', 'top');
+    expect(classesOf(field())).toContain('min-h-text-area');
+    expect(classesOf(field())).not.toContain('min-h-touch');
+    expect(field()).toHaveAccessibleName(LABEL);
+  });
+
+  it('stays single-line with multiline off', async () => {
+    await renderWithTheme(
+      <Input label={LABEL} value="" onChangeText={jest.fn()} multiline={false} />,
+    );
+
+    for (const prop of ['multiline', 'textAlignVertical']) {
       expect(field().props).not.toHaveProperty(prop);
     }
   });

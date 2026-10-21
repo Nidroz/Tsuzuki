@@ -2,6 +2,7 @@ import type { CatalogProvider, MediaDetail } from '@core/catalog/catalog-provide
 import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
 import { CatalogHttpError } from '@core/errors/catalog-errors';
+import { GUEST_LIBRARY_STORAGE_KEY } from '@core/repositories/local/library-repository';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 import { act, userEvent } from '@testing-library/react-native';
@@ -50,6 +51,7 @@ const MISSING_TEST_ID = 'media-detail-not-found';
 const INVALID_TEST_ID = 'media-detail-invalid';
 const NOT_FOUND_TEST_ID = 'not-found-screen';
 const DISCOVER_TEST_ID = 'discover-screen';
+const LIBRARY_TEST_ID = 'media-detail-library';
 
 // the provider the root layout wraps: the mocked factory always returns the same one
 const getDetail = jest.mocked(
@@ -98,6 +100,36 @@ describe('media detail route', () => {
       { namespace: 'mal', kind: detail.key.kind, externalId: detail.key.externalId },
       expect.any(AbortSignal),
     );
+  });
+
+  // the root layout gives the route its guest library, over the app storage cleared before each test
+  it('reads the library on a valid link and writes it only on a tap', async () => {
+    getDetail.mockImplementation(resolvesWith(FRIEREN_DETAIL));
+    const user = userEvent.setup();
+    await openLink(linkTo(FRIEREN_DETAIL));
+
+    const add = await screen.findByRole('button', { name: en.mediaDetail.library.add });
+
+    expect(screen.getByTestId(LIBRARY_TEST_ID)).toContainElement(add);
+    expect(appStorage.getString(GUEST_LIBRARY_STORAGE_KEY)).toBeUndefined();
+
+    await user.press(add);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(appStorage.getString(GUEST_LIBRARY_STORAGE_KEY)).toContain(FRIEREN_DETAIL.title);
+    expect(screen.getByTestId(`${LIBRARY_TEST_ID}-status`)).toHaveAccessibleName(
+      `${en.mediaDetail.library.status.title}, ${en.library.status.planToWatch}`,
+    );
+  });
+
+  it('shows no library section for an invalid link, and writes nothing', async () => {
+    await openLink('/media/mal/anime/abc');
+
+    expect(screen.getByTestId(INVALID_TEST_ID)).toBeOnTheScreen();
+    expect(screen.queryByTestId(LIBRARY_TEST_ID)).not.toBeOnTheScreen();
+    expect(appStorage.getString(GUEST_LIBRARY_STORAGE_KEY)).toBeUndefined();
   });
 
   it('leads a link to a missing title to Discover, with nothing left to go back to', async () => {

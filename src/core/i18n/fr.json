@@ -142,6 +142,40 @@
     "placeholder": {
       "title": "Bientôt disponible",
       "message": "Les anime et manga que vous suivez apparaîtront ici."
+    },
+    "status": {
+      "watching": "En cours de visionnage",
+      "reading": "En cours de lecture",
+      "planToWatch": "À voir",
+      "planToRead": "À lire",
+      "completed": "Terminé",
+      "paused": "En pause",
+      "dropped": "Abandonné"
+    },
+    "progress": {
+      "episodesOfTotal_one": "{{progress}} / {{total}} épisode",
+      "episodesOfTotal_many": "{{progress}} / {{total}} épisodes",
+      "episodesOfTotal_other": "{{progress}} / {{total}} épisodes",
+      "chaptersOfTotal_one": "{{progress}} / {{total}} chapitre",
+      "chaptersOfTotal_many": "{{progress}} / {{total}} chapitres",
+      "chaptersOfTotal_other": "{{progress}} / {{total}} chapitres",
+      "episodes_one": "{{progress}} épisode",
+      "episodes_many": "{{progress}} épisodes",
+      "episodes_other": "{{progress}} épisodes",
+      "chapters_one": "{{progress}} chapitre",
+      "chapters_many": "{{progress}} chapitres",
+      "chapters_other": "{{progress}} chapitres",
+      "addEpisode": "Ajouter un épisode",
+      "addChapter": "Ajouter un chapitre",
+      "episodesField": "Épisodes vus",
+      "chaptersField": "Chapitres lus"
+    },
+    "score": {
+      "value": "{{score}} / {{max}}",
+      "none": "Pas de note"
+    },
+    "notes": {
+      "none": "Pas de notes personnelles"
     }
   },
   "favorites": {
@@ -250,6 +284,51 @@
       "title": "Ce lien n'est pas valide",
       "message": "Il ne mène à aucun anime ni manga.",
       "action": "Aller à Découvrir"
+    },
+    "library": {
+      "title": "Ma bibliothèque",
+      "loading": "Chargement de votre bibliothèque",
+      "readError": "Votre bibliothèque n'a pas pu être lue.",
+      "retry": "Réessayer",
+      "writeError": "Votre modification n'a pas pu être enregistrée.",
+      "dismiss": "Fermer",
+      "add": "Ajouter à la bibliothèque",
+      "edit": "Modifier",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "status": {
+        "title": "Mon statut",
+        "editLabel": "Modifier mon statut",
+        "close": "Fermer sans changer le statut"
+      },
+      "progress": {
+        "title": "Progression",
+        "editLabel": "Modifier la progression",
+        "close": "Fermer sans changer la progression",
+        "invalid": "Saisissez un nombre entier, 0 ou plus.",
+        "tooHigh": "Saisissez au plus {{max}}."
+      },
+      "score": {
+        "title": "Ma note",
+        "editLabel": "Modifier ma note",
+        "close": "Fermer sans changer la note"
+      },
+      "notes": {
+        "title": "Notes personnelles",
+        "editLabel": "Modifier mes notes personnelles",
+        "close": "Fermer sans enregistrer les notes",
+        "counter": "{{length}} / {{max}}",
+        "counterLabel": "{{length}} sur {{max}} caractères",
+        "tooLong": "Les notes sont limitées à {{max}} caractères.",
+        "unsupported": "Ces notes contiennent des caractères qui ne peuvent pas être enregistrés."
+      },
+      "remove": {
+        "action": "Retirer de la bibliothèque",
+        "title": "Retirer de la bibliothèque ?",
+        "message": "Votre statut, votre progression, votre note et vos notes personnelles pour ce titre seront supprimés.",
+        "confirm": "Retirer",
+        "close": "Fermer sans retirer"
+      }
     }
   },
   "notFound": {

@@ -17,6 +17,7 @@ describe('src/ui public api', () => {
         'ErrorState',
         'Fact',
         'IconButton',
+        'InlineError',
         'Input',
         'List',
         'MediaListItem',

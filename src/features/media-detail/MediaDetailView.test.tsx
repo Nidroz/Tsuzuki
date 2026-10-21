@@ -6,6 +6,7 @@ import {
   CatalogResponseError,
   CatalogTimeoutError,
 } from '@core/errors/catalog-errors';
+import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { queryKeys } from '@core/query/keys';
 import { createQueryClient } from '@core/query/query-client';
 import { STALE_TIMES } from '@core/query/stale-times';
@@ -13,6 +14,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { QueryClient } from '@tanstack/react-query';
 import { screen, userEvent, waitFor } from '@testing-library/react-native';
 
+import { createFakeLibraryRepository } from '../../../test/core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../../../test/core/fake-recent-searches-repository';
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { ADULT_DETAIL, FRIEREN_DETAIL } from './__fixtures__/media-details';
@@ -39,6 +41,8 @@ const ERROR_TEST_ID = 'media-detail-error';
 const NOT_FOUND_TEST_ID = 'media-detail-not-found';
 const HIDDEN_TEST_ID = 'media-detail-hidden';
 const LOADING_TEST_ID = 'media-detail-loading';
+const LIBRARY_TEST_ID = 'media-detail-library';
+const ADD_TO_LIBRARY = 'Add to library';
 
 const LOADING = 'Loading details';
 const NOT_FOUND_TITLE = 'Title not found';
@@ -84,12 +88,14 @@ const renderView = async (
 ) => {
   const provider = createStrictFakeCatalogProvider({ getDetail });
   const repository = createFakeRecentSearchesRepository();
-  await renderWithProviders(<MediaDetailView mediaKey={media.key} />, {
-    catalogProvider: provider,
-    recentSearchesRepository: repository,
-    queryClient,
-  });
-  return { provider, repository, queryClient };
+  const library = createFakeLibraryRepository();
+  await renderWithProviders(
+    <LibraryContextProvider repository={library}>
+      <MediaDetailView mediaKey={media.key} />
+    </LibraryContextProvider>,
+    { catalogProvider: provider, recentSearchesRepository: repository, queryClient },
+  );
+  return { provider, repository, library, queryClient };
 };
 
 describe('MediaDetailView', () => {
@@ -106,6 +112,7 @@ describe('MediaDetailView', () => {
     expect(screen.getByTestId(SCREEN_TEST_ID)).toBeOnTheScreen();
     expect(screen.getByLabelText(LOADING)).toHaveProp('testID', LOADING_TEST_ID);
     expect(screen.queryByTestId(CONTENT_TEST_ID)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(LIBRARY_TEST_ID)).not.toBeOnTheScreen();
 
     answer(FRIEREN_DETAIL);
 
@@ -189,17 +196,35 @@ describe('MediaDetailView', () => {
     ['a timeout', new CatalogTimeoutError(10_000)],
     ['a server error', new CatalogHttpError(500, null)],
   ])('shows the generic error state with a retry on %s', async (_case, error) => {
-    await renderView(rejectsWith(error));
+    const { library } = await renderView(rejectsWith(error));
 
     expect(await screen.findByTestId(ERROR_TEST_ID)).toBeOnTheScreen();
     expect(screen.getByText(GENERIC_TITLE)).toBeOnTheScreen();
     expect(screen.getByText(GENERIC_MESSAGE)).toBeOnTheScreen();
     expect(screen.queryByText(OFFLINE_TITLE)).not.toBeOnTheScreen();
     expect(screen.getByRole('button', { name: RETRY })).toBeOnTheScreen();
+    expect(screen.queryByTestId(LIBRARY_TEST_ID)).not.toBeOnTheScreen();
+    expect(library.get).not.toHaveBeenCalled();
+  });
+
+  it('shows the library section of a visible title right under its titles, before its facts', async () => {
+    await renderView(resolvesWith(FRIEREN_DETAIL));
+
+    expect(await screen.findByRole('button', { name: ADD_TO_LIBRARY })).toBeOnTheScreen();
+
+    const content = screen.getByTestId(CONTENT_TEST_ID);
+    const order = content.children
+      .filter((child) => typeof child !== 'string')
+      .map((child) => child.props.testID as unknown);
+
+    expect(order.indexOf(LIBRARY_TEST_ID)).toBe(1);
+    expect(screen.getByTestId(LIBRARY_TEST_ID)).toContainElement(
+      screen.getByRole('button', { name: ADD_TO_LIBRARY }),
+    );
   });
 
   it('hides an adult title with the default setting, showing nothing of it (BR-06)', async () => {
-    await renderView(resolvesWith(ADULT_DETAIL), ADULT_DETAIL);
+    const { library } = await renderView(resolvesWith(ADULT_DETAIL), ADULT_DETAIL);
 
     expect(await screen.findByTestId(HIDDEN_TEST_ID)).toBeOnTheScreen();
     expect(screen.getByTestId(SCREEN_TEST_ID)).toBeOnTheScreen();
@@ -214,6 +239,9 @@ describe('MediaDetailView', () => {
       screen.queryByText(ADULT_DETAIL.title, { exact: false, includeHiddenElements: true }),
     ).not.toBeOnTheScreen();
     expect(screen.queryByText('Hentai', { includeHiddenElements: true })).not.toBeOnTheScreen();
+    // no library section, so not even a read of the library for a hidden title
+    expect(screen.queryByTestId(LIBRARY_TEST_ID)).not.toBeOnTheScreen();
+    expect(library.get).not.toHaveBeenCalled();
   });
 
   it('keeps showing cached details when their refetch fails', async () => {
@@ -241,10 +269,16 @@ describe('MediaDetailView', () => {
   });
 
   it('only reads: no repository write, no mutation, no other provider call', async () => {
-    const { provider, repository, queryClient } = await renderView(resolvesWith(FRIEREN_DETAIL));
+    const { provider, repository, library, queryClient } = await renderView(
+      resolvesWith(FRIEREN_DETAIL),
+    );
 
-    await screen.findByTestId(CONTENT_TEST_ID);
+    await screen.findByRole('button', { name: ADD_TO_LIBRARY });
 
+    // the library is read, written only on a tap
+    expect(library.get).toHaveBeenCalledTimes(1);
+    expect(library.save).not.toHaveBeenCalled();
+    expect(library.remove).not.toHaveBeenCalled();
     expect(repository.save).not.toHaveBeenCalled();
     expect(repository.clear).not.toHaveBeenCalled();
     expect(queryClient.getMutationCache().getAll()).toHaveLength(0);

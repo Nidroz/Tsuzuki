@@ -4,7 +4,7 @@ import nativewindPreset from 'nativewind/preset';
 import { COLOR_TOKENS } from './colors';
 import { colorClassKey, colorVariable } from './css-variables';
 import { radii } from './radii';
-import { coverSizes, opacities, TOUCH_TARGET } from './sizes';
+import { coverSizes, opacities, TEXT_AREA_MIN_HEIGHT, TOUCH_TARGET } from './sizes';
 import { spacing } from './spacing';
 import { fontWeights, textVariants } from './typography';
 
@@ -54,7 +54,7 @@ const config = {
     fontWeight: fontWeights,
     opacity: mapValues(opacities, String),
     extend: {
-      minHeight: { touch: px(TOUCH_TARGET) },
+      minHeight: { touch: px(TOUCH_TARGET), 'text-area': px(TEXT_AREA_MIN_HEIGHT) },
       minWidth: { touch: px(TOUCH_TARGET) },
       width: coverLengths('width'),
       height: coverLengths('height'),
