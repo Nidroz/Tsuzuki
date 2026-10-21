@@ -189,7 +189,7 @@ Details:
 - [x] L-02 Local (guest) library repository
 - [x] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
 - [x] L-04 Library screen: grouping, filters, sorting
-- [ ] L-05 Favorites (toggle + tab)
+- [x] L-05 Favorites (toggle + tab)
 - [ ] L-06 Adult content setting wired to the filter
 
 Details:
