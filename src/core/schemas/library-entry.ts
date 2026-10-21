@@ -23,6 +23,7 @@ import {
 } from '../domain/library-entry';
 import { PROGRESS_MAX } from '../domain/library-progress';
 import { EXTERNAL_ID_MAX, MEDIA_FORMATS, MEDIA_ID_NAMESPACES, MEDIA_KINDS } from '../domain/media';
+import { LibrarySnapshotError } from '../errors/library-errors';
 import { calendarDateSchema, timestampSchema } from './timestamp';
 
 // library_entries_media_image_url_check: like 'https://%'
@@ -91,8 +92,8 @@ export const libraryEntrySchema: z.ZodType<LibraryEntry> = z.object({
  * not bound, is first made storable (toStorableText: NUL removed, lone surrogates replaced with
  * U+FFFD), then cut to MEDIA_TITLE_MAX_LENGTH code points without splitting a surrogate pair;
  * `isAdult` is always copied, since the column default false would fail open (BR-06). anything
- * else outside the database limits (a title empty after cleaning included) throws a RangeError
- * whose message holds no value.
+ * else outside the database limits (a title empty after cleaning included) throws a
+ * LibrarySnapshotError (a RangeError) whose message holds no value.
  */
 export const toLibraryMediaSnapshot = (summary: MediaSummary): LibraryMediaSnapshot => {
   const result = libraryMediaSnapshotSchema.safeParse({
@@ -103,7 +104,7 @@ export const toLibraryMediaSnapshot = (summary: MediaSummary): LibraryMediaSnaps
     isAdult: summary.isAdult,
   });
   if (!result.success) {
-    throw new RangeError('media snapshot is outside the database limits');
+    throw new LibrarySnapshotError();
   }
   return result.data;
 };

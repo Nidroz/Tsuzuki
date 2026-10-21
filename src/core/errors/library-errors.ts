@@ -22,3 +22,14 @@ export class LibraryStorageError extends Error {
     this.reason = reason;
   }
 }
+
+/**
+ * a media outside the database limits that no library snapshot can hold (toLibraryMediaSnapshot).
+ * a RangeError, with a fixed message.
+ */
+export class LibrarySnapshotError extends RangeError {
+  constructor() {
+    super('Media snapshot is outside the database limits');
+    this.name = 'LibrarySnapshotError';
+  }
+}
