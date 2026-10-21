@@ -211,14 +211,19 @@
       "group": "{{status}} ({{size}})",
       "score": "Ma note {{score}} / {{max}}",
       "increment": "{{action}}, {{title}}",
+      "favorite": {
+        "add": "Ajouter {{title}} aux favoris",
+        "remove": "Retirer {{title}} des favoris"
+      },
       "writeError": "Votre modification n'a pas pu être enregistrée.",
       "dismiss": "Fermer"
     }
   },
   "favorites": {
-    "placeholder": {
-      "title": "Bientôt disponible",
-      "message": "Vos titres favoris apparaîtront ici."
+    "empty": {
+      "title": "Aucun favori pour l'instant",
+      "message": "Touchez le cœur d'un titre pour l'ajouter ici.",
+      "action": "Rechercher des titres"
     }
   },
   "settings": {
@@ -326,10 +331,15 @@
       "title": "Ma bibliothèque",
       "loading": "Chargement de votre bibliothèque",
       "readError": "Votre bibliothèque n'a pas pu être lue.",
+      "unsupported": "Ce titre ne peut pas être enregistré dans votre bibliothèque.",
       "retry": "Réessayer",
       "writeError": "Votre modification n'a pas pu être enregistrée.",
       "dismiss": "Fermer",
       "add": "Ajouter à la bibliothèque",
+      "favorite": {
+        "add": "Ajouter aux favoris",
+        "remove": "Retirer des favoris"
+      },
       "edit": "Modifier",
       "save": "Enregistrer",
       "cancel": "Annuler",

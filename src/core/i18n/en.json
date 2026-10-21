@@ -204,14 +204,19 @@
       "group": "{{status}} ({{size}})",
       "score": "My score {{score}} / {{max}}",
       "increment": "{{action}}, {{title}}",
+      "favorite": {
+        "add": "Add {{title}} to favorites",
+        "remove": "Remove {{title}} from favorites"
+      },
       "writeError": "Your change could not be saved.",
       "dismiss": "Dismiss"
     }
   },
   "favorites": {
-    "placeholder": {
-      "title": "Coming soon",
-      "message": "Your favorite titles will appear here."
+    "empty": {
+      "title": "No favorites yet",
+      "message": "Tap the heart on a title to add it here.",
+      "action": "Search titles"
     }
   },
   "settings": {
@@ -319,10 +324,15 @@
       "title": "My library",
       "loading": "Loading your library",
       "readError": "Your library could not be read.",
+      "unsupported": "This title cannot be saved to your library.",
       "retry": "Try again",
       "writeError": "Your change could not be saved.",
       "dismiss": "Dismiss",
       "add": "Add to library",
+      "favorite": {
+        "add": "Add to favorites",
+        "remove": "Remove from favorites"
+      },
       "edit": "Edit",
       "save": "Save",
       "cancel": "Cancel",

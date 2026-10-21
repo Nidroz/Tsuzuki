@@ -6,7 +6,7 @@ import { EmptyState, List, Stack, Text, type StateAction } from '@ui/index';
 import { memo, useCallback, useMemo } from 'react';
 
 import { LibraryEntryRow } from './LibraryEntryRow';
-import { LibraryFilters } from './LibraryFilters';
+import { LIBRARY_FILTERS_TEST_ID, LibraryFilters } from './LibraryFilters';
 import {
   libraryListItemKey,
   libraryListItemType,
@@ -14,7 +14,7 @@ import {
   type LibraryListItem,
 } from './library-list-items';
 
-/** the testIDs of the list: `library-list`, `-no-match`, `-hidden-note`, `-group-<status>` */
+/** the default testID of the list; with it `-no-match`, `-hidden-note`, `-group-<status>` */
 export const LIBRARY_LIST_TEST_ID = 'library-list';
 
 export interface LibraryListProps {
@@ -27,18 +27,23 @@ export interface LibraryListProps {
   onResetFilters: (() => void) | null;
   /** pass a stable function: a new one re-renders every row */
   onOpen: (key: MediaKey) => void;
+  /** the testID of the list and the prefix of its parts; LIBRARY_LIST_TEST_ID by default */
+  testID?: string;
+  /** the testID prefix of the filter groups; LIBRARY_FILTERS_TEST_ID by default */
+  filtersTestID?: string;
 }
 
 interface LibraryGroupHeaderProps {
   status: LibraryStatus;
   count: number;
   kind: LibraryKindFilter;
+  testID: string;
 }
 
-function LibraryGroupHeaderView({ status, count, kind }: LibraryGroupHeaderProps) {
+function LibraryGroupHeaderView({ status, count, kind, testID }: LibraryGroupHeaderProps) {
   const { t, formatNumber } = useTranslation();
   return (
-    <Text variant="subtitle" heading testID={`${LIBRARY_LIST_TEST_ID}-group-${status}`}>
+    <Text variant="subtitle" heading testID={testID}>
       {t('library.list.group', {
         status: t(LIBRARY_VIEW_STATUS_KEYS[kind][status]),
         size: formatNumber(count),
@@ -61,6 +66,8 @@ export function LibraryList({
   onOptionsChange,
   onResetFilters,
   onOpen,
+  testID = LIBRARY_LIST_TEST_ID,
+  filtersTestID = LIBRARY_FILTERS_TEST_ID,
 }: LibraryListProps) {
   const { t } = useTranslation();
   const { kind } = options;
@@ -68,11 +75,16 @@ export function LibraryList({
   const renderItem = useCallback(
     (item: LibraryListItem) =>
       item.type === 'header' ? (
-        <LibraryGroupHeader status={item.status} count={item.count} kind={kind} />
+        <LibraryGroupHeader
+          status={item.status}
+          count={item.count}
+          kind={kind}
+          testID={`${testID}-group-${item.status}`}
+        />
       ) : (
         <LibraryEntryRow entry={item.entry} onOpen={onOpen} />
       ),
-    [kind, onOpen],
+    [kind, onOpen, testID],
   );
   const reset = useMemo<StateAction | undefined>(
     () =>
@@ -84,9 +96,9 @@ export function LibraryList({
 
   const header = (
     <Stack gap="sm">
-      <LibraryFilters options={options} onChange={onOptionsChange} />
+      <LibraryFilters options={options} onChange={onOptionsChange} testID={filtersTestID} />
       {view.hiddenCount > 0 ? (
-        <Text variant="caption" tone="muted" testID={`${LIBRARY_LIST_TEST_ID}-hidden-note`}>
+        <Text variant="caption" tone="muted" testID={`${testID}-hidden-note`}>
           {t('library.list.hidden', { count: view.hiddenCount })}
         </Text>
       ) : null}
@@ -97,7 +109,7 @@ export function LibraryList({
       title={t('library.list.noMatch.title')}
       message={t('library.list.noMatch.message')}
       {...(reset !== undefined && { action: reset })}
-      testID={`${LIBRARY_LIST_TEST_ID}-no-match`}
+      testID={`${testID}-no-match`}
     />
   );
 
@@ -110,7 +122,7 @@ export function LibraryList({
       header={header}
       empty={empty}
       scrollToTopKey={JSON.stringify([options.kind, options.status, options.sort])}
-      testID={LIBRARY_LIST_TEST_ID}
+      testID={testID}
     />
   );
 }

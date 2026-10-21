@@ -34,6 +34,8 @@ export interface LibraryFiltersProps {
   options: LibraryViewOptions;
   /** called with the options to show, never with the current ones */
   onChange: (options: LibraryViewOptions) => void;
+  /** the testID prefix of the groups; LIBRARY_FILTERS_TEST_ID by default */
+  testID?: string;
 }
 
 interface FilterGroupProps {
@@ -57,7 +59,11 @@ function FilterGroup({ label, children }: FilterGroupProps) {
  * the kind, status and sort of the library list (FR-14), each a radio group of chips. the
  * statuses are worded for the kind chosen, kind-neutral with every kind
  */
-export function LibraryFilters({ options, onChange }: LibraryFiltersProps) {
+export function LibraryFilters({
+  options,
+  onChange,
+  testID = LIBRARY_FILTERS_TEST_ID,
+}: LibraryFiltersProps) {
   const { t } = useTranslation();
   const statusKeys = LIBRARY_VIEW_STATUS_KEYS[options.kind];
 
@@ -109,7 +115,7 @@ export function LibraryFilters({ options, onChange }: LibraryFiltersProps) {
           options={kindOptions}
           value={options.kind}
           onChange={changeKind}
-          testID={`${LIBRARY_FILTERS_TEST_ID}-kind`}
+          testID={`${testID}-kind`}
         />
       </FilterGroup>
       <FilterGroup label={statusLabel}>
@@ -118,7 +124,7 @@ export function LibraryFilters({ options, onChange }: LibraryFiltersProps) {
           options={statusOptions}
           value={options.status}
           onChange={changeStatus}
-          testID={`${LIBRARY_FILTERS_TEST_ID}-status`}
+          testID={`${testID}-status`}
         />
       </FilterGroup>
       <FilterGroup label={sortLabel}>
@@ -127,7 +133,7 @@ export function LibraryFilters({ options, onChange }: LibraryFiltersProps) {
           options={sortOptions}
           value={options.sort}
           onChange={changeSort}
-          testID={`${LIBRARY_FILTERS_TEST_ID}-sort`}
+          testID={`${testID}-sort`}
         />
       </FilterGroup>
     </Stack>
