@@ -59,6 +59,21 @@ describe('createLibraryWriter: failures', () => {
     expect(repository.stored(ENTRY_KEY)?.score).toBe(5);
   });
 
+  it('invalidates the cached list too, exactly, after a failed write', async () => {
+    const { queryClient, repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
+    await load();
+    await load(OTHER_KEY);
+    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
+
+    await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toBe(STORAGE_FAILURE);
+
+    const stateOf = (queryKey: readonly unknown[]) => queryClient.getQueryState(queryKey);
+    expect(stateOf(queryKeys.library.all())?.isInvalidated).toBe(true);
+    expect(stateOf(queryKeys.library.entry(ENTRY_KEY))?.isInvalidated).toBe(true);
+    expect(stateOf(queryKeys.library.entry(OTHER_KEY))?.isInvalidated).toBe(false);
+  });
+
   it('rejects every tap of a failed coalesced write', async () => {
     const { repository, writer, load } = setupWriter();
     await load();
@@ -121,6 +136,18 @@ describe('createLibraryWriter: flushAll', () => {
     expect(repository.save).toHaveBeenCalledTimes(2);
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
     expect(repository.stored(OTHER_KEY)?.progress).toBe(13);
+  });
+
+  it('writes a `+1` applied just before, still waiting for its cancel', async () => {
+    const { repository, writer, load } = setupWriter();
+    await load();
+
+    const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
+    await writer.flushAll();
+
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
+    await tap;
   });
 
   it('waits for the writes in flight, and resolves when one fails', async () => {
