@@ -5,6 +5,7 @@ import { toAllowedImageUrl } from '../catalog/image-url';
 import type { LibraryEntry } from '../domain/library-entry';
 import {
   buildLibraryView,
+  favoriteEntries,
   keepLibraryLayout,
   libraryEntryId,
   type LibraryKindFilter,
@@ -27,11 +28,19 @@ export interface UseLibraryListOptions {
    * when it gains focus
    */
   readonly layoutKey: number | string;
+  /**
+   * lays out the favorites only (FR-15, the favorites screen); false by default. an entry
+   * unfavorited while shown stays, with its new value, until the list is laid out again
+   */
+  readonly favoritesOnly?: boolean;
 }
 
 /** the library read, selected for display: the view of the options and every entry by id */
 export interface LibrarySelection {
-  /** the library laid out by the options, as if nothing were shown yet */
+  /**
+   * the library laid out by the options, as if nothing were shown yet: its favorites only with
+   * `favoritesOnly` (its counts too)
+   */
   readonly fresh: LibraryView;
   /** every entry of the library by libraryEntryId, whatever the filters, covers filtered */
   readonly current: ReadonlyMap<string, LibraryEntry>;
@@ -60,6 +69,7 @@ interface LayoutScope {
   readonly kind: LibraryKindFilter;
   readonly sort: LibrarySortField;
   readonly showAdult: boolean;
+  readonly favoritesOnly: boolean;
 }
 
 interface ShownView extends LayoutScope {
@@ -79,13 +89,24 @@ const withAllowedCover = (entry: LibraryEntry, source: CoverSource): LibraryEntr
     : { ...entry, media: { ...entry.media, imageUrl } };
 };
 
+// what the selection lays out, besides the view options
+interface SelectScope {
+  readonly showAdult: boolean;
+  readonly favoritesOnly: boolean;
+}
+
 const selectLibrary =
-  (options: LibraryViewOptions, showAdult: boolean, source: CoverSource): SelectLibrary =>
+  (
+    options: LibraryViewOptions,
+    { showAdult, favoritesOnly }: SelectScope,
+    source: CoverSource,
+  ): SelectLibrary =>
   (entries) => {
     // display copies: the cached entries are untouched
     const shown = entries.map((entry) => withAllowedCover(entry, source));
+    // `current` keeps every entry: a kept row unfavorited meanwhile shows its new value
     return {
-      fresh: buildLibraryView(shown, options, showAdult),
+      fresh: buildLibraryView(favoritesOnly ? favoriteEntries(shown) : shown, options, showAdult),
       current: new Map(shown.map((entry) => [libraryEntryId(entry.key), entry])),
     };
   };
@@ -95,7 +116,8 @@ const sameScope = (a: LayoutScope, b: LayoutScope): boolean =>
   a.status === b.status &&
   a.kind === b.kind &&
   a.sort === b.sort &&
-  a.showAdult === b.showAdult;
+  a.showAdult === b.showAdult &&
+  a.favoritesOnly === b.favoritesOnly;
 
 /**
  * the library as the library screen shows it (FR-14): every entry read through the library
@@ -104,19 +126,25 @@ const sameScope = (a: LayoutScope, b: LayoutScope): boolean =>
  * (null otherwise, the entry still listed). always revalidated (STALE_TIMES.library); a change of
  * the options or the setting selects again and never refetches. the cached entries are untouched.
  * while `layoutKey`, the options and the setting stay the same, a change of the library keeps the
- * layout last shown (keepLibraryLayout): a row acted on stays where it is, with its new values
+ * layout last shown (keepLibraryLayout): a row acted on stays where it is, with its new values.
+ * with `favoritesOnly` (the favorites screen), only the favorites are laid out and counted
  */
 export const useLibraryList = (
   options: LibraryViewOptions,
-  { showAdult, layoutKey }: UseLibraryListOptions,
+  { showAdult, layoutKey, favoritesOnly = false }: UseLibraryListOptions,
 ): LibraryListResult => {
   const { writer } = useLibraryContext();
   const { namespace, imageHosts } = useCatalogProvider();
   const { status, kind, sort } = options;
   // one selection per option values: the query reruns it only when its data or one of them changes
   const select = useMemo(
-    () => selectLibrary({ status, kind, sort }, showAdult, { namespace, imageHosts }),
-    [status, kind, sort, showAdult, namespace, imageHosts],
+    () =>
+      selectLibrary(
+        { status, kind, sort },
+        { showAdult, favoritesOnly },
+        { namespace, imageHosts },
+      ),
+    [status, kind, sort, showAdult, favoritesOnly, namespace, imageHosts],
   );
   const query = useQuery({
     queryKey: queryKeys.library.all(),
@@ -133,7 +161,7 @@ export const useLibraryList = (
   // view, so the update stops there
   const [shown, setShown] = useState<ShownView | null>(null);
   const selection = query.data;
-  const scope: LayoutScope = { layoutKey, status, kind, sort, showAdult };
+  const scope: LayoutScope = { layoutKey, status, kind, sort, showAdult, favoritesOnly };
   const inScope = shown !== null && sameScope(shown, scope);
   let view: LibraryView | undefined;
   if (selection === undefined) {

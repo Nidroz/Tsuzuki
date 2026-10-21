@@ -148,6 +148,14 @@ export const buildLibraryView = (
 };
 
 /**
+ * the favorite entries (FR-15): those with `isFavorite`, in their given order. the favorites tab
+ * lays them out with buildLibraryView, so its `totalCount` counts the favorites. `entries` is
+ * never mutated.
+ */
+export const favoriteEntries = (entries: readonly LibraryEntry[]): readonly LibraryEntry[] =>
+  entries.filter((entry) => entry.isFavorite);
+
+/**
  * the identity of a library entry as a string, `<namespace>:<kind>:<externalId>`: two entries of
  * one library never share it. namespaces and kinds hold no colon.
  */

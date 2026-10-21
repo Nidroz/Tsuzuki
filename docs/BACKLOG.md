@@ -189,7 +189,7 @@ Details:
 - [x] L-02 Local (guest) library repository
 - [x] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
 - [x] L-04 Library screen: grouping, filters, sorting
-- [ ] L-05 Favorites (toggle + tab)
+- [x] L-05 Favorites (toggle + tab)
 - [ ] L-06 Adult content setting wired to the filter
 
 Details:
@@ -213,6 +213,8 @@ Details:
 - The detail's hidden message (`mediaDetail.hidden.message`, en and fr) says adult content is off in the settings, a toggle this item adds: recheck the wording, or link to the setting (C-07 review).
 - Lists after a failed refetch (C-08 review), when touching `SearchScreen` and `DiscoveryScreen` here: add a screen-level test that a cached stale top page whose refetch fails shows its rows and `discover-stale-note` (only the `MediaPageList` props test covers it today); an own empty page whose refetch failed shows the `EmptyState` without the stale note and its retry, unlike a non-empty page: show the note there too. Split `src/core/hooks/use-prefetch-next-page.test.tsx` (308 lines) under the ~300-line rule.
 - Add a route-level BR-06 test in `test/app/media-detail.test.tsx`: an adult title through the real root layout shows `media-detail-hidden`, and the header titles equal the static `mediaDetail.title`, never the media title (C-07 review).
+- A title outside the library that no snapshot can hold (`toLibraryMediaSnapshot` throws `LibrarySnapshotError`) still shows Add to library and the favorite heart, and a tap shows the generic write error: in `LibrarySection`, show `mediaDetail.library.unsupported` for that state (check the snapshot up front, or map an `actions.error` that is a `LibrarySnapshotError`), with a test (L-05 review).
+- Add a `use-library-list-favorites.test.tsx` case proving the favorites tab also checks covers: a favorite whose cover is on an unknown host is listed with a `null` url (L-05 review).
 
 ## Phase 4 — Accounts and sync
 
@@ -273,6 +275,7 @@ Details:
 - Genre chips announce their state twice: the label names it ("Action, included") and `accessibilityState.selected` adds "selected" ("excluded, not selected" for an excluded chip). Leave `selected` out of the state when the label already names it (C-05 review).
 - The `Sheet` primitive has no keyboard avoidance: the keyboard can cover the year field of the filters sheet on small screens. Use `KeyboardAvoidingView` or `automaticallyAdjustKeyboardInsets` on its scroll body (C-05).
 - The `Sheet` backdrop dims with the `background` token at the `pressed` opacity: add a scrim color token to the theme with a checked contrast (C-05).
+- The favorite hearts (`LibrarySection`, `LibraryEntryRow`) change their label with the state ("Remove from favorites") and are also `selected`, so the state is announced twice: keep one fixed label and rely on `selected`, or keep the changing label and drop `selected`, updating the tests and `e2e/flows/favorites.yaml` (L-05 review).
 
 ### R-04 MASVS L1 security review
 - Review the unencrypted MMKV instance (F-09, owner decision): it holds the persisted query cache and the preferences, never the session. Decide whether user data in the cache (library notes from A-03) needs MMKV encryption with a key kept in secure-store. The same instance holds the guest library, notes included, under `guest-library` (L-02).

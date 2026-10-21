@@ -1,9 +1,10 @@
 import type { MediaDetail } from '@core/catalog/catalog-provider';
 import type { MediaKey } from '@core/domain/media';
+import { LibrarySnapshotError } from '@core/errors/library-errors';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
 import { useTranslation } from '@core/i18n/index';
-import { Button, InlineError, Spinner, Stack, Text } from '@ui/index';
+import { Button, IconButton, InlineError, Row, Spinner, Stack, Text } from '@ui/index';
 import { useCallback, type ReactNode } from 'react';
 
 import { LibraryEntryPanel } from './LibraryEntryPanel';
@@ -18,10 +19,13 @@ export interface LibrarySectionProps {
 }
 
 /**
- * the library section of the detail screen (FR-10 to FR-13). while the entry loads, a spinner;
- * when it cannot be read, an error with a retry; a media outside the library gets "Add to library",
- * an entry its panel. viewing only reads the library: every write is a tap, and a failed write
- * shows a translated message until it is dismissed or the next action runs
+ * the library section of the detail screen (FR-10 to FR-13, FR-15). while the entry loads, a
+ * spinner; when it cannot be read, an error with a retry, or, for a media no snapshot can hold,
+ * a message without one (a retry could not succeed); a media outside the library gets "Add to
+ * library", an entry its panel. once the entry is read, the heading has the favorite toggle: on a
+ * media outside the library it adds a planned favorite (BR-05). viewing only reads the library:
+ * every write is a tap, and a failed write shows a translated message until it is dismissed or
+ * the next action runs
  */
 export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
   const { t } = useTranslation();
@@ -34,9 +38,15 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
 
   let body: ReactNode;
   if (data === undefined) {
-    // while the retry of an error runs, the spinner replaces it: a tap never restarts the read
+    // a media no snapshot can hold fails the read again on any retry: none is offered. while the
+    // retry of another error runs, the spinner replaces it: a tap never restarts the read
     body =
-      error !== null && !isFetching ? (
+      error instanceof LibrarySnapshotError ? (
+        <InlineError
+          message={t('mediaDetail.library.unsupported')}
+          testID={`${TEST_ID}-unsupported`}
+        />
+      ) : error !== null && !isFetching ? (
         <InlineError
           message={t('mediaDetail.library.readError')}
           action={{ label: t('mediaDetail.library.retry'), onPress: retry }}
@@ -61,11 +71,30 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
     body = <LibraryEntryPanel entry={data} kind={mediaKey.kind} actions={actions} />;
   }
 
+  const isFavorite = data?.isFavorite === true;
+
   return (
     <Stack gap="md" testID={TEST_ID}>
-      <Text variant="subtitle" heading>
-        {t('mediaDetail.library.title')}
-      </Text>
+      <Row gap="sm" justify="between">
+        <Stack gap="none" flex>
+          <Text variant="subtitle" heading>
+            {t('mediaDetail.library.title')}
+          </Text>
+        </Stack>
+        {data === undefined ? null : (
+          <IconButton
+            icon={isFavorite ? 'favorite' : 'favorite-outline'}
+            accessibilityLabel={t(
+              isFavorite
+                ? 'mediaDetail.library.favorite.remove'
+                : 'mediaDetail.library.favorite.add',
+            )}
+            onPress={actions.toggleFavorite}
+            selected={isFavorite}
+            testID={`${TEST_ID}-favorite`}
+          />
+        )}
+      </Row>
       {actions.error === null ? null : (
         <InlineError
           message={t('mediaDetail.library.writeError')}

@@ -9,6 +9,7 @@ import {
   codePointLength,
   isStorableText,
 } from '../domain/database-limits';
+import { LibrarySnapshotError } from '../errors/library-errors';
 import { libraryMediaSnapshotSchema, toLibraryMediaSnapshot } from './library-entry';
 
 // the emoji U+1F600: two utf-16 units, one code point
@@ -194,8 +195,8 @@ describe('toLibraryMediaSnapshot', () => {
   it.each<[string, string]>([
     ['empty', ''],
     ['only NUL characters', `${NUL}${NUL}`],
-  ])('throws a RangeError without the title when the title is %s', (_label, title) => {
-    expect(() => toLibraryMediaSnapshot({ ...SUMMARY, title })).toThrow(RangeError);
+  ])('throws a LibrarySnapshotError without the title when the title is %s', (_label, title) => {
+    expect(() => toLibraryMediaSnapshot({ ...SUMMARY, title })).toThrow(LibrarySnapshotError);
   });
 
   it('throws a RangeError whose message holds no value', () => {
@@ -207,6 +208,7 @@ describe('toLibraryMediaSnapshot', () => {
 
     const error = thrownBy(() => toLibraryMediaSnapshot(summary));
 
+    expect(error).toBeInstanceOf(LibrarySnapshotError);
     expect(error).toBeInstanceOf(RangeError);
     expect(String(error)).not.toMatch(/secret/i);
   });
@@ -214,7 +216,10 @@ describe('toLibraryMediaSnapshot', () => {
   it.each<[string, Partial<MediaSummary>]>([
     ['a non-https image url', { imageUrl: 'http://cdn.myanimelist.net/a.jpg' }],
     ['a zero total', { totalUnits: 0 }],
-  ])('throws a RangeError for %s', (_label, overrides) => {
-    expect(() => toLibraryMediaSnapshot({ ...SUMMARY, ...overrides })).toThrow(RangeError);
+  ])('throws a LibrarySnapshotError, a RangeError, for %s', (_label, overrides) => {
+    const error = thrownBy(() => toLibraryMediaSnapshot({ ...SUMMARY, ...overrides }));
+
+    expect(error).toBeInstanceOf(LibrarySnapshotError);
+    expect(error).toBeInstanceOf(RangeError);
   });
 });

@@ -4,6 +4,8 @@ import type { MediaSummary } from '../catalog/catalog-provider';
 import { setNotes, setScore, notesFromInput } from '../domain/library-details';
 import {
   createLibraryEntry,
+  favoriteMedia,
+  setFavorite,
   type LibraryEntry,
   type LibraryStatus,
   type LibraryWriteContext,
@@ -40,6 +42,13 @@ export interface LibraryEntryActions {
   /** saves the notes editor text: blank text clears the notes (notesFromInput, BR-07) */
   readonly setNotes: (text: string) => void;
   /**
+   * the favorite toggle (FR-15): flips `isFavorite` of the entry as shown (optimistic), so two
+   * quick taps toggle twice; unfavoriting keeps the entry. a media outside the library is added
+   * as a planned favorite (BR-05), which needs `media`: without it, a no-op (a list row whose
+   * entry was removed meanwhile)
+   */
+  readonly toggleFavorite: () => void;
+  /**
    * the error of the last failed action of this key, null when none; each new action clears it.
    * a failure of an earlier key (a recycled list row) is never shown
    */
@@ -63,10 +72,14 @@ const COALESCED: LibraryApplyOptions = { coalesce: true };
 
 const removeEntry: LibraryChange = () => null;
 
+// the toggle reads the entry as shown, optimistic changes included
+const flipFavorite: EntryRule = (entry, ctx) => setFavorite(entry, !entry.isFavorite, ctx);
+
 /**
  * the actions on the library entry of the media `key`, for a screen showing useLibraryEntry
  * (actions need the entry loaded). the callbacks are stable while the key and `media` are.
- * a rule applies to an entry in the library only (a no-op otherwise); with `media`, it first
+ * a rule applies to an entry in the library only (a no-op otherwise; add and the favorite toggle
+ * create one from `media`); with `media`, it first
  * refreshes the entry's snapshot (refreshMediaSnapshot): the snapshot is written with a user
  * action, never by viewing alone. the snapshot is built inside the change, so a media outside
  * the database limits fails the action, not the render
@@ -150,6 +163,18 @@ export const useLibraryEntryActions = (
     },
     [run, onEntry],
   );
+  const toggleFavorite = useCallback(() => {
+    const flip = onEntry(flipFavorite);
+    run((entry, ctx) => {
+      if (entry !== null) {
+        return flip(entry, ctx);
+      }
+      // null over null: a no-op, nothing is written
+      return media === null
+        ? null
+        : favoriteMedia(null, mediaKey, toLibraryMediaSnapshot(media), ctx);
+    });
+  }, [run, onEntry, media, mediaKey]);
   const dismissError = useCallback(() => {
     setFailure(null);
   }, []);
@@ -163,6 +188,7 @@ export const useLibraryEntryActions = (
       incrementProgress: increment,
       setScore: changeScore,
       setNotes: changeNotes,
+      toggleFavorite,
       error,
       dismissError,
     }),
@@ -174,6 +200,7 @@ export const useLibraryEntryActions = (
       increment,
       changeScore,
       changeNotes,
+      toggleFavorite,
       error,
       dismissError,
     ],

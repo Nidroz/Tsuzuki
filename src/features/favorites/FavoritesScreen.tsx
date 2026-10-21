@@ -1,19 +1,24 @@
 import { useTranslation } from '@core/i18n/index';
-import { EmptyState, Screen, type ScreenEdge } from '@ui/index';
+import { LibraryEntriesScreen } from '@features/library/LibraryEntriesScreen';
 
-// under the navigator header and above the tab bar: only the sides need the safe area
-const EDGES: readonly ScreenEdge[] = ['left', 'right'];
-
-// placeholder, replaced by the favorites screen in L-05
+/**
+ * the favorites screen (FR-15): the library restricted to its favorites, with the same filters,
+ * groups and rows as the library screen (LibraryEntriesScreen). testIDs: `favorites-screen`,
+ * `favorites-loading`, `favorites-error`, `favorites-empty`, `favorites-list`,
+ * `favorites-filters`. without a favorite, it says how to add one
+ */
 export function FavoritesScreen() {
   const { t } = useTranslation();
 
   return (
-    <Screen edges={EDGES} testID="favorites-screen">
-      <EmptyState
-        title={t('favorites.placeholder.title')}
-        message={t('favorites.placeholder.message')}
-      />
-    </Screen>
+    <LibraryEntriesScreen
+      favoritesOnly
+      testID="favorites"
+      empty={{
+        title: t('favorites.empty.title'),
+        message: t('favorites.empty.message'),
+        action: t('favorites.empty.action'),
+      }}
+    />
   );
 }
