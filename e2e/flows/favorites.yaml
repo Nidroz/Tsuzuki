@@ -1,0 +1,113 @@
+# favorites flow (FR-15, BR-05): search a title, open its details, favorite it while it is outside
+# the library, which adds it as planned, then find it in the Favorites tab, unfavorite it there
+# (the row stays until the tab gains focus again, the entry stays in the library) and see the tab
+# empty once it is opened again. runs in the development build like the smoke flow (see its header
+# and e2e/README.md), with clearState, so the guest library is empty at launch. elements are found
+# by id and by their checked or selected state only, so the flow does not depend on the device
+# language. it queries the live catalog (Tenrai): the first result row is matched by its id
+# prefix, never by a title the catalog could reorder
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: tab-search
+- tapOn:
+    id: search-input
+- inputText: Frieren
+# typing searches after the debounce; the catalog answer may take a few seconds
+- extendedWaitUntil:
+    visible:
+      id: search-result-mal-anime-.*
+    timeout: 30000
+- hideKeyboard
+- tapOn:
+    id: search-result-mal-anime-.*
+    index: 0
+- extendedWaitUntil:
+    visible:
+      id: media-detail-content
+    timeout: 30000
+# a title outside the library: the section offers to add it, and its heart shows once it is read
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-add
+    timeout: 10000
+- assertVisible:
+    id: media-detail-library-favorite
+    selected: false
+# the heart adds it as a planned favorite (BR-05): the panel replaces the add button
+- tapOn:
+    id: media-detail-library-favorite
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-status
+    timeout: 10000
+- assertNotVisible:
+    id: media-detail-library-add
+- assertVisible:
+    id: media-detail-library-favorite
+    selected: true
+# the status is planned: checked in the sheet, left unchanged
+- tapOn:
+    id: media-detail-library-status-edit
+- assertVisible:
+    id: media-detail-library-status-options-planned
+    checked: true
+- tapOn:
+    id: media-detail-library-status-sheet-cancel
+- back
+# the favorites tab lists it, its heart selected
+- tapOn:
+    id: tab-favorites
+- extendedWaitUntil:
+    visible:
+      id: favorites-list
+    timeout: 10000
+- assertVisible:
+    id: library-entry-mal-anime-.*
+    childOf:
+      id: favorites-screen
+- assertVisible:
+    id: library-entry-mal-anime-.*-favorite
+    selected: true
+    childOf:
+      id: favorites-screen
+# unfavoriting keeps the row, its heart off, until the tab gains focus again
+- tapOn:
+    id: library-entry-mal-anime-.*-favorite
+    childOf:
+      id: favorites-screen
+- assertVisible:
+    id: library-entry-mal-anime-.*-favorite
+    selected: false
+    childOf:
+      id: favorites-screen
+# the entry stays in the library
+- tapOn:
+    id: tab-library
+- extendedWaitUntil:
+    visible:
+      id: library-list
+    timeout: 10000
+- assertVisible:
+    id: library-entry-mal-anime-.*
+    childOf:
+      id: library-screen
+# back in the favorites tab, laid out again: no favorite left
+- tapOn:
+    id: tab-favorites
+- extendedWaitUntil:
+    visible:
+      id: favorites-empty
+    timeout: 10000
+- assertNotVisible:
+    id: library-entry-mal-anime-.*
+    childOf:
+      id: favorites-screen
