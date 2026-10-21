@@ -1,10 +1,9 @@
 import { LIBRARY_STATUSES, type LibraryStatus } from '@core/domain/library-entry';
 import type { MediaKind } from '@core/domain/media';
 import { LIBRARY_STATUS_KEYS, useTranslation } from '@core/i18n/index';
-import { RadioGroup, Sheet, type RadioOption } from '@ui/index';
+import { RadioGroup, Sheet, SheetActions, type RadioOption } from '@ui/index';
 import { useMemo } from 'react';
 
-import { SheetActions } from './SheetActions';
 import { useSheetDraft } from './use-sheet-draft';
 
 const TEST_ID = 'media-detail-library-status-sheet';
@@ -47,6 +46,7 @@ export function StatusSheet({ visible, kind, status, onSave, onClose }: StatusSh
         <SheetActions
           confirmLabel={t('mediaDetail.library.save')}
           onConfirm={save}
+          cancelLabel={t('mediaDetail.library.cancel')}
           onCancel={onClose}
           testID={TEST_ID}
         />

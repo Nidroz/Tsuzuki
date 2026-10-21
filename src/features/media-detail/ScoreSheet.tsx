@@ -1,9 +1,8 @@
 import { SCORE_MAX, SCORE_MIN } from '@core/domain/library-entry';
 import { useTranslation } from '@core/i18n/index';
-import { RadioGroup, Sheet, type RadioOption } from '@ui/index';
+import { RadioGroup, Sheet, SheetActions, type RadioOption } from '@ui/index';
 import { useMemo } from 'react';
 
-import { SheetActions } from './SheetActions';
 import { useSheetDraft } from './use-sheet-draft';
 
 const TEST_ID = 'media-detail-library-score-sheet';
@@ -70,6 +69,7 @@ export function ScoreSheet({ visible, score, onSave, onClose }: ScoreSheetProps)
         <SheetActions
           confirmLabel={t('mediaDetail.library.save')}
           onConfirm={save}
+          cancelLabel={t('mediaDetail.library.cancel')}
           onCancel={onClose}
           testID={TEST_ID}
         />
