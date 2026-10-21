@@ -1,6 +1,12 @@
 // the search filters state of the filters sheet (FR-03, docs/ARCHITECTURE.md §6) and its rules,
 // pure: the screen holds a draft of it, and toSearchParams turns the applied one into SearchParams
-import type { SearchParams, SearchSortField, SortDirection } from '../catalog/catalog-provider';
+import type {
+  Genre,
+  SearchParams,
+  SearchSortField,
+  SortDirection,
+} from '../catalog/catalog-provider';
+import { isAdultGenreName } from './content-filter';
 import type { MediaKind, SearchableMediaFormat, SearchableMediaStatus } from './media';
 
 /** a sort field with its direction. */
@@ -185,6 +191,37 @@ export const filtersForKind = (filters: SearchFilters): SearchFilters => ({
   genresIncluded: [],
   genresExcluded: [],
 });
+
+/**
+ * `filters` without the adult genres (BR-06, isAdultGenreName): every id of `genresIncluded` and
+ * `genresExcluded` whose genre in `genres` is adult is removed; an id absent from `genres` is kept.
+ * returns `filters` itself when nothing is removed, so memoized search params and the search key
+ * derived from it stay stable.
+ *
+ * when the adult content setting is off, the filters sheet hides the adult genre chips: an adult
+ * genre applied earlier would still be sent while the user can neither see nor remove it. the
+ * search screen therefore applies this to the applied filters while the setting is off; the stored
+ * filters stay untouched, so turning the setting back on restores them, and applying the sheet
+ * while it is off drops them.
+ */
+export const withoutAdultGenres = (
+  filters: SearchFilters,
+  genres: readonly Genre[],
+): SearchFilters => {
+  const adultIds = new Set(
+    genres.filter((genre) => isAdultGenreName(genre.name)).map((genre) => genre.id),
+  );
+  const isKept = (id: number): boolean => !adultIds.has(id);
+  const { genresIncluded, genresExcluded } = filters;
+  if (genresIncluded.every(isKept) && genresExcluded.every(isKept)) {
+    return filters;
+  }
+  return {
+    ...filters,
+    genresIncluded: genresIncluded.filter(isKept),
+    genresExcluded: genresExcluded.filter(isKept),
+  };
+};
 
 /**
  * the number of active filters, one per field that differs from EMPTY_SEARCH_FILTERS: format,

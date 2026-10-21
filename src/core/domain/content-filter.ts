@@ -10,7 +10,10 @@ const ADULT_GENRE_NAME_SET: ReadonlySet<string> = new Set<string>(ADULT_GENRE_NA
 
 const ADULT_RATED_KIND: MediaKind = 'anime';
 
-/** the adult content setting of a new user (BR-06): adult titles are hidden. */
+/**
+ * the default of the stored adult content preference (BR-06, FR-32): a new user, or one who never
+ * changed the setting, does not see adult titles.
+ */
 export const DEFAULT_SHOW_ADULT = false;
 
 /**
