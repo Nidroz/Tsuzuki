@@ -1,12 +1,15 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, waitFor } from '@testing-library/react';
 
+import { LibrarySnapshotError } from '../errors/library-errors';
+
 import { ENTRY_KEY, entryOf, entryWithMedia } from '../../../test/core/library-entry-fixtures';
 import {
   FRESH_MEDIA,
   FRESH_TOTAL,
   MEDIA,
   renderLibraryEntry,
+  UNSTORABLE_MEDIA,
 } from '../../../test/core/library-hooks-support';
 
 // fR-15, BR-05: the favorite toggle of useLibraryEntryActions
@@ -86,6 +89,34 @@ describe('useLibraryEntryActions: toggleFavorite (FR-15)', () => {
 
     expect(result.current.entry.data?.isFavorite).toBe(false);
     expect(repository.stored(ENTRY_KEY)?.isFavorite).toBe(false);
+  });
+
+  it('keeps a media added by a first quick tap as planned when a second one unfavorites it (BR-05)', async () => {
+    const { result, repository } = await renderLoaded([], MEDIA);
+
+    await settleAction(() => {
+      result.current.actions.toggleFavorite();
+      result.current.actions.toggleFavorite();
+    });
+    await act(() => jest.advanceTimersByTimeAsync(0));
+
+    expect(repository.stored(ENTRY_KEY)).toMatchObject({
+      status: 'planned',
+      progress: 0,
+      isFavorite: false,
+    });
+    expect(result.current.entry.data?.isFavorite).toBe(false);
+    expect(result.current.actions.error).toBeNull();
+  });
+
+  it('fails the toggle of a media outside the library that no snapshot can hold (BR-05)', async () => {
+    const { result, repository } = await renderLoaded([], UNSTORABLE_MEDIA);
+
+    await settleAction(result.current.actions.toggleFavorite);
+
+    expect(result.current.actions.error).toBeInstanceOf(LibrarySnapshotError);
+    expect(repository.save).not.toHaveBeenCalled();
+    expect(result.current.entry.data).toBeNull();
   });
 
   it('writes the catalog snapshot with the toggle, in the same write', async () => {
