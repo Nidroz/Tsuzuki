@@ -48,18 +48,25 @@ const PLANNED = entryWithMedia(
   },
 );
 const LIBRARY = [ALPHA, BETA, GAMMA, PLANNED];
+// the last change of the library before any `+1`: first of the in-progress entries
+const ADULT = entryWithMedia(
+  { title: 'Adult title', isAdult: true },
+  { key: keyOf('anime', 5), updatedAt: '2025-12-04T10:00:00.000Z' },
+);
 
 const PLANNED_ONLY: LibraryViewOptions = { ...DEFAULT_LIBRARY_VIEW, status: 'planned' };
 
 interface ListProps {
   readonly options: LibraryViewOptions;
   readonly layoutKey: number;
+  /** the adult content setting (BR-06), on when absent */
+  readonly showAdult?: boolean;
 }
 
-// the list, and the actions of the row of `key`
-const render = (key: MediaKey, initialProps: ListProps) => {
+// the list of `library`, and the actions of the row of `key`
+const render = (key: MediaKey, initialProps: ListProps, library = LIBRARY) => {
   const queryClient = createQueryClient();
-  const repository = createFakeLibraryRepository(LIBRARY);
+  const repository = createFakeLibraryRepository(library);
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={createFakeCatalogProvider()}>
@@ -68,8 +75,8 @@ const render = (key: MediaKey, initialProps: ListProps) => {
     </QueryClientProvider>
   );
   const rendered = renderHook(
-    ({ options, layoutKey }: ListProps) => ({
-      list: useLibraryList(options, { showAdult: true, layoutKey }),
+    ({ options, layoutKey, showAdult = true }: ListProps) => ({
+      list: useLibraryList(options, { showAdult, layoutKey }),
       row: useLibraryEntryActions(key, { media: null }),
     }),
     { initialProps, wrapper },
@@ -165,6 +172,41 @@ describe('useLibraryList layout', () => {
       ['current', ['Beta', 'Alpha', 'Gamma']],
       ['planned', ['Delta']],
     ]);
+  });
+
+  it('lays the library out again on a status filter change', async () => {
+    const rendered = render(BETA.key, { options: DEFAULT_LIBRARY_VIEW, layoutKey: 0 });
+    await loaded(rendered);
+    await incrementAndSettle(rendered, 1);
+
+    // a kept layout would still show the planned entry, and Beta in its old place
+    rendered.rerender({ options: { ...DEFAULT_LIBRARY_VIEW, status: 'current' }, layoutKey: 0 });
+
+    expect(titlesOf(rendered)).toStrictEqual([['current', ['Beta', 'Alpha', 'Gamma']]]);
+    expect(shownView(rendered).visibleCount).toBe(3);
+  });
+
+  it('lays the library out again when the adult content setting turns off, hiding the adult entries it showed (BR-06)', async () => {
+    const rendered = render(
+      BETA.key,
+      { options: DEFAULT_LIBRARY_VIEW, layoutKey: 0, showAdult: true },
+      [...LIBRARY, ADULT],
+    );
+    await loaded(rendered);
+    await incrementAndSettle(rendered, 1);
+
+    expect(titlesOf(rendered)).toStrictEqual([
+      ['current', ['Adult title', 'Alpha', 'Beta', 'Gamma']],
+      ['planned', ['Delta']],
+    ]);
+
+    rendered.rerender({ options: DEFAULT_LIBRARY_VIEW, layoutKey: 0, showAdult: false });
+
+    expect(titlesOf(rendered)).toStrictEqual([
+      ['current', ['Beta', 'Alpha', 'Gamma']],
+      ['planned', ['Delta']],
+    ]);
+    expect(shownView(rendered)).toMatchObject({ visibleCount: 4, hiddenCount: 1, totalCount: 5 });
   });
 
   it('keeps a planned entry turned current under the planned filter until laid out again (BR-02)', async () => {

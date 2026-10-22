@@ -13,6 +13,13 @@ const nativeHeaders = () => screen.container.queryAll(({ type }) => type === NAT
 export const headerTitles = (): unknown[] =>
   nativeHeaders().map(({ props }) => (props as { title?: unknown }).title);
 
+/** the titles of the visible native stack headers, the hidden header of the tabs left out */
+export const visibleHeaderTitles = (): unknown[] =>
+  nativeHeaders()
+    .map(({ props }) => props as Record<string, unknown>)
+    .filter(({ hidden }) => hidden !== true)
+    .map(({ title }) => title);
+
 /**
  * the back button props of the visible headers: the route name of the screen below ("(tabs)")
  * must never show as a back title or in the ios back history menu

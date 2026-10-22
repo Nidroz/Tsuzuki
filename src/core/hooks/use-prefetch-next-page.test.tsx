@@ -1,93 +1,29 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { act, renderHook, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { act, waitFor } from '@testing-library/react';
 
-import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
-import type {
-  CatalogProvider,
-  CatalogRequestOptions,
-  MediaSummary,
-  Page,
-  SearchParams,
-} from '../catalog/catalog-provider';
+import type { MediaSummary, Page } from '../catalog/catalog-provider';
 import { CatalogNetworkError } from '../errors/catalog-errors';
 import { queryKeys } from '../query/keys';
-import { createQueryClient } from '../query/query-client';
 import { STALE_TIMES } from '../query/stale-times';
-import { settle } from './__fixtures__/catalog-pages';
-import { CatalogContextProvider } from './CatalogContextProvider';
-import { useSearch } from './use-search';
+import {
+  answering,
+  BACKGROUND,
+  backgroundCalls,
+  frieren,
+  LAST_PAGE,
+  pageNumber,
+  searchPendingUntilAborted,
+  settle,
+  setupPrefetch,
+  summaryOf,
+} from './__fixtures__/prefetch-search';
 
-type Search = CatalogProvider['search'];
-
-const LAST_PAGE = 3;
-const BACKGROUND: CatalogRequestOptions = { priority: 'background' };
-
-const summary = (externalId: number): MediaSummary => ({
-  key: { namespace: 'mal', kind: 'anime', externalId },
-  title: `Title ${String(externalId)}`,
-  titleEnglish: null,
-  imageUrl: null,
-  format: 'tv',
-  status: 'finished',
-  totalUnits: null,
-  score: null,
-  year: null,
-  genres: [],
-  isAdult: false,
-});
-
-// page n of a search of LAST_PAGE pages, one item whose id is the page
-const pageNumber = (page: number): Page<MediaSummary> => ({
-  items: [summary(page)],
-  page,
-  lastPage: LAST_PAGE,
-  hasNextPage: page < LAST_PAGE,
-});
-
-const frieren = (page: number): SearchParams => ({ kind: 'anime', query: 'frieren', page });
-const MUSHISHI: SearchParams = { kind: 'anime', query: 'mushishi', page: 1 };
-
-// a search that never settles by itself: it rejects when its signal aborts
-const pendingUntilAborted: Search = (_params, signal) =>
-  new Promise<Page<MediaSummary>>((_resolve, reject) => {
-    signal?.addEventListener('abort', () => {
-      reject(new Error('aborted'));
-    });
-  });
-
-// foreground requests answer their page at once, background ones run `background`
-const answering =
-  (background: Search): Search =>
-  (params, signal, options) =>
-    options?.priority === 'background'
-      ? background(params, signal, options)
-      : Promise.resolve(pageNumber(params.page));
-
-const setup = (params: SearchParams | null, search: Search) => {
-  const provider = createFakeCatalogProvider();
-  provider.search.mockImplementation(search);
-  const queryClient = createQueryClient();
-  const wrapper = ({ children }: { readonly children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
-    </QueryClientProvider>
-  );
-  const hook = renderHook(
-    ({ params: current }: { readonly params: SearchParams | null }) =>
-      useSearch(current, { showAdult: false }),
-    { initialProps: { params }, wrapper },
-  );
-  return { provider, queryClient, ...hook };
-};
-
-const backgroundCalls = (provider: ReturnType<typeof createFakeCatalogProvider>) =>
-  provider.search.mock.calls.filter(([, , options]) => options?.priority === 'background');
+// c-06: when useSearch prefetches the next page, and what the prefetch writes to the cache. its
+// aborts are in use-prefetch-next-page-abort.test.tsx
 
 describe('useSearch next page prefetch (C-06)', () => {
   it('prefetches the next page once in the background when idle, filling its key', async () => {
-    const { provider, queryClient, result, rerender } = setup(
+    const { provider, queryClient, result, rerender } = setupPrefetch(
       frieren(1),
       answering((params) => Promise.resolve(pageNumber(params.page))),
     );
@@ -112,7 +48,7 @@ describe('useSearch next page prefetch (C-06)', () => {
   });
 
   it('opens a prefetched page from the cache, then prefetches the one after it', async () => {
-    const { provider, result, rerender } = setup(
+    const { provider, result, rerender } = setupPrefetch(
       frieren(1),
       answering((params) => Promise.resolve(pageNumber(params.page))),
     );
@@ -136,7 +72,10 @@ describe('useSearch next page prefetch (C-06)', () => {
   });
 
   it('prefetches nothing without a next page', async () => {
-    const { provider, result } = setup(frieren(LAST_PAGE), answering(pendingUntilAborted));
+    const { provider, result } = setupPrefetch(
+      frieren(LAST_PAGE),
+      answering(searchPendingUntilAborted),
+    );
 
     await waitFor(() => {
       expect(result.current.query.isSuccess).toBe(true);
@@ -147,11 +86,14 @@ describe('useSearch next page prefetch (C-06)', () => {
   });
 
   it('prefetches nothing while the page shown is a placeholder or still fetching', async () => {
-    const { provider, result, rerender } = setup(frieren(1), answering(pendingUntilAborted));
+    const { provider, result, rerender } = setupPrefetch(
+      frieren(1),
+      answering(searchPendingUntilAborted),
+    );
     await waitFor(() => {
       expect(backgroundCalls(provider)).toHaveLength(1);
     });
-    provider.search.mockImplementation(pendingUntilAborted);
+    provider.search.mockImplementation(searchPendingUntilAborted);
 
     rerender({ params: frieren(2) });
     await settle();
@@ -164,7 +106,10 @@ describe('useSearch next page prefetch (C-06)', () => {
   });
 
   it('prefetches nothing when the next page is cached and fresh, again once it is stale', async () => {
-    const { provider, queryClient, result, rerender } = setup(null, answering(pendingUntilAborted));
+    const { provider, queryClient, result, rerender } = setupPrefetch(
+      null,
+      answering(searchPendingUntilAborted),
+    );
     queryClient.setQueryData(queryKeys.search('mal', frieren(2)), pageNumber(2));
 
     rerender({ params: frieren(1) });
@@ -187,79 +132,8 @@ describe('useSearch next page prefetch (C-06)', () => {
     expect(backgroundCalls(provider)).toHaveLength(1);
   });
 
-  it('keeps the prefetch running when its page is opened, so the opened request joins it', async () => {
-    const { provider, rerender } = setup(frieren(1), answering(pendingUntilAborted));
-    await waitFor(() => {
-      expect(backgroundCalls(provider)).toHaveLength(1);
-    });
-    const prefetchSignal = backgroundCalls(provider)[0]?.[1];
-    provider.search.mockImplementation(pendingUntilAborted);
-
-    rerender({ params: frieren(2) });
-    await settle();
-
-    expect(provider.search).toHaveBeenLastCalledWith(frieren(2), expect.any(AbortSignal));
-    expect(prefetchSignal?.aborted).toBe(false);
-  });
-
-  it('aborts the prefetch when the search changes', async () => {
-    const { provider, rerender } = setup(frieren(1), answering(pendingUntilAborted));
-    await waitFor(() => {
-      expect(backgroundCalls(provider)).toHaveLength(1);
-    });
-    const prefetchSignal = backgroundCalls(provider)[0]?.[1];
-
-    rerender({ params: MUSHISHI });
-    await settle();
-
-    expect(prefetchSignal?.aborted).toBe(true);
-  });
-
-  it('aborts the prefetch and runs it again on the new catalog provider', async () => {
-    const first = createFakeCatalogProvider();
-    const second = createFakeCatalogProvider();
-    first.search.mockImplementation(answering(pendingUntilAborted));
-    second.search.mockImplementation(answering(pendingUntilAborted));
-    const queryClient = createQueryClient();
-    // the same namespace: the list key alone does not tell the providers apart
-    let provider: CatalogProvider = first;
-    const wrapper = ({ children }: { readonly children: ReactNode }) => (
-      <QueryClientProvider client={queryClient}>
-        <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
-      </QueryClientProvider>
-    );
-    const { rerender } = renderHook(() => useSearch(frieren(1), { showAdult: false }), {
-      wrapper,
-    });
-    await waitFor(() => {
-      expect(backgroundCalls(first)).toHaveLength(1);
-    });
-    const prefetchSignal = backgroundCalls(first)[0]?.[1];
-
-    provider = second;
-    rerender();
-    await settle();
-
-    expect(prefetchSignal?.aborted).toBe(true);
-    expect(backgroundCalls(second)).toStrictEqual([
-      [frieren(2), expect.any(AbortSignal), BACKGROUND],
-    ]);
-  });
-
-  it('aborts the prefetch on unmount', async () => {
-    const { provider, unmount } = setup(frieren(1), answering(pendingUntilAborted));
-    await waitFor(() => {
-      expect(backgroundCalls(provider)).toHaveLength(1);
-    });
-    const prefetchSignal = backgroundCalls(provider)[0]?.[1];
-
-    unmount();
-
-    expect(prefetchSignal?.aborted).toBe(true);
-  });
-
   it('drops a failed prefetch without retrying it in a loop', async () => {
-    const { provider, queryClient, result, rerender } = setup(
+    const { provider, queryClient, result, rerender } = setupPrefetch(
       frieren(1),
       answering(() => Promise.reject(new CatalogNetworkError())),
     );
@@ -282,7 +156,7 @@ describe('useSearch next page prefetch (C-06)', () => {
 
   it('never overwrites data newer than the prefetch start', async () => {
     let answerPrefetch: (page: Page<MediaSummary>) => void = () => undefined;
-    const { provider, queryClient } = setup(
+    const { provider, queryClient } = setupPrefetch(
       frieren(1),
       answering(
         () =>
@@ -294,7 +168,7 @@ describe('useSearch next page prefetch (C-06)', () => {
     await waitFor(() => {
       expect(backgroundCalls(provider)).toHaveLength(1);
     });
-    const newer = { ...pageNumber(2), items: [summary(LAST_PAGE + 1)] };
+    const newer = { ...pageNumber(2), items: [summaryOf(LAST_PAGE + 1)] };
     await act(async () => {
       await jest.advanceTimersByTimeAsync(1);
     });
