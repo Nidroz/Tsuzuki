@@ -309,7 +309,8 @@
     },
     "hidden": {
       "title": "Title hidden",
-      "message": "This title is adult content, hidden because adult content is off in the settings."
+      "message": "This title is adult content. Turn on Show adult content in Settings to see it.",
+      "action": "Open settings"
     },
     "error": {
       "notFound": {

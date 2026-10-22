@@ -20,6 +20,8 @@ export interface DiscoveryScreenSetup {
   /** what the provider answers to each season request; every page by default */
   readonly getCurrentSeason?: CatalogProvider['getCurrentSeason'];
   readonly language?: Language;
+  /** the adult content setting (BR-06), off by default */
+  readonly showAdult?: boolean;
 }
 
 /** renders DiscoveryScreen and returns its fake provider, whose other methods reject */
@@ -27,9 +29,14 @@ export const renderDiscoveryScreen = async ({
   getTop = answersEveryTopPage,
   getCurrentSeason = answersEverySeasonPage,
   language = 'en',
+  showAdult = false,
 }: DiscoveryScreenSetup = {}) => {
   const provider = createStrictFakeCatalogProvider({ getTop, getCurrentSeason });
-  await renderWithProviders(<DiscoveryScreen />, { language, catalogProvider: provider });
+  await renderWithProviders(<DiscoveryScreen />, {
+    language,
+    catalogProvider: provider,
+    showAdult,
+  });
   return { provider };
 };
 

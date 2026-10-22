@@ -55,7 +55,7 @@ const GENERIC_MESSAGE = 'Something went wrong. Try again in a moment.';
 const RETRY = 'Try again';
 const HIDDEN_TITLE = 'Title hidden';
 const HIDDEN_MESSAGE =
-  'This title is adult content, hidden because adult content is off in the settings.';
+  'This title is adult content. Turn on Show adult content in Settings to see it.';
 
 type GetDetail = CatalogProvider['getDetail'];
 

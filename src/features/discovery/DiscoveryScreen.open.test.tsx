@@ -88,6 +88,18 @@ describe('DiscoveryScreen rows and states', () => {
     );
   });
 
+  it('BR-06: shows the adult titles while the setting is on', async () => {
+    await renderDiscoveryScreen({
+      getTop: answers(pageOf(adultItem(1), FRIEREN)),
+      showAdult: true,
+    });
+    await advance(0);
+
+    expect(screen.getByTestId('discover-result-mal-anime-1')).toBeOnTheScreen();
+    expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+    expect(screen.queryByTestId('discover-hidden-note')).not.toBeOnTheScreen();
+  });
+
   it('shows the discovery empty state for an empty list', async () => {
     await renderDiscoveryScreen({ getTop: answers(pageOf()) });
     await advance(0);

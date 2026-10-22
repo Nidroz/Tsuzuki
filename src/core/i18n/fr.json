@@ -316,7 +316,8 @@
     },
     "hidden": {
       "title": "Titre masqué",
-      "message": "Ce titre est un contenu pour adultes, masqué car le contenu pour adultes est désactivé dans les réglages."
+      "message": "Ce titre est un contenu pour adultes. Activez Afficher le contenu adulte dans les Réglages pour le voir.",
+      "action": "Ouvrir les réglages"
     },
     "error": {
       "notFound": {

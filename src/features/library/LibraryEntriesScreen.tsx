@@ -1,8 +1,8 @@
-import { DEFAULT_SHOW_ADULT } from '@core/domain/content-filter';
 import { DEFAULT_LIBRARY_VIEW, type LibraryViewOptions } from '@core/domain/library-view';
 import type { MediaKey } from '@core/domain/media';
 import { useLibraryList } from '@core/hooks/use-library-list';
 import { useTranslation } from '@core/i18n/index';
+import { usePreferences } from '@core/preferences/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
 import { EmptyState, ErrorState, Screen, Spinner, Stack, type ScreenEdge } from '@ui/index';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -18,9 +18,6 @@ const SEARCH_PATHNAME = '/search';
 
 // the layout key of the first focus; each focus adds one
 const FIRST_LAYOUT_KEY = 0;
-
-// TODO(L-06): read the adult content setting
-const SHOW_ADULT = DEFAULT_SHOW_ADULT;
 
 /** the translated texts of the empty state: nothing to list yet */
 export interface LibraryEntriesEmptyTexts {
@@ -57,6 +54,7 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
 export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { showAdult } = usePreferences();
   const [options, setOptions] = useState<LibraryViewOptions>(DEFAULT_LIBRARY_VIEW);
   const [layoutKey, setLayoutKey] = useState(FIRST_LAYOUT_KEY);
   // stable: useFocusEffect reruns a new callback, which would lay the list out on every render
@@ -67,7 +65,7 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
   const {
     query: { error, isFetching, refetch },
     view,
-  } = useLibraryList(options, { showAdult: SHOW_ADULT, layoutKey, favoritesOnly });
+  } = useLibraryList(options, { showAdult, layoutKey, favoritesOnly });
 
   const retry = useCallback(() => {
     // a retry tap while the read runs never restarts it

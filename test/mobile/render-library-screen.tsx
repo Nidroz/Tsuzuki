@@ -21,6 +21,8 @@ export interface LibraryScreenSetup {
   readonly language?: Language;
   /** the query cache of the screen; a new one by default */
   readonly queryClient?: QueryClient;
+  /** the adult content setting (BR-06), off by default */
+  readonly showAdult?: boolean;
 }
 
 /** renders LibraryScreen over a fake library repository and returns it with a user */
@@ -28,12 +30,13 @@ export const renderLibraryScreen = async ({
   repository = createFakeLibraryRepository(LIBRARY),
   language = 'en',
   queryClient = createQueryClient(),
+  showAdult = false,
 }: LibraryScreenSetup = {}) => {
   await renderWithProviders(
     <LibraryContextProvider repository={repository}>
       <LibraryScreen />
     </LibraryContextProvider>,
-    { language, queryClient },
+    { language, queryClient, showAdult },
   );
   return { repository, user: userEvent.setup() };
 };
