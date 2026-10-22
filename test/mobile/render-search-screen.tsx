@@ -7,7 +7,7 @@ import { act, screen } from '@testing-library/react-native';
 
 import { createStrictFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
-import { renderWithProviders } from './render-with-providers';
+import { renderWithProviders, TestPreferences } from './render-with-providers';
 import { SearchScreen } from '@features/search/SearchScreen';
 
 export interface SearchScreenSetup {
@@ -18,26 +18,40 @@ export interface SearchScreenSetup {
   /** the stored recent searches, newest first */
   readonly recentSearches?: readonly string[];
   readonly language?: Language;
+  /** the adult content setting (BR-06), off by default */
+  readonly showAdult?: boolean;
 }
 
-/** renders SearchScreen and returns its fake provider and recent searches repository */
+/**
+ * renders SearchScreen and returns its fake provider and recent searches repository, with
+ * setShowAdult, which rerenders the screen, its state kept, under another adult content setting
+ */
 export const renderSearchScreen = async ({
   search,
   getGenres,
   recentSearches = [],
   language = 'en',
+  showAdult = false,
 }: SearchScreenSetup = {}) => {
   const provider = createStrictFakeCatalogProvider({
     ...(search !== undefined && { search }),
     ...(getGenres !== undefined && { getGenres }),
   });
   const repository = createFakeRecentSearchesRepository(recentSearches);
-  await renderWithProviders(<SearchScreen />, {
+  const screenWith = (adult: boolean) => (
+    <TestPreferences showAdult={adult} language={language}>
+      <SearchScreen />
+    </TestPreferences>
+  );
+  const { rerender } = await renderWithProviders(screenWith(showAdult), {
     language,
     catalogProvider: provider,
     recentSearchesRepository: repository,
   });
-  return { provider, repository };
+  const setShowAdult = async (next: boolean): Promise<void> => {
+    await rerender(screenWith(next));
+  };
+  return { provider, repository, setShowAdult };
 };
 
 /** the search field */

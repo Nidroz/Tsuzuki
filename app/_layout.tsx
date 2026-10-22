@@ -19,6 +19,7 @@ import {
   loadPreferences,
   PreferencesProvider,
   saveLanguagePreference,
+  saveShowAdultPreference,
   saveThemePreference,
   type ThemePreference,
 } from '@core/preferences/index';
@@ -145,6 +146,7 @@ export default function RootLayout() {
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>(
     initialPreferences.language,
   );
+  const [showAdult, setShowAdult] = useState(initialPreferences.showAdult);
   const language = resolveLanguage(languagePreference, useDeviceLanguageTags());
 
   // stable handlers, as PreferencesProvider expects: they save the choice, then apply it
@@ -155,6 +157,10 @@ export default function RootLayout() {
   const changeLanguage = useCallback((next: LanguagePreference) => {
     saveLanguagePreference(storage, next);
     setLanguagePreference(next);
+  }, []);
+  const changeShowAdult = useCallback((next: boolean) => {
+    saveShowAdultPreference(storage, next);
+    setShowAdult(next);
   }, []);
 
   return (
@@ -167,6 +173,8 @@ export default function RootLayout() {
               language={languagePreference}
               onThemeChange={changeTheme}
               onLanguageChange={changeLanguage}
+              showAdult={showAdult}
+              onShowAdultChange={changeShowAdult}
             >
               <I18nProvider language={language} onMissingKey={reportMissingKey}>
                 <ThemeProvider preference={themePreference} onError={reportThemeError}>

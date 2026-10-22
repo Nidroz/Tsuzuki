@@ -1,9 +1,8 @@
 import { codePointLength } from '@core/domain/database-limits';
 import { isValidNotes, NOTES_MAX_LENGTH } from '@core/domain/library-entry';
 import { useTranslation } from '@core/i18n/index';
-import { Input, Sheet, Text } from '@ui/index';
+import { Input, Sheet, SheetActions, Text } from '@ui/index';
 
-import { SheetActions } from './SheetActions';
 import { useSheetDraft } from './use-sheet-draft';
 
 const TEST_ID = 'media-detail-library-notes-sheet';
@@ -58,6 +57,7 @@ export function NotesSheet({ visible, notes, onSave, onClose }: NotesSheetProps)
           confirmLabel={t('mediaDetail.library.save')}
           onConfirm={save}
           confirmDisabled={!valid}
+          cancelLabel={t('mediaDetail.library.cancel')}
           onCancel={onClose}
           testID={TEST_ID}
         />

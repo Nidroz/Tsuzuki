@@ -178,6 +178,17 @@ describe('LibraryScreen rows', () => {
     expect(screen.getByRole('header', { name: 'In progress (1)' })).toBeOnTheScreen();
   });
 
+  it('shows the adult entries while the setting is on (BR-06)', async () => {
+    await renderLibraryScreen({
+      repository: createFakeLibraryRepository([FRIEREN, ADULT]),
+      showAdult: true,
+    });
+    await settle();
+
+    expect(screen.getByText(ADULT.media.title)).toBeOnTheScreen();
+    expect(screen.queryByTestId('library-list-hidden-note')).not.toBeOnTheScreen();
+  });
+
   it('keeps the note without a reset when only adult entries are hidden', async () => {
     await renderLibraryScreen({ repository: createFakeLibraryRepository([ADULT]) });
     await settle();

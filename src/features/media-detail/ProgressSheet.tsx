@@ -2,9 +2,8 @@ import { isValidProgress, progressMaxOf } from '@core/domain/library-progress';
 import type { MediaKind } from '@core/domain/media';
 import { PROGRESS_LABEL_KEYS, useTranslation } from '@core/i18n/index';
 import { parseProgressInput } from '@core/schemas/progress-input';
-import { Input, Sheet } from '@ui/index';
+import { Input, Sheet, SheetActions } from '@ui/index';
 
-import { SheetActions } from './SheetActions';
 import { useSheetDraft } from './use-sheet-draft';
 
 const TEST_ID = 'media-detail-library-progress-sheet';
@@ -71,6 +70,7 @@ export function ProgressSheet({
           confirmLabel={t('mediaDetail.library.save')}
           onConfirm={save}
           confirmDisabled={!valid}
+          cancelLabel={t('mediaDetail.library.cancel')}
           onCancel={onClose}
           testID={TEST_ID}
         />

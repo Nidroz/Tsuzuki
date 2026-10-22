@@ -1,5 +1,4 @@
 import type { MediaSummary, SearchParams } from '@core/catalog/catalog-provider';
-import { DEFAULT_SHOW_ADULT } from '@core/domain/content-filter';
 import type { MediaKind } from '@core/domain/media';
 import {
   EMPTY_SEARCH_FILTERS,
@@ -14,6 +13,7 @@ import { useDebouncedValue } from '@core/hooks/use-debounced-value';
 import { useRecentSearches } from '@core/hooks/use-recent-searches';
 import { SEARCH_DEBOUNCE_MS, useSearch } from '@core/hooks/use-search';
 import { useTranslation } from '@core/i18n/index';
+import { usePreferences } from '@core/preferences/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
 import { MediaPageList } from '@features/media-list/MediaPageList';
 import { Input, Row, Screen, Stack, type ScreenEdge } from '@ui/index';
@@ -32,9 +32,6 @@ const DEFAULT_KIND: MediaKind = 'anime';
 const FIRST_PAGE = 1;
 const MEDIA_DETAIL_PATHNAME = '/media/[namespace]/[kind]/[id]';
 
-// TODO(L-06): read the adult content setting
-const SHOW_ADULT = DEFAULT_SHOW_ADULT;
-
 /** the page requested, with the search it belongs to (null while there is nothing to search) */
 interface RequestedPage {
   readonly search: string | null;
@@ -48,7 +45,10 @@ const INITIAL_REQUESTED_PAGE: RequestedPage = { search: null, page: FIRST_PAGE }
  * the recent searches while neither the field nor the filters hold anything to search, the results
  * and their pages otherwise. typing is debounced; a submitted or picked text is searched at once. a search is
  * recorded on submit and when a result is opened, never while typing, and only its text: a search
- * by filters alone is never recorded
+ * by filters alone is never recorded. the adult content setting never changes a request (BR-06): the
+ * applied filters are searched as they are, an adult genre included, and while the setting is off
+ * the adult results are hidden client-side, the hidden note explaining a short or empty page, so
+ * toggling it is instant and never searches again
  */
 export function SearchScreen() {
   const { t } = useTranslation();
@@ -62,6 +62,7 @@ export function SearchScreen() {
   const [filters, setFilters] = useState<SearchFilters>(EMPTY_SEARCH_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const debouncedText = useDebouncedValue(text, SEARCH_DEBOUNCE_MS);
+  const { showAdult } = usePreferences();
 
   const query = prepareSearchQuery(text === committedText ? text : debouncedText, maxLength);
   const filtering = hasActiveFilters(filters);
@@ -89,7 +90,7 @@ export function SearchScreen() {
   const {
     query: { data, error, isFetching, isPlaceholderData, refetch },
     isPlaceholderFromOtherList,
-  } = useSearch(params, { showAdult: SHOW_ADULT });
+  } = useSearch(params, { showAdult });
 
   // the query of the results on screen: while a new search loads, the previous results stay shown
   const shownQueryRef = useRef<string | null>(null);
@@ -191,7 +192,7 @@ export function SearchScreen() {
         visible={filtersOpen}
         kind={kind}
         filters={filters}
-        showAdult={SHOW_ADULT}
+        showAdult={showAdult}
         onApply={setFilters}
         onClose={closeFilters}
       />

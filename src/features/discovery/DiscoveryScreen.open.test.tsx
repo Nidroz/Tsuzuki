@@ -1,7 +1,10 @@
 import type { CatalogProvider, MediaSummary, Page } from '@core/catalog/catalog-provider';
 import { CatalogHttpError, CatalogNetworkError } from '@core/errors/catalog-errors';
+import { queryKeys } from '@core/query/keys';
+import { createQueryClient } from '@core/query/query-client';
+import { STALE_TIMES } from '@core/query/stale-times';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { screen, userEvent } from '@testing-library/react-native';
+import { screen, userEvent, within } from '@testing-library/react-native';
 import type { Href } from 'expo-router';
 
 import { adultItem, FRIEREN, pageOf } from '../search/__fixtures__/search-results';
@@ -88,6 +91,18 @@ describe('DiscoveryScreen rows and states', () => {
     );
   });
 
+  it('BR-06: shows the adult titles while the setting is on', async () => {
+    await renderDiscoveryScreen({
+      getTop: answers(pageOf(adultItem(1), FRIEREN)),
+      showAdult: true,
+    });
+    await advance(0);
+
+    expect(screen.getByTestId('discover-result-mal-anime-1')).toBeOnTheScreen();
+    expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+    expect(screen.queryByTestId('discover-hidden-note')).not.toBeOnTheScreen();
+  });
+
   it('shows the discovery empty state for an empty list', async () => {
     await renderDiscoveryScreen({ getTop: answers(pageOf()) });
     await advance(0);
@@ -125,5 +140,28 @@ describe('DiscoveryScreen rows and states', () => {
 
     expect(screen.getByText('Results could not be loaded')).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+  });
+
+  it('keeps showing a cached stale top page whose refetch fails, with the stale note', async () => {
+    const queryClient = createQueryClient();
+    const top = { kind: 'anime', page: 1 } as const;
+    // cached past the stale time of the top lists: the mount refetches it
+    queryClient.setQueryData(queryKeys.top('mal', top), pageOf(FRIEREN), {
+      updatedAt: Date.now() - STALE_TIMES.top - 1,
+    });
+    const { provider } = await renderDiscoveryScreen({
+      queryClient,
+      getTop: () => Promise.reject(new CatalogNetworkError()),
+    });
+    await advance(0);
+
+    expect(foregroundTops(provider)).toStrictEqual([top]);
+    expect(screen.getByTestId(FRIEREN_ROW)).toBeOnTheScreen();
+    const note = screen.getByTestId('discover-stale-note');
+    expect(
+      within(note).getByText('You are offline: this list could not be refreshed.'),
+    ).toBeOnTheScreen();
+    expect(within(note).getByRole('button', { name: 'Try again' })).toBeOnTheScreen();
+    expect(screen.queryByTestId('discover-error')).not.toBeOnTheScreen();
   });
 });

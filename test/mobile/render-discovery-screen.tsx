@@ -2,6 +2,7 @@
 // the tests mock expo-router's router themselves
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import type { Language } from '@core/i18n/index';
+import type { QueryClient } from '@tanstack/react-query';
 
 import { createStrictFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import { DiscoveryScreen } from '@features/discovery/DiscoveryScreen';
@@ -20,6 +21,10 @@ export interface DiscoveryScreenSetup {
   /** what the provider answers to each season request; every page by default */
   readonly getCurrentSeason?: CatalogProvider['getCurrentSeason'];
   readonly language?: Language;
+  /** the adult content setting (BR-06), off by default */
+  readonly showAdult?: boolean;
+  /** the query cache of the tree, to start from cached pages; a new one by default */
+  readonly queryClient?: QueryClient;
 }
 
 /** renders DiscoveryScreen and returns its fake provider, whose other methods reject */
@@ -27,9 +32,16 @@ export const renderDiscoveryScreen = async ({
   getTop = answersEveryTopPage,
   getCurrentSeason = answersEverySeasonPage,
   language = 'en',
+  showAdult = false,
+  queryClient,
 }: DiscoveryScreenSetup = {}) => {
   const provider = createStrictFakeCatalogProvider({ getTop, getCurrentSeason });
-  await renderWithProviders(<DiscoveryScreen />, { language, catalogProvider: provider });
+  await renderWithProviders(<DiscoveryScreen />, {
+    language,
+    catalogProvider: provider,
+    showAdult,
+    ...(queryClient === undefined ? {} : { queryClient }),
+  });
   return { provider };
 };
 

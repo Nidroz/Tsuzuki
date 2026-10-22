@@ -2,7 +2,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { screen, userEvent } from '@testing-library/react-native';
 
 import { classesOf } from '../../../test/mobile/class-names';
-import { renderWithProviders } from '../../../test/mobile/render-with-providers';
+import { renderWithTheme } from '../../../test/mobile/render-with-theme';
 import { SheetActions, type SheetActionsProps } from './SheetActions';
 
 const TEST_ID = 'some-sheet';
@@ -10,9 +10,10 @@ const TEST_ID = 'some-sheet';
 const renderActions = async (props: Partial<SheetActionsProps> = {}) => {
   const onConfirm = jest.fn();
   const onCancel = jest.fn();
-  await renderWithProviders(
+  await renderWithTheme(
     <SheetActions
       confirmLabel="Save"
+      cancelLabel="Cancel"
       onConfirm={onConfirm}
       onCancel={onCancel}
       testID={TEST_ID}
@@ -65,6 +66,12 @@ describe('SheetActions', () => {
     await user.press(button('Cancel'));
 
     expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the given cancel label', async () => {
+    await renderActions({ cancelLabel: 'Annuler' });
+
+    expect(button('Annuler')).toHaveProp('testID', `${TEST_ID}-cancel`);
   });
 
   it.each([

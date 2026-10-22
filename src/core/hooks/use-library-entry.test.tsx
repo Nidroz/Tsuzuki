@@ -9,6 +9,7 @@ import {
   renderLibraryEntry,
   UNSTORABLE_MEDIA,
 } from '../../../test/core/library-hooks-support';
+import { LibrarySnapshotError } from '../errors/library-errors';
 import { MISSING_LIBRARY_PROVIDER_MESSAGE } from './library-context';
 import { useLibraryEntry } from './use-library-entry';
 
@@ -63,8 +64,18 @@ describe('useLibraryEntry', () => {
     const { result } = renderLibraryEntry([ENTRY], UNSTORABLE_MEDIA);
 
     await waitFor(() => {
-      expect(result.current.entry.error).toBeInstanceOf(RangeError);
+      expect(result.current.entry.error).toBeInstanceOf(LibrarySnapshotError);
     });
+  });
+
+  it('fails the query the same way for such a media outside the library', async () => {
+    const { result, repository } = renderLibraryEntry([], UNSTORABLE_MEDIA);
+
+    await waitFor(() => {
+      expect(result.current.entry.error).toBeInstanceOf(LibrarySnapshotError);
+    });
+    expect(result.current.entry.data).toBeUndefined();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('throws outside LibraryContextProvider', () => {

@@ -1,7 +1,7 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
-import { DEFAULT_SHOW_ADULT } from '@core/domain/content-filter';
 import { SEARCHABLE_MANGA_FORMATS, type SearchableMangaFormat } from '@core/domain/media';
 import { FORMAT_KEYS, useTranslation, type TranslationKey } from '@core/i18n/index';
+import { usePreferences } from '@core/preferences/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
 import { ChoiceChips, type ChoiceChipOption } from '@features/media-list/ChoiceChips';
 import { Screen, Stack, type ScreenEdge } from '@ui/index';
@@ -32,9 +32,6 @@ type FormatChoice = SearchableMangaFormat | typeof ALL_FORMATS;
 const FIRST_PAGE = 1;
 const MEDIA_DETAIL_PATHNAME = '/media/[namespace]/[kind]/[id]';
 
-// TODO(L-06): read the adult content setting
-const SHOW_ADULT = DEFAULT_SHOW_ADULT;
-
 /** the page requested, with the list it belongs to */
 interface RequestedPage {
   readonly list: string;
@@ -49,6 +46,7 @@ interface RequestedPage {
 export function DiscoveryScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { showAdult } = usePreferences();
   const [section, setSection] = useState<DiscoverySection>(DEFAULT_SECTION);
   const [mangaFormat, setMangaFormat] = useState<SearchableMangaFormat | null>(null);
 
@@ -119,12 +117,12 @@ export function DiscoveryScreen() {
           />
         ) : null}
         {section === 'season' ? (
-          <SeasonSection showAdult={SHOW_ADULT} {...listProps} />
+          <SeasonSection showAdult={showAdult} {...listProps} />
         ) : (
           <TopMediaSection
             kind={section === 'topManga' ? 'manga' : 'anime'}
             format={section === 'topManga' ? mangaFormat : null}
-            showAdult={SHOW_ADULT}
+            showAdult={showAdult}
             {...listProps}
           />
         )}

@@ -181,6 +181,9 @@ export const keepLibraryLayout = (
   if (frozen === null) {
     return fresh;
   }
+  // a kept entry stays shown even when it no longer matches the filters, so BR-06 depends on the
+  // caller laying the list out again when `showAdult` or an option changes: the layout scope of
+  // useLibraryList (sameScope, src/core/hooks/use-library-list.ts) includes them
   const frozenIds = new Set(
     frozen.groups.flatMap((group) => group.entries.map((entry) => libraryEntryId(entry.key))),
   );

@@ -1,8 +1,8 @@
-import { DEFAULT_SHOW_ADULT } from '@core/domain/content-filter';
 import type { MediaKey } from '@core/domain/media';
 import { CatalogNetworkError, isCatalogNotFoundError } from '@core/errors/catalog-errors';
 import { useMediaDetail } from '@core/hooks/use-media-detail';
 import { useTranslation } from '@core/i18n/index';
+import { usePreferences } from '@core/preferences/index';
 import { EmptyState, ErrorState, Screen, Spinner, Stack, type ScreenEdge } from '@ui/index';
 import { useRouter } from 'expo-router';
 import { useCallback } from 'react';
@@ -16,11 +16,11 @@ export const MEDIA_DETAIL_EDGES: readonly ScreenEdge[] = ['bottom', 'left', 'rig
 /** the path of the discover tab, the way out of a link that leads nowhere */
 export const DISCOVER_PATH = '/';
 
+/** the path of the settings tab, where a hidden adult title can be shown (FR-32) */
+export const SETTINGS_PATH = '/settings';
+
 // every state of a valid link: end-to-end flows and route tests wait on it
 const SCREEN_TEST_ID = 'media-detail-screen';
-
-// TODO(L-06): read the adult content setting
-const SHOW_ADULT = DEFAULT_SHOW_ADULT;
 
 export interface MediaDetailViewProps {
   /** the parsed key of the media of the route */
@@ -32,15 +32,15 @@ export interface MediaDetailViewProps {
  * error (not found, offline or generic), replaced by the spinner while its retry runs, a spinner on
  * the first load. once data is cached, it is
  * shown even when a refetch fails, so a viewed title stays readable offline: hidden when it is
- * adult content and the setting is off (BR-06), nothing of it shown, otherwise its details (FR-06)
+ * adult content and the setting is off (BR-06), nothing of it shown but a way to the settings
+ * (FR-32), otherwise its details (FR-06)
  * with its library section (FR-10 to FR-13). the library is read only for a visible title
  */
 export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { data, error, isFetching, refetch } = useMediaDetail(mediaKey, {
-    showAdult: SHOW_ADULT,
-  });
+  const { showAdult } = usePreferences();
+  const { data, error, isFetching, refetch } = useMediaDetail(mediaKey, { showAdult });
 
   const retry = useCallback(() => {
     void refetch();
@@ -48,6 +48,12 @@ export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   // navigation only: leaving a missing title writes nothing
   const goToDiscover = useCallback(() => {
     router.dismissTo(DISCOVER_PATH);
+  }, [router]);
+  // navigation only: the setting changes on the settings tab, after its confirmation. dismissed to
+  // the tabs below, which select the settings tab, rather than navigated: a navigate pushes a
+  // second tabs navigator above the hidden title
+  const openSettings = useCallback(() => {
+    router.dismissTo(SETTINGS_PATH);
   }, [router]);
 
   if (data === undefined) {
@@ -83,6 +89,7 @@ export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
         <EmptyState
           title={t('mediaDetail.hidden.title')}
           message={t('mediaDetail.hidden.message')}
+          action={{ label: t('mediaDetail.hidden.action'), onPress: openSettings }}
           testID="media-detail-hidden"
         />
       </Screen>

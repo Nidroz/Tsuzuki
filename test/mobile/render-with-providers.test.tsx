@@ -2,6 +2,7 @@ import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { useCatalogProvider } from '@core/hooks/use-catalog-provider';
 import { useRecentSearches } from '@core/hooks/use-recent-searches';
 import { type Language, useTranslation } from '@core/i18n/index';
+import { usePreferences } from '@core/preferences/index';
 import { createQueryClient } from '@core/query/query-client';
 import { describe, expect, it } from '@jest/globals';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
@@ -17,7 +18,12 @@ import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 import { takeUnexpectedConsoleMessages } from '../core/fail-on-console';
-import { missingKeyMessage, providersFor, renderWithProviders } from './render-with-providers';
+import {
+  missingKeyMessage,
+  providersFor,
+  renderWithProviders,
+  TestPreferences,
+} from './render-with-providers';
 
 const MISSING_KEY = 'missing.key';
 const SPINNER_LABEL = 'loading';
@@ -49,6 +55,13 @@ const probeOf = (seen: Seen) =>
   };
 
 const nothingSeen = (): Seen => ({ provider: null, queryClient: null });
+
+const SHOW_ADULT_TEST_ID = 'show-adult';
+
+function ShowAdultProbe() {
+  const { showAdult } = usePreferences();
+  return <Text testID={SHOW_ADULT_TEST_ID}>{String(showAdult)}</Text>;
+}
 
 describe('renderWithProviders', () => {
   it('translates with the real english catalog by default', async () => {
@@ -121,6 +134,34 @@ describe('renderWithProviders', () => {
     await renderWithProviders(<Probe />);
 
     expect(screen.getByTestId(SEARCHES_TEST_ID)).toHaveTextContent('');
+  });
+
+  it.each<[string, { showAdult?: boolean }, string]>([
+    ['off by default', {}, 'false'],
+    ['as passed', { showAdult: true }, 'true'],
+  ])('gives fixed preferences, adult content %s (BR-06)', async (_case, options, shown) => {
+    await renderWithProviders(<ShowAdultProbe />, options);
+
+    expect(screen.getByTestId(SHOW_ADULT_TEST_ID)).toHaveTextContent(shown);
+  });
+
+  it('lets a nested TestPreferences override the adult content setting', async () => {
+    const { rerender } = await renderWithProviders(
+      <TestPreferences showAdult={false}>
+        <ShowAdultProbe />
+      </TestPreferences>,
+      { showAdult: true },
+    );
+
+    expect(screen.getByTestId(SHOW_ADULT_TEST_ID)).toHaveTextContent('false');
+
+    await rerender(
+      <TestPreferences showAdult>
+        <ShowAdultProbe />
+      </TestPreferences>,
+    );
+
+    expect(screen.getByTestId(SHOW_ADULT_TEST_ID)).toHaveTextContent('true');
   });
 
   it('gives each render a new query client and catalog provider', async () => {

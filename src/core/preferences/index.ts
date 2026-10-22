@@ -10,7 +10,9 @@ export {
   LANGUAGE_PREFERENCE_KEY,
   loadPreferences,
   saveLanguagePreference,
+  saveShowAdultPreference,
   saveThemePreference,
+  SHOW_ADULT_PREFERENCE_KEY,
   THEME_PREFERENCE_KEY,
 } from './preferences-storage';
 export type { StoredPreferences } from './preferences-storage';

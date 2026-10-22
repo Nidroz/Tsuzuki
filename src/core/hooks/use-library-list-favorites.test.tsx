@@ -17,6 +17,10 @@ import { useLibraryList } from './use-library-list';
 
 // fR-15, BR-06: the favorites view of useLibraryList (favoritesOnly)
 
+// a cover on a cdn host of the fake provider (FAKE_IMAGE_HOSTS); the cover of SNAPSHOT is on a
+// host it does not serve
+const ALLOWED_COVER = 'https://images.fake.test/images/3.jpg';
+
 const ALPHA = entryWithMedia(
   { title: 'Alpha' },
   { key: keyOf('anime', 1), isFavorite: true, updatedAt: '2025-12-03T10:00:00.000Z' },
@@ -26,7 +30,7 @@ const BETA = entryWithMedia(
   { key: keyOf('anime', 2), updatedAt: '2025-12-02T10:00:00.000Z' },
 );
 const GAMMA = entryWithMedia(
-  { title: 'Gamma' },
+  { title: 'Gamma', imageUrl: ALLOWED_COVER },
   {
     key: keyOf('manga', 3),
     status: 'planned',
@@ -108,6 +112,22 @@ describe('useLibraryList: favorites only (FR-15)', () => {
 
     expect(titlesOf(rendered)).toStrictEqual(['Alpha', 'Gamma']);
     expect(view).toMatchObject({ visibleCount: 2, hiddenCount: 1, totalCount: 3 });
+  });
+
+  it('lists a favorite whose cover is on an unknown host with a null image url', async () => {
+    const rendered = render(ALPHA.key, { showAdult: true, layoutKey: 0 });
+    await loaded(rendered);
+
+    // covers are checked again against the provider hosts, whatever was stored
+    expect(ALPHA.media.imageUrl).not.toBeNull();
+    expect(
+      shownEntries(rendered).map((entry) => [entry.media.title, entry.media.imageUrl]),
+    ).toStrictEqual([
+      ['Alpha', null],
+      ['Adult favorite', null],
+      ['Gamma', ALLOWED_COVER],
+    ]);
+    expect(rendered.repository.stored(ALPHA.key)?.media.imageUrl).toBe(ALPHA.media.imageUrl);
   });
 
   it('keeps an unfavorited entry, with its new value, until the list is laid out again', async () => {

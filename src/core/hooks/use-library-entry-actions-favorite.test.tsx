@@ -110,13 +110,18 @@ describe('useLibraryEntryActions: toggleFavorite (FR-15)', () => {
   });
 
   it('fails the toggle of a media outside the library that no snapshot can hold (BR-05)', async () => {
-    const { result, repository } = await renderLoaded([], UNSTORABLE_MEDIA);
+    // the entry read already fails for it (useLibraryEntry), so the screen offers no toggle: the
+    // action still refuses to write
+    const { result, repository } = renderLibraryEntry([], UNSTORABLE_MEDIA);
+    await waitFor(() => {
+      expect(result.current.entry.error).toBeInstanceOf(LibrarySnapshotError);
+    });
 
     await settleAction(result.current.actions.toggleFavorite);
 
     expect(result.current.actions.error).toBeInstanceOf(LibrarySnapshotError);
     expect(repository.save).not.toHaveBeenCalled();
-    expect(result.current.entry.data).toBeNull();
+    expect(result.current.entry.data).toBeUndefined();
   });
 
   it('writes the catalog snapshot with the toggle, in the same write', async () => {

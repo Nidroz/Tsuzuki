@@ -1,6 +1,5 @@
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
-import type { Language, LanguagePreference } from '@core/i18n/index';
-import { PreferencesProvider, type ThemePreference } from '@core/preferences/index';
+import type { Language } from '@core/i18n/index';
 import { describe, expect, it } from '@jest/globals';
 import { userEvent, within } from '@testing-library/react-native';
 import { screen } from 'expo-router/testing-library';
@@ -40,26 +39,16 @@ const nameStartingWith = (label: string) => new RegExp(`^${label}(?:,|$)`);
 
 const tabButton = (id: TabId) => screen.getByTestId(`tab-${id}`);
 
-// the settings tab reads the preferences and the library tab the library: fixed here, the root
-// layout owns them (settings.test.tsx, root-layout-library.test.tsx)
-const ignoreTheme: (theme: ThemePreference) => void = () => undefined;
-const ignoreLanguage: (language: LanguagePreference) => void = () => undefined;
-
-const withPreferences = (language: Language): ComponentType<{ readonly children: ReactNode }> => {
+// the library tab reads the library: fixed here, the root layout owns it
+// (root-layout-library.test.tsx); providersFor gives the fixed preferences the settings tab reads
+const withLibrary = (language: Language): ComponentType<{ readonly children: ReactNode }> => {
   const Providers = providersFor({ language });
   const libraryRepository = createFakeLibraryRepository();
-  return function PreferencesAndProviders({ children }) {
+  return function LibraryProviders({ children }) {
     return (
-      <PreferencesProvider
-        theme="system"
-        language={language}
-        onThemeChange={ignoreTheme}
-        onLanguageChange={ignoreLanguage}
-      >
-        <Providers>
-          <LibraryContextProvider repository={libraryRepository}>{children}</LibraryContextProvider>
-        </Providers>
-      </PreferencesProvider>
+      <Providers>
+        <LibraryContextProvider repository={libraryRepository}>{children}</LibraryContextProvider>
+      </Providers>
     );
   };
 };
@@ -67,7 +56,7 @@ const withPreferences = (language: Language): ComponentType<{ readonly children:
 // a new wrapper per render, so each test gets its own query client, catalog provider, recent
 // searches and library; a rerender keeps them
 const renderTabs = (language: Language = 'en') =>
-  renderRouterAsync(ROUTES, { wrapper: withPreferences(language) });
+  renderRouterAsync(ROUTES, { wrapper: withLibrary(language) });
 
 describe('tabs layout', () => {
   it.each<Language>(['en', 'fr'])(

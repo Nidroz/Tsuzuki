@@ -1,7 +1,5 @@
 import { useTranslation } from '@core/i18n/index';
-import { Sheet, Text } from '@ui/index';
-
-import { SheetActions } from './SheetActions';
+import { Sheet, SheetActions, Text } from '@ui/index';
 
 const TEST_ID = 'media-detail-library-remove-sheet';
 
@@ -33,6 +31,7 @@ export function RemoveSheet({ visible, onConfirm, onClose }: RemoveSheetProps) {
           confirmLabel={t('mediaDetail.library.remove.confirm')}
           confirmVariant="danger"
           onConfirm={confirm}
+          cancelLabel={t('mediaDetail.library.cancel')}
           onCancel={onClose}
           testID={TEST_ID}
         />

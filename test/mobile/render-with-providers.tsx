@@ -1,7 +1,17 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
-import { I18nProvider, type Language, type MissingKeyHandler } from '@core/i18n/index';
+import {
+  I18nProvider,
+  type Language,
+  type LanguagePreference,
+  type MissingKeyHandler,
+} from '@core/i18n/index';
+import {
+  DEFAULT_THEME_PREFERENCE,
+  PreferencesProvider,
+  type ThemePreference,
+} from '@core/preferences/index';
 import { createQueryClient } from '@core/query/query-client';
 import type { RecentSearchesRepository } from '@core/repositories/recent-searches-repository';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
@@ -26,10 +36,13 @@ export interface ProvidersOptions {
   readonly recentSearchesRepository?: RecentSearchesRepository;
   /** the query cache of the tree; by default a new createQueryClient(), not persisted */
   readonly queryClient?: QueryClient;
+  /** the adult content setting of the tree (BR-06), off by default as in the app */
+  readonly showAdult?: boolean;
 }
 
 interface AppProvidersProps extends WrapperProps {
   readonly language: Language;
+  readonly showAdult: boolean;
   readonly catalogProvider: CatalogProvider;
   readonly recentSearchesRepository: RecentSearchesRepository;
   readonly queryClient: QueryClient;
@@ -46,14 +59,48 @@ const failOnMissingKey: MissingKeyHandler = (language, key) => {
   console.error(missingKeyMessage(language, key));
 };
 
+// fixed preferences: the composition root owns the changes (test/app/settings.test.tsx). module
+// level, so the context value keeps its identity across renders
+const ignoreTheme: (theme: ThemePreference) => void = () => undefined;
+const ignoreLanguage: (language: LanguagePreference) => void = () => undefined;
+const ignoreShowAdult: (showAdult: boolean) => void = () => undefined;
+
+export interface TestPreferencesProps extends WrapperProps {
+  /** the adult content setting (BR-06) */
+  readonly showAdult: boolean;
+  /** the language setting the settings screen shows, english by default */
+  readonly language?: LanguagePreference;
+}
+
+/**
+ * fixed preferences, the theme setting at its default: AppProviders gives one to every tree; a
+ * test that changes the adult content setting wraps its component in one and rerenders it with
+ * another `showAdult` (the nearest provider wins)
+ */
+export function TestPreferences({ showAdult, language = 'en', children }: TestPreferencesProps) {
+  return (
+    <PreferencesProvider
+      theme={DEFAULT_THEME_PREFERENCE}
+      language={language}
+      onThemeChange={ignoreTheme}
+      onLanguageChange={ignoreLanguage}
+      showAdult={showAdult}
+      onShowAdultChange={ignoreShowAdult}
+    >
+      {children}
+    </PreferencesProvider>
+  );
+}
+
 /**
  * the providers the composition root (app/_layout.tsx) gives every route and feature, in its
- * order: the query cache (not persisted here), the catalog provider, the recent searches, the real
- * catalogs in `language` with a missing key failing the test, and the light palette for
- * predictable colors
+ * order: the query cache (not persisted here), the catalog provider, the recent searches, fixed
+ * preferences with `showAdult`, the real catalogs in `language` with a missing key failing the
+ * test, and the light palette for predictable colors
  */
 export function AppProviders({
   language,
+  showAdult,
   catalogProvider,
   recentSearchesRepository,
   queryClient,
@@ -63,9 +110,11 @@ export function AppProviders({
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={catalogProvider}>
         <RecentSearchesContextProvider repository={recentSearchesRepository}>
-          <I18nProvider language={language} onMissingKey={failOnMissingKey}>
-            <ThemeProvider preference="light">{children}</ThemeProvider>
-          </I18nProvider>
+          <TestPreferences showAdult={showAdult} language={language}>
+            <I18nProvider language={language} onMissingKey={failOnMissingKey}>
+              <ThemeProvider preference="light">{children}</ThemeProvider>
+            </I18nProvider>
+          </TestPreferences>
         </RecentSearchesContextProvider>
       </CatalogContextProvider>
     </QueryClientProvider>
@@ -82,11 +131,13 @@ export const providersFor = ({
   catalogProvider = createStrictFakeCatalogProvider(),
   recentSearchesRepository = createFakeRecentSearchesRepository(),
   queryClient = createQueryClient(),
+  showAdult = false,
 }: ProvidersOptions = {}): ComponentType<WrapperProps> =>
   function Providers({ children }: WrapperProps) {
     return (
       <AppProviders
         language={language}
+        showAdult={showAdult}
         catalogProvider={catalogProvider}
         recentSearchesRepository={recentSearchesRepository}
         queryClient={queryClient}
