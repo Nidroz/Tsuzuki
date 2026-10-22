@@ -61,8 +61,9 @@ describe('EmailConfirmedScreen', () => {
     expect(mockDismissTo).toHaveBeenCalledWith('/settings');
   });
 
-  it('offers sign in when the code cannot be used on this device', async () => {
-    await renderScreen(LINK_PARAMS, {
+  it('offers sign in when the exchange fails, and never exchanges the code again', async () => {
+    const repository = await renderScreen(LINK_PARAMS, {
+      // every failed exchange, a lost connection included, rejects link-invalid: it is final
       completeEmailLink: () => Promise.reject(new AuthError('link-invalid')),
     });
 
@@ -73,28 +74,23 @@ describe('EmailConfirmedScreen', () => {
       { exact: false },
     );
     expect(screen.getByRole('header', { name: 'Your email is confirmed' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeOnTheScreen();
 
     await userEvent.setup().press(screen.getByRole('button', { name: 'Sign in' }));
 
     expect(mockDismissTo).toHaveBeenCalledWith('/auth/sign-in');
+    expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
   });
 
-  it('shows another failure and lets the user try again', async () => {
-    const repository = await renderScreen(LINK_PARAMS, {
-      completeEmailLink: () => Promise.reject(new AuthError('network')),
+  it('offers sign in after a failure of any kind, without a retry of the exchange', async () => {
+    await renderScreen(LINK_PARAMS, {
+      completeEmailLink: () => Promise.reject(new Error('unexpected')),
     });
 
     await pressContinue();
 
-    expect(await screen.findByTestId('auth-callback-error')).toHaveTextContent(
-      'The server could not be reached. Check your connection, then try again.',
-    );
-
-    repository.completeEmailLink.mockResolvedValueOnce(SESSION);
-    await pressContinue();
-
-    expect(repository.completeEmailLink).toHaveBeenCalledTimes(2);
-    expect(mockDismissTo).toHaveBeenCalledWith('/settings');
+    expect(await screen.findByTestId('auth-callback-sign-in-required')).toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Continue' })).not.toBeOnTheScreen();
   });
 
   it.each([

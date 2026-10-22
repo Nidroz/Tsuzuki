@@ -115,13 +115,19 @@ export const createSupabaseAuthRepository = (
         );
       }),
 
-    completeEmailLink: ({ code, flowId }) =>
-      run('complete-email-link', async () => {
+    completeEmailLink: async ({ code, flowId }) => {
+      try {
         // the flow id selects this link's verifier; a missing one rejects before any request
         const result = await auth.exchangeCodeForSession(code, { flowId });
         throwIfFailed(result);
         return signedIn(result.data.session);
-      }),
+      } catch (error) {
+        // supabase-js removes the verifier on every failed exchange, a lost connection or a server
+        // error included: the link can never be tried again. an unknown cause is still reported
+        fail('complete-email-link', error);
+        throw new AuthError('link-invalid');
+      }
+    },
 
     updatePassword: (newPassword) =>
       run('update-password', async () => {
@@ -144,7 +150,8 @@ export const createSupabaseAuthRepository = (
       }),
 
     onAuthStateChange: (listener) => {
-      // synchronous: supabase-js deadlocks when its callback awaits another auth call
+      // synchronous: the callback only maps and forwards the session; async work belongs to the
+      // hooks that listen
       const {
         data: { subscription },
       } = auth.onAuthStateChange((_event, session) => {

@@ -40,26 +40,22 @@ describe('useCompletePasswordReset', () => {
     expect(repository.updatePassword).toHaveBeenCalledWith(PASSWORD);
   });
 
-  it('sets nothing when the exchange fails, and exchanges again on a retry', async () => {
+  it('sets nothing when the exchange fails, and rejects with its final link-invalid', async () => {
+    // every failed exchange, a lost connection included, rejects link-invalid: the link is spent
     const repository = createSessionAuthRepository(null, {
-      completeEmailLink: () => Promise.reject(new AuthError('network')),
+      completeEmailLink: () => Promise.reject(new AuthError('link-invalid')),
       updatePassword: () => Promise.resolve(),
     });
     const { result } = renderReset(repository);
 
     await act(async () => {
-      await expect(result.current.mutateAsync({ link: LINK, password: PASSWORD })).rejects.toThrow(
-        AuthError,
-      );
+      await expect(
+        result.current.mutateAsync({ link: LINK, password: PASSWORD }),
+      ).rejects.toMatchObject({ reason: 'link-invalid' });
     });
 
+    expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
     expect(repository.updatePassword).not.toHaveBeenCalled();
-
-    repository.completeEmailLink.mockResolvedValueOnce(SESSION);
-    await act(() => result.current.mutateAsync({ link: LINK, password: PASSWORD }));
-
-    expect(repository.completeEmailLink).toHaveBeenCalledTimes(2);
-    expect(repository.updatePassword).toHaveBeenCalledTimes(1);
   });
 
   it('retries only the password update once the code was exchanged', async () => {

@@ -63,7 +63,8 @@ export interface AuthRepository {
   /**
    * exchanges the code of a confirmation or recovery link for a session (pkce). called only on a
    * user action, never when the link opens (ADR-0014). a code that is expired, already used, or
-   * has no verifier on this device rejects with `link-invalid`.
+   * has no verifier on this device rejects with `link-invalid`; so does every other failure (a
+   * lost connection, a server error), since a failed exchange consumes the verifier.
    */
   completeEmailLink(link: EmailLinkCode): Promise<AuthSession>;
 
@@ -79,8 +80,9 @@ export interface AuthRepository {
 
   /**
    * subscribes to the session: the listener is called with the current session right after
-   * subscribing (asynchronously), then on every change. a listener must not await a repository
-   * call. returns the unsubscribe function.
+   * subscribing (asynchronously), then on every change. the listener is called synchronously and
+   * its result is not awaited: it sets state, async work belongs to the hooks. returns the
+   * unsubscribe function.
    */
   onAuthStateChange(listener: AuthSessionListener): () => void;
 

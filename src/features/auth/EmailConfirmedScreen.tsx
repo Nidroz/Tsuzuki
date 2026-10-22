@@ -2,10 +2,9 @@ import { useCompleteEmailLink } from '@core/hooks/use-auth-mutations';
 import { useTranslation } from '@core/i18n/index';
 import type { EmailLinkCode } from '@core/repositories/auth-repository';
 import { parseAuthLinkParams } from '@core/schemas/auth-link-params';
-import { Button, ErrorState, InlineError, Screen } from '@ui/index';
+import { Button, ErrorState, Screen } from '@ui/index';
 import { useRouter } from 'expo-router';
 
-import { authErrorKey, authErrorReason } from './auth-error-keys';
 import { AUTH_PATHS, SETTINGS_PATH } from './auth-routes';
 import { AUTH_EDGES, AuthMessage, AuthScreen } from './AuthScreen';
 
@@ -27,9 +26,10 @@ function ConfirmedLink({ link, onSignIn }: LinkProps) {
   const router = useRouter();
   const complete = useCompleteEmailLink();
 
-  // a code without this device's verifier (another device, a reinstall, a newer request, a link
-  // from someone else): the email is confirmed anyway, the user signs in instead
-  if (complete.isError && authErrorReason(complete.error) === 'link-invalid') {
+  // a failed exchange is final (`link-invalid`): the code has no verifier on this device (another
+  // device, a reinstall, a newer request, a link from someone else), or the failed attempt, a lost
+  // connection included, consumed it. the email is confirmed anyway: the user signs in instead
+  if (complete.isError) {
     return (
       <AuthScreen testID={`${TEST_ID}-screen`}>
         <AuthMessage
@@ -61,9 +61,6 @@ function ConfirmedLink({ link, onSignIn }: LinkProps) {
         message={t('auth.emailConfirmed.confirmed.message')}
         testID={`${TEST_ID}-confirmed`}
       />
-      {complete.isError ? (
-        <InlineError message={t(authErrorKey(complete.error))} testID={`${TEST_ID}-error`} />
-      ) : null}
       <Button
         label={t('auth.emailConfirmed.continue')}
         onPress={continueToApp}
