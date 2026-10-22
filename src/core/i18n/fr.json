@@ -227,6 +227,16 @@
     }
   },
   "settings": {
+    "account": {
+      "title": "Compte",
+      "loading": "Chargement de votre compte",
+      "signedOut": "Aucun compte connecté. Votre bibliothèque reste sur cet appareil.",
+      "signIn": "Se connecter",
+      "signUp": "Créer un compte",
+      "signedIn": "Compte connecté.",
+      "signOut": "Se déconnecter",
+      "signingOut": "Déconnexion en cours"
+    },
     "theme": {
       "title": "Thème",
       "options": {
@@ -389,6 +399,120 @@
         "confirm": "Retirer",
         "close": "Fermer sans retirer"
       }
+    }
+  },
+  "auth": {
+    "fields": {
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "passwordConfirmation": "Confirmer le mot de passe",
+      "newPassword": "Nouveau mot de passe",
+      "newPasswordConfirmation": "Confirmer le nouveau mot de passe"
+    },
+    "form": {
+      "email": {
+        "required": "Saisissez votre adresse e-mail.",
+        "invalid": "Saisissez une adresse e-mail valide.",
+        "tooLong": "Une adresse e-mail compte au plus {{max}} caractères."
+      },
+      "password": {
+        "required": "Saisissez votre mot de passe.",
+        "invalid": "Saisissez un mot de passe valide.",
+        "tooShort": "Utilisez au moins {{min}} caractères.",
+        "tooLong": "Ce mot de passe est trop long : {{max}} caractères au plus, moins avec des accents ou des émojis.",
+        "missingLetter": "Ajoutez au moins une lettre (de A à Z).",
+        "missingDigit": "Ajoutez au moins un chiffre (de 0 à 9)."
+      },
+      "passwordConfirmation": {
+        "required": "Saisissez à nouveau le mot de passe.",
+        "invalid": "Saisissez à nouveau le mot de passe.",
+        "mismatch": "Les deux mots de passe ne correspondent pas."
+      },
+      "passwordPolicy": "Au moins {{min}} caractères, dont une lettre et un chiffre."
+    },
+    "errors": {
+      "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "invalidEmail": "Cette adresse e-mail n'est pas acceptée. Vérifiez-la ou utilisez-en une autre.",
+      "emailNotConfirmed": "Votre adresse e-mail n'est pas encore confirmée. Ouvrez le lien que nous vous avons envoyé, ou demandez-en un nouveau.",
+      "weakPassword": "Ce mot de passe n'est pas accepté. Choisissez-en un autre.",
+      "samePassword": "Votre nouveau mot de passe doit être différent de l'actuel.",
+      "rateLimited": "Trop de tentatives. Patientez un instant, puis réessayez.",
+      "captchaFailed": "La vérification de sécurité a échoué. Réessayez.",
+      "linkInvalid": "Ce lien n'est pas valide, a expiré ou a déjà été utilisé.",
+      "network": "Le serveur est injoignable. Vérifiez votre connexion, puis réessayez.",
+      "unknown": "Une erreur est survenue. Réessayez dans un instant."
+    },
+    "signIn": {
+      "title": "Connexion",
+      "submit": "Se connecter",
+      "submitting": "Connexion en cours",
+      "forgotPassword": "Mot de passe oublié ?",
+      "createAccount": "Créer un compte",
+      "resend": "Renvoyer l'e-mail de confirmation",
+      "resending": "Envoi de l'e-mail",
+      "resent": "Nous avons envoyé un nouvel e-mail de confirmation. Ouvrez son lien sur cet appareil."
+    },
+    "signUp": {
+      "title": "Créer un compte",
+      "submit": "Créer le compte",
+      "submitting": "Création du compte",
+      "signIn": "J'ai déjà un compte",
+      "sent": {
+        "title": "Consultez vos e-mails",
+        "message": "Nous avons envoyé un lien de confirmation à {{email}}. Ouvrez-le sur cet appareil pour confirmer votre adresse, puis connectez-vous.",
+        "resend": "Renvoyer l'e-mail",
+        "resending": "Envoi de l'e-mail",
+        "resent": "Nous avons renvoyé l'e-mail.",
+        "signIn": "Aller à la connexion"
+      }
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié",
+      "intro": "Saisissez l'adresse e-mail de votre compte : nous vous enverrons un lien pour choisir un nouveau mot de passe.",
+      "submit": "Envoyer le lien",
+      "submitting": "Envoi du lien",
+      "sent": {
+        "title": "Consultez vos e-mails",
+        "message": "Si un compte existe pour {{email}}, nous avons envoyé un lien à cette adresse pour choisir un nouveau mot de passe. Ouvrez-le sur cet appareil.",
+        "signIn": "Retour à la connexion"
+      }
+    },
+    "emailConfirmed": {
+      "title": "Confirmation de l'e-mail",
+      "confirmed": {
+        "title": "Adresse e-mail confirmée",
+        "message": "Votre adresse e-mail est confirmée. Continuez pour vous connecter sur cet appareil."
+      },
+      "continue": "Continuer",
+      "continuing": "Connexion en cours",
+      "signInRequired": {
+        "title": "Votre adresse e-mail est confirmée",
+        "message": "Connectez-vous pour continuer."
+      },
+      "expired": {
+        "title": "Ce lien a expiré",
+        "message": "Connectez-vous : si votre adresse e-mail n'est pas encore confirmée, vous pourrez y demander un nouveau lien."
+      },
+      "invalid": {
+        "title": "Ce lien n'est pas valide",
+        "message": "Ouvrez le dernier lien que nous vous avons envoyé, ou connectez-vous."
+      },
+      "signIn": "Se connecter"
+    },
+    "resetPassword": {
+      "title": "Nouveau mot de passe",
+      "intro": "Choisissez un nouveau mot de passe pour votre compte.",
+      "submit": "Enregistrer le mot de passe",
+      "submitting": "Enregistrement du mot de passe",
+      "expired": {
+        "title": "Ce lien a expiré",
+        "message": "Demandez un nouveau lien pour choisir un nouveau mot de passe."
+      },
+      "invalid": {
+        "title": "Ce lien n'est pas valide",
+        "message": "Ce lien ne peut plus être utilisé. Demandez un nouveau lien."
+      },
+      "requestLink": "Demander un nouveau lien"
     }
   },
   "notFound": {

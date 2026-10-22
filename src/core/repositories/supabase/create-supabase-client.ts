@@ -24,5 +24,8 @@ export const createSupabaseClient = ({
       // mobile: the app parses its own deep links and validates them with zod
       detectSessionInUrl: false,
       flowType: 'pkce',
+      // each email link carries its flow id (sb_flow_id), which selects its own verifier
+      // (ADR-0014); the redirect allow list accepts the extra param (supabase/config.toml)
+      experimental: { appendPkceFlowIdToRedirects: true },
     },
   });

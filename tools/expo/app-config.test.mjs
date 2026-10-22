@@ -1,7 +1,8 @@
 // tests of app.config.ts as the expo cli loads it (ADR-0012): the app id and name per variant, the
-// validated env in extra.env, and the build failing on an invalid env. each case loads the config
-// with expo's own loader in a child node process with its own environment: the config reads
-// process.env once, at load, and the resolve hook it registers never leaks into the test runner
+// shared url scheme, the validated env in extra.env, and the build failing on an invalid env. each
+// case loads the config with expo's own loader in a child node process with its own environment:
+// the config reads process.env once, at load, and the resolve hook it registers never leaks into
+// the test runner
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
@@ -12,6 +13,8 @@ import { describe, it } from 'node:test';
 const ROOT = path.resolve(import.meta.dirname, '..', '..');
 const SUCCESS_EXIT_CODE = 0;
 const APP_ID = 'io.github.nidroz.tsuzuki';
+// the APP_SCHEME of src/core/schemas/app-links.ts
+const APP_SCHEME = 'tsuzuki';
 
 // placeholder values that pass the app env schema: none of them is a real project or key
 const VALID_ENV = {
@@ -40,6 +43,7 @@ const LOAD_CONFIG = `
     const { exp } = getConfig(process.cwd(), { skipSDKVersionRequirement: true });
     process.stdout.write(JSON.stringify({
       name: exp.name,
+      scheme: exp.scheme,
       ios: exp.ios?.bundleIdentifier,
       android: exp.android?.package,
       extra: exp.extra,
@@ -75,6 +79,8 @@ describe('app.config.ts', () => {
       assert.equal(config.name, name);
       assert.equal(config.ios, `${APP_ID}${idSuffix}`);
       assert.equal(config.android, `${APP_ID}${idSuffix}`);
+      // every variant opens the same app links, auth email links included (ADR-0014)
+      assert.equal(config.scheme, APP_SCHEME);
       assert.deepEqual(config.extra.env, {
         variant,
         supabaseUrl: VALID_ENV.EXPO_PUBLIC_SUPABASE_URL,

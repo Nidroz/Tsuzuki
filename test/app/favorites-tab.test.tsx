@@ -14,11 +14,24 @@ import { settle } from '../mobile/render-library-screen';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
 // fR-15: the favorites tab through the real root layout and tab navigator, over the guest library
 // the layout creates: only the favorites are listed, and a row unfavorited there stays until the
 // tab gains focus again (the real useFocusEffect), then the empty state shows. the entry itself is
 // kept in the library
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // the real factory, its calls recorded: the test seeds the repository the layout created
 jest.mock('@core/repositories/local/library-repository', () => {

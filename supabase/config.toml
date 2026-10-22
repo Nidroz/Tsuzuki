@@ -154,7 +154,12 @@ site_url = "tsuzuki://"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["tsuzuki://auth/callback"]
+# every email link carries its pkce flow id (sb_flow_id, ADR-0014): an entry without it does not
+# match, and auth then redirects to site_url, losing the code
+additional_redirect_urls = [
+  "tsuzuki://auth/callback?sb_flow_id=*",
+  "tsuzuki://auth/reset-password?sb_flow_id=*",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.
@@ -205,10 +210,12 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
+# disabled until a provider is wired in the app (A-08); switching it on makes every protected call
+# fail for a binary that sends no token (docs/ARCHITECTURE.md §10)
 # [auth.captcha]
 # enabled = true
 # provider = "hcaptcha"
-# secret = ""
+# secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
 
 [auth.email]
 # Allow/disallow new user signups via email to your project.
