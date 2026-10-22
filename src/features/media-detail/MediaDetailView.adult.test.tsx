@@ -14,10 +14,10 @@ import { MediaDetailView, SETTINGS_PATH } from './MediaDetailView';
 
 // the whole router: the hidden state may only navigate to the settings tab
 const mockRouter = {
-  dismissTo: jest.fn(),
+  dismissTo: jest.fn<(href: string) => void>(),
   push: jest.fn(),
   replace: jest.fn(),
-  navigate: jest.fn<(href: string) => void>(),
+  navigate: jest.fn(),
   back: jest.fn(),
 };
 
@@ -68,11 +68,13 @@ describe('MediaDetailView adult content setting (BR-06)', () => {
 
     await user.press(screen.getByRole('button', { name: 'Open settings' }));
 
-    expect(mockRouter.navigate).toHaveBeenCalledTimes(1);
-    expect(mockRouter.navigate).toHaveBeenCalledWith(SETTINGS_PATH);
+    // dismissed to the tabs below, never pushed or navigated (a second tabs navigator)
+    expect(mockRouter.dismissTo).toHaveBeenCalledTimes(1);
+    expect(mockRouter.dismissTo).toHaveBeenCalledWith(SETTINGS_PATH);
     expect(SETTINGS_PATH).toBe('/settings');
     expect(mockRouter.push).not.toHaveBeenCalled();
-    expect(mockRouter.dismissTo).not.toHaveBeenCalled();
+    expect(mockRouter.navigate).not.toHaveBeenCalled();
+    expect(mockRouter.replace).not.toHaveBeenCalled();
     expect(library.get).not.toHaveBeenCalled();
     expect(library.save).not.toHaveBeenCalled();
   });

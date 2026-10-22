@@ -49,9 +49,11 @@ export function MediaDetailView({ mediaKey }: MediaDetailViewProps) {
   const goToDiscover = useCallback(() => {
     router.dismissTo(DISCOVER_PATH);
   }, [router]);
-  // navigation only: the setting changes on the settings tab, after its confirmation
+  // navigation only: the setting changes on the settings tab, after its confirmation. dismissed to
+  // the tabs below, which select the settings tab, rather than navigated: a navigate pushes a
+  // second tabs navigator above the hidden title
   const openSettings = useCallback(() => {
-    router.navigate(SETTINGS_PATH);
+    router.dismissTo(SETTINGS_PATH);
   }, [router]);
 
   if (data === undefined) {
