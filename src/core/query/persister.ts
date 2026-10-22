@@ -115,9 +115,14 @@ const shouldDehydrateQuery = (query: {
 }): boolean =>
   query.state.status === QUERY_STATUS_PERSISTED && !NOT_PERSISTED_KEY_ROOTS.has(query.queryKey[0]);
 
+// mutations are never persisted: auth mutation variables hold passwords, and tanstack would
+// otherwise store a paused mutation, variables included, once onlineManager follows the device
+// connectivity (docs/ARCHITECTURE.md §8)
+const shouldDehydrateMutation = (): boolean => false;
+
 /**
  * persistence options: a new app version or cache schema version drops the cache,
- * only successful queries are kept, never a search nor a library query.
+ * only successful queries are kept, never a search nor a library query, never a mutation.
  */
 export const createPersistOptions = ({
   persister,
@@ -129,5 +134,6 @@ export const createPersistOptions = ({
   buster: `${appVersion}+${String(cacheSchemaVersion)}`,
   dehydrateOptions: {
     shouldDehydrateQuery,
+    shouldDehydrateMutation,
   },
 });
