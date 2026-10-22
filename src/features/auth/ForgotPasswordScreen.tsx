@@ -9,6 +9,7 @@ import { AUTH_PATHS } from './auth-routes';
 import { EmailField } from './AuthFields';
 import { AuthMessage, AuthScreen } from './AuthScreen';
 import { useAuthForm } from './use-auth-form';
+import { useEmailField } from './use-email-field';
 
 const TEST_ID = 'auth-forgot-password';
 
@@ -21,6 +22,7 @@ export function ForgotPasswordScreen() {
   const router = useRouter();
   const form = useAuthForm(emailFormSchema);
   const reset = useRequestPasswordReset();
+  const email = useEmailField(form, reset);
 
   const goToSignIn = () => {
     router.dismissTo(AUTH_PATHS.signIn);
@@ -53,14 +55,8 @@ export function ForgotPasswordScreen() {
   return (
     <AuthScreen testID={`${TEST_ID}-screen`}>
       <Text>{t('auth.forgotPassword.intro')}</Text>
-      <EmailField
-        value={form.values.email}
-        onChangeText={form.change('email')}
-        error={form.errorOf('email')}
-        onSubmitEditing={submit}
-        testID={`${TEST_ID}-email`}
-      />
-      {reset.isError ? (
+      <EmailField {...email.props} onSubmitEditing={submit} testID={`${TEST_ID}-email`} />
+      {reset.isError && !email.rejected ? (
         <InlineError message={t(authErrorKey(reset.error))} testID={`${TEST_ID}-error`} />
       ) : null}
       <Button

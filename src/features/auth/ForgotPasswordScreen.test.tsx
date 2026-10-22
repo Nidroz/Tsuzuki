@@ -71,7 +71,7 @@ describe('ForgotPasswordScreen', () => {
       await send(email);
 
       expect(await screen.findByTestId('auth-forgot-password-sent')).toHaveTextContent(
-        `If an account exists for ${email}, we sent it a link to choose a new password. Open it on this device.`,
+        `If an account exists for ${email}, we sent a link to that address so you can choose a new password. Open it on this device.`,
         { exact: false },
       );
       expect(screen.getByRole('header', { name: 'Check your email' })).toBeOnTheScreen();
@@ -99,5 +99,23 @@ describe('ForgotPasswordScreen', () => {
       'Too many attempts. Wait a moment, then try again.',
     );
     expect(screen.getByLabelText('Email')).toBeOnTheScreen();
+  });
+
+  it('shows an address the server rejects under the email field, until it is edited', async () => {
+    const repository = await renderScreen({
+      requestPasswordReset: () => Promise.reject(new AuthError('invalid-email')),
+    });
+
+    const user = await send(EMAIL);
+
+    expect(await screen.findByTestId('auth-forgot-password-email-error')).toHaveTextContent(
+      'This email address is not accepted. Check it, or use another one.',
+    );
+    expect(screen.queryByTestId('auth-forgot-password-error')).not.toBeOnTheScreen();
+
+    await user.type(screen.getByLabelText('Email'), 'x');
+
+    expect(screen.queryByTestId('auth-forgot-password-email-error')).not.toBeOnTheScreen();
+    expect(repository.requestPasswordReset).toHaveBeenCalledTimes(1);
   });
 });

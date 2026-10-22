@@ -30,6 +30,8 @@ const HTTP_TOO_MANY_REQUESTS = 429;
 // a map, so a code such as `constructor` never reads an object prototype member
 const REASON_BY_CODE: ReadonlyMap<string, AuthErrorReason> = new Map<string, AuthErrorReason>([
   ['invalid_credentials', 'invalid-credentials'],
+  // gotrue's address check is not z.email(): an address the form accepts can still fail it
+  ['email_address_invalid', 'invalid-email'],
   ['email_not_confirmed', 'email-not-confirmed'],
   ['weak_password', 'weak-password'],
   ['same_password', 'same-password'],

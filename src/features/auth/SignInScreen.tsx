@@ -9,6 +9,7 @@ import { AUTH_PATHS, SETTINGS_PATH } from './auth-routes';
 import { EmailField, PasswordField } from './AuthFields';
 import { AuthScreen } from './AuthScreen';
 import { useAuthForm } from './use-auth-form';
+import { useEmailField } from './use-email-field';
 
 const TEST_ID = 'auth-sign-in';
 
@@ -23,6 +24,7 @@ export function SignInScreen() {
   const form = useAuthForm(signInFormSchema);
   const signIn = useSignIn();
   const resend = useResendConfirmation();
+  const email = useEmailField(form, signIn);
 
   const submit = () => {
     const credentials = form.validate();
@@ -48,12 +50,7 @@ export function SignInScreen() {
 
   return (
     <AuthScreen testID={`${TEST_ID}-screen`}>
-      <EmailField
-        value={form.values.email}
-        onChangeText={form.change('email')}
-        error={form.errorOf('email')}
-        testID={`${TEST_ID}-email`}
-      />
+      <EmailField {...email.props} testID={`${TEST_ID}-email`} />
       <PasswordField
         label={t('auth.fields.password')}
         autoComplete="password"
@@ -63,7 +60,7 @@ export function SignInScreen() {
         onSubmitEditing={submit}
         testID={`${TEST_ID}-password`}
       />
-      {signIn.isError ? (
+      {signIn.isError && !email.rejected ? (
         <InlineError message={t(authErrorKey(signIn.error))} testID={`${TEST_ID}-error`} />
       ) : null}
       {notConfirmed ? (

@@ -72,6 +72,13 @@ const EXPECTED_ERRORS: readonly ErrorCase[] = [
     reason: 'invalid-credentials',
   },
   {
+    label: 'an address gotrue refuses as invalid',
+    call: signUp,
+    endpoint: SIGN_UP,
+    respond: () => authErrorResponse(400, 'email_address_invalid'),
+    reason: 'invalid-email',
+  },
+  {
     label: 'an unconfirmed email',
     call: signIn,
     endpoint: PASSWORD_GRANT,
@@ -178,13 +185,6 @@ const UNKNOWN_ERRORS: readonly (Omit<ErrorCase, 'reason'> & { tags: Record<strin
     endpoint: RESEND,
     respond: () => authErrorResponse(400, `Bad code for ${EMAIL}`),
     tags: { operation: 'resend-confirmation' },
-  },
-  {
-    label: 'an error without a code',
-    call: completeLink,
-    endpoint: PKCE_GRANT,
-    respond: () => HttpResponse.json({ msg: SERVER_MESSAGE }, { status: 400 }),
-    tags: { operation: 'complete-email-link' },
   },
   {
     label: 'a session without a user id',

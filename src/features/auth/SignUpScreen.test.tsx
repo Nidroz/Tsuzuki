@@ -176,6 +176,23 @@ describe('SignUpScreen', () => {
     expect(screen.getByLabelText('Password')).toBeOnTheScreen();
   });
 
+  it('shows an address the server rejects under the email field, until it is edited', async () => {
+    await renderScreen({ signUp: () => Promise.reject(new AuthError('invalid-email')) });
+    const user = await fill(EMAIL, PASSWORD, PASSWORD);
+
+    await submit(user);
+
+    expect(await screen.findByTestId('auth-sign-up-email-error')).toHaveTextContent(
+      'This email address is not accepted. Check it, or use another one.',
+    );
+    expect(screen.queryByTestId('auth-sign-up-error')).not.toBeOnTheScreen();
+
+    await user.type(screen.getByLabelText('Email'), 'x');
+
+    expect(screen.queryByTestId('auth-sign-up-email-error')).not.toBeOnTheScreen();
+    expect(screen.getByLabelText('Password')).toBeOnTheScreen();
+  });
+
   it('goes to sign in when the user already has an account', async () => {
     await renderScreen();
     const user = userEvent.setup();

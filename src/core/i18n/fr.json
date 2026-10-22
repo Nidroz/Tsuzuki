@@ -230,10 +230,10 @@
     "account": {
       "title": "Compte",
       "loading": "Chargement de votre compte",
-      "signedOut": "Vous n'êtes pas connecté. Votre bibliothèque reste sur cet appareil.",
+      "signedOut": "Aucun compte connecté. Votre bibliothèque reste sur cet appareil.",
       "signIn": "Se connecter",
       "signUp": "Créer un compte",
-      "signedIn": "Vous êtes connecté.",
+      "signedIn": "Compte connecté.",
       "signOut": "Se déconnecter",
       "signingOut": "Déconnexion en cours"
     },
@@ -419,7 +419,7 @@
         "required": "Saisissez votre mot de passe.",
         "invalid": "Saisissez un mot de passe valide.",
         "tooShort": "Utilisez au moins {{min}} caractères.",
-        "tooLong": "Ce mot de passe est trop long : {{max}} caractères au plus, moins avec des accents ou des emoji.",
+        "tooLong": "Ce mot de passe est trop long : {{max}} caractères au plus, moins avec des accents ou des émojis.",
         "missingLetter": "Ajoutez au moins une lettre (de A à Z).",
         "missingDigit": "Ajoutez au moins un chiffre (de 0 à 9)."
       },
@@ -432,6 +432,7 @@
     },
     "errors": {
       "invalidCredentials": "Adresse e-mail ou mot de passe incorrect.",
+      "invalidEmail": "Cette adresse e-mail n'est pas acceptée. Vérifiez-la ou utilisez-en une autre.",
       "emailNotConfirmed": "Votre adresse e-mail n'est pas encore confirmée. Ouvrez le lien que nous vous avons envoyé, ou demandez-en un nouveau.",
       "weakPassword": "Ce mot de passe n'est pas accepté. Choisissez-en un autre.",
       "samePassword": "Votre nouveau mot de passe doit être différent de l'actuel.",
@@ -472,7 +473,7 @@
       "submitting": "Envoi du lien",
       "sent": {
         "title": "Consultez vos e-mails",
-        "message": "Si un compte existe pour {{email}}, nous lui avons envoyé un lien pour choisir un nouveau mot de passe. Ouvrez-le sur cet appareil.",
+        "message": "Si un compte existe pour {{email}}, nous avons envoyé un lien à cette adresse pour choisir un nouveau mot de passe. Ouvrez-le sur cet appareil.",
         "signIn": "Retour à la connexion"
       }
     },

@@ -10,6 +10,7 @@ import { AUTH_PATHS } from './auth-routes';
 import { EmailField, PasswordField } from './AuthFields';
 import { AuthMessage, AuthScreen } from './AuthScreen';
 import { useAuthForm } from './use-auth-form';
+import { useEmailField } from './use-email-field';
 
 const TEST_ID = 'auth-sign-up';
 
@@ -65,6 +66,7 @@ export function SignUpScreen() {
   const router = useRouter();
   const form = useAuthForm(signUpFormSchema);
   const signUp = useSignUp();
+  const email = useEmailField(form, signUp);
 
   const goToSignIn = () => {
     router.dismissTo(AUTH_PATHS.signIn);
@@ -83,12 +85,7 @@ export function SignUpScreen() {
 
   return (
     <AuthScreen testID={`${TEST_ID}-screen`}>
-      <EmailField
-        value={form.values.email}
-        onChangeText={form.change('email')}
-        error={form.errorOf('email')}
-        testID={`${TEST_ID}-email`}
-      />
+      <EmailField {...email.props} testID={`${TEST_ID}-email`} />
       <PasswordField
         label={t('auth.fields.password')}
         autoComplete="new-password"
@@ -109,7 +106,7 @@ export function SignUpScreen() {
         onSubmitEditing={submit}
         testID={`${TEST_ID}-password-confirmation`}
       />
-      {signUp.isError ? (
+      {signUp.isError && !email.rejected ? (
         <InlineError message={t(authErrorKey(signUp.error))} testID={`${TEST_ID}-error`} />
       ) : null}
       <Button

@@ -3,11 +3,13 @@
 // never holds an email, a password, a code, a token or a server text, and no cause is attached
 
 /**
- * what the user can do about a failed auth call: fix the credentials, confirm the email, choose
- * another password, wait, retry the captcha, ask for a new link, check the connection, or retry.
+ * what the user can do about a failed auth call: fix the credentials, fix the email address,
+ * confirm the email, choose another password, wait, retry the captcha, ask for a new link, check
+ * the connection, or retry.
  */
 export const AUTH_ERROR_REASONS = [
   'invalid-credentials',
+  'invalid-email',
   'email-not-confirmed',
   'weak-password',
   'same-password',
@@ -22,6 +24,7 @@ export type AuthErrorReason = (typeof AUTH_ERROR_REASONS)[number];
 
 const AUTH_ERROR_MESSAGES: Readonly<Record<AuthErrorReason, string>> = {
   'invalid-credentials': 'Invalid email or password',
+  'invalid-email': 'Email address is invalid',
   'email-not-confirmed': 'Email not confirmed',
   'weak-password': 'Password does not meet the policy',
   'same-password': 'New password equals the current one',

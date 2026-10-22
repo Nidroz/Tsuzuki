@@ -118,6 +118,22 @@ describe('SignInScreen', () => {
     expect(mockDismissTo).not.toHaveBeenCalled();
   });
 
+  it('shows an address the server rejects under the email field, until it is edited', async () => {
+    await renderScreen({ signIn: () => Promise.reject(new AuthError('invalid-email')) }).rendered;
+    const user = await fill(EMAIL, PASSWORD);
+
+    await submit(user);
+
+    expect(await screen.findByTestId('auth-sign-in-email-error')).toHaveTextContent(
+      'This email address is not accepted. Check it, or use another one.',
+    );
+    expect(screen.queryByTestId('auth-sign-in-error')).not.toBeOnTheScreen();
+
+    await user.type(screen.getByLabelText('Email'), 'x');
+
+    expect(screen.queryByTestId('auth-sign-in-email-error')).not.toBeOnTheScreen();
+  });
+
   it('offers to resend the confirmation email to the submitted address when unconfirmed', async () => {
     const { repository, rendered } = renderScreen({
       signIn: () => Promise.reject(new AuthError('email-not-confirmed')),

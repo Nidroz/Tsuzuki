@@ -425,6 +425,7 @@
     },
     "errors": {
       "invalidCredentials": "Incorrect email or password.",
+      "invalidEmail": "This email address is not accepted. Check it, or use another one.",
       "emailNotConfirmed": "Your email address is not confirmed yet. Open the link we sent you, or ask for a new one.",
       "weakPassword": "This password is not accepted. Choose another one.",
       "samePassword": "Your new password must differ from your current one.",
@@ -465,7 +466,7 @@
       "submitting": "Sending the link",
       "sent": {
         "title": "Check your email",
-        "message": "If an account exists for {{email}}, we sent it a link to choose a new password. Open it on this device.",
+        "message": "If an account exists for {{email}}, we sent a link to that address so you can choose a new password. Open it on this device.",
         "signIn": "Back to sign in"
       }
     },
