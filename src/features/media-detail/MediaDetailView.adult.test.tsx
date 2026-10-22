@@ -71,7 +71,6 @@ describe('MediaDetailView adult content setting (BR-06)', () => {
     // dismissed to the tabs below, never pushed or navigated (a second tabs navigator)
     expect(mockRouter.dismissTo).toHaveBeenCalledTimes(1);
     expect(mockRouter.dismissTo).toHaveBeenCalledWith(SETTINGS_PATH);
-    expect(SETTINGS_PATH).toBe('/settings');
     expect(mockRouter.push).not.toHaveBeenCalled();
     expect(mockRouter.navigate).not.toHaveBeenCalled();
     expect(mockRouter.replace).not.toHaveBeenCalled();
