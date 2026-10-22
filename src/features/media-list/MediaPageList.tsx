@@ -57,8 +57,9 @@ export interface MediaPageListProps {
  * order of precedence: the loading spinner while the retry of an error runs, the error with a
  * retry, a spinner on the first load. with its own page, cached or fetched, the page is shown even
  * when a refetch fails, so a persisted list stays readable offline: an empty state when nothing
- * was found, otherwise the list, headed by a note that it could not be refreshed with a retry
- * (the updating spinner while the retry runs). a note says how many adult titles were hidden
+ * was found, otherwise the list; after a failed refetch, either one is headed by a note that it
+ * could not be refreshed, with a retry (the updating spinner while the retry runs). a note says how
+ * many adult titles were hidden
  * (BR-06). the pages (FR-04) follow the list, and the empty state, the error or its retry on a
  * page past the first one, so a page past the last or a failed page stays a way back
  */
@@ -154,13 +155,6 @@ export function MediaPageList({
     return loading;
   }
 
-  if (page.items.length === 0 && page.hiddenCount === 0) {
-    // a jikan-compatible instance answers an empty page past the last one
-    return withPagination(
-      <EmptyState title={emptyTitle} message={emptyMessage} testID={`${testIDPrefix}-empty`} />,
-    );
-  }
-
   const header = (
     <MediaPageListHeader
       updating={isPlaceholderData || (error !== null && isFetching)}
@@ -170,6 +164,25 @@ export function MediaPageList({
       testIDPrefix={testIDPrefix}
     />
   );
+
+  if (page.items.length === 0 && page.hiddenCount === 0) {
+    // a jikan-compatible instance answers an empty page past the last one
+    const empty = (
+      <EmptyState title={emptyTitle} message={emptyMessage} testID={`${testIDPrefix}-empty`} />
+    );
+    // an error here is the failed refetch of the own page (a placeholder gave way above): the
+    // same note with its retry as above the rows
+    return withPagination(
+      error === null ? (
+        empty
+      ) : (
+        <Stack gap="md" flex>
+          {header}
+          {empty}
+        </Stack>
+      ),
+    );
+  }
 
   return (
     <List

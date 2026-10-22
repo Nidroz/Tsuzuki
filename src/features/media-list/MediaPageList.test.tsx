@@ -210,6 +210,22 @@ describe('MediaPageList', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeOnTheScreen();
   });
 
+  it('notes the failed refetch of its own empty page above the empty state, with a retry', async () => {
+    const user = userEvent.setup();
+    const onRetry = jest.fn<() => void>();
+    await renderResults({ page: filteredPageOf(0), error: new CatalogNetworkError(), onRetry });
+
+    expect(screen.getByTestId('search-empty')).toBeOnTheScreen();
+    expect(screen.getByTestId('search-stale-note')).toHaveTextContent(
+      /^You are offline: this list could not be refreshed\./,
+    );
+    expect(screen.queryByTestId('search-error')).not.toBeOnTheScreen();
+
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+  });
+
   it('shows the error, not the placeholder page, when the requested page fails', async () => {
     await renderResults({
       page: filteredPageOf(0, FRIEREN),
