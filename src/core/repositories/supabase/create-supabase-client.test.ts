@@ -77,4 +77,30 @@ describe('createSupabaseClient', () => {
     expect([...sessionStorage.values.values()].join()).toContain(ACCESS_TOKEN);
     expect(globalThis).not.toHaveProperty('localStorage');
   });
+
+  it('appends the pkce flow id to email redirects', async () => {
+    const redirects: (string | null)[] = [];
+    server.use(
+      http.post(`${PROJECT_URL}/auth/v1/signup`, ({ request }) => {
+        redirects.push(new URL(request.url).searchParams.get('redirect_to'));
+        return HttpResponse.json(createFakeSession().user);
+      }),
+    );
+    const client = createSupabaseClient({
+      url: PROJECT_URL,
+      anonKey: ANON_KEY,
+      sessionStorage: createSessionStorageSpy(),
+    });
+
+    const { error } = await client.auth.signUp({
+      email: 'reader@example.com',
+      password: 'password',
+      options: { emailRedirectTo: 'tsuzuki://auth/callback' },
+    });
+
+    expect(error).toBeNull();
+    expect(redirects).toStrictEqual([
+      expect.stringMatching(/^tsuzuki:\/\/auth\/callback\?sb_flow_id=[A-Za-z0-9_-]{8,64}$/),
+    ]);
+  });
 });

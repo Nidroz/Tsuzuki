@@ -72,7 +72,8 @@ export interface AuthRepository {
 
   /**
    * signs out on this device only (local scope). resolves once the session is gone from the
-   * device, even when the server could not revoke it (offline).
+   * device, even when the server could not revoke it (offline). an expired session that cannot
+   * be refreshed (offline) stays, and the call rejects with `network`.
    */
   signOut(): Promise<void>;
 
