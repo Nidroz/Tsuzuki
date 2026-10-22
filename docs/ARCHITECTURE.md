@@ -609,7 +609,7 @@ Search filters (FR-03, C-05): pure rules in `src/core/domain/search-filters.ts`,
 - A filtered page can contain fewer items than the provider page size; the UI shows a subtle note instead of refetching.
 - The media detail screen shows a translated hidden state, with nothing of the media, for an adult title while the setting is off (`useMediaDetail` `select`, §2 "Media detail", §6), with an "Open settings" action (navigation only).
 - The library list hides adult entries by their snapshot's `isAdult` (`buildLibraryView` in the `useLibraryList` `select`, after the status and kind filters) and shows the hidden note when `hiddenCount` is above 0 (§2 "Library screen", §6 "Library"); a setting change lays the list out again (`keepLibraryLayout` keeps the last layout only for the same setting).
-- App store rating: 17+ (App Store) / PEGI 18 equivalent (Play). Before exposing the toggle on iOS, check the current App Store Review Guidelines (1.1.4).
+- App store rating: 17+ (App Store) / PEGI 18 equivalent (Play). The adult content toggle is shown on every platform (L-06); its iOS exposure is checked against the current App Store Review Guidelines (1.1.4) before release (R-05).
 
 ## 8. Auth, session and guest mode
 
