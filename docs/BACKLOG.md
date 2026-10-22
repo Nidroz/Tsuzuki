@@ -228,6 +228,10 @@ Details:
 
 Details:
 
+### A-02 Google and Apple sign-in (PKCE)
+- `ResetPasswordScreen` shows the failed link state only for `link-invalid`, while `EmailConfirmedScreen` treats any failed exchange as final (A-01 review): both match the `AuthRepository` contract (every failed exchange is `link-invalid`, since it consumes the PKCE verifier), but a repository breaking it would let the reset screen resubmit a spent code. Have `useCompletePasswordReset` tell an exchange failure from an `updatePassword` failure and show the failed link state for any exchange failure.
+- `src/features/auth/use-email-field.ts` is covered only through the three screen tests (A-01 review): add a direct hook test when it changes.
+
 ### A-03 Supabase library repository
 - The library read error (`library.list.error.message`, en and fr) says the library is stored on this device: reword it for the account library (L-04 review).
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
@@ -269,6 +273,7 @@ Details:
 - Library tab focus (L-04 review): the tabs stay mounted and the layout is laid out again by `useFocusEffect`, which runs after paint, so coming back after a `+1` on the detail may show the old order for a frame, then re-sort. Check it on a device; if visible, lay out again on blur (the effect cleanup) or do not keep the layout while unfocused.
 - Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04).
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
+- Sign in E2E flow against the staging project with a dedicated test account passed as Maestro env values, never committed (A-01): `e2e/flows/auth.yaml` covers the auth screens without a backend only.
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
 ### R-02 Performance pass
