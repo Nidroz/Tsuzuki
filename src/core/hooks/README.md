@@ -5,10 +5,6 @@ Each injected dependency reaches them through its own React context, given by th
 They depend only on interfaces, never on Supabase or a catalog provider directly. Hooks are imported by file (`@core/hooks/use-search`): there is no barrel.
 `src/core/` never imports React Native, Expo modules or NativeWind.
 
-## Catalog reads
-
-- `useGenres(kind, { enabled })`: the genres of `kind` (`queryKeys.genres`, `STALE_TIMES.genres`), adult genres included. `enabled` (true by default) false fetches nothing and still returns the cached genres: the search screen enables it only while the adult content setting is off and the applied filters hold a genre, to leave the adult genres out of them (BR-06), so it adds no cold-start request.
-
 ## Library writes
 
 `LibraryContextProvider({ repository, children })`, inside the query client provider, gives the hooks the active `LibraryRepository` and a `LibraryWriter` over it (`library-writer.ts`, plain TypeScript over the `QueryClient`). Screens use the hooks only and never know which repository is active, so the auth switch (A-03) changes the provider's `repository` prop alone; on that change, and on unmount, the pending coalesced writes go to the repository they were made for (`flushAll`).

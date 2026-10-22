@@ -52,7 +52,7 @@ export interface FiltersSheetProps {
   kind: MediaKind;
   /** the applied filters: each opening starts a draft from them */
   filters: SearchFilters;
-  /** the adult content setting (BR-06): adult genres are hidden when false */
+  /** the adult content setting (BR-06): neutral adult genres are hidden when false (GenresFilter) */
   showAdult: boolean;
   /** commits the draft; the sheet closes right after */
   onApply: (filters: SearchFilters) => void;
@@ -168,6 +168,7 @@ export function FiltersSheet({
       <GenresFilter
         kind={kind}
         filters={draft.filters}
+        appliedFilters={filters}
         showAdult={showAdult}
         max={searchGenresMax}
         onCycle={cycle}

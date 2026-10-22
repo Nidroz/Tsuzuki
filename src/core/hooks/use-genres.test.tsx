@@ -27,20 +27,15 @@ type GetGenres = CatalogProvider['getGenres'];
 
 const byKind: GetGenres = (kind) => Promise.resolve(kind === 'anime' ? ANIME_GENRES : MANGA_GENRES);
 
-const wrapperOf = (provider: CatalogProvider, queryClient: QueryClient) =>
-  function Wrapper({ children }: { readonly children: ReactNode }) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
-      </QueryClientProvider>
-    );
-  };
-
 const setup = (kind: MediaKind, getGenres: GetGenres = byKind) => {
   const provider = createFakeCatalogProvider();
   provider.getGenres.mockImplementation(getGenres);
   const queryClient: QueryClient = createQueryClient();
-  const wrapper = wrapperOf(provider, queryClient);
+  const wrapper = ({ children }: { readonly children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <CatalogContextProvider provider={provider}>{children}</CatalogContextProvider>
+    </QueryClientProvider>
+  );
   const hook = renderHook(({ kind: current }: { kind: MediaKind }) => useGenres(current), {
     initialProps: { kind },
     wrapper,
@@ -113,46 +108,6 @@ describe('useGenres', () => {
       expect(result.current.data).toStrictEqual(ANIME_GENRES);
     });
     expect(provider.getGenres).toHaveBeenCalledTimes(2);
-  });
-
-  it('fetches nothing while disabled, then fetches once enabled', async () => {
-    const provider = createFakeCatalogProvider();
-    provider.getGenres.mockImplementation(byKind);
-    const queryClient = createQueryClient();
-    const wrapper = wrapperOf(provider, queryClient);
-    const { result, rerender } = renderHook(
-      ({ enabled }: { enabled: boolean }) => useGenres('anime', { enabled }),
-      { initialProps: { enabled: false }, wrapper },
-    );
-    await act(async () => {
-      await jest.advanceTimersByTimeAsync(NO_RETRY_WINDOW_MS);
-    });
-
-    expect(provider.getGenres).not.toHaveBeenCalled();
-    expect(result.current.isPending).toBe(true);
-    expect(result.current.fetchStatus).toBe('idle');
-
-    rerender({ enabled: true });
-
-    await waitFor(() => {
-      expect(result.current.data).toStrictEqual(ANIME_GENRES);
-    });
-    expect(provider.getGenres).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns the cached genres while disabled', async () => {
-    const { provider, queryClient } = setup('anime');
-    await waitFor(() => {
-      expect(provider.getGenres).toHaveBeenCalledTimes(1);
-    });
-    const wrapper = wrapperOf(provider, queryClient);
-
-    const { result } = renderHook(() => useGenres('anime', { enabled: false }), { wrapper });
-
-    await waitFor(() => {
-      expect(result.current.data).toStrictEqual(ANIME_GENRES);
-    });
-    expect(provider.getGenres).toHaveBeenCalledTimes(1);
   });
 
   it('throws outside CatalogContextProvider', () => {

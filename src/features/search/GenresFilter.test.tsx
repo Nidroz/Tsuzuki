@@ -18,6 +18,7 @@ import { GenresFilter } from './GenresFilter';
 
 interface Setup {
   readonly filters?: SearchFilters;
+  readonly appliedFilters?: SearchFilters;
   readonly showAdult?: boolean;
   readonly getGenres?: CatalogProvider['getGenres'];
   readonly language?: Language;
@@ -26,6 +27,7 @@ interface Setup {
 
 const renderGenres = async ({
   filters = EMPTY_SEARCH_FILTERS,
+  appliedFilters = EMPTY_SEARCH_FILTERS,
   showAdult = false,
   getGenres = genresByKind,
   language = 'en',
@@ -37,6 +39,7 @@ const renderGenres = async ({
     <GenresFilter
       kind="anime"
       filters={filters}
+      appliedFilters={appliedFilters}
       showAdult={showAdult}
       max={FAKE_SEARCH_GENRES_MAX}
       onCycle={onCycle}
@@ -48,6 +51,9 @@ const renderGenres = async ({
 };
 
 const MAX = FAKE_SEARCH_GENRES_MAX;
+// the adult genres of ANIME_GENRES
+const HENTAI_ID = 12;
+const EROTICA_ID = 49;
 
 const ids = (count: number) => ANIME_GENRES.slice(0, count).map((genre) => genre.id);
 
@@ -81,7 +87,7 @@ describe('GenresFilter', () => {
     expect(onCycle).toHaveBeenCalledWith(10);
   });
 
-  it('BR-06: hides the adult genres while adult content is off', async () => {
+  it('BR-06: hides the neutral adult genres while adult content is off', async () => {
     await renderGenres();
 
     for (const id of ADULT_GENRE_IDS) {
@@ -91,10 +97,45 @@ describe('GenresFilter', () => {
     expect(screen.getByText('Action')).toBeOnTheScreen();
   });
 
-  it('BR-06: shows the adult genres while adult content is on', async () => {
-    await renderGenres({ showAdult: true });
+  it('BR-06: shows the adult genres the draft includes or excludes while adult content is off', async () => {
+    await renderGenres({
+      filters: {
+        ...EMPTY_SEARCH_FILTERS,
+        genresIncluded: [HENTAI_ID],
+        genresExcluded: [EROTICA_ID],
+      },
+    });
+
+    expect(screen.getByRole('button', { name: 'Hentai, included' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Erotica, excluded' })).toBeOnTheScreen();
+  });
+
+  it('BR-06: keeps an applied adult genre shown once the draft has it neutral again, until the sheet closes', async () => {
+    const applied = { ...EMPTY_SEARCH_FILTERS, genresIncluded: [HENTAI_ID] };
+    await renderGenres({ filters: EMPTY_SEARCH_FILTERS, appliedFilters: applied });
 
     expect(screen.getByRole('button', { name: 'Hentai, not filtered' })).toBeOnTheScreen();
+    expect(screen.queryByTestId(`filters-genre-${String(EROTICA_ID)}`)).not.toBeOnTheScreen();
+  });
+
+  it('BR-06: cycles a shown adult genre like any other', async () => {
+    const user = userEvent.setup();
+    const { onCycle } = await renderGenres({
+      filters: { ...EMPTY_SEARCH_FILTERS, genresExcluded: [HENTAI_ID] },
+    });
+
+    await user.press(screen.getByRole('button', { name: 'Hentai, excluded' }));
+
+    expect(onCycle).toHaveBeenCalledWith(HENTAI_ID);
+  });
+
+  it('BR-06: shows every adult genre while adult content is on', async () => {
+    await renderGenres({
+      showAdult: true,
+      filters: { ...EMPTY_SEARCH_FILTERS, genresIncluded: [HENTAI_ID] },
+    });
+
+    expect(screen.getByRole('button', { name: 'Hentai, included' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Erotica, not filtered' })).toBeOnTheScreen();
   });
 

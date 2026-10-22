@@ -25,6 +25,10 @@ interface GenreChipProps {
   onCycle: (genreId: number) => void;
 }
 
+// a genre the filters include or exclude
+const isFiltered = (filters: SearchFilters, genreId: number): boolean =>
+  genreFilterState(filters, genreId) !== 'neutral';
+
 const GenreChip = memo(function GenreChip({ genre, state, onCycle }: GenreChipProps) {
   const { t } = useTranslation();
   const cycle = useCallback(() => {
@@ -47,7 +51,9 @@ export interface GenresFilterProps {
   kind: MediaKind;
   /** the draft filters: their genre lists give each chip its state */
   filters: SearchFilters;
-  /** the adult content setting (BR-06): adult genres are hidden when false */
+  /** the applied filters the draft started from: they keep their adult genres shown (BR-06) */
+  appliedFilters: SearchFilters;
+  /** the adult content setting (BR-06): neutral adult genres are hidden when false */
   showAdult: boolean;
   /** the most genre ids of each list (CatalogProvider.searchGenresMax) */
   max: number;
@@ -57,15 +63,32 @@ export interface GenresFilterProps {
 
 /**
  * the genres section of the filters sheet (FR-03): one chip per genre of the kind, each cycling
- * neutral -> included -> excluded. adult genres are hidden while adult content is off (BR-06); a
- * note says when a list is full
+ * neutral -> included -> excluded; a note says when a list is full. while adult content is off
+ * (BR-06), an adult genre is hidden unless the draft or the applied filters include or exclude it:
+ * an adult genre applied while the setting was on stays searched (the setting never changes a
+ * request), so its chip shows to let it be removed, and stays until the sheet closes, even once
+ * back to neutral, so no chip moves under a tap
  */
-export function GenresFilter({ kind, filters, showAdult, max, onCycle }: GenresFilterProps) {
+export function GenresFilter({
+  kind,
+  filters,
+  appliedFilters,
+  showAdult,
+  max,
+  onCycle,
+}: GenresFilterProps) {
   const { t } = useTranslation();
   const { data, error, isFetching, refetch } = useGenres(kind);
   const genres = useMemo(
-    () => data?.filter((genre) => showAdult || !isAdultGenreName(genre.name)),
-    [data, showAdult],
+    () =>
+      data?.filter(
+        (genre) =>
+          showAdult ||
+          !isAdultGenreName(genre.name) ||
+          isFiltered(filters, genre.id) ||
+          isFiltered(appliedFilters, genre.id),
+      ),
+    [data, showAdult, filters, appliedFilters],
   );
   const retry = useCallback(() => {
     void refetch();
