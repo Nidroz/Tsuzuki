@@ -1,6 +1,6 @@
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import type { Language } from '@core/i18n/index';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { userEvent, within } from '@testing-library/react-native';
 import { screen } from 'expo-router/testing-library';
 import type { ComponentType, ReactNode } from 'react';
@@ -11,6 +11,19 @@ import { createFakeLibraryRepository } from '../core/fake-library-repository';
 import { renderRouterAsync } from '../mobile/render-router';
 import { providersFor } from '../mobile/render-with-providers';
 import { APP_ROUTES } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // the tab bar order, with the path and the screen of each tab
 const TABS = [

@@ -26,10 +26,13 @@ const renderScreen = (
   );
 
 describe('SettingsScreen', () => {
-  it('renders the theme, language and adult content settings in a scroll view', async () => {
+  it('renders the account, theme, language and adult content settings in a scroll view', async () => {
     await renderScreen();
 
     expect(screen.getByTestId('settings-screen')).toBeOnTheScreen();
+    // the default test auth repository reports a signed-out session
+    expect(screen.getByTestId('settings-account')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Sign in' })).toBeOnTheScreen();
     expect(screen.getByTestId('theme-picker')).toBeOnTheScreen();
     expect(screen.getByTestId('language-picker')).toBeOnTheScreen();
     expect(screen.getByTestId('settings-adult-content')).toBeOnTheScreen();

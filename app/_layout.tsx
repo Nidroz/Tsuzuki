@@ -4,6 +4,7 @@ import '@platform/intl-polyfills';
 import { monitorCatalogProvider } from '@core/catalog/catalog-failure-monitor';
 import { createJikanCatalogProvider } from '@core/catalog/jikan/jikan-catalog-provider';
 import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
+import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
@@ -25,18 +26,24 @@ import {
 } from '@core/preferences/index';
 import { createPersistOptions, createQueryPersister } from '@core/query/persister';
 import { createQueryClient } from '@core/query/query-client';
+import { noCaptcha } from '@core/repositories/auth-repository';
 import { createLocalLibraryRepository } from '@core/repositories/local/library-repository';
 import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
+import { createSupabaseAuthRepository } from '@core/repositories/supabase/auth-repository';
+import { createSupabaseClient } from '@core/repositories/supabase/create-supabase-client';
+import { appLinkUrl, AUTH_LINK_PATHS } from '@core/schemas/app-links';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
+import { subscribeToForeground } from '@platform/app-state';
 import { APP_VERSION } from '@platform/app-version';
 import { useDeviceLanguageTags } from '@platform/locale';
+import { createSecureSessionStorage } from '@platform/secure-session';
 import { createErrorReporter, initSentry } from '@platform/sentry';
 import { createStorage } from '@platform/storage';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ThemeProvider } from '@ui/index';
 import { Stack } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // a cold deep link to a detail screen still gets the tabs below it, so back leads to Discover
 export const unstable_settings = { initialRouteName: '(tabs)' };
@@ -52,8 +59,8 @@ const ROOT_SCREEN_OPTIONS = {
 } as const;
 
 // the build-time env, validated again at startup: a missing or invalid env throws here, before
-// anything else is created (fail closed, ADR-0012). the supabase client is wired from it with its
-// first consumer (the auth or library repositories); the catalog instance comes from it below
+// anything else is created (fail closed, ADR-0012). the supabase client and the catalog instance
+// come from it below
 const appEnv = readAppEnv(parseAppEnv);
 
 // sentry in release builds with a dsn, the console in development (ADR-0012)
@@ -116,26 +123,63 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
 // library until A-03 picks the repository from the auth state, in this provider's prop only
 const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 
+// the supabase client of the app: anon key only, its session in the secure store, never in the
+// app storage (§8). the auth repository sends the email links to the app's own routes (ADR-0014);
+// the supabase library repository of A-03 will share the client
+const supabase = createSupabaseClient({
+  url: appEnv.supabaseUrl,
+  anonKey: appEnv.supabaseAnonKey,
+  sessionStorage: createSecureSessionStorage(reporter),
+});
+const authRepository = createSupabaseAuthRepository(supabase, {
+  confirmationRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.confirmation),
+  passwordResetRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.passwordReset),
+  reporter,
+});
+
+// the token auto refresh runs only while the app is in the foreground (supabase-js on react
+// native): no timer in the background, and a token close to expiry is refreshed on return
+const bindAutoRefreshToForeground = () =>
+  subscribeToForeground((foreground) => {
+    authRepository.setAutoRefresh(foreground);
+  });
+
 // the root stack, inside I18nProvider because its header titles are translated
 function RootStack() {
   const { t } = useTranslation();
-  const mediaOptions = useMemo(() => ({ title: t('mediaDetail.title') }), [t]);
-  const notFoundOptions = useMemo(() => ({ title: t('notFound.title') }), [t]);
+  const options = useMemo(
+    () => ({
+      media: { title: t('mediaDetail.title') },
+      signIn: { title: t('auth.signIn.title') },
+      signUp: { title: t('auth.signUp.title') },
+      forgotPassword: { title: t('auth.forgotPassword.title') },
+      emailConfirmed: { title: t('auth.emailConfirmed.title') },
+      resetPassword: { title: t('auth.resetPassword.title') },
+      notFound: { title: t('notFound.title') },
+    }),
+    [t],
+  );
 
   return (
     <Stack screenOptions={ROOT_SCREEN_OPTIONS}>
       <Stack.Screen name="(tabs)" options={TABS_OPTIONS} />
-      <Stack.Screen name="media/[namespace]/[kind]/[id]" options={mediaOptions} />
-      <Stack.Screen name="+not-found" options={notFoundOptions} />
+      <Stack.Screen name="media/[namespace]/[kind]/[id]" options={options.media} />
+      <Stack.Screen name="auth/sign-in" options={options.signIn} />
+      <Stack.Screen name="auth/sign-up" options={options.signUp} />
+      <Stack.Screen name="auth/forgot-password" options={options.forgotPassword} />
+      <Stack.Screen name="auth/callback" options={options.emailConfirmed} />
+      <Stack.Screen name="auth/reset-password" options={options.resetPassword} />
+      <Stack.Screen name="+not-found" options={options.notFound} />
     </Stack>
   );
 }
 
-// the composition root: it owns the storage, the catalog provider, the recent searches and library
-// repositories, the query client and the preferences, and gives the tree the query cache
-// (persisted to the storage), the catalog provider, the recent searches and the library (the data
-// dependencies, next to the query client; the library writer keeps its optimistic entries in that
-// cache), then the preferences, the translations and the theme. the stored preferences are read
+// the composition root: it owns the storage, the auth repository, the catalog provider, the recent
+// searches and library repositories, the query client and the preferences, and gives the tree the
+// query cache (persisted to the storage), the auth (its mutations need the query client), the
+// catalog provider, the recent searches and the library (the data dependencies, next to the query
+// client; the library writer keeps its optimistic entries in that cache), then the preferences,
+// the translations and the theme. the stored preferences are read
 // synchronously on mount, so the first frame already uses them. expo-router's root already
 // provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
 // gives navigators their theme
@@ -163,28 +207,32 @@ export default function RootLayout() {
     setShowAdult(next);
   }, []);
 
+  useEffect(bindAutoRefreshToForeground, []);
+
   return (
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      <CatalogContextProvider provider={catalogProvider}>
-        <RecentSearchesContextProvider repository={recentSearchesRepository}>
-          <LibraryContextProvider repository={libraryRepository}>
-            <PreferencesProvider
-              theme={themePreference}
-              language={languagePreference}
-              onThemeChange={changeTheme}
-              onLanguageChange={changeLanguage}
-              showAdult={showAdult}
-              onShowAdultChange={changeShowAdult}
-            >
-              <I18nProvider language={language} onMissingKey={reportMissingKey}>
-                <ThemeProvider preference={themePreference} onError={reportThemeError}>
-                  <RootStack />
-                </ThemeProvider>
-              </I18nProvider>
-            </PreferencesProvider>
-          </LibraryContextProvider>
-        </RecentSearchesContextProvider>
-      </CatalogContextProvider>
+      <AuthContextProvider repository={authRepository} captcha={noCaptcha}>
+        <CatalogContextProvider provider={catalogProvider}>
+          <RecentSearchesContextProvider repository={recentSearchesRepository}>
+            <LibraryContextProvider repository={libraryRepository}>
+              <PreferencesProvider
+                theme={themePreference}
+                language={languagePreference}
+                onThemeChange={changeTheme}
+                onLanguageChange={changeLanguage}
+                showAdult={showAdult}
+                onShowAdultChange={changeShowAdult}
+              >
+                <I18nProvider language={language} onMissingKey={reportMissingKey}>
+                  <ThemeProvider preference={themePreference} onError={reportThemeError}>
+                    <RootStack />
+                  </ThemeProvider>
+                </I18nProvider>
+              </PreferencesProvider>
+            </LibraryContextProvider>
+          </RecentSearchesContextProvider>
+        </CatalogContextProvider>
+      </AuthContextProvider>
     </PersistQueryClientProvider>
   );
 }

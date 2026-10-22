@@ -8,6 +8,11 @@ import LibraryRoute from '../../app/(tabs)/library';
 import SearchRoute from '../../app/(tabs)/search';
 import SettingsRoute from '../../app/(tabs)/settings';
 import RootLayout, { unstable_settings } from '../../app/_layout';
+import EmailCallbackRoute from '../../app/auth/callback';
+import ForgotPasswordRoute from '../../app/auth/forgot-password';
+import ResetPasswordRoute from '../../app/auth/reset-password';
+import SignInRoute from '../../app/auth/sign-in';
+import SignUpRoute from '../../app/auth/sign-up';
 import MediaDetailRoute from '../../app/media/[namespace]/[kind]/[id]';
 
 /**
@@ -25,6 +30,11 @@ export const APP_ROUTES = {
   '(tabs)/favorites': FavoritesRoute,
   '(tabs)/settings': SettingsRoute,
   'media/[namespace]/[kind]/[id]': MediaDetailRoute,
+  'auth/sign-in': SignInRoute,
+  'auth/sign-up': SignUpRoute,
+  'auth/forgot-password': ForgotPasswordRoute,
+  'auth/callback': EmailCallbackRoute,
+  'auth/reset-password': ResetPasswordRoute,
   '+not-found': NotFoundRoute,
 } as const;
 

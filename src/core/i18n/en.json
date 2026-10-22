@@ -220,6 +220,16 @@
     }
   },
   "settings": {
+    "account": {
+      "title": "Account",
+      "loading": "Loading your account",
+      "signedOut": "You are not signed in. Your library stays on this device.",
+      "signIn": "Sign in",
+      "signUp": "Create an account",
+      "signedIn": "You are signed in.",
+      "signOut": "Sign out",
+      "signingOut": "Signing out"
+    },
     "theme": {
       "title": "Theme",
       "options": {
@@ -382,6 +392,119 @@
         "confirm": "Remove",
         "close": "Close without removing"
       }
+    }
+  },
+  "auth": {
+    "fields": {
+      "email": "Email",
+      "password": "Password",
+      "passwordConfirmation": "Confirm password",
+      "newPassword": "New password",
+      "newPasswordConfirmation": "Confirm new password"
+    },
+    "form": {
+      "email": {
+        "required": "Enter your email address.",
+        "invalid": "Enter a valid email address.",
+        "tooLong": "An email address has at most {{max}} characters."
+      },
+      "password": {
+        "required": "Enter your password.",
+        "invalid": "Enter a valid password.",
+        "tooShort": "Use at least {{min}} characters.",
+        "tooLong": "This password is too long: at most {{max}} characters, fewer with accents or emoji.",
+        "missingLetter": "Add at least one letter (A to Z).",
+        "missingDigit": "Add at least one digit (0 to 9)."
+      },
+      "passwordConfirmation": {
+        "required": "Type the password again.",
+        "invalid": "Type the password again.",
+        "mismatch": "The two passwords do not match."
+      },
+      "passwordPolicy": "At least {{min}} characters, with a letter and a digit."
+    },
+    "errors": {
+      "invalidCredentials": "Incorrect email or password.",
+      "emailNotConfirmed": "Your email address is not confirmed yet. Open the link we sent you, or ask for a new one.",
+      "weakPassword": "This password is not accepted. Choose another one.",
+      "samePassword": "Your new password must differ from your current one.",
+      "rateLimited": "Too many attempts. Wait a moment, then try again.",
+      "captchaFailed": "The security check failed. Try again.",
+      "linkInvalid": "This link is not valid, has expired or was already used.",
+      "network": "The server could not be reached. Check your connection, then try again.",
+      "unknown": "Something went wrong. Try again in a moment."
+    },
+    "signIn": {
+      "title": "Sign in",
+      "submit": "Sign in",
+      "submitting": "Signing in",
+      "forgotPassword": "Forgot your password?",
+      "createAccount": "Create an account",
+      "resend": "Resend the confirmation email",
+      "resending": "Sending the email",
+      "resent": "We sent a new confirmation email. Open its link on this device."
+    },
+    "signUp": {
+      "title": "Create an account",
+      "submit": "Create the account",
+      "submitting": "Creating the account",
+      "signIn": "I already have an account",
+      "sent": {
+        "title": "Check your email",
+        "message": "We sent a confirmation link to {{email}}. Open it on this device to confirm your address, then sign in.",
+        "resend": "Resend the email",
+        "resending": "Sending the email",
+        "resent": "We sent the email again.",
+        "signIn": "Go to sign in"
+      }
+    },
+    "forgotPassword": {
+      "title": "Forgot password",
+      "intro": "Enter the email address of your account: we will send you a link to choose a new password.",
+      "submit": "Send the link",
+      "submitting": "Sending the link",
+      "sent": {
+        "title": "Check your email",
+        "message": "If an account exists for {{email}}, we sent it a link to choose a new password. Open it on this device.",
+        "signIn": "Back to sign in"
+      }
+    },
+    "emailConfirmed": {
+      "title": "Email confirmation",
+      "confirmed": {
+        "title": "Email confirmed",
+        "message": "Your email address is confirmed. Continue to sign in on this device."
+      },
+      "continue": "Continue",
+      "continuing": "Signing in",
+      "signInRequired": {
+        "title": "Your email is confirmed",
+        "message": "Sign in to continue."
+      },
+      "expired": {
+        "title": "This link has expired",
+        "message": "Sign in: if your email address is not confirmed yet, you can ask for a new link there."
+      },
+      "invalid": {
+        "title": "This link is not valid",
+        "message": "Open the latest link we sent you, or sign in."
+      },
+      "signIn": "Sign in"
+    },
+    "resetPassword": {
+      "title": "New password",
+      "intro": "Choose a new password for your account.",
+      "submit": "Save the password",
+      "submitting": "Saving the password",
+      "expired": {
+        "title": "This link has expired",
+        "message": "Ask for a new link to choose a new password."
+      },
+      "invalid": {
+        "title": "This link is not valid",
+        "message": "It may have been used already, or opened on another device. Ask for a new link."
+      },
+      "requestLink": "Ask for a new link"
     }
   },
   "notFound": {

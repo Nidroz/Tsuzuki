@@ -17,6 +17,7 @@ import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
 const ROOT_PATHNAME = '/';
 const STUB_TEXT = 'stub discover route';
@@ -24,6 +25,18 @@ const DISCOVER_TAB_TEST_ID = 'tab-discover';
 // the native stack header is a native view: in tests it only shows up as this react-native-screens
 // host component, whose `hidden` prop mirrors the headerShown option (its title is not rendered text)
 const NATIVE_HEADER_HOST = 'RNSScreenStackHeaderConfig';
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // the composition root gets a fake provider instead of the tenrai one: the Discover route, the
 // initial tab, loads its top list without http

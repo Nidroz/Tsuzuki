@@ -24,6 +24,19 @@ import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 import { headerTitles, visibleBackButtons } from './native-header';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // the composition root gets a fake provider instead of the tenrai one: no http
 jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>

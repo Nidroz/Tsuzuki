@@ -14,9 +14,22 @@ import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import { renderRouterAsync } from '../mobile/render-router';
 import { advance } from '../mobile/render-search-screen';
 import { APP_ROUTES } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
 // fR-04, C-06: the search tab stays mounted under the media detail route, so going back shows the
 // page and the results the user left, without searching again
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // the composition root gets a fake provider instead of the tenrai one: no http
 jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>

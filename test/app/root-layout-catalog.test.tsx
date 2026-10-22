@@ -11,10 +11,23 @@ import { Text } from 'react-native';
 
 import { renderRouterAsync } from '../mobile/render-router';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
 // aDR-0013: the composition root (app/_layout.tsx) is the only place that picks the catalog
 // provider and its instance. both factories keep their real behaviour and record their calls,
 // made once, when the layout module loads; nothing reaches the network (no search is typed)
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 jest.mock('@core/catalog/jikan/jikan-catalog-provider', () => {
   const actual = jest.requireActual<typeof JikanProvider>(
