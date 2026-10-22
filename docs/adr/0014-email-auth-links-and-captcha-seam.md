@@ -1,6 +1,6 @@
 # ADR-0014: Email auth links and the captcha seam
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-22
 
 ## Context
