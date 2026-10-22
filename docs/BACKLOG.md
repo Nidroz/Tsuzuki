@@ -224,6 +224,7 @@ Details:
 - [ ] A-04 Guest → account merge (BR-08)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
+- [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account)
 
 Details:
 
@@ -248,6 +249,10 @@ Details:
 ### A-06 Sign out purge and account deletion
 - Sign out purges the recent searches (`RecentSearchesRepository.clear`, FR-25): they are personal data kept on the device (C-04).
 - Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). If a guest → account merge (A-04) failed and was never retried, that purge would delete the guest's only copy: decide whether sign out waits for a successful merge, or accept and document the loss.
+
+### A-08 Captcha provider on the auth endpoints
+- Starts once the owner has chosen hCaptcha or Turnstile and created the account and keys (A-01 shipped the provider-agnostic seam, ADR-0014): a `CaptchaTokenProvider` implementation in `src/platform/` (a WebView challenge; the package is a new dependency to justify in the PR), the site key `EXPO_PUBLIC_CAPTCHA_SITE_KEY` added to the app env schema and to each EAS environment (`plaintext`), wired by the composition root in place of `noCaptcha`.
+- Server side: captcha protection on in each hosted project (Authentication → Attack Protection, provider secret), and `[auth.captcha]` in `supabase/config.toml` with `secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"` for the local stack. Turn it on only once the binaries in use send tokens (`ARCHITECTURE.md` §10 step 9).
 
 ## Phase 5 — Release
 
