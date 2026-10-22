@@ -114,18 +114,25 @@ describe('LibrarySection favorite (FR-15)', () => {
     expect(screen.queryByTestId(FAVORITE_ID)).not.toBeOnTheScreen();
   });
 
-  it('says a media no snapshot can hold cannot be saved, without a retry', async () => {
-    const { repository } = await renderSection([ENTRY], UNSTORABLE_DETAIL);
+  it.each<[string, readonly LibraryEntry[]]>([
+    ['in the library', [ENTRY]],
+    ['outside the library', []],
+  ])(
+    'says a media no snapshot can hold cannot be saved, without a retry, add or heart (%s)',
+    async (_where, initial) => {
+      const { repository } = await renderSection(initial, UNSTORABLE_DETAIL);
 
-    const unsupported = await screen.findByTestId(`${TEST_ID}-unsupported`);
+      const unsupported = await screen.findByTestId(`${TEST_ID}-unsupported`);
 
-    expect(unsupported).toHaveTextContent(UNSUPPORTED, { exact: false });
-    expect(unsupported).toHaveProp('accessibilityRole', 'alert');
-    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeOnTheScreen();
-    expect(screen.queryByTestId(`${TEST_ID}-read-error`)).not.toBeOnTheScreen();
-    expect(screen.queryByTestId(FAVORITE_ID)).not.toBeOnTheScreen();
-    expect(repository.save).not.toHaveBeenCalled();
-  });
+      expect(unsupported).toHaveTextContent(UNSUPPORTED, { exact: false });
+      expect(unsupported).toHaveProp('accessibilityRole', 'alert');
+      expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeOnTheScreen();
+      expect(screen.queryByTestId(`${TEST_ID}-read-error`)).not.toBeOnTheScreen();
+      expect(screen.queryByTestId(`${TEST_ID}-add`)).not.toBeOnTheScreen();
+      expect(screen.queryByTestId(FAVORITE_ID)).not.toBeOnTheScreen();
+      expect(repository.save).not.toHaveBeenCalled();
+    },
+  );
 
   it('names the toggle in french', async () => {
     const repository = createFakeLibraryRepository([entryOf({ isFavorite: true })]);
