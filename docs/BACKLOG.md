@@ -218,13 +218,13 @@ Details:
 
 ## Phase 4 — Accounts and sync
 
-- [ ] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
+- [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [ ] A-02 Google and Apple sign-in (PKCE)
 - [ ] A-03 Supabase library repository + repository switch on auth state
 - [ ] A-04 Guest → account merge (BR-08)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
-- [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account)
+- [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
 
 Details:
 
@@ -255,6 +255,7 @@ Details:
 - Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). If a guest → account merge (A-04) failed and was never retried, that purge would delete the guest's only copy: decide whether sign out waits for a successful merge, or accept and document the loss.
 
 ### A-08 Captcha provider on the auth endpoints
+- Owner decision (A-01): a blocker before any public release, done before R-06. The provider will likely be Cloudflare Turnstile; the owner creates the account when A-08 starts. Record the provider choice as an Update section of ADR-0014 or as a new ADR.
 - Starts once the owner has chosen hCaptcha or Turnstile and created the account and keys (A-01 shipped the provider-agnostic seam, ADR-0014): a `CaptchaTokenProvider` implementation in `src/platform/` (a WebView challenge; the package is a new dependency to justify in the PR), the site key `EXPO_PUBLIC_CAPTCHA_SITE_KEY` added to the app env schema and to each EAS environment (`plaintext`), wired by the composition root in place of `noCaptcha`.
 - Server side: captcha protection on in each hosted project (Authentication → Attack Protection, provider secret), and `[auth.captcha]` in `supabase/config.toml` with `secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"` for the local stack. Turn it on only once the binaries in use send tokens (`ARCHITECTURE.md` §10 step 9).
 
@@ -301,6 +302,9 @@ Details:
 ### R-05 Privacy policy, store listings, screenshots, age rating
 - Check the exposure of the adult content setting on iOS against the App Store Review Guidelines (ADR-0004) and set the age rating accordingly: the setting has no age verification, and turning it on asks for a confirmation with a warning (L-06, owner decision).
 - The privacy policy states that the catalog provider receives the user's IP address and User-Agent with every catalog request: Tenrai, the default instance, logs them for up to 90 days (its privacy policy, C-03, ADR-0013). Name the active provider and update the policy whenever the instance changes (self-hosted Jikan, AniList).
+
+### R-06 Internal testing
+- Prerequisite: A-08 (captcha on the auth endpoints) is done and enabled server side (owner decision, A-01).
 
 ## Catalog fallbacks (on demand, outside the phase order)
 
