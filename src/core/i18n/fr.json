@@ -510,7 +510,7 @@
       },
       "invalid": {
         "title": "Ce lien n'est pas valide",
-        "message": "Il a peut-être déjà été utilisé, ou ouvert sur un autre appareil. Demandez un nouveau lien."
+        "message": "Ce lien ne peut plus être utilisé. Demandez un nouveau lien."
       },
       "requestLink": "Demander un nouveau lien"
     }

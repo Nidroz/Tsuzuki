@@ -503,7 +503,7 @@
       },
       "invalid": {
         "title": "This link is not valid",
-        "message": "It may have been used already, or opened on another device. Ask for a new link."
+        "message": "This link can no longer be used. Ask for a new link."
       },
       "requestLink": "Ask for a new link"
     }
