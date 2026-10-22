@@ -190,7 +190,7 @@ Details:
 - [x] L-03 Add/remove, status, progress `+1` (optimistic + coalesced), score, notes
 - [x] L-04 Library screen: grouping, filters, sorting
 - [x] L-05 Favorites (toggle + tab)
-- [ ] L-06 Adult content setting wired to the filter
+- [x] L-06 Adult content setting wired to the filter
 
 Details:
 
@@ -232,6 +232,7 @@ Details:
 - The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
 - `library_entries.media_is_adult` defaults to `false`, which fails open (BR-06): snapshot writes must always set it from `MediaSummary.isAdult`; consider dropping the default in a migration (C-03 review).
 - Two `throws_ok` cases of `supabase/tests/database/030-library-entries.test.sql` (the external id check and the duplicate entry) pass a null message, so the constraint names `library_entries_external_id_check` and `library_entries_user_media_key` are never asserted (C-03 review): assert the Postgres messages that name them.
+- The preferences (theme, language, adult content) are stored on the device only (`src/core/preferences/`, L-06). Decide whether they sync to `profiles.preferences` for a signed-in user (SPEC does not require it; FR-23 covers the library); if they do, parse the column with the same fail-closed rule (`showAdult` false unless exactly true).
 - Every write names the media identity `(id_namespace, external_id)` from the `MediaKey` (`namespace`, `externalId`): `id_namespace` has no default (C-03, ADR-0013), and the upsert conflict target is `(user_id, id_namespace, media_kind, external_id)`.
 - The row schema maps a row to the domain shape and reuses `libraryEntrySchema` and `timestampSchema` (`src/core/schemas/`, L-02); the Supabase repository runs the shared contract `describeLibraryRepositoryContract` (`test/core/library-repository-contract.ts`). When the repository switches on the auth state, reset the `['library']` queries or key them per owner, so one user's entries never show under another (L-02). The switch is the `repository` prop of `LibraryContextProvider` alone: the swap already flushes the pending coalesced writes to the old repository (`flushAll` of the old writer, L-03); a flushed write that succeeds still sets its entry in the shared query cache (`setQueryData` of the old writer), so the reset must happen after the flush settles (the cleanup does not expose it today), or the keys must hold the owner.
 
@@ -288,6 +289,7 @@ Details:
 - Covers are loaded only by the ui `CoverImage` from `MediaSummary.imageUrl`, which passed the provider's CDN allowlist (C-04). Ban the react-native `Image` and `ImageBackground` imports in `app/` and `src/features/`, so a screen cannot load an image around `CoverImage`.
 
 ### R-05 Privacy policy, store listings, screenshots, age rating
+- Check the exposure of the adult content setting on iOS against the App Store Review Guidelines (ADR-0004) and set the age rating accordingly: the setting has no age verification, and turning it on asks for a confirmation with a warning (L-06, owner decision).
 - The privacy policy states that the catalog provider receives the user's IP address and User-Agent with every catalog request: Tenrai, the default instance, logs them for up to 90 days (its privacy policy, C-03, ADR-0013). Name the active provider and update the policy whenever the instance changes (self-hosted Jikan, AniList).
 
 ## Catalog fallbacks (on demand, outside the phase order)
