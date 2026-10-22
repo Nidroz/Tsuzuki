@@ -16,6 +16,15 @@ const TEXT_AREA = 'min-h-text-area';
 
 export type InputKeyboardType = 'default' | 'email-address' | 'number-pad' | 'numeric' | 'url';
 export type InputReturnKeyType = 'done' | 'go' | 'next' | 'search' | 'send';
+/** what the field holds, for autofill and password managers: a new password gets a suggestion */
+export type InputAutoComplete = 'email' | 'password' | 'new-password';
+
+// android reads autoComplete; ios reads textContentType
+const TEXT_CONTENT_TYPE = {
+  email: 'emailAddress',
+  password: 'password',
+  'new-password': 'newPassword',
+} as const satisfies Record<InputAutoComplete, TextInputProps['textContentType']>;
 
 export interface InputProps {
   /** translated visible label, also the field's accessibility label */
@@ -32,6 +41,8 @@ export interface InputProps {
   autoCapitalize?: TextInputProps['autoCapitalize'];
   /** on by default; off for names and search text, which autocorrect would rewrite */
   autoCorrect?: boolean;
+  /** lets autofill and password managers fill the field; no autofill hint by default */
+  autoComplete?: InputAutoComplete;
   /** the longest text the field accepts, in utf-16 code units */
   maxLength?: number;
   /** a text area for free text (e.g. notes): several lines, the return key adds a line */
@@ -53,6 +64,7 @@ export function Input({
   onSubmitEditing,
   autoCapitalize,
   autoCorrect,
+  autoComplete,
   maxLength,
   multiline = false,
   testID,
@@ -88,6 +100,10 @@ export function Input({
         {...(onSubmitEditing !== undefined && { onSubmitEditing })}
         {...(autoCapitalize !== undefined && { autoCapitalize })}
         {...(autoCorrect !== undefined && { autoCorrect })}
+        {...(autoComplete !== undefined && {
+          autoComplete,
+          textContentType: TEXT_CONTENT_TYPE[autoComplete],
+        })}
         {...(maxLength !== undefined && { maxLength })}
         {...(multiline && { multiline, textAlignVertical: 'top' as const })}
         testID={testID}
