@@ -19,7 +19,7 @@ import {
 // supabase-js removes the link's verifier on every failed exchange: whatever the failure, the link
 // is spent, so it rejects as link-invalid and a second try sends nothing
 
-const AUTH_CODE = '6f1c2b0e-8a47-4d52-9a3e-2d1f0c9b7e41';
+const AUTH_CODE = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const PKCE_GRANT = { method: 'post', path: '/token', grantType: 'pkce' } as const;
 
 interface FailedExchange {

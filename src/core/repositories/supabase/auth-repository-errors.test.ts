@@ -17,7 +17,7 @@ import {
   successHandlers,
 } from './__fixtures__/auth-handlers';
 
-const AUTH_CODE = '6f1c2b0e-8a47-4d52-9a3e-2d1f0c9b7e41';
+const AUTH_CODE = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const NEW_PASSWORD = 'new-password-1';
 // past the one hour expiry of the test sessions
 const SESSION_EXPIRED_AFTER_MS = 2 * 60 * 60 * 1000;

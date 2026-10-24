@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { AUTH_CODE_MAX_LENGTH, AUTH_FLOW_ID_PARAM, parseAuthLinkParams } from './auth-link-params';
 
-const CODE = '6f1c2b0e-8a47-4d52-9a3e-2d1f0c9b7e41';
+const CODE = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const FLOW_ID = 'Ab3_d-Ef9Gh2iJk4';
 
 const INVALID = { kind: 'failed', reason: 'invalid' };
