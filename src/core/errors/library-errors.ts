@@ -33,3 +33,41 @@ export class LibrarySnapshotError extends RangeError {
     this.name = 'LibrarySnapshotError';
   }
 }
+
+/**
+ * why a call of the account store failed (docs/ARCHITECTURE.md §4 "Account store"): no response or
+ * a gateway status (`network`); the session is no longer the store's user, or the token was
+ * refused (`signed-out`); the database refused the request (`rejected`, a bug or a schema drift); a
+ * row this version cannot read (`invalid-row`); anything else (`unknown`).
+ */
+export const LIBRARY_REMOTE_REASONS = [
+  'network',
+  'signed-out',
+  'rejected',
+  'invalid-row',
+  'unknown',
+] as const;
+
+export type LibraryRemoteReason = (typeof LIBRARY_REMOTE_REASONS)[number];
+
+const LIBRARY_REMOTE_MESSAGES: Readonly<Record<LibraryRemoteReason, string>> = {
+  network: 'Account library unreachable',
+  'signed-out': 'Account library session ended',
+  rejected: 'Account library request rejected',
+  'invalid-row': 'Account library row is unreadable',
+  unknown: 'Account library request failed',
+};
+
+/**
+ * a failed call of the account library store. the message is fixed per reason; it holds no server
+ * text (a postgres detail can quote the row), no key and no value, and no cause is attached.
+ */
+export class LibraryRemoteError extends Error {
+  readonly reason: LibraryRemoteReason;
+
+  constructor(reason: LibraryRemoteReason) {
+    super(LIBRARY_REMOTE_MESSAGES[reason]);
+    this.name = 'LibraryRemoteError';
+    this.reason = reason;
+  }
+}
