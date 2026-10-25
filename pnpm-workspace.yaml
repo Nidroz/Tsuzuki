@@ -20,6 +20,9 @@ overrides:
   # filelist (jake, through @oclif/core)
   'eas-cli>minimatch': 5.1.9
   'filelist>minimatch': 5.1.9
+  # GHSA-mrhx-c7xc-m3w5: any zod 4 below 4.6.6, wherever it comes from, is forced to a patched
+  # release, so the ignore of this advisory (auditConfig below, for zod 3) never hides a zod 4
+  'zod@>=4.0.0 <4.6.6': ^4.6.7
 
 allowBuilds:
   # denied: the sentry-cli binary comes from optional platform packages, the postinstall is only a
@@ -44,6 +47,10 @@ auditConfig:
     # braces, via metro > metro-file-map > micromatch: used only by the metro bundler at build time,
     # on glob patterns from the repository's own config, never on user input; not in the app bundle
     - GHSA-vfj7-8cjw-p6xm
+    # zod 3, via expo > @expo/cli only (^3.25.76, no patched 3.x release): used only by the expo cli
+    # on the developer machine and in ci, on the repository's own inputs; not in the app bundle. zod 4
+    # is patched (the app's own zod and the override above). remove once @expo/cli moves to zod 4
+    - GHSA-mrhx-c7xc-m3w5
 
 # the sentry gradle step runs node_modules/@sentry/cli/bin/sentry-cli from the project root; with
 # pnpm, @sentry/cli is only a dependency of @sentry/react-native, so it is hoisted to the root
