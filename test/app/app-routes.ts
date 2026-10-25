@@ -10,6 +10,7 @@ import SettingsRoute from '../../app/(tabs)/settings';
 import RootLayout, { unstable_settings } from '../../app/_layout';
 import EmailCallbackRoute from '../../app/auth/callback';
 import ForgotPasswordRoute from '../../app/auth/forgot-password';
+import OAuthCallbackRoute from '../../app/auth/oauth-callback';
 import ResetPasswordRoute from '../../app/auth/reset-password';
 import SignInRoute from '../../app/auth/sign-in';
 import SignUpRoute from '../../app/auth/sign-up';
@@ -35,6 +36,7 @@ export const APP_ROUTES = {
   'auth/forgot-password': ForgotPasswordRoute,
   'auth/callback': EmailCallbackRoute,
   'auth/reset-password': ResetPasswordRoute,
+  'auth/oauth-callback': OAuthCallbackRoute,
   '+not-found': NotFoundRoute,
 } as const;
 

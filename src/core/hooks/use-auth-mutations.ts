@@ -7,6 +7,7 @@ import type {
   CaptchaTokenProvider,
   EmailCredentials,
   EmailLinkCode,
+  OAuthProvider,
 } from '../repositories/auth-repository';
 import { useAuthContext } from './use-auth-context';
 
@@ -127,6 +128,19 @@ export const useCompletePasswordReset = () => {
       : 'exchange'
     : null;
   return { ...mutation, failedStep };
+};
+
+/**
+ * signs in with an identity provider (ADR-0015): the browser auth session, then the code exchange,
+ * all inside the user's tap. resolves the session, or null when the user closed the browser or
+ * declined consent. no captcha: supabase does not protect the authorize endpoint
+ */
+export const useSignInWithProvider = () => {
+  const { repository } = useAuthContext();
+  return useMutation({
+    ...AUTH_MUTATION_OPTIONS,
+    mutationFn: (provider: OAuthProvider) => repository.signInWithProvider(provider),
+  });
 };
 
 /** signs out on this device (local scope); rejects with `network` when the session must stay */

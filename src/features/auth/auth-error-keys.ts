@@ -11,6 +11,7 @@ export const AUTH_ERROR_KEYS = {
   'rate-limited': 'auth.errors.rateLimited',
   'captcha-failed': 'auth.errors.captchaFailed',
   'link-invalid': 'auth.errors.linkInvalid',
+  'oauth-failed': 'auth.errors.oauthFailed',
   network: 'auth.errors.network',
   unknown: 'auth.errors.unknown',
 } as const satisfies Record<AuthErrorReason, TranslationKey>;

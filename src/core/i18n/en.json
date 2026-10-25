@@ -432,6 +432,7 @@
       "rateLimited": "Too many attempts. Wait a moment, then try again.",
       "captchaFailed": "The security check failed. Try again.",
       "linkInvalid": "This link is not valid, has expired or was already used.",
+      "oauthFailed": "Sign in with this provider did not work. Try again.",
       "network": "The server could not be reached. Check your connection, then try again.",
       "unknown": "Something went wrong. Try again in a moment."
     },
@@ -458,6 +459,12 @@
         "resent": "We sent the email again.",
         "signIn": "Go to sign in"
       }
+    },
+    "oauth": {
+      "separator": "or",
+      "google": "Continue with Google",
+      "apple": "Continue with Apple",
+      "signingIn": "Signing in"
     },
     "forgotPassword": {
       "title": "Forgot password",
@@ -506,6 +513,15 @@
         "message": "This link can no longer be used. Ask for a new link."
       },
       "requestLink": "Ask for a new link"
+    },
+    "oauthCallback": {
+      "title": "Sign in",
+      "returning": "Returning to sign in",
+      "interrupted": {
+        "title": "Sign in did not finish",
+        "message": "Start again from the sign in screen."
+      },
+      "signIn": "Sign in"
     }
   },
   "notFound": {

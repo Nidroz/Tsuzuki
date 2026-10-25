@@ -439,6 +439,7 @@
       "rateLimited": "Trop de tentatives. Patientez un instant, puis réessayez.",
       "captchaFailed": "La vérification de sécurité a échoué. Réessayez.",
       "linkInvalid": "Ce lien n'est pas valide, a expiré ou a déjà été utilisé.",
+      "oauthFailed": "La connexion avec ce service n'a pas abouti. Réessayez.",
       "network": "Le serveur est injoignable. Vérifiez votre connexion, puis réessayez.",
       "unknown": "Une erreur est survenue. Réessayez dans un instant."
     },
@@ -465,6 +466,12 @@
         "resent": "Nous avons renvoyé l'e-mail.",
         "signIn": "Aller à la connexion"
       }
+    },
+    "oauth": {
+      "separator": "ou",
+      "google": "Continuer avec Google",
+      "apple": "Continuer avec Apple",
+      "signingIn": "Connexion en cours"
     },
     "forgotPassword": {
       "title": "Mot de passe oublié",
@@ -513,6 +520,15 @@
         "message": "Ce lien ne peut plus être utilisé. Demandez un nouveau lien."
       },
       "requestLink": "Demander un nouveau lien"
+    },
+    "oauthCallback": {
+      "title": "Connexion",
+      "returning": "Retour à la connexion",
+      "interrupted": {
+        "title": "La connexion n'a pas abouti",
+        "message": "Recommencez depuis l'écran de connexion."
+      },
+      "signIn": "Se connecter"
     }
   },
   "notFound": {

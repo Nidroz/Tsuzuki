@@ -18,6 +18,7 @@ import {
   createTestRepository,
   createUser,
   flowIdOf,
+  s256,
   successHandlers,
 } from './__fixtures__/auth-handlers';
 
@@ -28,15 +29,6 @@ const SIGNED_IN: AuthSession = { userId: USER_ID };
 
 const redirectPattern = (url: string): RegExp =>
   new RegExp(`^${url.replaceAll('/', '\\/')}\\?sb_flow_id=[A-Za-z0-9_-]{8,64}$`);
-
-// the s256 challenge of a pkce verifier, base64url without padding
-const s256 = async (verifier: string): Promise<string> => {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replaceAll('+', '-')
-    .replaceAll('/', '_')
-    .replace(/=+$/, '');
-};
 
 describe('createSupabaseAuthRepository', () => {
   let log: ReturnType<typeof createRequestLog>;

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, userEvent, waitFor } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
@@ -56,11 +56,20 @@ const CODE = '3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f6a7b8';
 const FLOW_ID = 'flow_id-12345';
 const LINK_QUERY = `?sb_flow_id=${FLOW_ID}&code=${CODE}`;
 const SESSION = { userId: '7d4c0f52-7b8e-4a43-9f8a-2f1b3c4d5e6f' };
+// low-entropy placeholders: the oauth route never reads them
+const OAUTH_QUERY =
+  '?sb_flow_id=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee&code=aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
 beforeEach(() => {
   const repository = appAuthRepository();
   repository.completeEmailLink.mockClear();
   repository.updatePassword.mockClear();
+  repository.signInWithProvider.mockClear();
+});
+
+afterEach(() => {
+  // the default of every A-02 build: no provider
+  appAuthRepository().oauthProviders = [];
 });
 
 const openLink = (url: string) => renderRouterAsync(APP_ROUTES, { initialUrl: url });
@@ -75,6 +84,11 @@ describe('auth routes', () => {
       `/auth/reset-password${LINK_QUERY}`,
       'auth-reset-password-screen',
       en.auth.resetPassword.title,
+    ],
+    [
+      `/auth/oauth-callback${OAUTH_QUERY}`,
+      'auth-oauth-callback-interrupted',
+      en.auth.oauthCallback.title,
     ],
   ])(
     'opens %s with its translated header and a minimal back button',
@@ -151,5 +165,49 @@ describe('auth routes', () => {
     });
 
     expect(appRouter.getPathname()).toBe('/settings');
+  });
+
+  it('goes back from the oauth redirect to the sign in screen awaiting the flow, writing nothing', async () => {
+    const appRouter = await openLink('/auth/sign-in');
+    const repository = appAuthRepository();
+
+    await act(() => {
+      router.push(`/auth/oauth-callback${OAUTH_QUERY}`);
+    });
+
+    await waitFor(() => {
+      expect(appRouter.getPathname()).toBe('/auth/sign-in');
+    });
+    expect(screen.getByTestId('auth-sign-in-screen')).toBeOnTheScreen();
+    expect(repository.signInWithProvider).not.toHaveBeenCalled();
+    expect(repository.completeEmailLink).not.toHaveBeenCalled();
+  });
+
+  it('says sign in did not finish when the oauth redirect starts the app, then leads to sign in', async () => {
+    const appRouter = await openLink(`/auth/oauth-callback${OAUTH_QUERY}`);
+    const repository = appAuthRepository();
+
+    expect(screen.getByTestId('auth-oauth-callback-interrupted')).toBeOnTheScreen();
+    expect(appRouter.getPathname()).toBe('/auth/oauth-callback');
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(appRouter.getPathname()).toBe('/auth/sign-in');
+    expect(repository.signInWithProvider).not.toHaveBeenCalled();
+    expect(repository.completeEmailLink).not.toHaveBeenCalled();
+  });
+
+  it('shows no provider button on sign in while the repository lists none', async () => {
+    await openLink('/auth/sign-in');
+
+    expect(screen.queryByTestId('auth-sign-in-oauth-google')).not.toBeOnTheScreen();
+  });
+
+  it('shows a button per provider the repository lists', async () => {
+    appAuthRepository().oauthProviders = ['apple', 'google'];
+    await openLink('/auth/sign-in');
+
+    expect(screen.getByTestId('auth-sign-in-oauth-apple')).toBeOnTheScreen();
+    expect(screen.getByTestId('auth-sign-in-oauth-google')).toBeOnTheScreen();
   });
 });

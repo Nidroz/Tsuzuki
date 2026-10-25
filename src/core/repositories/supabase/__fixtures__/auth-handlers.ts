@@ -6,7 +6,10 @@ import { http, HttpResponse, type HttpHandler } from 'msw';
 
 import type { ErrorReporter } from '../../../errors/error-reporter';
 import type { SessionStorage } from '../../session-storage';
-import { createSupabaseAuthRepository } from '../auth-repository';
+import {
+  createSupabaseAuthRepository,
+  type SupabaseAuthRepositoryOptions,
+} from '../auth-repository';
 import { createSupabaseClient } from '../create-supabase-client';
 
 export const PROJECT_URL = 'https://project-ref.supabase.co';
@@ -16,6 +19,7 @@ export const EMAIL = 'reader@example.com';
 export const PASSWORD = 'correct-horse-9';
 export const CONFIRMATION_URL = 'tsuzuki://auth/callback';
 export const PASSWORD_RESET_URL = 'tsuzuki://auth/reset-password';
+export const OAUTH_REDIRECT_URL = 'tsuzuki://auth/oauth-callback';
 export const ACCESS_TOKEN = 'fake-access-token';
 export const REFRESH_TOKEN = 'fake-refresh-token';
 // server text echoing personal data, as gotrue messages can
@@ -127,8 +131,11 @@ export const createMemorySessionStorage = () => {
   return { storage, values };
 };
 
-/** a repository over a real client, its session storage and a recording reporter. */
-export const createTestRepository = () => {
+/**
+ * a repository over a real client, its session storage and a recording reporter; with the provider
+ * sign in setup when given.
+ */
+export const createTestRepository = (extra: Pick<SupabaseAuthRepositoryOptions, 'oauth'> = {}) => {
   const session = createMemorySessionStorage();
   const client = createSupabaseClient({
     url: PROJECT_URL,
@@ -140,6 +147,7 @@ export const createTestRepository = () => {
     confirmationRedirectUrl: CONFIRMATION_URL,
     passwordResetRedirectUrl: PASSWORD_RESET_URL,
     reporter: { captureError },
+    ...extra,
   });
   return { repository, client, session, captureError };
 };
@@ -151,4 +159,13 @@ export const flowIdOf = (redirectTo: string | null): string => {
     throw new Error('the redirect carries no flow id');
   }
   return flowId;
+};
+
+/** the s256 challenge of a pkce verifier, base64url without padding. */
+export const s256 = async (verifier: string): Promise<string> => {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return btoa(String.fromCharCode(...new Uint8Array(digest)))
+    .replaceAll('+', '-')
+    .replaceAll('/', '_')
+    .replace(/=+$/, '');
 };

@@ -8,6 +8,7 @@ import { authErrorKey, authErrorReason } from './auth-error-keys';
 import { AUTH_PATHS, SETTINGS_PATH } from './auth-routes';
 import { EmailField, PasswordField } from './AuthFields';
 import { AuthScreen } from './AuthScreen';
+import { OAuthButtons } from './OAuthButtons';
 import { useAuthForm } from './use-auth-form';
 import { useEmailField } from './use-email-field';
 
@@ -16,7 +17,8 @@ const TEST_ID = 'auth-sign-in';
 /**
  * sign in with an email and a password (FR-21). the form checks no password policy (the server's),
  * only what no account can have. an unconfirmed email offers to resend the confirmation email to
- * the address that was submitted. success returns to the settings tab
+ * the address that was submitted. below the form, the identity providers of the build (OAuthButtons).
+ * success returns to the settings tab
  */
 export function SignInScreen() {
   const { t } = useTranslation();
@@ -100,6 +102,7 @@ export function SignInScreen() {
         variant="ghost"
         testID={`${TEST_ID}-forgot-password`}
       />
+      <OAuthButtons testIdPrefix={TEST_ID} />
       <Button
         label={t('auth.signIn.createAccount')}
         onPress={() => {

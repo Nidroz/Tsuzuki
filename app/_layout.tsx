@@ -131,6 +131,7 @@ const supabase = createSupabaseClient({
   anonKey: appEnv.supabaseAnonKey,
   sessionStorage: createSecureSessionStorage(reporter),
 });
+// TODO(A-09): pass the oauth option (the browser session and the per-build provider list)
 const authRepository = createSupabaseAuthRepository(supabase, {
   confirmationRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.confirmation),
   passwordResetRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.passwordReset),
@@ -155,6 +156,7 @@ function RootStack() {
       forgotPassword: { title: t('auth.forgotPassword.title') },
       emailConfirmed: { title: t('auth.emailConfirmed.title') },
       resetPassword: { title: t('auth.resetPassword.title') },
+      oauthCallback: { title: t('auth.oauthCallback.title') },
       notFound: { title: t('notFound.title') },
     }),
     [t],
@@ -169,6 +171,7 @@ function RootStack() {
       <Stack.Screen name="auth/forgot-password" options={options.forgotPassword} />
       <Stack.Screen name="auth/callback" options={options.emailConfirmed} />
       <Stack.Screen name="auth/reset-password" options={options.resetPassword} />
+      <Stack.Screen name="auth/oauth-callback" options={options.oauthCallback} />
       <Stack.Screen name="+not-found" options={options.notFound} />
     </Stack>
   );

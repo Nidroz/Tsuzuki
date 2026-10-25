@@ -193,6 +193,35 @@ describe('SignUpScreen', () => {
     expect(screen.getByLabelText('Password')).toBeOnTheScreen();
   });
 
+  it('shows the provider buttons of the build', async () => {
+    await renderScreen({ oauthProviders: ['google', 'apple'] });
+
+    expect(screen.getByTestId('auth-sign-up-oauth-google')).toBeOnTheScreen();
+    expect(screen.getByRole('button', { name: 'Continue with Apple' })).toBeOnTheScreen();
+  });
+
+  it('shows no provider button while the build has none', async () => {
+    await renderScreen();
+
+    expect(screen.queryByTestId('auth-sign-up-oauth-google')).not.toBeOnTheScreen();
+    expect(screen.queryByText('or')).not.toBeOnTheScreen();
+  });
+
+  it('shows a failed provider sign in under the provider buttons', async () => {
+    await renderScreen({
+      oauthProviders: ['apple'],
+      signInWithProvider: () => Promise.reject(new AuthError('oauth-failed')),
+    });
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Continue with Apple' }));
+
+    expect(await screen.findByTestId('auth-sign-up-oauth-error')).toHaveTextContent(
+      'Sign in with this provider did not work. Try again.',
+    );
+    expect(screen.queryByTestId('auth-sign-up-error')).not.toBeOnTheScreen();
+    expect(mockDismissTo).not.toHaveBeenCalled();
+  });
+
   it('goes to sign in when the user already has an account', async () => {
     await renderScreen();
     const user = userEvent.setup();

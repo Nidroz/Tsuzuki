@@ -47,6 +47,11 @@ export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}
     setAutoRefresh: jest.fn<AuthRepository['setAutoRefresh']>(
       overrides.setAutoRefresh ?? throwUnexpected('setAutoRefresh'),
     ),
+    // no provider unless the test gives some: the provider buttons stay hidden
+    oauthProviders: overrides.oauthProviders ?? [],
+    signInWithProvider: jest.fn<AuthRepository['signInWithProvider']>(
+      overrides.signInWithProvider ?? rejectUnexpected('signInWithProvider'),
+    ),
   }) satisfies AuthRepository;
 
 export type FakeAuthRepository = ReturnType<typeof createFakeAuthRepository>;
