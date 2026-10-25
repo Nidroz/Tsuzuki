@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 
 import type {
   AuthRequestOptions,
@@ -91,25 +91,42 @@ export interface PasswordResetVariables {
 }
 
 /**
+ * the step of a password reset that failed: the code exchange (the link is spent, whatever the
+ * reason) or the password update (the user is signed in with the recovery session, a retry sets
+ * the password only)
+ */
+export type PasswordResetStep = 'exchange' | 'update';
+
+/**
  * completes a recovery link on submit of a valid new password: exchanges its code once, then sets
  * the password. once the exchange succeeded, the user is signed in with the recovery session, so a
  * retry after a failed update (a weak or same password, the network) sets the password only: the
- * code is single-use
+ * code is single-use. `failedStep` tells which step the current error comes from, null without an
+ * error
  */
 export const useCompletePasswordReset = () => {
   const { repository } = useAuthContext();
-  // the code this hook already exchanged
+  // the code this hook already exchanged: the ref decides the next call, the state the render
   const exchangedCodeRef = useRef<string | null>(null);
-  return useMutation({
+  const [exchangedCode, setExchangedCode] = useState<string | null>(null);
+  const mutation = useMutation({
     ...AUTH_MUTATION_OPTIONS,
     mutationFn: async ({ link, password }: PasswordResetVariables) => {
       if (exchangedCodeRef.current !== link.code) {
         await repository.completeEmailLink(link);
         exchangedCodeRef.current = link.code;
+        setExchangedCode(link.code);
       }
       await repository.updatePassword(password);
     },
   });
+  // an error after the exchange of the code of the failed call can only come from the update
+  const failedStep: PasswordResetStep | null = mutation.isError
+    ? exchangedCode === mutation.variables.link.code
+      ? 'update'
+      : 'exchange'
+    : null;
+  return { ...mutation, failedStep };
 };
 
 /** signs out on this device (local scope); rejects with `network` when the session must stay */

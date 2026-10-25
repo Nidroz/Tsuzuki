@@ -148,6 +148,55 @@ describe('ResetPasswordScreen', () => {
   });
 
   it.each([
+    ['network', new AuthError('network')],
+    ['an unexpected error', new Error('unexpected')],
+  ])(
+    'offers a new link when the exchange fails with %s, never resubmitting the code',
+    async (_case, error) => {
+      // a repository breaking the link-invalid contract: the failed exchange spent the link anyway
+      const repository = await renderScreen(LINK_PARAMS, {
+        completeEmailLink: () => Promise.reject(error),
+      });
+
+      await submitPassword(PASSWORD);
+
+      expect(await screen.findByTestId('auth-reset-password-invalid')).toBeOnTheScreen();
+      expect(screen.queryByRole('button', { name: 'Save the password' })).not.toBeOnTheScreen();
+      expect(screen.queryByTestId('auth-reset-password-error')).not.toBeOnTheScreen();
+      expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
+      expect(repository.updatePassword).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    ['network', new AuthError('network'), 'The server could not be reached'],
+    // even the reason of a spent link: the exchange succeeded, so the form stays
+    ['link-invalid', new AuthError('link-invalid'), 'This link is not valid, has expired'],
+    ['an unexpected error', new Error('unexpected'), 'Something went wrong'],
+  ])(
+    'keeps the form after an update failure with %s, and a retry only updates',
+    async (_case, error, message) => {
+      const repository = await renderScreen(LINK_PARAMS, {
+        completeEmailLink: () => Promise.resolve(SESSION),
+        updatePassword: () => Promise.reject(error),
+      });
+      const user = await submitPassword(PASSWORD);
+
+      expect(await screen.findByTestId('auth-reset-password-error')).toHaveTextContent(message, {
+        exact: false,
+      });
+      expect(screen.queryByTestId('auth-reset-password-invalid')).not.toBeOnTheScreen();
+
+      repository.updatePassword.mockResolvedValueOnce(undefined);
+      await user.press(screen.getByRole('button', { name: 'Save the password' }));
+
+      expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
+      expect(repository.updatePassword).toHaveBeenCalledTimes(2);
+      expect(mockDismissTo).toHaveBeenCalledWith('/settings');
+    },
+  );
+
+  it.each([
     ['expired', { error: 'access_denied', error_code: 'otp_expired' }, 'This link has expired'],
     ['invalid', { code: 'not a code', sb_flow_id: FLOW_ID }, 'This link is not valid'],
   ])(

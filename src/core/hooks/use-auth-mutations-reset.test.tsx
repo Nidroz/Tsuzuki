@@ -1,6 +1,6 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { onlineManager } from '@tanstack/react-query';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import { authWrapper } from '../../../test/core/auth-hooks-support';
 import { createSessionAuthRepository } from '../../../test/core/fake-auth-repository';
@@ -56,6 +56,47 @@ describe('useCompletePasswordReset', () => {
 
     expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
     expect(repository.updatePassword).not.toHaveBeenCalled();
+    expect(result.current.failedStep).toBe('exchange');
+  });
+
+  it.each([
+    ['network', new AuthError('network')],
+    ['unknown', new AuthError('unknown')],
+    ['a plain error', new Error('unexpected')],
+  ])('reads an exchange rejecting with %s as a failed exchange', async (_case, error) => {
+    // a repository breaking the link-invalid contract still spends the link
+    const repository = createSessionAuthRepository(null, {
+      completeEmailLink: () => Promise.reject(error),
+      updatePassword: () => Promise.resolve(),
+    });
+    const { result } = renderReset(repository);
+
+    expect(result.current.failedStep).toBeNull();
+
+    await act(async () => {
+      await expect(result.current.mutateAsync({ link: LINK, password: PASSWORD })).rejects.toBe(
+        error,
+      );
+    });
+
+    expect(result.current.failedStep).toBe('exchange');
+    expect(repository.updatePassword).not.toHaveBeenCalled();
+  });
+
+  it('reads an update failure of any reason as a failed update', async () => {
+    const repository = createSessionAuthRepository(null, {
+      completeEmailLink: () => Promise.resolve(SESSION),
+      updatePassword: () => Promise.reject(new AuthError('link-invalid')),
+    });
+    const { result } = renderReset(repository);
+
+    await act(async () => {
+      await expect(
+        result.current.mutateAsync({ link: LINK, password: PASSWORD }),
+      ).rejects.toMatchObject({ reason: 'link-invalid' });
+    });
+
+    expect(result.current.failedStep).toBe('update');
   });
 
   it('retries only the password update once the code was exchanged', async () => {
@@ -71,9 +112,14 @@ describe('useCompletePasswordReset', () => {
       ).rejects.toMatchObject({ reason: 'same-password' });
     });
 
+    expect(result.current.failedStep).toBe('update');
+
     repository.updatePassword.mockResolvedValueOnce(undefined);
     await act(() => result.current.mutateAsync({ link: LINK, password: `${PASSWORD}!` }));
 
+    await waitFor(() => {
+      expect(result.current.failedStep).toBeNull();
+    });
     expect(repository.completeEmailLink).toHaveBeenCalledTimes(1);
     expect(repository.updatePassword).toHaveBeenCalledTimes(2);
     expect(repository.updatePassword).toHaveBeenLastCalledWith(`${PASSWORD}!`);
