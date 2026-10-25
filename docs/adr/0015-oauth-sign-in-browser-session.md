@@ -1,6 +1,6 @@
 # ADR-0015: OAuth sign-in through a browser auth session
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-25
 
 ## Context
