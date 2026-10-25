@@ -7,6 +7,8 @@ const REDIRECT_URL = 'tsuzuki://auth/oauth-callback';
 const CODE = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const FLOW_ID = 'aaaaaaaa-flow-id';
 const PARAMS = `sb_flow_id=${FLOW_ID}&code=${CODE}`;
+const DECLINE = 'error=access_denied&error_description=User+denied';
+const REFUSAL = 'error=access_denied&error_code=signup_disabled&error_description=Signups+disabled';
 
 const CODE_REDIRECT = { kind: 'code', link: { code: CODE, flowId: FLOW_ID } };
 const FAILED = { kind: 'failed' };
@@ -47,10 +49,11 @@ describe('parseOAuthRedirect', () => {
 
   it.each([
     ['a code repeated in the query', `${REDIRECT_URL}?${PARAMS}&code=${CODE}`],
+    ['a code in the query and the fragment', `${REDIRECT_URL}?${PARAMS}#code=${CODE}`],
     ['a flow id in the query and the fragment', `${REDIRECT_URL}?${PARAMS}#sb_flow_id=${FLOW_ID}`],
     ['a repeat spelled with an escape', `${REDIRECT_URL}?${PARAMS}&co%64e=${CODE}`],
-    ['an error in the query and the fragment', `${REDIRECT_URL}?error=access_denied#error=x`],
-    ['an unknown param repeated', `${REDIRECT_URL}?${PARAMS}&state=a&state=a`],
+    ['an error repeated in the fragment', `${REDIRECT_URL}#error=access_denied&error=x`],
+    ['an unknown param in both parts', `${REDIRECT_URL}?${PARAMS}&state=a#state=a`],
   ])('fails %s', (_label, url) => {
     expect(parse(url)).toStrictEqual(FAILED);
   });
@@ -67,12 +70,24 @@ describe('parseOAuthRedirect', () => {
     ['in the query', `${REDIRECT_URL}?sb_flow_id=${FLOW_ID}&error=access_denied`],
     ['in the fragment', `${REDIRECT_URL}#error=access_denied&error_description=User+denied`],
     ['next to a code', `${REDIRECT_URL}?${PARAMS}&error=access_denied`],
+    // supabase copies the error params into the fragment as well as the query
+    ['in both parts', `${REDIRECT_URL}?sb_flow_id=${FLOW_ID}&${DECLINE}#${DECLINE}`],
   ])('reads a declined consent %s as declined', (_label, url) => {
     expect(parse(url)).toStrictEqual(DECLINED);
   });
 
   it.each([
-    ['access_denied with an error code', '?error=access_denied&error_code=signup_disabled'],
+    ['declined', '?error=access_denied#error=server_error', DECLINED],
+    ['failed', '?error=server_error#error=access_denied', FAILED],
+  ])('reads an error in both parts from the query, as %s', (_label, params, expected) => {
+    expect(parse(`${REDIRECT_URL}${params}`)).toStrictEqual(expected);
+  });
+
+  it.each([
+    [
+      'access_denied with an error code in both parts',
+      `?sb_flow_id=${FLOW_ID}&${REFUSAL}#${REFUSAL}`,
+    ],
     ['another error', '?error=server_error&error_description=access_denied'],
     ['an error code alone', '?error_code=bad_oauth_callback'],
     ['another error next to a code', `?${PARAMS}&error=invalid_request`],

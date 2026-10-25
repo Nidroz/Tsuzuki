@@ -27,9 +27,17 @@ const VALUE_SEPARATOR = '=';
 const CODE_PARAM = 'code';
 const ERROR_PARAM = 'error';
 const ERROR_CODE_PARAM = 'error_code';
+const ERROR_DESCRIPTION_PARAM = 'error_description';
 // the provider's answer to a declined consent, passed on by supabase without an error_code; supabase
 // also sends it with an error_code for its own refusals (signups disabled, a banned user)
 const DECLINED_ERROR = 'access_denied';
+// supabase copies its error params into the fragment as well as the query (depending on the server
+// version); in both parts the query value wins, as in supabase-js. no other key may be in both
+const SHARED_PARAMS: ReadonlySet<string> = new Set([
+  ERROR_PARAM,
+  ERROR_CODE_PARAM,
+  ERROR_DESCRIPTION_PARAM,
+]);
 
 // a malformed escape gives null
 const decode = (text: string): string | null => {
@@ -40,22 +48,38 @@ const decode = (text: string): string | null => {
   }
 };
 
-// the params of the query and the fragment, keys and values decoded (a `+` stays a `+`); null when
-// one does not decode, or a key repeats, within a part or across both
-const readParams = (parts: readonly string[]): ReadonlyMap<string, string> | null => {
+// the params of one part, keys and values decoded (a `+` stays a `+`); null when one does not
+// decode or a key repeats
+const readPart = (part: string): Map<string, string> | null => {
   const params = new Map<string, string>();
-  for (const part of parts) {
-    for (const pair of part.split(PARAM_SEPARATOR)) {
-      if (pair === '') {
-        continue;
-      }
-      const separator = pair.indexOf(VALUE_SEPARATOR);
-      const key = decode(separator === -1 ? pair : pair.slice(0, separator));
-      const value = decode(separator === -1 ? '' : pair.slice(separator + 1));
-      if (key === null || value === null || params.has(key)) {
-        return null;
-      }
+  for (const pair of part.split(PARAM_SEPARATOR)) {
+    if (pair === '') {
+      continue;
+    }
+    const separator = pair.indexOf(VALUE_SEPARATOR);
+    const key = decode(separator === -1 ? pair : pair.slice(0, separator));
+    const value = decode(separator === -1 ? '' : pair.slice(separator + 1));
+    if (key === null || value === null || params.has(key)) {
+      return null;
+    }
+    params.set(key, value);
+  }
+  return params;
+};
+
+// the params of the query and the fragment; null when a part does not read, or a key other than the
+// error params is in both
+const readParams = (query: string, fragment: string): ReadonlyMap<string, string> | null => {
+  const params = readPart(query);
+  const fragmentParams = readPart(fragment);
+  if (params === null || fragmentParams === null) {
+    return null;
+  }
+  for (const [key, value] of fragmentParams) {
+    if (!params.has(key)) {
       params.set(key, value);
+    } else if (!SHARED_PARAMS.has(key)) {
+      return null;
     }
   }
   return params;
@@ -64,7 +88,8 @@ const readParams = (parts: readonly string[]): ReadonlyMap<string, string> | nul
 /**
  * parses the url a provider sign in redirected to. it must be at most OAUTH_REDIRECT_MAX_LENGTH
  * characters and start with exactly `redirectUrl`, followed by `?` or `#`; its params are read from
- * the query and the fragment. an `error` or `error_code` wins over a code: `access_denied` without an
+ * the query and the fragment, a key at most once per part and only the error params in both (the
+ * query value wins). an `error` or `error_code` wins over a code: `access_denied` without an
  * error_code is `declined`, any other error `failed`. a code with its flow id, within the bounds of
  * parseAuthLinkParams, gives the code to exchange; anything else is `failed`. the caller still
  * checks that the flow id is the one its own flow started.
@@ -81,7 +106,7 @@ export const parseOAuthRedirect = (url: string, redirectUrl: string): OAuthRedir
   const fragmentAt = rest.indexOf(FRAGMENT_START);
   const query = fragmentAt === -1 ? rest.slice(1) : rest.slice(1, fragmentAt);
   const fragment = fragmentAt === -1 ? '' : rest.slice(fragmentAt + 1);
-  const params = readParams([query, fragment]);
+  const params = readParams(query, fragment);
   if (params === null) {
     return FAILED;
   }

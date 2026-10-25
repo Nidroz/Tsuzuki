@@ -30,6 +30,7 @@ const OTHER_FLOW_ID = 'aaaaaaaa-flow-id';
 const PKCE_GRANT = { method: 'post', path: '/token', grantType: 'pkce' } as const;
 const SIGNED_IN: AuthSession = { userId: USER_ID };
 const OAUTH_REPORT = { source: 'auth', tags: { operation: 'oauth-sign-in' } };
+const DECLINED_PARAMS = 'error=access_denied&error_description=User+denied';
 
 // how the fake browser session ends, given the flow id of the authorize url it was opened with
 type BrowserAnswer = (flowId: string) => OAuthBrowserResult;
@@ -102,7 +103,11 @@ describe('auth repository signInWithProvider', () => {
 
   it.each<[string, BrowserAnswer]>([
     ['the user closed the browser', () => ({ type: 'closed' })],
-    ['the user declined consent', () => redirectWith('error=access_denied&error_description=x')],
+    // supabase copies the error params into the fragment as well as the query
+    [
+      'the user declined consent',
+      (flowId) => redirectWith(`sb_flow_id=${flowId}&${DECLINED_PARAMS}#${DECLINED_PARAMS}`),
+    ],
   ])('resolves null when %s, without an exchange', async (_label, answer) => {
     const context = setUp(answer);
 
@@ -143,7 +148,12 @@ describe('auth repository signInWithProvider', () => {
       {
         label: 'a rate limit',
         respond: () => authErrorResponse(429, 'over_request_rate_limit'),
-        reason: 'oauth-failed',
+        reason: 'rate-limited',
+      },
+      {
+        label: 'a 429 with another code',
+        respond: () => authErrorResponse(429, 'over_sms_send_rate_limit'),
+        reason: 'rate-limited',
       },
     ])('rejects $label as $reason, unreported', async ({ respond, reason }) => {
       server.use(log.handler, endpointHandler(PKCE_GRANT, respond));

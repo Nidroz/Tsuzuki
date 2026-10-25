@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { z } from 'zod';
 
-import { AuthError } from '../../errors/auth-errors';
+import { AuthError, type AuthErrorReason } from '../../errors/auth-errors';
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { parseOAuthRedirect } from '../../schemas/oauth-redirect';
 import type {
@@ -38,6 +38,9 @@ export interface SupabaseAuthRepositoryOptions {
 }
 
 const OAUTH_OPERATION: AuthOperation = 'oauth-sign-in';
+// the reasons of a failed provider code exchange the user can act on as such (check the connection,
+// wait); any other becomes `oauth-failed`
+const OAUTH_EXCHANGE_REASONS: ReadonlySet<AuthErrorReason> = new Set(['network', 'rate-limited']);
 
 // a session from supabase-js, read for its user id only
 const sessionUserSchema = z.object({ user: z.object({ id: z.uuid() }) });
@@ -122,7 +125,7 @@ export const createSupabaseAuthRepository = (
       // supabase-js removes the verifier on every failed exchange: a retry is a new flow. an
       // unknown cause is still reported
       const { reason } = fail(OAUTH_OPERATION, error);
-      throw new AuthError(reason === 'network' ? 'network' : 'oauth-failed');
+      throw new AuthError(OAUTH_EXCHANGE_REASONS.has(reason) ? reason : 'oauth-failed');
     }
   };
 
