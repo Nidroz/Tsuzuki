@@ -104,6 +104,7 @@ describe('OAuthButtons', () => {
   it.each<[AuthErrorReason, string]>([
     ['oauth-failed', 'Sign in with this provider did not work. Try again.'],
     ['network', 'The server could not be reached. Check your connection, then try again.'],
+    ['rate-limited', 'Too many attempts. Wait a moment, then try again.'],
     ['unknown', 'Something went wrong. Try again in a moment.'],
   ])('shows the translated %s error, and a new tap starts again', async (reason, message) => {
     const repository = await renderButtons({
