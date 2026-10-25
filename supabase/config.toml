@@ -154,11 +154,13 @@ site_url = "tsuzuki://"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-# every email link carries its pkce flow id (sb_flow_id, ADR-0014): an entry without it does not
-# match, and auth then redirects to site_url, losing the code
+# every email link and provider sign in redirect carries its pkce flow id (sb_flow_id, ADR-0014,
+# ADR-0015): an entry without it does not match, and auth then redirects to site_url, losing
+# the code
 additional_redirect_urls = [
   "tsuzuki://auth/callback?sb_flow_id=*",
   "tsuzuki://auth/reset-password?sb_flow_id=*",
+  "tsuzuki://auth/oauth-callback?sb_flow_id=*",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
@@ -320,6 +322,15 @@ max_frequency = "5s"
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin_oidc`, `notion`, `twitch`,
 # `twitter`, `x`, `slack`, `spotify`, `workos`, `zoom`.
+# google and apple sign-in (ADR-0015): disabled until the provider accounts are set up (A-09)
+[auth.external.google]
+enabled = false
+client_id = ""
+# DO NOT commit your OAuth provider secret to git. Use environment variable substitution instead:
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
+skip_nonce_check = false
+
 [auth.external.apple]
 enabled = false
 client_id = ""

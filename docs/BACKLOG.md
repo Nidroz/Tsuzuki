@@ -219,18 +219,15 @@ Details:
 ## Phase 4 — Accounts and sync
 
 - [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
-- [ ] A-02 Google and Apple sign-in (PKCE)
+- [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
 - [ ] A-03 Supabase library repository + repository switch on auth state
 - [ ] A-04 Guest → account merge (BR-08)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
 - [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
+- [ ] A-09 Google and Apple sign-in go live: browser session dependency, provider accounts and project settings, per-build provider list, branded buttons (pending the owner's accounts; release blocker: no Google sign-in on iOS without Sign in with Apple)
 
 Details:
-
-### A-02 Google and Apple sign-in (PKCE)
-- `ResetPasswordScreen` shows the failed link state only for `link-invalid`, while `EmailConfirmedScreen` treats any failed exchange as final (A-01 review): both match the `AuthRepository` contract (every failed exchange is `link-invalid`, since it consumes the PKCE verifier), but a repository breaking it would let the reset screen resubmit a spent code. Have `useCompletePasswordReset` tell an exchange failure from an `updatePassword` failure and show the failed link state for any exchange failure.
-- `src/features/auth/use-email-field.ts` is covered only through the three screen tests (A-01 review): add a direct hook test when it changes.
 
 ### A-03 Supabase library repository
 - The library read error (`library.list.error.message`, en and fr) says the library is stored on this device: reword it for the account library (L-04 review).
@@ -253,11 +250,28 @@ Details:
 ### A-06 Sign out purge and account deletion
 - Sign out purges the recent searches (`RecentSearchesRepository.clear`, FR-25): they are personal data kept on the device (C-04).
 - Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). If a guest → account merge (A-04) failed and was never retried, that purge would delete the guest's only copy: decide whether sign out waits for a successful merge, or accept and document the loss.
+- Apple sign-in (A-09, ADR-0015): before deleting an account with an Apple identity, revoke the user's Apple tokens (App Store guideline 5.1.1(v)), or record why it does not apply while iOS builds are off.
 
 ### A-08 Captcha provider on the auth endpoints
 - Owner decision (A-01): a blocker before any public release, done before R-06. The provider will likely be Cloudflare Turnstile; the owner creates the account when A-08 starts. Record the provider choice as an Update section of ADR-0014 or as a new ADR.
 - Starts once the owner has chosen hCaptcha or Turnstile and created the account and keys (A-01 shipped the provider-agnostic seam, ADR-0014): a `CaptchaTokenProvider` implementation in `src/platform/` (a WebView challenge; the package is a new dependency to justify in the PR), the site key `EXPO_PUBLIC_CAPTCHA_SITE_KEY` added to the app env schema and to each EAS environment (`plaintext`), wired by the composition root in place of `noCaptcha`.
 - Server side: captcha protection on in each hosted project (Authentication → Attack Protection, provider secret), and `[auth.captcha]` in `supabase/config.toml` with `secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"` for the local stack. Turn it on only once the binaries in use send tokens (`ARCHITECTURE.md` §10 step 9).
+
+### A-09 Google and Apple sign-in go live
+- A-02 shipped the flow behind the `OAuthBrowser` seam (ADR-0015, accepted with A-02).
+- Release blocker (owner decision, App Store guideline 4.8): Google sign-in is never available on iOS without Sign in with Apple. Either both ship together on iOS, or a platform gate keeps Google hidden on iOS until Apple works there. Test the gate.
+- Dependency approved by the owner: `expo-web-browser` via `pnpm exec expo install expo-web-browser` (Expo-maintained, MIT, `openAuthSessionAsync`: ASWebAuthenticationSession on iOS, Custom Tabs on Android). Native module: a new development client build and the next preview build. Implement `OAuthBrowser` in `src/platform/oauth-browser.ts` (`success` to `redirect`, `cancel` and `dismiss` to `closed`) and test it with the module mocked. Owner requirements:
+  - strict redirect validation: only the exact app scheme and the `auth/oauth-callback` path are accepted, anything else is rejected;
+  - the PKCE verifier is never persisted outside secure storage;
+  - a user cancel or dismissal is handled explicitly: no error message, back to the previous state, with tests;
+  - batch every native dependency change of this item so it needs one new development build and one new preview build only.
+- Per-build provider list: `EXPO_PUBLIC_AUTH_PROVIDERS` (comma-separated `google`, `apple`; unknown values fail; empty means none) in `src/core/schemas/app-env.ts`, `app.config.ts` and each EAS environment (`plaintext`). The composition root passes `oauth: { browser, providers, redirectUrl: appLinkUrl(AUTH_LINK_PATHS.oauth) }` to `createSupabaseAuthRepository` (the `TODO(A-09)` in `app/_layout.tsx`). A provider not enabled in the project answers `/authorize` with a 400 JSON page in the browser, so list only providers set up server side.
+- Owner, Google: a Google Cloud project, the OAuth consent screen (app name, support email, privacy policy URL from R-05, scopes `openid`, `email`, `profile`, publishing status "In production"), and an OAuth client of type "Web application" with the authorized redirect URI `https://<project-ref>.supabase.co/auth/v1/callback` for each project. Client id and secret go to Supabase → Authentication → Sign In / Providers → Google, in each project.
+- Owner, Apple: an Apple Developer membership, an App ID with "Sign in with Apple", a Services ID (its identifier is the client id) with the domain `<project-ref>.supabase.co` and the return URL `https://<project-ref>.supabase.co/auth/v1/callback`, and a Sign in with Apple key (`.p8`, key id, team id). Supabase → Providers → Apple takes the Services ID and the client secret JWT generated from the key, valid at most 6 months: add a recurring rotation reminder (M-01) or Apple sign-in stops.
+- Each project: Authentication → URL Configuration adds `tsuzuki://auth/oauth-callback?sb_flow_id=*` (`ARCHITECTURE.md` §10 step 9). Locally, `supabase/config.toml` `[auth.external.google]` / `[auth.external.apple]` stay `enabled = false` unless the owner registers the local callback `http://127.0.0.1:54321/auth/v1/callback` and sets `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET` / `SUPABASE_AUTH_EXTERNAL_APPLE_SECRET`.
+- Branded buttons in `src/ui/` following Google's and Apple's branding rules (logo, colors, wording), replacing A-02's plain text buttons. On iOS, evaluate the native Apple button (`expo-apple-authentication` + Supabase `signInWithIdToken`) against the web flow, and record the choice in ADR-0015 as a dated Update section if it changes the design. `expo-apple-authentication` is a new dependency: ask the owner before adding it.
+- The email form and the provider buttons do not exclude each other (A-02 review): disable the email submit while a provider flow runs (`SignInScreen`, `SignUpScreen`) and the provider buttons while an email sign in or sign up runs (`OAuthButtons`), so two sign-ins cannot race. Unreachable until the buttons show.
+- Check on a device: an Apple cancel arrives as `closed` or `access_denied` without an `error_code` (otherwise it shows `oauth-failed`); on Android, the callback route's `router.back()` and the hook's `dismissTo('/settings')` do not race visibly; a Maestro flow up to the provider page.
 
 ## Phase 5 — Release
 
@@ -305,6 +319,7 @@ Details:
 
 ### R-06 Internal testing
 - Prerequisite: A-08 (captcha on the auth endpoints) is done and enabled server side (owner decision, A-01).
+- Release blocker (owner decision, A-02): no iOS build offers Google sign-in without Sign in with Apple (App Store guideline 4.8, A-09).
 
 ## Catalog fallbacks (on demand, outside the phase order)
 

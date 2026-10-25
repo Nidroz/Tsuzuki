@@ -32,8 +32,12 @@ const linkErrorSchema = z.object({
   error_code: z.unknown().optional(),
 });
 
-// a repeated param arrives as an array and fails the string schemas
-const linkCodeSchema = z
+/**
+ * the `code` and `sb_flow_id` params of an auth redirect (an email link or a provider sign in,
+ * src/core/schemas/oauth-redirect.ts), read into the code to exchange. a repeated param arrives as
+ * an array and fails the string schemas.
+ */
+export const authLinkCodeSchema = z
   .object({
     code: z.string().max(AUTH_CODE_MAX_LENGTH, { abort: true }).regex(AUTH_CODE_PATTERN),
     [AUTH_FLOW_ID_PARAM]: z.string().regex(FLOW_ID_PATTERN),
@@ -57,6 +61,6 @@ export const parseAuthLinkParams = (raw: unknown): AuthLinkParams => {
   if (error !== undefined || errorCode !== undefined) {
     return { kind: 'failed', reason: errorCode === EXPIRED_ERROR_CODE ? 'expired' : 'invalid' };
   }
-  const link = linkCodeSchema.safeParse(raw);
+  const link = authLinkCodeSchema.safeParse(raw);
   return link.success ? { kind: 'code', link: link.data } : INVALID_LINK;
 };

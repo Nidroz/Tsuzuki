@@ -17,6 +17,7 @@ export type AuthOperation =
   | 'sign-in'
   | 'password-reset'
   | 'complete-email-link'
+  | 'oauth-sign-in'
   | 'update-password'
   | 'sign-out'
   | 'session'

@@ -9,6 +9,7 @@ import { passwordPolicyText } from './auth-form-texts';
 import { AUTH_PATHS } from './auth-routes';
 import { EmailField, PasswordField } from './AuthFields';
 import { AuthMessage, AuthScreen } from './AuthScreen';
+import { OAuthButtons } from './OAuthButtons';
 import { useAuthForm } from './use-auth-form';
 import { useEmailField } from './use-email-field';
 
@@ -59,7 +60,8 @@ function SentState({ email, onSignIn }: SentStateProps) {
 /**
  * creates an account (FR-21): an email, a password meeting the policy and its confirmation. the
  * confirmation email follows; an address already registered shows the same check-your-email state,
- * so the screen never tells which addresses have an account
+ * so the screen never tells which addresses have an account. below the form, the identity providers
+ * of the build (OAuthButtons)
  */
 export function SignUpScreen() {
   const { t } = useTranslation();
@@ -116,6 +118,7 @@ export function SignUpScreen() {
         loadingLabel={t('auth.signUp.submitting')}
         testID={`${TEST_ID}-submit`}
       />
+      <OAuthButtons testIdPrefix={TEST_ID} />
       <Button
         label={t('auth.signUp.signIn')}
         onPress={goToSignIn}

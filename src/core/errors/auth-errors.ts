@@ -4,8 +4,8 @@
 
 /**
  * what the user can do about a failed auth call: fix the credentials, fix the email address,
- * confirm the email, choose another password, wait, retry the captcha, ask for a new link, check
- * the connection, or retry.
+ * confirm the email, choose another password, wait, retry the captcha, ask for a new link, start the
+ * provider sign in again, check the connection, or retry.
  */
 export const AUTH_ERROR_REASONS = [
   'invalid-credentials',
@@ -16,6 +16,7 @@ export const AUTH_ERROR_REASONS = [
   'rate-limited',
   'captcha-failed',
   'link-invalid',
+  'oauth-failed',
   'network',
   'unknown',
 ] as const;
@@ -31,6 +32,7 @@ const AUTH_ERROR_MESSAGES: Readonly<Record<AuthErrorReason, string>> = {
   'rate-limited': 'Too many auth requests',
   'captcha-failed': 'Captcha verification failed',
   'link-invalid': 'Email link is invalid, expired or already used',
+  'oauth-failed': 'Sign in with the account provider failed',
   network: 'Auth service unreachable',
   unknown: 'Auth request failed',
 };

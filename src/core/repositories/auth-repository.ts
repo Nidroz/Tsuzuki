@@ -1,6 +1,6 @@
-// the auth repository (docs/ARCHITECTURE.md §4, §8, ADR-0014): email accounts on supabase auth
-// (supabase/auth-repository.ts, A-01). google and apple sign-in come with A-02, account deletion
-// with A-06. types and the disabled captcha only
+// the auth repository (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015): email accounts (A-01) and
+// google and apple sign-in (A-02) on supabase auth (supabase/auth-repository.ts); account deletion
+// comes with A-06. types, the provider list and the disabled captcha only
 
 /** the signed-in user as the app needs it: the id only. no email or token is kept in app state. */
 export interface AuthSession {
@@ -28,6 +28,11 @@ export interface EmailLinkCode {
   readonly flowId: string;
 }
 
+/** the identity providers the app can sign in with (ADR-0015), by their supabase auth names. */
+export const OAUTH_PROVIDERS = ['google', 'apple'] as const;
+
+export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
+
 /** called with the current session, null when signed out. */
 export type AuthSessionListener = (session: AuthSession | null) => void;
 
@@ -53,6 +58,24 @@ export interface AuthRepository {
 
   /** signs in with a confirmed account; an unconfirmed one rejects with `email-not-confirmed`. */
   signIn(credentials: EmailCredentials, options?: AuthRequestOptions): Promise<AuthSession>;
+
+  /**
+   * the providers this build can sign in with, in display order: the screens show one button per
+   * entry. empty until the browser session and the provider setup are wired (A-09).
+   */
+  readonly oauthProviders: readonly OAuthProvider[];
+
+  /**
+   * signs in with an identity provider (pkce, ADR-0015): opens the provider's consent in a browser
+   * auth session (OAuthBrowser), checks that the redirect carries the flow id this call started,
+   * then exchanges its code. called only on a user action; a route opened by the redirect never
+   * exchanges. resolves null when the user closed the browser or declined consent
+   * (`access_denied`). rejects with `oauth-failed` for a failed or mismatched redirect or a failed
+   * exchange, `network` when the exchange lost the connection, and `unknown` for a provider not in
+   * oauthProviders or a browser session that cannot start. no captcha: supabase does not protect
+   * the authorize endpoint.
+   */
+  signInWithProvider(provider: OAuthProvider): Promise<AuthSession | null>;
 
   /**
    * sends the recovery email, whose link opens the reset route (AUTH_LINK_PATHS.passwordReset);
@@ -106,3 +129,17 @@ export interface CaptchaTokenProvider {
 export const noCaptcha: CaptchaTokenProvider = {
   getToken: () => Promise.resolve(null),
 };
+
+/** how a browser auth session ended: the redirect it captured (untrusted), or closed by the user. */
+export type OAuthBrowserResult =
+  { readonly type: 'redirect'; readonly url: string } | { readonly type: 'closed' };
+
+/**
+ * the browser auth session port (ADR-0015), implemented in src/platform/ (A-09): opens `url` in a
+ * session the app controls (ASWebAuthenticationSession on ios, custom tabs on android) and resolves
+ * with the first url that starts with `redirectUrl`, or `closed` when the user closes it. rejects
+ * only when no session can start (another one open, no browser).
+ */
+export interface OAuthBrowser {
+  openAuthSession(url: string, redirectUrl: string): Promise<OAuthBrowserResult>;
+}

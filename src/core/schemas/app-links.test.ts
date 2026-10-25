@@ -7,5 +7,6 @@ describe('app links', () => {
     expect(APP_SCHEME).toBe('tsuzuki');
     expect(appLinkUrl(AUTH_LINK_PATHS.confirmation)).toBe('tsuzuki://auth/callback');
     expect(appLinkUrl(AUTH_LINK_PATHS.passwordReset)).toBe('tsuzuki://auth/reset-password');
+    expect(appLinkUrl(AUTH_LINK_PATHS.oauth)).toBe('tsuzuki://auth/oauth-callback');
   });
 });

@@ -6,7 +6,7 @@ import { newPasswordFormSchema } from '@core/schemas/auth-forms';
 import { Button, ErrorState, InlineError, Screen, Text } from '@ui/index';
 import { useRouter } from 'expo-router';
 
-import { authErrorKey, authErrorReason } from './auth-error-keys';
+import { authErrorKey } from './auth-error-keys';
 import { passwordPolicyText } from './auth-form-texts';
 import { AUTH_PATHS, SETTINGS_PATH } from './auth-routes';
 import { PasswordField } from './AuthFields';
@@ -55,7 +55,9 @@ function NewPasswordForm({ link, onRequestLink }: NewPasswordFormProps) {
   const form = useAuthForm(newPasswordFormSchema);
   const reset = useCompletePasswordReset();
 
-  if (reset.isError && authErrorReason(reset.error) === 'link-invalid') {
+  // a failed exchange spends the link whatever its reason: never submit its code again. a failed
+  // update keeps the form, since the user is signed in with the recovery session
+  if (reset.failedStep === 'exchange') {
     return <FailedLink reason="invalid" onRequestLink={onRequestLink} />;
   }
 
@@ -97,7 +99,7 @@ function NewPasswordForm({ link, onRequestLink }: NewPasswordFormProps) {
         onSubmitEditing={submit}
         testID={`${TEST_ID}-password-confirmation`}
       />
-      {reset.isError ? (
+      {reset.failedStep === 'update' ? (
         <InlineError message={t(authErrorKey(reset.error))} testID={`${TEST_ID}-error`} />
       ) : null}
       <Button

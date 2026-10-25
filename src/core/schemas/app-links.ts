@@ -5,10 +5,14 @@
 /** the custom url scheme of every variant. */
 export const APP_SCHEME = 'tsuzuki';
 
-/** the routes the auth email links open: one per email, so the path states its intent. */
+/**
+ * the routes the auth links open: one per email, and one for the provider sign in redirect
+ * (ADR-0015), so the path states its intent.
+ */
 export const AUTH_LINK_PATHS = {
   confirmation: 'auth/callback',
   passwordReset: 'auth/reset-password',
+  oauth: 'auth/oauth-callback',
 } as const;
 
 export type AuthLinkPath = (typeof AUTH_LINK_PATHS)[keyof typeof AUTH_LINK_PATHS];

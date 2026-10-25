@@ -9,3 +9,9 @@ export const AUTH_PATHS = {
 
 /** the settings tab: every completed auth flow returns there with router.dismissTo */
 export const SETTINGS_PATH = '/settings';
+
+/**
+ * the root stack routes that show the provider buttons (OAuthButtons), by route name: the oauth
+ * redirect route returns to one of them, where the sign in call awaits the browser session
+ */
+export const OAUTH_SOURCE_ROUTES: readonly string[] = ['auth/sign-in', 'auth/sign-up'];

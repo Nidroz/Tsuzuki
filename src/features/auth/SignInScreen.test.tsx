@@ -170,6 +170,28 @@ describe('SignInScreen', () => {
     );
   });
 
+  it('shows the provider buttons of the build only, and signs in with one', async () => {
+    const { repository, rendered } = renderScreen({
+      oauthProviders: ['google'],
+      signInWithProvider: () => Promise.resolve(SESSION),
+    });
+    await rendered;
+
+    expect(screen.queryByTestId('auth-sign-in-oauth-apple')).not.toBeOnTheScreen();
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Continue with Google' }));
+
+    expect(repository.signInWithProvider).toHaveBeenCalledWith('google');
+    expect(mockDismissTo).toHaveBeenCalledWith('/settings');
+  });
+
+  it('shows no provider button while the build has none', async () => {
+    await renderScreen().rendered;
+
+    expect(screen.queryByTestId('auth-sign-in-oauth-google')).not.toBeOnTheScreen();
+    expect(screen.queryByText('or')).not.toBeOnTheScreen();
+  });
+
   it('leads to forgot password and to create an account', async () => {
     await renderScreen().rendered;
     const user = userEvent.setup();
