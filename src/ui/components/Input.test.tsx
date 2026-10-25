@@ -5,7 +5,7 @@ import { AccessibilityInfo, Platform } from 'react-native';
 import { classesOf } from '../../../test/mobile/class-names';
 import { renderWithTheme } from '../../../test/mobile/render-with-theme';
 import { palettes } from '../theme/colors';
-import { Input } from './Input';
+import { Input, type InputAutoComplete } from './Input';
 
 const LABEL = 'Email';
 const ERROR = 'Enter a valid email';
@@ -256,6 +256,8 @@ describe('Input', () => {
       'onSubmitEditing',
       'autoCapitalize',
       'autoCorrect',
+      'autoComplete',
+      'textContentType',
       'maxLength',
       'multiline',
       'textAlignVertical',
@@ -309,6 +311,22 @@ describe('Input', () => {
     expect(field()).toHaveProp('autoCorrect', false);
     expect(field()).toHaveProp('maxLength', MAX_LENGTH);
   });
+
+  it.each<[InputAutoComplete, string]>([
+    ['email', 'emailAddress'],
+    ['password', 'password'],
+    ['new-password', 'newPassword'],
+  ])(
+    'gives autofill and password managers the %s hint on android and ios',
+    async (autoComplete, textContentType) => {
+      await renderWithTheme(
+        <Input label={LABEL} value="" onChangeText={jest.fn()} autoComplete={autoComplete} />,
+      );
+
+      expect(field()).toHaveProp('autoComplete', autoComplete);
+      expect(field()).toHaveProp('textContentType', textContentType);
+    },
+  );
 
   it('draws a themed field with a full touch target and a focus border', async () => {
     await renderWithTheme(<Input label={LABEL} value="" onChangeText={jest.fn()} />);

@@ -1,0 +1,5 @@
+# false positives: a fake supabase auth code (a uuid) in auth repository tests, in commits of
+# the email auth pull request; the tests now use a low-entropy placeholder
+d3e4d508b8b451aee45c46592c32ffcf130944f5:src/core/repositories/supabase/auth-repository-email-link.test.ts:generic-api-key:22
+25be9f922dd06fc42505e1867bfb36ba4535cb4e:src/core/repositories/supabase/auth-repository-errors.test.ts:generic-api-key:20
+25be9f922dd06fc42505e1867bfb36ba4535cb4e:src/core/repositories/supabase/auth-repository.test.ts:generic-api-key:25

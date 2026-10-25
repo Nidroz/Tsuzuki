@@ -1,13 +1,16 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
+import { useAuthContext } from '@core/hooks/use-auth-context';
 import { useCatalogProvider } from '@core/hooks/use-catalog-provider';
 import { useRecentSearches } from '@core/hooks/use-recent-searches';
 import { type Language, useTranslation } from '@core/i18n/index';
 import { usePreferences } from '@core/preferences/index';
 import { createQueryClient } from '@core/query/query-client';
+import type { AuthRepository, CaptchaTokenProvider } from '@core/repositories/auth-repository';
 import { describe, expect, it } from '@jest/globals';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react-native';
 import { Spinner, Text } from '@ui/index';
+import { useEffect } from 'react';
 
 import {
   createStrictFakeCatalogProvider,
@@ -16,6 +19,10 @@ import {
 } from '../../src/core/catalog/__fixtures__/fake-catalog-provider';
 import en from '../../src/core/i18n/en.json';
 import fr from '../../src/core/i18n/fr.json';
+import {
+  createSessionAuthRepository,
+  unexpectedAuthCallMessage,
+} from '../core/fake-auth-repository';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 import { takeUnexpectedConsoleMessages } from '../core/fail-on-console';
 import {
@@ -28,6 +35,23 @@ import {
 const MISSING_KEY = 'missing.key';
 const SPINNER_LABEL = 'loading';
 const SEARCHES_TEST_ID = 'searches';
+const AUTH_STATUS_TEST_ID = 'auth-status';
+const USER_ID = '7d4c0f52-7b8e-4a43-9f8a-2f1b3c4d5e6f';
+
+// what the auth probe last read from the auth context
+const authSeen: {
+  repository: AuthRepository | null;
+  captcha: CaptchaTokenProvider | null;
+} = { repository: null, captcha: null };
+
+function AuthProbe() {
+  const { repository, captcha, state } = useAuthContext();
+  useEffect(() => {
+    authSeen.repository = repository;
+    authSeen.captcha = captcha;
+  }, [repository, captcha]);
+  return <Text testID={AUTH_STATUS_TEST_ID}>{state.status}</Text>;
+}
 
 function Title() {
   const { t } = useTranslation();
@@ -162,6 +186,25 @@ describe('renderWithProviders', () => {
     );
 
     expect(screen.getByTestId(SHOW_ADULT_TEST_ID)).toHaveTextContent('true');
+  });
+
+  it('gives a signed-out auth repository whose other calls reject, naming them, by default', async () => {
+    await renderWithProviders(<AuthProbe />);
+
+    expect(screen.getByTestId(AUTH_STATUS_TEST_ID)).toHaveTextContent('signed-out');
+    await expect(authSeen.repository?.signOut()).rejects.toThrow(
+      unexpectedAuthCallMessage('signOut'),
+    );
+  });
+
+  it('gives the auth repository passed, without captcha', async () => {
+    const authRepository = createSessionAuthRepository({ userId: USER_ID });
+
+    await renderWithProviders(<AuthProbe />, { authRepository });
+
+    expect(authSeen.repository).toBe(authRepository);
+    expect(screen.getByTestId(AUTH_STATUS_TEST_ID)).toHaveTextContent('signed-in');
+    await expect(authSeen.captcha?.getToken('sign-in')).resolves.toBeNull();
   });
 
   it('gives each render a new query client and catalog provider', async () => {

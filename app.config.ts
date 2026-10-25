@@ -1,4 +1,4 @@
-// first: lets node resolve the extensionless imports of the core schema below
+// first: lets node resolve the extensionless imports of the core schemas below
 import './tools/expo/resolve-ts-imports.cjs';
 
 import type { ExpoConfig } from 'expo/config';
@@ -11,6 +11,7 @@ import {
   type AppEnv,
   type AppVariant,
 } from './src/core/schemas/app-env';
+import { APP_SCHEME } from './src/core/schemas/app-links';
 
 // one identifier for both stores, owned by the project's github namespace
 const APP_ID = 'io.github.nidroz.tsuzuki';
@@ -102,7 +103,8 @@ const config: ExpoConfig = {
   name: `${APP_NAME}${variant.nameSuffix}`,
   slug: 'tsuzuki',
   version: '0.1.0', // x-release-please-version
-  scheme: 'tsuzuki',
+  // the scheme of the app links, auth email links included (ADR-0014): one source of truth in core
+  scheme: APP_SCHEME,
   orientation: 'portrait',
   // follows the system light/dark setting; expo-system-ui applies it natively (its config plugin
   // is applied automatically by prebuild, as is expo-dev-client's)

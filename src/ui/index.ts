@@ -21,7 +21,12 @@ export type { IconButtonProps, IconName } from './components/IconButton';
 export { InlineError } from './components/InlineError';
 export type { InlineErrorProps } from './components/InlineError';
 export { Input } from './components/Input';
-export type { InputKeyboardType, InputProps, InputReturnKeyType } from './components/Input';
+export type {
+  InputAutoComplete,
+  InputKeyboardType,
+  InputProps,
+  InputReturnKeyType,
+} from './components/Input';
 export type { AlignToken, JustifyToken, SurfaceToken } from './components/layout/layout-classes';
 export { List } from './components/List';
 export type { ListProps } from './components/List';

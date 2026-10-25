@@ -1,4 +1,5 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
+import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import {
@@ -13,6 +14,7 @@ import {
   type ThemePreference,
 } from '@core/preferences/index';
 import { createQueryClient } from '@core/query/query-client';
+import { noCaptcha, type AuthRepository } from '@core/repositories/auth-repository';
 import type { RecentSearchesRepository } from '@core/repositories/recent-searches-repository';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
@@ -20,6 +22,7 @@ import { ThemeProvider } from '@ui/index';
 import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import { createStrictFakeCatalogProvider } from '../../src/core/catalog/__fixtures__/fake-catalog-provider';
+import { createSessionAuthRepository } from '../core/fake-auth-repository';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 
 interface WrapperProps {
@@ -30,6 +33,11 @@ interface WrapperProps {
 export interface ProvidersOptions {
   /** the language of the real catalogs, english by default */
   readonly language?: Language;
+  /**
+   * the auth repository of the tree; by default a strict fake reporting a signed-out session,
+   * whose every other call rejects
+   */
+  readonly authRepository?: AuthRepository;
   /** the catalog provider of the tree; by default a strict fake whose every method rejects */
   readonly catalogProvider?: CatalogProvider;
   /** the recent searches of the tree; by default an empty in-memory repository */
@@ -43,6 +51,7 @@ export interface ProvidersOptions {
 interface AppProvidersProps extends WrapperProps {
   readonly language: Language;
   readonly showAdult: boolean;
+  readonly authRepository: AuthRepository;
   readonly catalogProvider: CatalogProvider;
   readonly recentSearchesRepository: RecentSearchesRepository;
   readonly queryClient: QueryClient;
@@ -94,13 +103,14 @@ export function TestPreferences({ showAdult, language = 'en', children }: TestPr
 
 /**
  * the providers the composition root (app/_layout.tsx) gives every route and feature, in its
- * order: the query cache (not persisted here), the catalog provider, the recent searches, fixed
- * preferences with `showAdult`, the real catalogs in `language` with a missing key failing the
- * test, and the light palette for predictable colors
+ * order: the query cache (not persisted here), the auth (noCaptcha), the catalog provider, the
+ * recent searches, fixed preferences with `showAdult`, the real catalogs in `language` with a
+ * missing key failing the test, and the light palette for predictable colors
  */
 export function AppProviders({
   language,
   showAdult,
+  authRepository,
   catalogProvider,
   recentSearchesRepository,
   queryClient,
@@ -108,15 +118,17 @@ export function AppProviders({
 }: AppProvidersProps) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CatalogContextProvider provider={catalogProvider}>
-        <RecentSearchesContextProvider repository={recentSearchesRepository}>
-          <TestPreferences showAdult={showAdult} language={language}>
-            <I18nProvider language={language} onMissingKey={failOnMissingKey}>
-              <ThemeProvider preference="light">{children}</ThemeProvider>
-            </I18nProvider>
-          </TestPreferences>
-        </RecentSearchesContextProvider>
-      </CatalogContextProvider>
+      <AuthContextProvider repository={authRepository} captcha={noCaptcha}>
+        <CatalogContextProvider provider={catalogProvider}>
+          <RecentSearchesContextProvider repository={recentSearchesRepository}>
+            <TestPreferences showAdult={showAdult} language={language}>
+              <I18nProvider language={language} onMissingKey={failOnMissingKey}>
+                <ThemeProvider preference="light">{children}</ThemeProvider>
+              </I18nProvider>
+            </TestPreferences>
+          </RecentSearchesContextProvider>
+        </CatalogContextProvider>
+      </AuthContextProvider>
     </QueryClientProvider>
   );
 }
@@ -128,6 +140,7 @@ export function AppProviders({
  */
 export const providersFor = ({
   language = 'en',
+  authRepository = createSessionAuthRepository(),
   catalogProvider = createStrictFakeCatalogProvider(),
   recentSearchesRepository = createFakeRecentSearchesRepository(),
   queryClient = createQueryClient(),
@@ -138,6 +151,7 @@ export const providersFor = ({
       <AppProviders
         language={language}
         showAdult={showAdult}
+        authRepository={authRepository}
         catalogProvider={catalogProvider}
         recentSearchesRepository={recentSearchesRepository}
         queryClient={queryClient}

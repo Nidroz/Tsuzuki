@@ -1,0 +1,48 @@
+# auth flow (A-01, FR-21): from the settings, open sign in, submit an invalid email and see the
+# form problems, then go to create an account and back to sign in. it needs no backend: the form
+# is checked on the device before any auth request. runs in the development build like the smoke
+# flow (see its header and e2e/README.md), with clearState, so the app starts signed out. elements
+# are found by id only, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: tab-settings
+# the account section shows its buttons once the stored session was read
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-in
+    timeout: 10000
+- tapOn:
+    id: settings-account-sign-in
+- assertVisible:
+    id: auth-sign-in-screen
+- tapOn:
+    id: auth-sign-in-email
+- inputText: not-an-email
+- hideKeyboard
+- tapOn:
+    id: auth-sign-in-submit
+# an invalid email and an empty password: shown under their fields, nothing sent
+- assertVisible:
+    id: auth-sign-in-email-error
+- assertVisible:
+    id: auth-sign-in-password-error
+- assertNotVisible:
+    id: auth-sign-in-error
+- tapOn:
+    id: auth-sign-in-create-account
+- assertVisible:
+    id: auth-sign-up-screen
+- assertVisible:
+    id: auth-sign-up-submit
+- back
+- assertVisible:
+    id: auth-sign-in-screen

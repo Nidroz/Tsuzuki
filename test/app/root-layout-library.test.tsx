@@ -23,10 +23,23 @@ import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { entryOf } from '../core/library-entry-fixtures';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
 // the library wiring (L-03): the composition root (app/_layout.tsx) creates the guest library repository over the app
 // storage, once, when the layout module loads, and gives it to the library hooks. the factory
 // keeps its real behaviour and records its calls
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 jest.mock('@core/repositories/local/library-repository', () => {
   const actual = jest.requireActual<typeof LocalLibrary>(

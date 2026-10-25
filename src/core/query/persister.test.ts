@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { noop, type QueryClient } from '@tanstack/react-query';
+import { noop, onlineManager, type QueryClient } from '@tanstack/react-query';
 import {
   persistQueryClientRestore,
   persistQueryClientSave,
@@ -23,6 +23,7 @@ const MEDIA_KEY = ['media', 'mal', 'anime', 1];
 const MEDIA = { title: 'Frieren' };
 const OTHER_MEDIA = { title: 'Mushishi' };
 const LIBRARY_NOTES = 'private note';
+const MUTATION_PASSWORD = 'correct-horse-9';
 
 type MemoryStorage = StorageAdapter & { values: Map<string, string> };
 
@@ -170,6 +171,32 @@ describe('createQueryPersister', () => {
     expect(restored.getQueryData(entryKey)).toBeUndefined();
     expect(restored.getQueryData(listKey)).toBeUndefined();
     expect(restored.getQueryData(MEDIA_KEY)).toStrictEqual(MEDIA);
+  });
+
+  it('does not persist a paused mutation nor its variables', async () => {
+    const storage = createMemoryStorage();
+    const source = createQueryClient();
+    onlineManager.setOnline(false);
+    try {
+      const mutation = source
+        .getMutationCache()
+        .build<undefined, Error, { password: string }, unknown>(source, {
+          mutationFn: () => Promise.resolve(undefined),
+          networkMode: 'online',
+        });
+      void mutation.execute({ password: MUTATION_PASSWORD }).catch(noop);
+      await Promise.resolve();
+      // tanstack's default would persist this paused mutation, password included
+      expect(mutation.state.isPaused).toBe(true);
+      source.setQueryData(MEDIA_KEY, MEDIA);
+      await save(source, storage);
+    } finally {
+      onlineManager.setOnline(true);
+    }
+
+    const stored = storage.values.get(QUERY_CACHE_STORAGE_KEY);
+    expect(stored).not.toContain(MUTATION_PASSWORD);
+    expect(JSON.parse(stored ?? '')).toMatchObject({ clientState: { mutations: [] } });
   });
 
   it('writes once per throttle interval, with the latest state', async () => {

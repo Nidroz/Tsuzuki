@@ -1,5 +1,5 @@
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 import { userEvent } from '@testing-library/react-native';
 import { screen } from 'expo-router/testing-library';
 import type { ComponentType, ReactNode } from 'react';
@@ -10,6 +10,19 @@ import { settle } from '../mobile/render-library-screen';
 import { renderRouterAsync } from '../mobile/render-router';
 import { providersFor } from '../mobile/render-with-providers';
 import { APP_ROUTES } from './app-routes';
+import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+
+// no supabase client: the composition root gets a signed-out fake auth repository
+jest.mock('@core/repositories/supabase/create-supabase-client', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseClientModule(),
+);
+jest.mock('@core/repositories/supabase/auth-repository', () =>
+  jest
+    .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
+    .fakeSupabaseAuthModule(),
+);
 
 // fR-14, BR-02: the library tab keeps the layout while the user acts on it, and lays the list out
 // again when the tab gains focus: the real tab navigator fires useFocusEffect
