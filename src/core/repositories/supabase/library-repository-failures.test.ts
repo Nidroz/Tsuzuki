@@ -11,8 +11,8 @@ import {
   type AccountLibraryOptions,
 } from './__fixtures__/account-library';
 import { USER_ID } from './__fixtures__/auth-handlers';
-import { SERVER_DETAIL_PREFIX } from './__fixtures__/library-handlers';
-import { LIBRARY_REQUEST_TIMEOUT_MS } from './library-repository';
+import { SERVER_DETAIL_PREFIX } from './__fixtures__/postgrest-fake';
+import { LIBRARY_REQUEST_TIMEOUT_MS } from './library-requests';
 
 const setup = (options?: AccountLibraryOptions) => {
   const library = createAccountLibrary(options);

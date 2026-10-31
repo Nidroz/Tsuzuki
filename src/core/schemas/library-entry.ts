@@ -61,7 +61,11 @@ export const libraryMediaSnapshotSchema: z.ZodType<LibraryMediaSnapshot> = z.obj
   isAdult: z.boolean(),
 });
 
-const mediaKeySchema = z.object({
+/**
+ * the key of a stored entry: a namespace and a kind of the domain enums (the postgres enums), and
+ * a positive integer external id. issues hold no value.
+ */
+export const mediaKeySchema = z.object({
   namespace: z.enum(MEDIA_ID_NAMESPACES),
   kind: z.enum(MEDIA_KINDS),
   externalId: z.number().int().min(POSITIVE_INTEGER_MIN).max(EXTERNAL_ID_MAX),

@@ -59,13 +59,19 @@ export const parseLibraryRow = (row: unknown): LibraryEntry | null => {
 };
 
 /**
- * the write payload of an entry, always with `id_namespace` (no default, ADR-0013) and
- * `media_is_adult` (no default, BR-06). the entry has passed libraryEntrySchema.
+ * the payload of an update filtered on the key (the guest merge, library-merge.ts): every
+ * writable column but the key columns, which the filter holds.
  */
-export const toLibraryRowPayload = (entry: LibraryEntry): LibraryRowPayload => ({
-  id_namespace: entry.key.namespace,
-  media_kind: entry.key.kind,
-  external_id: entry.key.externalId,
+export type LibraryRowValues = Omit<
+  LibraryRowPayload,
+  'id_namespace' | 'media_kind' | 'external_id'
+>;
+
+/**
+ * the update payload of an entry: every writable value, never a key column, always
+ * `media_is_adult` (BR-06). the entry has passed libraryEntrySchema.
+ */
+export const toLibraryRowValues = (entry: LibraryEntry): LibraryRowValues => ({
   media_title: entry.media.title,
   media_image_url: entry.media.imageUrl,
   media_format: entry.media.format,
@@ -78,4 +84,15 @@ export const toLibraryRowPayload = (entry: LibraryEntry): LibraryRowPayload => (
   is_favorite: entry.isFavorite,
   started_at: entry.startedAt,
   finished_at: entry.finishedAt,
+});
+
+/**
+ * the write payload of an entry, always with `id_namespace` (no default, ADR-0013) and
+ * `media_is_adult` (no default, BR-06). the entry has passed libraryEntrySchema.
+ */
+export const toLibraryRowPayload = (entry: LibraryEntry): LibraryRowPayload => ({
+  id_namespace: entry.key.namespace,
+  media_kind: entry.key.kind,
+  external_id: entry.key.externalId,
+  ...toLibraryRowValues(entry),
 });

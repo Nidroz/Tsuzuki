@@ -43,6 +43,10 @@ describe('libraryRemoteReason', () => {
   it('reads an error thrown by the client as unknown', () => {
     expect(libraryRemoteReason({ type: 'thrown', error: new Error(SERVER_TEXT) })).toBe('unknown');
   });
+
+  it('reads guest entries a merge could not confirm as unknown', () => {
+    expect(libraryRemoteReason({ type: 'unresolved' })).toBe('unknown');
+  });
 });
 
 describe('toLibraryRemoteError', () => {
@@ -91,10 +95,19 @@ describe('libraryReportContext', () => {
     { type: 'session' },
     { type: 'invalid-row' },
     { type: 'thrown', error: { code: '23514', message: SERVER_TEXT } },
+    { type: 'unresolved' },
   ])('tags the operation alone without a response ($type)', (failure) => {
     expect(libraryReportContext('list', failure)).toStrictEqual({
       source: 'library-remote',
       tags: { operation: 'list' },
+    });
+  });
+
+  it('tags the merge operation', () => {
+    expect(libraryReportContext('merge', response(409, '23505')).tags).toStrictEqual({
+      operation: 'merge',
+      code: '23505',
+      status: '409',
     });
   });
 });

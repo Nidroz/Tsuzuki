@@ -12,8 +12,8 @@ import {
   type FakeAuthRepository,
 } from '../core/fake-auth-repository';
 import {
-  createFakeLibraryRepository,
-  type FakeLibraryRepository,
+  createFakeAccountLibraryRepository,
+  type FakeAccountLibraryRepository,
 } from '../core/fake-library-repository';
 
 // the supabase modules the composition root wires (app/_layout.tsx), replaced so that no test
@@ -53,16 +53,18 @@ export const fakeSupabaseAuthModule = () => {
 };
 
 /**
- * the account library module, whose factory records its arguments and returns a new fake
- * repository per call, holding the entries a test put in `accountEntries` for its user id (empty
- * otherwise); the composition root reads its factory only
+ * the account library module, whose factory records its arguments and returns a new fake account
+ * repository per call (its guest merge applied in memory), holding the entries a test put in
+ * `accountEntries` for its user id (empty otherwise); the composition root reads its factory only
  */
 export const fakeSupabaseLibraryModule = () => {
   const accountEntries = new Map<string, readonly LibraryEntry[]>();
   const module = {
     createSupabaseLibraryRepository: jest.fn<
-      (client: unknown, options: SupabaseLibraryRepositoryOptions) => FakeLibraryRepository
-    >((_client, { userId }) => createFakeLibraryRepository(accountEntries.get(userId) ?? [])),
+      (client: unknown, options: SupabaseLibraryRepositoryOptions) => FakeAccountLibraryRepository
+    >((_client, { userId }) =>
+      createFakeAccountLibraryRepository(accountEntries.get(userId) ?? []),
+    ),
   } satisfies Pick<typeof SupabaseLibrary, 'createSupabaseLibraryRepository'>;
   return { ...module, accountEntries };
 };

@@ -1,7 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { entryOf, entryWithMedia } from '../../../../test/core/library-entry-fixtures';
-import { LIBRARY_ROW_COLUMNS, parseLibraryRow, toLibraryRowPayload } from './library-row';
+import {
+  LIBRARY_ROW_COLUMNS,
+  parseLibraryRow,
+  toLibraryRowPayload,
+  toLibraryRowValues,
+} from './library-row';
 
 // a row as postgrest returns it for LIBRARY_ROW_COLUMNS, the stored form of entryOf()
 const ROW = {
@@ -91,6 +96,23 @@ describe('toLibraryRowPayload', () => {
     };
 
     expect(parseLibraryRow(row)).toStrictEqual(entry);
+  });
+});
+
+describe('toLibraryRowValues', () => {
+  it('maps every writable value but the key columns, which an update filters on', () => {
+    const keyColumns = ['id_namespace', 'media_kind', 'external_id'];
+
+    const values = toLibraryRowValues(entryWithMedia({ isAdult: true }));
+
+    expect(values).toStrictEqual(
+      Object.fromEntries(
+        Object.entries(toLibraryRowPayload(entryWithMedia({ isAdult: true }))).filter(
+          ([column]) => !keyColumns.includes(column),
+        ),
+      ),
+    );
+    expect(values).toMatchObject({ media_is_adult: true });
   });
 });
 
