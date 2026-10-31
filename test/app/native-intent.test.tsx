@@ -65,7 +65,7 @@ describe('redirectSystemPath', () => {
   it.each([
     ['too long', TOO_LONG],
     ['with too many percent escapes', TOO_MANY_ESCAPES],
-  ])('opens the home route instead of a link %s', (_, path) => {
+  ])('opens Discover instead of a link %s', (_, path) => {
     expect(NativeIntent.redirectSystemPath({ path, initial: true })).toBe('/');
     expect(NativeIntent.redirectSystemPath({ path, initial: false })).toBe('/');
   });
@@ -130,10 +130,12 @@ describe('the native intent in the router', () => {
       ['too long', TOO_LONG],
       ['with too many percent escapes', TOO_MANY_ESCAPES],
     ])('opens Discover instead of a link %s', async (_, url) => {
-      const router = await renderRouterAsync(APP_ROUTES, { initialUrl: '/' });
+      // from a media detail: a link dropped instead of redirected would leave it on screen
+      const router = await renderRouterAsync(APP_ROUTES, { initialUrl: MEDIA_PATH });
 
       await receive(url);
 
+      expect(screen.getByTestId(DISCOVER_TEST_ID)).toBeOnTheScreen();
       expect(screen.queryByTestId(MEDIA_DETAIL_TEST_ID)).not.toBeOnTheScreen();
       expect(router.getPathname()).toBe('/');
     });

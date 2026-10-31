@@ -2,13 +2,14 @@
 // app/+native-intent.tsx before expo-router parses it. expo-router decodes the query with
 // query-string 7 and decode-uri-component 0.2, which is quadratic on long runs of percent-encoded
 // bytes (GHSA-qr28-fpjm-wq7f); the patched decoder is ESM only, which query-string 7 cannot
-// require. the app's own links (media, auth) stay far below both limits
+// require. the app's own links (media, auth, about 6 escapes at most) stay far below both limits,
+// which bound the decode cost of a crafted link
 
 /** the longest incoming link accepted, in UTF-16 code units. */
 export const INCOMING_LINK_MAX_LENGTH = 2048;
 
 /** the most percent-encoded bytes (`%` and two hex digits) an incoming link may hold. */
-export const INCOMING_LINK_MAX_PERCENT_ESCAPES = 64;
+export const INCOMING_LINK_MAX_PERCENT_ESCAPES = 32;
 
 const PERCENT_ESCAPE = /%[0-9A-Fa-f]{2}/g;
 
