@@ -179,7 +179,7 @@
       "loading": "Chargement de votre bibliothèque",
       "error": {
         "title": "Votre bibliothèque n'a pas pu être chargée",
-        "message": "Elle est enregistrée sur cet appareil. Réessayez dans un instant.",
+        "message": "Réessayez dans un instant.",
         "retry": "Réessayer"
       },
       "empty": {

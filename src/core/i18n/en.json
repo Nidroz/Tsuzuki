@@ -173,7 +173,7 @@
       "loading": "Loading your library",
       "error": {
         "title": "Your library could not be loaded",
-        "message": "It is stored on this device. Try again in a moment.",
+        "message": "Try again in a moment.",
         "retry": "Try again"
       },
       "empty": {

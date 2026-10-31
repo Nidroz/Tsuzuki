@@ -13,6 +13,7 @@ import {
 import { incrementProgress, setProgress, setStatus } from '../domain/library-progress';
 import { refreshMediaSnapshot } from '../domain/library-snapshot';
 import { compareMediaKeys, type MediaKey } from '../domain/media';
+import type { LibraryScope } from '../query/keys';
 import { toLibraryMediaSnapshot } from '../schemas/library-entry';
 import type { LibraryApplyOptions, LibraryChange } from './library-writer';
 import { useLibraryContext } from './use-library-context';
@@ -50,7 +51,8 @@ export interface LibraryEntryActions {
   readonly toggleFavorite: () => void;
   /**
    * the error of the last failed action of this key, null when none; each new action clears it.
-   * a failure of an earlier key (a recycled list row) is never shown
+   * a failure of an earlier key (a recycled list row) or of the previous library (a pending
+   * change written after a library switch) is never shown
    */
   readonly error: unknown;
   /** clears `error` */
@@ -59,9 +61,10 @@ export interface LibraryEntryActions {
 
 type EntryRule = (entry: LibraryEntry, ctx: LibraryWriteContext) => LibraryEntry;
 
-// a failed action, with the key it was made for
+// a failed action, with the key and the library scope it was made for
 interface KeyedFailure {
   readonly key: MediaKey;
+  readonly scope: LibraryScope;
   readonly error: unknown;
 }
 
@@ -88,23 +91,25 @@ export const useLibraryEntryActions = (
   key: MediaKey,
   { media }: UseLibraryEntryActionsOptions,
 ): LibraryEntryActions => {
-  const { writer } = useLibraryContext();
+  const { writer, scope } = useLibraryContext();
   const { namespace, kind, externalId } = key;
   // the key's values, so a new key object with the same media keeps the callbacks stable
   const mediaKey = useMemo(() => ({ namespace, kind, externalId }), [namespace, kind, externalId]);
   // a state update after unmount is a no-op: a write settling after the screen left shows nothing
   const [failure, setFailure] = useState<KeyedFailure | null>(null);
   const error =
-    failure !== null && compareMediaKeys(failure.key, mediaKey) === 0 ? failure.error : null;
+    failure !== null && failure.scope === scope && compareMediaKeys(failure.key, mediaKey) === 0
+      ? failure.error
+      : null;
 
   const run = useCallback(
     (change: LibraryChange, options?: LibraryApplyOptions) => {
       setFailure(null);
       writer.apply(mediaKey, change, options).catch((reason: unknown) => {
-        setFailure({ key: mediaKey, error: reason });
+        setFailure({ key: mediaKey, scope, error: reason });
       });
     },
-    [writer, mediaKey],
+    [writer, scope, mediaKey],
   );
 
   // a rule on an entry in the library, after the snapshot refresh when the media is known

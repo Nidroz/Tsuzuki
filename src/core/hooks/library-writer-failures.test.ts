@@ -10,6 +10,7 @@ import {
   increment,
   OTHER_ENTRY,
   OTHER_KEY,
+  SCOPE,
   scoreOf,
   setupWriter,
 } from '../../../test/core/library-writer-support';
@@ -50,8 +51,10 @@ describe('createLibraryWriter: failures', () => {
 
     await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toBe(STORAGE_FAILURE);
 
-    expect(queryClient.getQueryState(queryKeys.library.entry(ENTRY_KEY))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(queryKeys.library.all())).toBeUndefined();
+    expect(
+      queryClient.getQueryState(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated,
+    ).toBe(true);
+    expect(queryClient.getQueryState(queryKeys.library.all(SCOPE))).toBeUndefined();
     await expect(writer.read(ENTRY_KEY)).resolves.toMatchObject({ score: 9 });
 
     await writer.apply(ENTRY_KEY, scoreOf(5));
@@ -63,15 +66,15 @@ describe('createLibraryWriter: failures', () => {
     const { queryClient, repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
     await load();
     await load(OTHER_KEY);
-    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
     repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
 
     await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toBe(STORAGE_FAILURE);
 
     const stateOf = (queryKey: readonly unknown[]) => queryClient.getQueryState(queryKey);
-    expect(stateOf(queryKeys.library.all())?.isInvalidated).toBe(true);
-    expect(stateOf(queryKeys.library.entry(ENTRY_KEY))?.isInvalidated).toBe(true);
-    expect(stateOf(queryKeys.library.entry(OTHER_KEY))?.isInvalidated).toBe(false);
+    expect(stateOf(queryKeys.library.all(SCOPE))?.isInvalidated).toBe(true);
+    expect(stateOf(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated).toBe(true);
+    expect(stateOf(queryKeys.library.entry(SCOPE, OTHER_KEY))?.isInvalidated).toBe(false);
   });
 
   it('rejects every tap of a failed coalesced write', async () => {

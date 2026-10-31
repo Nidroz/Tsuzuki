@@ -10,6 +10,7 @@ import {
   libraryWrapper,
   MEDIA,
   renderLibraryEntry,
+  switchableLibraryWrapper,
 } from '../../../test/core/library-hooks-support';
 import type { MediaKey } from '../domain/media';
 import { createQueryClient } from '../query/query-client';
@@ -142,5 +143,45 @@ describe('useLibraryEntryActions: errors of a recycled row', () => {
 
     expect(result.current.actions.error).toBeNull();
     expect(repository.stored(ENTRY_KEY)?.score).toBe(ENTRY.score);
+  });
+});
+
+describe('useLibraryEntryActions: errors of the previous library', () => {
+  it('never shows a failure of the previous library settling after a library switch (A-03)', async () => {
+    const first = createFakeLibraryRepository([ENTRY]);
+    const next = createFakeLibraryRepository([ENTRY]);
+    const { wrapper, switchTo } = switchableLibraryWrapper(createQueryClient(), first);
+    const { result, rerender } = renderHook(
+      () => ({
+        entry: useLibraryEntry(ENTRY_KEY, { media: MEDIA }),
+        actions: useLibraryEntryActions(ENTRY_KEY, { media: MEDIA }),
+      }),
+      { wrapper },
+    );
+    await waitFor(() => {
+      expect(result.current.entry.isSuccess).toBe(true);
+    });
+    const held = createDeferred();
+    first.beforeCall.mockReturnValueOnce(held.promise);
+    // the write starts on the first library, then waits for the held save
+    await settleAction(() => {
+      result.current.actions.setScore(7);
+    });
+    expect(first.save).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      switchTo(next);
+      rerender();
+    });
+    await waitFor(() => {
+      expect(result.current.entry.isSuccess).toBe(true);
+    });
+    await settleAction(() => {
+      held.reject(STORAGE_FAILURE);
+    });
+
+    expect(result.current.actions.error).toBeNull();
+    expect(result.current.entry.data?.score).toBe(ENTRY.score);
+    expect(next.save).not.toHaveBeenCalled();
   });
 });

@@ -9,6 +9,7 @@ import {
   OTHER_ENTRY,
   OTHER_KEY,
   removeEntry,
+  SCOPE,
   scoreOf,
   setupWriter,
 } from '../../../test/core/library-writer-support';
@@ -102,7 +103,7 @@ describe('createLibraryWriter: list', () => {
     repository.beforeCall.mockReturnValueOnce(held.promise);
     const applying = writer.apply(ENTRY_KEY, scoreOf(7));
     await flushMicrotasks();
-    queryClient.removeQueries({ queryKey: queryKeys.library.entry(ENTRY_KEY), exact: true });
+    queryClient.removeQueries({ queryKey: queryKeys.library.entry(SCOPE, ENTRY_KEY), exact: true });
 
     await expect(writer.list()).resolves.toStrictEqual([ENTRY]);
 
@@ -167,13 +168,13 @@ describe('createLibraryWriter: cached list data', () => {
     const setup = setupWriter([ENTRY, OTHER_ENTRY]);
     await setup.writer.list();
     const listed = () =>
-      setup.queryClient.getQueryData<readonly LibraryEntry[]>(queryKeys.library.all());
+      setup.queryClient.getQueryData<readonly LibraryEntry[]>(queryKeys.library.all(SCOPE));
     return { ...setup, listed };
   };
 
   it('shows a change in the list at once, then the stored entry', async () => {
     const { queryClient, repository, writer, listed } = await setupWithList();
-    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
     const held = createDeferred();
     // a server sets its own timestamps (the supabase repository, A-03)
     repository.save.mockImplementationOnce(async (entry) => {
@@ -194,7 +195,7 @@ describe('createLibraryWriter: cached list data', () => {
 
   it('drops a removed entry from the list and adds a new one first', async () => {
     const { queryClient, writer, load, listed } = await setupWithList();
-    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
     await load(NEW_KEY);
 
     await writer.apply(OTHER_KEY, removeEntry);
@@ -205,7 +206,7 @@ describe('createLibraryWriter: cached list data', () => {
 
   it('drops an entry removed from the detail at once, a list refetch meanwhile included', async () => {
     const { queryClient, repository, writer, listed } = await setupWithList();
-    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
     const held = createDeferred();
     repository.beforeCall.mockReturnValueOnce(held.promise);
 
@@ -229,7 +230,7 @@ describe('createLibraryWriter: cached list data', () => {
 
     await writer.apply(ENTRY_KEY, scoreOf(7));
 
-    expect(queryClient.getQueryData(queryKeys.library.all())).toBeUndefined();
+    expect(queryClient.getQueryData(queryKeys.library.all(SCOPE))).toBeUndefined();
   });
 });
 

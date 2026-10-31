@@ -2,13 +2,16 @@ import { describe, expect, it } from '@jest/globals';
 
 import type { SearchParams } from '../catalog/catalog-provider';
 import type { MediaKey } from '../domain/media';
-import { LIBRARY_KEY_ROOT, SEARCH_KEY_ROOT, queryKeys } from './keys';
+import { LIBRARY_KEY_ROOT, SEARCH_KEY_ROOT, queryKeys, toLibraryScope } from './keys';
 
 const animeKey = (externalId: number): MediaKey => ({
   namespace: 'mal',
   kind: 'anime',
   externalId,
 });
+
+const SCOPE = toLibraryScope(1);
+const OTHER_SCOPE = toLibraryScope(2);
 
 describe('queryKeys', () => {
   it('builds media, top, season and genres keys from primitives', () => {
@@ -24,23 +27,30 @@ describe('queryKeys', () => {
     expect(queryKeys.genres('mal', 'anime')).toStrictEqual(['genres', 'mal', 'anime']);
   });
 
-  it('builds library keys', () => {
-    expect(queryKeys.library.all()).toStrictEqual(['library']);
+  it('builds library keys holding the scope', () => {
+    expect(queryKeys.library.all(SCOPE)).toStrictEqual(['library', 1]);
     expect(
-      queryKeys.library.entry({ namespace: 'mal', kind: 'manga', externalId: 42 }),
-    ).toStrictEqual(['library', 'mal', 'manga', 42]);
+      queryKeys.library.entry(SCOPE, { namespace: 'mal', kind: 'manga', externalId: 42 }),
+    ).toStrictEqual(['library', 1, 'mal', 'manga', 42]);
   });
 
-  it('starts every library entry key with the library key', () => {
-    const all = queryKeys.library.all();
-    const entry = queryKeys.library.entry(animeKey(5));
+  it('starts every library entry key with the list key of its scope', () => {
+    const all = queryKeys.library.all(SCOPE);
+    const entry = queryKeys.library.entry(SCOPE, animeKey(5));
     expect(entry.slice(0, all.length)).toStrictEqual(all);
+  });
+
+  it('gives each scope its own library keys', () => {
+    expect(queryKeys.library.all(OTHER_SCOPE)).not.toStrictEqual(queryKeys.library.all(SCOPE));
+    const otherEntry = queryKeys.library.entry(OTHER_SCOPE, animeKey(5));
+    const all = queryKeys.library.all(SCOPE);
+    expect(otherEntry.slice(0, all.length)).not.toStrictEqual(all);
   });
 
   it('starts library keys with LIBRARY_KEY_ROOT, which no other key family starts with', () => {
     expect(LIBRARY_KEY_ROOT).toBe('library');
-    expect(queryKeys.library.all()[0]).toBe(LIBRARY_KEY_ROOT);
-    expect(queryKeys.library.entry(animeKey(1))[0]).toBe(LIBRARY_KEY_ROOT);
+    expect(queryKeys.library.all(SCOPE)[0]).toBe(LIBRARY_KEY_ROOT);
+    expect(queryKeys.library.entry(SCOPE, animeKey(1))[0]).toBe(LIBRARY_KEY_ROOT);
     const others = [
       queryKeys.media(animeKey(1)),
       queryKeys.top('mal', { kind: 'anime', page: 1 }),
@@ -67,7 +77,26 @@ describe('queryKeys', () => {
       baseUrl: 'https://catalog.example.test/v1',
     };
     expect(queryKeys.media(key)).toStrictEqual(queryKeys.media(animeKey(9)));
-    expect(queryKeys.library.entry(key)).toStrictEqual(['library', 'mal', 'anime', 9]);
+    expect(queryKeys.library.entry(SCOPE, key)).toStrictEqual(['library', 1, 'mal', 'anime', 9]);
+  });
+});
+
+describe('toLibraryScope', () => {
+  it('keeps a non-negative safe integer as is', () => {
+    expect(toLibraryScope(0)).toBe(0);
+    expect(toLibraryScope(Number.MAX_SAFE_INTEGER)).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects %p with a RangeError',
+    (value) => {
+      expect(() => toLibraryScope(value)).toThrow(RangeError);
+    },
+  );
+
+  it('is opaque: a raw number is not a scope', () => {
+    // @ts-expect-error(type-test): raw numbers are not library scopes
+    expect(queryKeys.library.all(1)).toStrictEqual(['library', 1]);
   });
 });
 
@@ -144,8 +173,8 @@ describe('queryKeys.search', () => {
       queryKeys.top('mal', { kind: 'anime', page: 1 }),
       queryKeys.season('mal', 1),
       queryKeys.genres('mal', 'anime'),
-      queryKeys.library.all(),
-      queryKeys.library.entry(animeKey(1)),
+      queryKeys.library.all(SCOPE),
+      queryKeys.library.entry(SCOPE, animeKey(1)),
     ];
     expect(others.map((key) => key[0])).not.toContain(SEARCH_KEY_ROOT);
   });

@@ -1,102 +1,149 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook, waitFor } from '@testing-library/react';
-import { useEffect, type ReactNode } from 'react';
+import type { QueryClient } from '@tanstack/react-query';
+import { act, renderHook, waitFor } from '@testing-library/react';
 
 import {
+  createDeferred,
   createFakeLibraryRepository,
-  type FakeLibraryRepository,
 } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf } from '../../../test/core/library-entry-fixtures';
+import { MEDIA, switchableLibraryWrapper } from '../../../test/core/library-hooks-support';
+import type { LibraryEntry } from '../domain/library-entry';
+import { DEFAULT_LIBRARY_VIEW } from '../domain/library-view';
+import { queryKeys, type LibraryScope } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
-import { libraryWrapper, MEDIA } from '../../../test/core/library-hooks-support';
+import type { LibraryRepository } from '../repositories/library-repository';
 import { MISSING_LIBRARY_PROVIDER_MESSAGE } from './library-context';
-import { LibraryContextProvider } from './LibraryContextProvider';
 import { useLibraryContext } from './use-library-context';
 import { useLibraryEntry } from './use-library-entry';
 import { useLibraryEntryActions } from './use-library-entry-actions';
+import { useLibraryList } from './use-library-list';
 
+// the stored entry of ENTRY_KEY in the first library (progress 12) and in the next one
 const ENTRY = entryOf();
+const NEXT_ENTRY = entryOf({ progress: 3 });
 
-// the `+1` button of the media of ENTRY_KEY, once its entry is loaded
-const seen: { increment: (() => void) | null } = { increment: null };
+// what a library screen reads: the context, the entry of ENTRY_KEY with its actions, the list
+const useLibraryProbe = () => ({
+  context: useLibraryContext(),
+  entry: useLibraryEntry(ENTRY_KEY, { media: MEDIA }),
+  actions: useLibraryEntryActions(ENTRY_KEY, { media: MEDIA }),
+  list: useLibraryList(DEFAULT_LIBRARY_VIEW, { showAdult: true, layoutKey: 0 }),
+});
 
-function IncrementProbe() {
-  const entry = useLibraryEntry(ENTRY_KEY, { media: MEDIA });
-  const { incrementProgress } = useLibraryEntryActions(ENTRY_KEY, { media: MEDIA });
-  const loaded = entry.isSuccess;
-  useEffect(() => {
-    seen.increment = loaded ? incrementProgress : null;
-  }, [loaded, incrementProgress]);
-  return null;
-}
-
-const treeOf = (
-  queryClient: ReturnType<typeof createQueryClient>,
-  repository: FakeLibraryRepository,
-): ReactNode => (
-  <QueryClientProvider client={queryClient}>
-    <LibraryContextProvider repository={repository}>
-      <IncrementProbe />
-    </LibraryContextProvider>
-  </QueryClientProvider>
-);
-
-// renders the probe over `first` and taps `+1` once, inside the coalescing window
-const renderWithPendingTap = async (first: FakeLibraryRepository) => {
+// the probe over `first`, its entry and list loaded; `swap` switches the repository
+const renderLoaded = async (first: LibraryRepository) => {
   const queryClient = createQueryClient();
-  seen.increment = null;
-  const rendered = render(treeOf(queryClient, first));
+  const { wrapper, switchTo } = switchableLibraryWrapper(queryClient, first);
+  const rendered = renderHook(useLibraryProbe, { wrapper });
   await waitFor(() => {
-    expect(seen.increment).not.toBeNull();
+    expect(rendered.result.current.entry.isSuccess).toBe(true);
+    expect(rendered.result.current.list.query.isSuccess).toBe(true);
   });
-  act(() => {
-    seen.increment?.();
-  });
-  return { ...rendered, queryClient };
+  const swap = (next: LibraryRepository) => {
+    act(() => {
+      switchTo(next);
+      rendered.rerender();
+    });
+  };
+  return { ...rendered, queryClient, swap };
 };
 
+type Rendered = Awaited<ReturnType<typeof renderLoaded>>;
+
+// a `+1` tap: shown at once, its write waiting in the coalescing window
+const tapIncrement = (rendered: Rendered) =>
+  act(async () => {
+    rendered.result.current.actions.incrementProgress();
+    await jest.advanceTimersByTimeAsync(0);
+  });
+
+const queriesOf = (queryClient: QueryClient, scope: LibraryScope) =>
+  queryClient.getQueryCache().findAll({ queryKey: queryKeys.library.all(scope) });
+
+// the progress of every listed entry (the list shows display copies, covers checked)
+const listedProgressOf = (rendered: Rendered): readonly number[] =>
+  [...(rendered.result.current.list.query.data?.current.values() ?? [])].map(
+    (entry: LibraryEntry) => entry.progress,
+  );
+
 describe('LibraryContextProvider', () => {
-  it('gives the hooks the given repository and a writer over it', () => {
-    const queryClient = createQueryClient();
-    const repository = createFakeLibraryRepository();
-
-    const { result, rerender } = renderHook(useLibraryContext, {
-      wrapper: libraryWrapper(queryClient, repository),
-    });
-    const before = result.current;
-    rerender();
-
-    expect(result.current.repository).toBe(repository);
-    expect(result.current).toBe(before);
-  });
-
-  it('writes a pending `+1` to its repository when the repository changes', async () => {
-    const first = createFakeLibraryRepository([ENTRY]);
-    const second = createFakeLibraryRepository([ENTRY]);
-    const { rerender, queryClient } = await renderWithPendingTap(first);
-
-    await act(async () => {
-      rerender(treeOf(queryClient, second));
-      // no time passes: the write comes from the swap, not the coalescing window
-      await jest.advanceTimersByTimeAsync(0);
-    });
-
-    expect(first.save).toHaveBeenCalledTimes(1);
-    expect(first.stored(ENTRY_KEY)?.progress).toBe(13);
-    expect(second.save).not.toHaveBeenCalled();
-  });
-
-  it('writes a pending `+1` when it unmounts', async () => {
+  it('gives the hooks the given repository, a writer over it and their scope, kept on render', async () => {
     const repository = createFakeLibraryRepository([ENTRY]);
-    const { unmount } = await renderWithPendingTap(repository);
+    const rendered = await renderLoaded(repository);
+    const before = rendered.result.current.context;
+
+    rendered.rerender();
+
+    expect(rendered.result.current.context).toBe(before);
+    expect(before.repository).toBe(repository);
+    expect(queriesOf(rendered.queryClient, before.scope)).toHaveLength(2);
+  });
+
+  it('gives a new repository a new writer and scope in the same render, read from scratch', async () => {
+    const rendered = await renderLoaded(createFakeLibraryRepository([ENTRY]));
+    const before = rendered.result.current.context;
+    const next = createFakeLibraryRepository([NEXT_ENTRY]);
+
+    rendered.swap(next);
+
+    const after = rendered.result.current.context;
+    expect(after.repository).toBe(next);
+    expect(after.writer).not.toBe(before.writer);
+    expect(after.scope).not.toBe(before.scope);
+    // the first frame reads the new scope only: nothing of the previous library shows
+    expect(rendered.result.current.entry.data).toBeUndefined();
+    expect(rendered.result.current.list.view).toBeUndefined();
+    await waitFor(() => {
+      expect(rendered.result.current.entry.data).toStrictEqual(NEXT_ENTRY);
+    });
+    expect(listedProgressOf(rendered)).toStrictEqual([NEXT_ENTRY.progress]);
+  });
+
+  it('writes a pending `+1` to the repository it was made for, never under the new scope', async () => {
+    const first = createFakeLibraryRepository([ENTRY]);
+    const next = createFakeLibraryRepository([NEXT_ENTRY]);
+    const rendered = await renderLoaded(first);
+    const oldScope = rendered.result.current.context.scope;
+    await tapIncrement(rendered);
+    const save = createDeferred();
+    first.beforeCall.mockReturnValueOnce(save.promise);
+
+    rendered.swap(next);
+
+    // removed at once, before the flush settled
+    expect(queriesOf(rendered.queryClient, oldScope)).toHaveLength(0);
+    await waitFor(() => {
+      expect(rendered.result.current.entry.data).toStrictEqual(NEXT_ENTRY);
+    });
+    expect(first.save).toHaveBeenCalledTimes(1);
 
     await act(async () => {
-      unmount();
+      save.resolve();
       await jest.advanceTimersByTimeAsync(0);
     });
 
-    expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
+    expect(first.stored(ENTRY_KEY)?.progress).toBe(ENTRY.progress + 1);
+    expect(next.save).not.toHaveBeenCalled();
+    expect(rendered.result.current.entry.data).toStrictEqual(NEXT_ENTRY);
+    expect(listedProgressOf(rendered)).toStrictEqual([NEXT_ENTRY.progress]);
+    // the stored entry the flushed write set again is removed once the flush settled
+    expect(queriesOf(rendered.queryClient, oldScope)).toHaveLength(0);
+  });
+
+  it('writes a pending `+1` when it unmounts, and removes its queries', async () => {
+    const repository = createFakeLibraryRepository([ENTRY]);
+    const rendered = await renderLoaded(repository);
+    const { scope } = rendered.result.current.context;
+    await tapIncrement(rendered);
+
+    await act(async () => {
+      rendered.unmount();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(repository.stored(ENTRY_KEY)?.progress).toBe(ENTRY.progress + 1);
+    expect(queriesOf(rendered.queryClient, scope)).toHaveLength(0);
   });
 
   it('makes useLibraryContext throw outside of it', () => {

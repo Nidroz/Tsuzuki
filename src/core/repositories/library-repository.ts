@@ -5,8 +5,10 @@ import type { MediaKey } from '../domain/media';
 
 /**
  * the library of the current user (FR-10 to FR-15, FR-20, FR-23). hooks depend on this interface
- * only; the composition root picks the implementation from the auth state (A-03), and hooks do
- * not know which one they use.
+ * only; SessionLibraryContextProvider picks the implementation from the session state (the guest
+ * store signed out, the account store of the signed-in user, A-03), and hooks do not know which
+ * one they use. an instance holds one owner's library for its whole life: the account store is
+ * created for one user id, and rejects every call once the session is no longer that user's.
  *
  * entries are domain entries, built by the rules of src/core/domain/library-entry.ts and
  * library-progress.ts. there is no filter or partial input: filtering, grouping, sorting and the
@@ -16,20 +18,29 @@ import type { MediaKey } from '../domain/media';
  * `Date#toISOString` form, so two `updatedAt` compare as plain strings (BR-08).
  *
  * the interface does not order concurrent calls: callers serialize the writes of one key (L-03).
- * a storage or network failure rejects the promise, never swallowed. entries hold personal data
- * (notes, titles): implementations never log them and never put them, or a key, in an error
- * message or a report tag.
+ * a storage or network failure rejects the promise, never swallowed (the account store with a
+ * LibraryRemoteError, src/core/errors/library-errors.ts). entries hold personal data (notes,
+ * titles): implementations never log them and never put them, or a key, in an error message or a
+ * report tag.
  */
 export interface LibraryRepository {
   /**
    * every entry of the user, most recently updated first (`updatedAt` descending). entries with
    * the same `updatedAt` follow their key in ascending order: namespace and kind in the order of
    * MEDIA_ID_NAMESPACES and MEDIA_KINDS (the postgres enum order), then externalId. the order is
-   * defined on the returned values, so every implementation returns the same order.
+   * defined on the returned values, so every implementation returns the same order. every entry
+   * is returned, never a list cut at a page size (the account store may miss a row another device
+   * moves or deletes during a read of more than one page, until the next refetch); an entry the
+   * implementation cannot read is left out (the guest store drops it, the account store keeps the
+   * row on the server and reports it).
    */
   list(): Promise<readonly LibraryEntry[]>;
 
-  /** the entry of a media, null when the media is not in the library. */
+  /**
+   * the entry of a media, null when the media is not in the library. the account store rejects
+   * for a row it cannot read (a row a newer app version wrote), so a caller never takes it for a
+   * missing one and overwrites it; the guest store has already dropped such an entry (L-02).
+   */
   get(key: MediaKey): Promise<LibraryEntry | null>;
 
   /**

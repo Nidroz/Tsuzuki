@@ -220,7 +220,7 @@ Details:
 
 - [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
-- [ ] A-03 Supabase library repository + repository switch on auth state
+- [x] A-03 Supabase library repository + repository switch on auth state: account store with a session guard, library cache scoped per repository, `media_is_adult` without default
 - [ ] A-04 Guest → account merge (BR-08)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
@@ -229,16 +229,9 @@ Details:
 
 Details:
 
-### A-03 Supabase library repository
-- The library read error (`library.list.error.message`, en and fr) says the library is stored on this device: reword it for the account library (L-04 review).
-- The snapshot Zod schema uses the database limits (title 1-500, format 1-32, https image url up to 2048 characters); add `lives_ok` cases at exactly these accepted limits in `supabase/tests/database/030-library-entries.test.sql` (F-08 review).
-- `library_entries.media_is_adult` defaults to `false`, which fails open (BR-06): snapshot writes must always set it from `MediaSummary.isAdult`; consider dropping the default in a migration (C-03 review).
-- Two `throws_ok` cases of `supabase/tests/database/030-library-entries.test.sql` (the external id check and the duplicate entry) pass a null message, so the constraint names `library_entries_external_id_check` and `library_entries_user_media_key` are never asserted (C-03 review): assert the Postgres messages that name them.
-- The preferences (theme, language, adult content) are stored on the device only (`src/core/preferences/`, L-06). Decide whether they sync to `profiles.preferences` for a signed-in user (SPEC does not require it; FR-23 covers the library); if they do, parse the column with the same fail-closed rule (`showAdult` false unless exactly true).
-- Every write names the media identity `(id_namespace, external_id)` from the `MediaKey` (`namespace`, `externalId`): `id_namespace` has no default (C-03, ADR-0013), and the upsert conflict target is `(user_id, id_namespace, media_kind, external_id)`.
-- The row schema maps a row to the domain shape and reuses `libraryEntrySchema` and `timestampSchema` (`src/core/schemas/`, L-02); the Supabase repository runs the shared contract `describeLibraryRepositoryContract` (`test/core/library-repository-contract.ts`). When the repository switches on the auth state, reset the `['library']` queries or key them per owner, so one user's entries never show under another (L-02). The switch is the `repository` prop of `LibraryContextProvider` alone: the swap already flushes the pending coalesced writes to the old repository (`flushAll` of the old writer, L-03); a flushed write that succeeds still sets its entry in the shared query cache (`setQueryData` of the old writer), so the reset must happen after the flush settles (the cleanup does not expose it today), or the keys must hold the owner.
-
 ### A-05 Offline write queue and replay
+- The account store's session guard (`hasOwnSession`, `src/core/repositories/supabase/library-repository.ts`) reads any `getSession()` error as `signed-out`, a failed offline token refresh included, and runs before the `LIBRARY_REQUEST_TIMEOUT_MS` timer, so a stalled refresh has no timeout: start the timer before the guard, and never drop a queued write as final on a `signed-out` caused by a session read error (A-03 review).
+- `LibraryContextProvider` retires its writer and cache scope in an effect cleanup, assuming one cleanup per value (`// TODO(A-05)`): React StrictMode (on in a Next.js app in development) or `<Activity>` would run it on a live value and remove the live scope's queries. When touching the writer lifecycle, retire only a value that is no longer current, with a test under StrictMode (A-03 review).
 - No test fails if the library writer stops pruning idle key states (`src/core/hooks/library-writer-list.test.ts`, L-04 review): when touching the writer for the queue, make pruning observable (for example a count of active keys exposed to tests only) and assert the map is empty once every call settled.
 - A foreground request that joins an in-flight background prefetch and fails is observed twice by the catalog failure monitor (once per provider call, C-06 review): count a shared failure once, or record it as accepted in `ARCHITECTURE.md` §3.
 - Wire TanStack Query's `onlineManager` to the device connectivity, so offline catalog queries pause and resume on reconnect instead of failing after the network retries of the catalog http client (C-02). This also keeps a viewed media detail in the persisted cache: today a stale detail opened offline fails its refetch, goes to `error` and is left out of the next persister write (`shouldDehydrateQuery`, `src/core/query/persister.ts`), so it no longer reads after the next offline cold start (C-07 review); add a test that a failed offline refetch keeps the persisted detail. `onlineManager` covers the offline device only: a refetch failing while online (timeout, 5xx) still drops the detail from the stored cache; decide whether to persist the last successful data of a failed query too. A connectivity module (`expo-network` or NetInfo) is a new dependency to justify in the PR.
@@ -248,6 +241,7 @@ Details:
 - Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
 ### A-06 Sign out purge and account deletion
+- A coalesced `+1` still in its 500 ms window at sign out is flushed by the old account writer after the session is gone: the session guard refuses it as `signed-out` and the error is hidden with the old scope, so the change is lost (`ARCHITECTURE.md` §8 "Sign out"). Flush the library writer (`flushAll`) before `signOut()` (A-03 review).
 - Sign out purges the recent searches (`RecentSearchesRepository.clear`, FR-25): they are personal data kept on the device (C-04).
 - Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). If a guest → account merge (A-04) failed and was never retried, that purge would delete the guest's only copy: decide whether sign out waits for a successful merge, or accept and document the loss.
 - Apple sign-in (A-09, ADR-0015): before deleting an account with an Apple identity, revoke the user's Apple tokens (App Store guideline 5.1.1(v)), or record why it does not apply while iOS builds are off.

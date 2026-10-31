@@ -1,10 +1,13 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
-import { createDeferred } from '../../../test/core/fake-library-repository';
+import {
+  createDeferred,
+  createFakeLibraryRepository,
+} from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY } from '../../../test/core/library-entry-fixtures';
 import { createLibraryEntry } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
-import { queryKeys } from '../query/keys';
+import { queryKeys, toLibraryScope } from '../query/keys';
 import {
   ENTRY,
   flushMicrotasks,
@@ -12,10 +15,12 @@ import {
   OTHER_ENTRY,
   OTHER_KEY,
   removeEntry,
+  SCOPE,
   scoreOf,
   setupWriter,
   statusOf,
 } from '../../../test/core/library-writer-support';
+import { createLibraryWriter } from './library-writer';
 
 const JUST_BEFORE_WINDOW_MS = PROGRESS_WRITE_COALESCE_MS - 1;
 const PART_OF_WINDOW_MS = 400;
@@ -192,7 +197,7 @@ describe('createLibraryWriter: per-key order', () => {
     const held = createDeferred();
     repository.beforeCall.mockReturnValueOnce(held.promise);
     const refetch = queryClient.query({
-      queryKey: queryKeys.library.entry(ENTRY_KEY),
+      queryKey: queryKeys.library.entry(SCOPE, ENTRY_KEY),
       queryFn: () => writer.read(ENTRY_KEY),
       staleTime: 0,
     });
@@ -213,13 +218,43 @@ describe('createLibraryWriter: per-key order', () => {
     const { queryClient, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
     await load();
     await load(OTHER_KEY);
-    queryClient.setQueryData(queryKeys.library.all(), [ENTRY, OTHER_ENTRY]);
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
 
     await writer.apply(ENTRY_KEY, scoreOf(7));
 
     const stateOf = (queryKey: readonly unknown[]) => queryClient.getQueryState(queryKey);
-    expect(stateOf(queryKeys.library.all())?.isInvalidated).toBe(true);
-    expect(stateOf(queryKeys.library.entry(ENTRY_KEY))?.isInvalidated).toBe(false);
-    expect(stateOf(queryKeys.library.entry(OTHER_KEY))?.isInvalidated).toBe(false);
+    expect(stateOf(queryKeys.library.all(SCOPE))?.isInvalidated).toBe(true);
+    expect(stateOf(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated).toBe(false);
+    expect(stateOf(queryKeys.library.entry(SCOPE, OTHER_KEY))?.isInvalidated).toBe(false);
+  });
+});
+
+describe('createLibraryWriter: cache scope (A-03)', () => {
+  it("keys every query with its scope, never touching another writer's", async () => {
+    const { queryClient, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
+    const otherScope = toLibraryScope(2);
+    const other = createLibraryWriter({
+      queryClient,
+      repository: createFakeLibraryRepository([ENTRY]),
+      scope: otherScope,
+    });
+    await load();
+    queryClient.setQueryData(queryKeys.library.all(SCOPE), [ENTRY, OTHER_ENTRY]);
+    const otherList = await queryClient.query({
+      queryKey: queryKeys.library.all(otherScope),
+      queryFn: () => other.list(),
+    });
+
+    await writer.apply(ENTRY_KEY, scoreOf(7));
+
+    const stateOf = (queryKey: readonly unknown[]) => queryClient.getQueryState(queryKey);
+    expect(stateOf(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.data).toMatchObject({ score: 7 });
+    expect(stateOf(queryKeys.library.all(SCOPE))?.isInvalidated).toBe(true);
+    // the other writer's list and the entry it seeded are untouched
+    expect(stateOf(queryKeys.library.entry(otherScope, ENTRY_KEY))?.data).toBe(ENTRY);
+    expect(stateOf(queryKeys.library.all(otherScope))).toMatchObject({
+      data: otherList,
+      isInvalidated: false,
+    });
   });
 });

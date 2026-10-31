@@ -12,27 +12,28 @@ insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-000000000002', 'other@example.test');
 
 insert into public.library_entries (
-  id, user_id, id_namespace, media_kind, external_id, media_title, media_format, media_total_units
+  id, user_id, id_namespace, media_kind, external_id, media_title, media_format, media_total_units,
+  media_is_adult
 ) values
   (
     '00000000-0000-0000-0000-00000000a001',
     '00000000-0000-0000-0000-000000000001',
-    'mal', 'anime', 1, 'Cowboy Bebop', 'TV', 26
+    'mal', 'anime', 1, 'Cowboy Bebop', 'TV', 26, false
   ),
   (
     '00000000-0000-0000-0000-00000000a002',
     '00000000-0000-0000-0000-000000000001',
-    'mal', 'anime', 2, 'Trigun', 'TV', 26
+    'mal', 'anime', 2, 'Trigun', 'TV', 26, false
   ),
   (
     '00000000-0000-0000-0000-00000000a003',
     '00000000-0000-0000-0000-000000000001',
-    'mal', 'manga', 1, 'Cowboy Bebop', 'Manga', 3
+    'mal', 'manga', 1, 'Cowboy Bebop', 'Manga', 3, false
   ),
   (
     '00000000-0000-0000-0000-00000000b001',
     '00000000-0000-0000-0000-000000000002',
-    'mal', 'manga', 5, 'Monster', 'Manga', 162
+    'mal', 'manga', 5, 'Monster', 'Manga', 162, false
   );
 
 -- the other user gets one event, so the owner's reads below can prove it stays hidden
@@ -73,8 +74,8 @@ select isnt_empty(
 );
 
 insert into public.library_entries (
-  id_namespace, media_kind, external_id, media_title, media_format, progress
-) values ('mal', 'manga', 2, 'Monster', 'Manga', 5);
+  id_namespace, media_kind, external_id, media_title, media_format, media_is_adult, progress
+) values ('mal', 'manga', 2, 'Monster', 'Manga', false, 5);
 
 -- verification as postgres
 reset role;

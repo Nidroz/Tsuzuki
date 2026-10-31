@@ -34,7 +34,7 @@ export type Database = {
           is_favorite?: boolean;
           media_format: string;
           media_image_url?: string | null;
-          media_is_adult?: boolean;
+          media_is_adult: boolean;
           media_kind: Database['public']['Enums']['media_kind'];
           media_title: string;
           media_total_units?: number | null;

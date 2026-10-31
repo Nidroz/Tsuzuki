@@ -7,7 +7,7 @@ import { setScore } from '@core/domain/library-details';
 import type { LibraryEntry, LibraryStatus } from '@core/domain/library-entry';
 import { incrementProgress, setStatus } from '@core/domain/library-progress';
 import type { MediaKey } from '@core/domain/media';
-import { queryKeys } from '@core/query/keys';
+import { queryKeys, toLibraryScope } from '@core/query/keys';
 import { createQueryClient } from '@core/query/query-client';
 import {
   createLibraryWriter,
@@ -16,6 +16,9 @@ import {
 } from '@core/hooks/library-writer';
 
 export const OTHER_KEY = keyOf('manga', 2);
+
+/** the cache scope of the writer of setupWriter: every library key of these tests holds it */
+export const SCOPE = toLibraryScope(1);
 
 /** the stored entry of ENTRY_KEY (progress 12 of 28, score 9) */
 export const ENTRY = entryOf();
@@ -65,7 +68,9 @@ export const setupWriter = (
   const queryClient = createQueryClient();
   const repository = createFakeLibraryRepository(initial);
   const writer = createLibraryWriter(
-    now === undefined ? { queryClient, repository } : { queryClient, repository, now },
+    now === undefined
+      ? { queryClient, repository, scope: SCOPE }
+      : { queryClient, repository, scope: SCOPE, now },
   );
   return {
     queryClient,
@@ -73,10 +78,10 @@ export const setupWriter = (
     writer,
     load: (key = ENTRY_KEY) =>
       queryClient.query({
-        queryKey: queryKeys.library.entry(key),
+        queryKey: queryKeys.library.entry(SCOPE, key),
         queryFn: () => writer.read(key),
       }),
     cached: (key = ENTRY_KEY) =>
-      queryClient.getQueryData<LibraryEntry | null>(queryKeys.library.entry(key)),
+      queryClient.getQueryData<LibraryEntry | null>(queryKeys.library.entry(SCOPE, key)),
   };
 };

@@ -25,9 +25,11 @@ import { entryOf } from '../core/library-entry-fixtures';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
-// the library wiring (L-03): the composition root (app/_layout.tsx) creates the guest library repository over the app
-// storage, once, when the layout module loads, and gives it to the library hooks. the factory
-// keeps its real behaviour and records its calls
+// the library wiring (L-03): the composition root (app/_layout.tsx) creates the guest library
+// repository over the app storage, once, when the layout module loads, and gives it to the library
+// hooks while signed out (the fake auth repository reports no session; the switch to the account
+// library is tested in root-layout-session-library.test.tsx). the factory keeps its real
+// behaviour and records its calls
 
 // no supabase client: the composition root gets a signed-out fake auth repository
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
