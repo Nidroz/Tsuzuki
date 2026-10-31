@@ -6,8 +6,8 @@ import { createJikanCatalogProvider } from '@core/catalog/jikan/jikan-catalog-pr
 import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
-import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
+import { SessionLibraryContextProvider } from '@core/hooks/SessionLibraryContextProvider';
 import {
   hasIntlPluralRules,
   I18nProvider,
@@ -31,6 +31,7 @@ import { createLocalLibraryRepository } from '@core/repositories/local/library-r
 import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
 import { createSupabaseAuthRepository } from '@core/repositories/supabase/auth-repository';
 import { createSupabaseClient } from '@core/repositories/supabase/create-supabase-client';
+import { createSupabaseLibraryRepository } from '@core/repositories/supabase/library-repository';
 import { appLinkUrl, AUTH_LINK_PATHS } from '@core/schemas/app-links';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
@@ -119,13 +120,13 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
   maxQueryLength: catalogProvider.searchQueryMaxLength,
 });
 
-// the guest library on the device (FR-20); a damaged store is reported, never thrown. the only
-// library until A-03 picks the repository from the auth state, in this provider's prop only
+// the guest library on the device (FR-20); a damaged store is reported, never thrown. shown while
+// signed out: the session library switch picks it or the account library below
 const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 
 // the supabase client of the app: anon key only, its session in the secure store, never in the
 // app storage (§8). the auth repository sends the email links to the app's own routes (ADR-0014);
-// the supabase library repository of A-03 will share the client
+// the account library repositories share the client
 const supabase = createSupabaseClient({
   url: appEnv.supabaseUrl,
   anonKey: appEnv.supabaseAnonKey,
@@ -137,6 +138,11 @@ const authRepository = createSupabaseAuthRepository(supabase, {
   passwordResetRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.passwordReset),
   reporter,
 });
+
+// the account library of a signed-in user (FR-23), in supabase: the session library switch calls
+// it once per user id. module level, so the switch gets one stable function
+const accountLibraryFor = (userId: string) =>
+  createSupabaseLibraryRepository(supabase, { userId, reporter });
 
 // the token auto refresh runs only while the app is in the foreground (supabase-js on react
 // native): no timer in the background, and a token close to expiry is refreshed on return
@@ -180,12 +186,12 @@ function RootStack() {
 // the composition root: it owns the storage, the auth repository, the catalog provider, the recent
 // searches and library repositories, the query client and the preferences, and gives the tree the
 // query cache (persisted to the storage), the auth (its mutations need the query client), the
-// catalog provider, the recent searches and the library (the data dependencies, next to the query
-// client; the library writer keeps its optimistic entries in that cache), then the preferences,
-// the translations and the theme. the stored preferences are read
-// synchronously on mount, so the first frame already uses them. expo-router's root already
-// provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
-// gives navigators their theme
+// catalog provider, the recent searches and the library of the session (the data dependencies,
+// next to the query client; the library writer keeps its optimistic entries in that cache, and
+// the library switch reads the session, inside the auth), then the preferences, the translations
+// and the theme. the stored preferences are read synchronously on mount, so the first frame
+// already uses them. expo-router's root already provides the SafeAreaProvider that Screen relies
+// on; ThemeProvider renders the status bar and gives navigators their theme
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [initialPreferences] = useState(() => loadPreferences(storage));
@@ -217,7 +223,10 @@ export default function RootLayout() {
       <AuthContextProvider repository={authRepository} captcha={noCaptcha}>
         <CatalogContextProvider provider={catalogProvider}>
           <RecentSearchesContextProvider repository={recentSearchesRepository}>
-            <LibraryContextProvider repository={libraryRepository}>
+            <SessionLibraryContextProvider
+              guest={libraryRepository}
+              accountRepositoryFor={accountLibraryFor}
+            >
               <PreferencesProvider
                 theme={themePreference}
                 language={languagePreference}
@@ -232,7 +241,7 @@ export default function RootLayout() {
                   </ThemeProvider>
                 </I18nProvider>
               </PreferencesProvider>
-            </LibraryContextProvider>
+            </SessionLibraryContextProvider>
           </RecentSearchesContextProvider>
         </CatalogContextProvider>
       </AuthContextProvider>
