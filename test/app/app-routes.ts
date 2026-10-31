@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 
+import * as NativeIntent from '../../app/+native-intent';
 import NotFoundRoute from '../../app/+not-found';
 import TabsLayout from '../../app/(tabs)/_layout';
 import FavoritesRoute from '../../app/(tabs)/favorites';
@@ -18,9 +19,10 @@ import MediaDetailRoute from '../../app/media/[namespace]/[kind]/[id]';
 
 /**
  * the in-memory route map of the app, keyed as in app/ without the extension: the real files of
- * every route, the root layout included. a test replaces a route with a stub by spreading this map.
- * a component stands for a module with only a default export: the root layout is given as its
- * module, with the settings that put the tabs below a cold deep link
+ * every route, the root layout and the native intent included. a test replaces a route with a stub
+ * by spreading this map. a component stands for a module with only a default export: the root
+ * layout is given as its module, with the settings that put the tabs below a cold deep link, and
+ * the native intent as its module (`redirectSystemPath`, no component)
  */
 export const APP_ROUTES = {
   _layout: { default: RootLayout, unstable_settings },
@@ -38,6 +40,7 @@ export const APP_ROUTES = {
   'auth/reset-password': ResetPasswordRoute,
   'auth/oauth-callback': OAuthCallbackRoute,
   '+not-found': NotFoundRoute,
+  '+native-intent': NativeIntent,
 } as const;
 
 /** the app routes with the Discover route (the path /) replaced */
