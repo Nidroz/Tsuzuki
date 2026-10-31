@@ -34,8 +34,8 @@ const selectWithMedia = (media: MediaSummary): SelectEntry => {
 /**
  * the library entry of the media `key`, null when the media is not in the library, read through
  * the library writer, so a refetch never returns a state older than a write. keyed with the
- * context's cache scope: a library switch reads the new library's entry from the same render. always revalidated
- * (STALE_TIMES.library). with `media`, the entry is shown with the catalog's current snapshot
+ * context's cache scope: a library switch reads the new library's entry from the same render.
+ * always revalidated (STALE_TIMES.library). with `media`, the entry is shown with the catalog's current snapshot
  * (withMediaSnapshot): the fresh total enables `+1` and bounds the progress (BR-01). viewing
  * writes nothing; the snapshot is written with the next action (useLibraryEntryActions). a `media`
  * no snapshot can hold fails the query with a LibrarySnapshotError, in the library or not

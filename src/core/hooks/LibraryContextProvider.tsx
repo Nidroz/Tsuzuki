@@ -37,6 +37,9 @@ export function LibraryContextProvider({ repository, children }: LibraryContextP
     return { repository, writer: createLibraryWriter({ queryClient, repository, scope }), scope };
   }, [queryClient, repository]);
 
+  // the cleanup runs once per value, when it is retired: the app renders no StrictMode or Activity,
+  // whose extra effect cleanup would remove the live scope too
+  // TODO(A-05): retire only a value that is no longer current, so a repeated cleanup is harmless
   useEffect(
     () => () => {
       const { writer, scope } = value;

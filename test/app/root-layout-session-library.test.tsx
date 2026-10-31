@@ -1,5 +1,4 @@
 import type { LibraryEntry } from '@core/domain/library-entry';
-import type { GuestLibraryRepository } from '@core/repositories/library-repository';
 import type * as LocalLibrary from '@core/repositories/local/library-repository';
 import { describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
@@ -101,9 +100,11 @@ describe('root layout session library (A-03)', () => {
   it('shows the guest library signed out, the account library signed in, and the guest one after sign out', async () => {
     appStorage.clearAll();
     // the guest repository the layout created when it loaded
-    const guest = jest.mocked(localLibrary.createLocalLibraryRepository).mock.results[0]?.value as
-      GuestLibraryRepository | undefined;
-    await guest?.save(GUEST_ENTRY);
+    const created = jest.mocked(localLibrary.createLocalLibraryRepository).mock.results[0];
+    if (created?.type !== 'return') {
+      throw new Error('the composition root created no guest library repository');
+    }
+    await created.value.save(GUEST_ENTRY);
     supabaseLibraryModule.accountEntries.set(USER_ID, [ACCOUNT_ENTRY]);
 
     await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
