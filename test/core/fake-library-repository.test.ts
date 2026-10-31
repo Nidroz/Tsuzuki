@@ -5,6 +5,7 @@ import {
   createDeferred,
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  holdNextCall,
 } from './fake-library-repository';
 import { entryOf, keyOf } from './library-entry-fixtures';
 
@@ -61,5 +62,24 @@ describe('createFakeGuestLibraryRepository', () => {
     await expect(repository.removeUnchanged([FRIEREN])).rejects.toBe(failure);
 
     expect(repository.stored(FRIEREN.key)).toStrictEqual(FRIEREN);
+  });
+});
+
+describe('holdNextCall', () => {
+  it('holds the next call of the method only, then fails it without a change', async () => {
+    const repository = createFakeGuestLibraryRepository([FRIEREN]);
+    const held = holdNextCall(repository, 'removeUnchanged');
+    const failure = new Error('storage failure');
+
+    // another method goes on at once
+    await expect(repository.list()).resolves.toStrictEqual([FRIEREN]);
+    const removal = repository.removeUnchanged([FRIEREN]);
+    held.reject(failure);
+
+    await expect(removal).rejects.toBe(failure);
+    expect(repository.stored(FRIEREN.key)).toStrictEqual(FRIEREN);
+    // the later calls go on at once
+    await repository.removeUnchanged([FRIEREN]);
+    expect(repository.stored(FRIEREN.key)).toBeNull();
   });
 });

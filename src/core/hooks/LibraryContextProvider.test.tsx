@@ -14,6 +14,7 @@ import { queryKeys, type LibraryScope } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import type { LibraryRepository } from '../repositories/library-repository';
 import { MISSING_LIBRARY_PROVIDER_MESSAGE } from './library-context';
+import type { RetiredLibrary } from './LibraryContextProvider';
 import { useLibraryContext } from './use-library-context';
 import { useLibraryEntry } from './use-library-entry';
 import { useLibraryEntryActions } from './use-library-entry-actions';
@@ -32,9 +33,16 @@ const useLibraryProbe = () => ({
 });
 
 // the probe over `first`, its entry and list loaded; `swap` switches the repository
-const renderLoaded = async (first: LibraryRepository) => {
+const renderLoaded = async (
+  first: LibraryRepository,
+  onRetired?: (retired: RetiredLibrary) => void,
+) => {
   const queryClient = createQueryClient();
-  const { wrapper, switchTo } = switchableLibraryWrapper(queryClient, first);
+  const { wrapper, switchTo, setOnRetired } = switchableLibraryWrapper(
+    queryClient,
+    first,
+    onRetired,
+  );
   const rendered = renderHook(useLibraryProbe, { wrapper });
   await waitFor(() => {
     expect(rendered.result.current.entry.isSuccess).toBe(true);
@@ -46,7 +54,14 @@ const renderLoaded = async (first: LibraryRepository) => {
       rendered.rerender();
     });
   };
-  return { ...rendered, queryClient, swap };
+  // another onRetired, the repository kept
+  const changeOnRetired = (next: (retired: RetiredLibrary) => void) => {
+    act(() => {
+      setOnRetired(next);
+      rendered.rerender();
+    });
+  };
+  return { ...rendered, queryClient, swap, changeOnRetired };
 };
 
 type Rendered = Awaited<ReturnType<typeof renderLoaded>>;
@@ -144,6 +159,85 @@ describe('LibraryContextProvider', () => {
 
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(ENTRY.progress + 1);
     expect(queriesOf(rendered.queryClient, scope)).toHaveLength(0);
+  });
+
+  it('reports a retired repository with the flush of its pending writes (ADR-0016)', async () => {
+    const first = createFakeLibraryRepository([ENTRY]);
+    const onRetired = jest.fn<(retired: RetiredLibrary) => void>();
+    const rendered = await renderLoaded(first, onRetired);
+    await tapIncrement(rendered);
+    const save = createDeferred();
+    first.beforeCall.mockReturnValueOnce(save.promise);
+
+    rendered.swap(createFakeLibraryRepository([NEXT_ENTRY]));
+
+    expect(onRetired).toHaveBeenCalledTimes(1);
+    const retired = onRetired.mock.calls[0]?.[0];
+    expect(retired?.repository).toBe(first);
+    const settled = jest.fn();
+    void retired?.flushed.then(settled);
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    // the `+1` write is running: the flush waits for it
+    expect(first.save).toHaveBeenCalledTimes(1);
+    expect(settled).not.toHaveBeenCalled();
+
+    await act(async () => {
+      save.resolve();
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(settled).toHaveBeenCalledTimes(1);
+    expect(first.stored(ENTRY_KEY)?.progress).toBe(ENTRY.progress + 1);
+  });
+
+  it('settles the flush of a failed write without rejecting', async () => {
+    const first = createFakeLibraryRepository([ENTRY]);
+    const onRetired = jest.fn<(retired: RetiredLibrary) => void>();
+    const rendered = await renderLoaded(first, onRetired);
+    await tapIncrement(rendered);
+    first.beforeCall.mockRejectedValueOnce(new Error('storage failure'));
+
+    rendered.swap(createFakeLibraryRepository([NEXT_ENTRY]));
+    const flushed = onRetired.mock.calls[0]?.[0].flushed;
+
+    // the failed write rejects its `+1` action, which sets its error state: inside act
+    await act(async () => {
+      await expect(flushed).resolves.toBeUndefined();
+    });
+    expect(first.stored(ENTRY_KEY)).toStrictEqual(ENTRY);
+  });
+
+  it('reports the value it retires when it unmounts', async () => {
+    const repository = createFakeLibraryRepository([ENTRY]);
+    const onRetired = jest.fn<(retired: RetiredLibrary) => void>();
+    const rendered = await renderLoaded(repository, onRetired);
+
+    rendered.unmount();
+
+    expect(onRetired).toHaveBeenCalledTimes(1);
+    expect(onRetired.mock.calls[0]?.[0].repository).toBe(repository);
+  });
+
+  it('keeps the live value for a new onRetired, and reports to the latest one only', async () => {
+    const repository = createFakeLibraryRepository([ENTRY]);
+    const first = jest.fn<(retired: RetiredLibrary) => void>();
+    const latest = jest.fn<(retired: RetiredLibrary) => void>();
+    const rendered = await renderLoaded(repository, first);
+    const before = rendered.result.current.context;
+
+    rendered.changeOnRetired(latest);
+
+    expect(rendered.result.current.context).toBe(before);
+    expect(queriesOf(rendered.queryClient, before.scope)).toHaveLength(2);
+    expect(rendered.result.current.entry.data).toStrictEqual(ENTRY);
+
+    rendered.swap(createFakeLibraryRepository([NEXT_ENTRY]));
+
+    expect(first).not.toHaveBeenCalled();
+    expect(latest).toHaveBeenCalledTimes(1);
+    expect(latest.mock.calls[0]?.[0].repository).toBe(repository);
   });
 
   it('makes useLibraryContext throw outside of it', () => {

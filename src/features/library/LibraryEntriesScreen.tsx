@@ -1,10 +1,20 @@
 import { DEFAULT_LIBRARY_VIEW, type LibraryViewOptions } from '@core/domain/library-view';
 import type { MediaKey } from '@core/domain/media';
+import { useGuestMerge } from '@core/hooks/use-guest-merge';
 import { useLibraryList } from '@core/hooks/use-library-list';
 import { useTranslation } from '@core/i18n/index';
 import { usePreferences } from '@core/preferences/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
-import { EmptyState, ErrorState, Screen, Spinner, Stack, type ScreenEdge } from '@ui/index';
+import {
+  EmptyState,
+  ErrorState,
+  InlineError,
+  Screen,
+  Spinner,
+  Stack,
+  Text,
+  type ScreenEdge,
+} from '@ui/index';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
@@ -32,7 +42,8 @@ export interface LibraryEntriesScreenProps {
   favoritesOnly: boolean;
   /**
    * the testID prefix: the screen is `<testID>-screen`, its states `-loading`, `-error`,
-   * `-empty`, its list `-list` and its filters `-filters`
+   * `-empty`, `-merging`, its list `-list`, its filters `-filters` and the guest merge failure
+   * `-merge-error` (its action `-merge-error-action`)
    */
   testID: string;
   empty: LibraryEntriesEmptyTexts;
@@ -49,12 +60,15 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * shows `empty`, with a Search action. a failed refetch keeps the rows. the options are kept while
  * the tabs stay mounted, never persisted. a row acted on keeps its place (useLibraryList), an
  * entry unfavorited from the favorites included: the list is laid out again on an option change
- * or when the screen gains focus (a tab switch, back from the detail)
+ * or when the screen gains focus (a tab switch, back from the detail). while the guest library is
+ * merged into the account (ADR-0016), a labelled spinner says so instead; after a failed merge, an
+ * error with a retry stays above the account library
  */
 export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
   const { t } = useTranslation();
   const router = useRouter();
   const { showAdult } = usePreferences();
+  const merge = useGuestMerge();
   const [options, setOptions] = useState<LibraryViewOptions>(DEFAULT_LIBRARY_VIEW);
   const [layoutKey, setLayoutKey] = useState(FIRST_LAYOUT_KEY);
   // stable: useFocusEffect reruns a new callback, which would lay the list out on every render
@@ -87,7 +101,15 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
   }, []);
 
   let content: ReactElement;
-  if (view === undefined) {
+  if (merge.status === 'merging') {
+    // the library is the pending one meanwhile: no list to show, no write possible
+    content = (
+      <Stack gap="md" align="center" justify="center" flex>
+        <Spinner accessibilityLabel={t('library.merge.inProgress')} testID={`${testID}-merging`} />
+        <Text align="center">{t('library.merge.inProgress')}</Text>
+      </Stack>
+    );
+  } else if (view === undefined) {
     // while the retry of an error runs, the spinner replaces it
     content =
       error !== null && !isFetching ? (
@@ -128,7 +150,16 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
 
   return (
     <Screen edges={EDGES} testID={`${testID}-screen`}>
-      {content}
+      <Stack gap="md" flex>
+        {merge.status === 'failed' ? (
+          <InlineError
+            message={t('library.merge.failed')}
+            action={{ label: t('library.merge.retry'), onPress: merge.retry }}
+            testID={`${testID}-merge-error`}
+          />
+        ) : null}
+        {content}
+      </Stack>
     </Screen>
   );
 }

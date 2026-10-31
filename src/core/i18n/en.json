@@ -210,6 +210,11 @@
       },
       "writeError": "Your change could not be saved.",
       "dismiss": "Dismiss"
+    },
+    "merge": {
+      "inProgress": "Adding the titles saved on this device to your account…",
+      "failed": "Some titles saved on this device could not be added to your account. They stay on this device until they are.",
+      "retry": "Try again"
     }
   },
   "favorites": {

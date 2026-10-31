@@ -1,3 +1,4 @@
+import type { GuestMergeValue } from '@core/hooks/guest-merge-context';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import type { Language } from '@core/i18n/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
@@ -12,7 +13,7 @@ import {
 import type * as FakeFocusEffect from '../../../test/mobile/fake-focus-effect';
 import { refocusScreens } from '../../../test/mobile/fake-focus-effect';
 import { settle, textsInListOrder } from '../../../test/mobile/render-library-screen';
-import { renderWithProviders } from '../../../test/mobile/render-with-providers';
+import { IDLE_GUEST_MERGE, renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { ADULT, BERSERK, FRIEREN, LIBRARY, MONSTER } from '../library/__fixtures__/library-entries';
 import { FavoritesScreen } from './FavoritesScreen';
 
@@ -43,12 +44,13 @@ const FAVORITES = [
 const renderFavorites = async (
   repository: FakeLibraryRepository = createFakeLibraryRepository(FAVORITES),
   language: Language = 'en',
+  guestMerge: GuestMergeValue = IDLE_GUEST_MERGE,
 ) => {
   await renderWithProviders(
     <LibraryContextProvider repository={repository}>
       <FavoritesScreen />
     </LibraryContextProvider>,
-    { language },
+    { language, guestMerge },
   );
   return { repository, user: userEvent.setup() };
 };
@@ -165,5 +167,42 @@ describe('FavoritesScreen', () => {
     expect(screen.getByText("Aucun favori pour l'instant")).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Rechercher des titres' })).toBeOnTheScreen();
     expect(screen.queryByText('No favorites yet')).not.toBeOnTheScreen();
+  });
+
+  it('says the titles of the device are being added to the account instead of the favorites (A-04)', async () => {
+    const guestMerge: GuestMergeValue = { status: 'merging', retry: jest.fn() };
+    await renderFavorites(undefined, 'fr', guestMerge);
+    await settle();
+
+    const text = 'Ajout à votre compte des titres enregistrés sur cet appareil…';
+    expect(screen.getByLabelText(text)).toHaveProp('testID', 'favorites-merging');
+    expect(screen.getByText(text)).toBeOnTheScreen();
+    expect(screen.queryByTestId('favorites-list')).not.toBeOnTheScreen();
+  });
+
+  it('shows a failed merge above the favorites, with a retry (A-04)', async () => {
+    const retry = jest.fn<() => void>();
+    const { user } = await renderFavorites(undefined, 'en', { status: 'failed', retry });
+    await settle();
+
+    const banner = screen.getByTestId('favorites-merge-error');
+    expect(banner).toHaveProp('accessibilityRole', 'alert');
+    expect(banner).toHaveTextContent(
+      'Some titles saved on this device could not be added to your account.',
+      { exact: false },
+    );
+    expect(screen.getByTestId('favorites-list')).toBeOnTheScreen();
+
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows nothing of the merge once it concluded (A-04)', async () => {
+    await renderFavorites();
+    await settle();
+
+    expect(screen.queryByTestId('favorites-merging')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('favorites-merge-error')).not.toBeOnTheScreen();
   });
 });

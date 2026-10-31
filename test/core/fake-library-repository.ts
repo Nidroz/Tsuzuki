@@ -147,3 +147,24 @@ export const createFakeGuestLibraryRepository = (initial: readonly LibraryEntry[
 };
 
 export type FakeGuestLibraryRepository = ReturnType<typeof createFakeGuestLibraryRepository>;
+
+/**
+ * holds the next call of `method` on a fake repository until the returned deferred settles: it
+ * then goes on, or rejects with the deferred's error and changes nothing. the other calls, and the
+ * later calls of `method`, go on at once
+ */
+export const holdNextCall = (
+  repository: { readonly beforeCall: FakeLibraryRepository['beforeCall'] },
+  method: LibraryMethod,
+): Deferred<void> => {
+  const held = createDeferred();
+  let holding = true;
+  repository.beforeCall.mockImplementation((called) => {
+    if (holding && called === method) {
+      holding = false;
+      return held.promise;
+    }
+    return Promise.resolve();
+  });
+  return held;
+};
