@@ -42,8 +42,8 @@ allowBuilds:
   # denied: the native binary comes from optional platform packages, the postinstall is only a fallback
   unrs-resolver: false
 
-# high advisories without a patched version, in dev tooling only (never in the app bundle).
-# re-check at each dependency-update chore (M-01); remove once a patch exists
+# high advisories that cannot be patched here, each with its reason (dev tooling only, or mitigated
+# in the app). re-check at each dependency-update chore (M-01); remove once a patch can be used
 auditConfig:
   ignoreGhsas:
     # braces, via metro > metro-file-map > micromatch: used only by the metro bundler at build time,
@@ -53,6 +53,11 @@ auditConfig:
     # on the developer machine and in ci, on the repository's own inputs; not in the app bundle. zod 4
     # is patched (the app's own zod and the override above). remove once @expo/cli moves to zod 4
     - GHSA-mrhx-c7xc-m3w5
+    # decode-uri-component 0.2, via expo-router > query-string 7, in the app bundle: the fix (0.5.1)
+    # is ESM only and query-string 7 requires it as CommonJS. mitigated: app/+native-intent.tsx sends
+    # any incoming link above the size limits (src/core/schemas/incoming-link.ts) to home before
+    # expo-router parses it. remove once expo-router ships a compatible query-string
+    - GHSA-qr28-fpjm-wq7f
 
 # the sentry gradle step runs node_modules/@sentry/cli/bin/sentry-cli from the project root; with
 # pnpm, @sentry/cli is only a dependency of @sentry/react-native, so it is hoisted to the root
