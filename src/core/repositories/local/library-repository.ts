@@ -2,6 +2,7 @@
 // synchronous StorageAdapter. no in-memory cache: each call reads, changes and writes the stored
 // document synchronously inside the call, so calls never interleave and apply in call order.
 // personal data (notes, titles): never logged, never put in an error or a report tag
+import { isSameLibraryEntry } from '../../domain/guest-merge';
 import type { LibraryEntry } from '../../domain/library-entry';
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LibraryStorageError, type LibraryStorageReason } from '../../errors/library-errors';
@@ -39,7 +40,9 @@ const settle = <T>(work: () => T): Promise<T> =>
  * through `reporter` at most once per repository, never thrown; the next write replaces the
  * document with the entries read plus the change. `save` validates with libraryEntrySchema first
  * (a RangeError without values, nothing written) and keeps the stored `createdAt` when replacing;
- * `remove` of a missing key writes nothing; `clear` deletes the key. a storage failure rejects.
+ * `remove` of a missing key writes nothing; `removeUnchanged` removes the stored entries equal
+ * field by field to merged ones (isSameLibraryEntry), writing nothing when none is and deleting the
+ * key when none remains; `clear` deletes the key. a storage failure rejects.
  */
 export const createLocalLibraryRepository = (
   storage: StorageAdapter,
@@ -95,6 +98,24 @@ export const createLocalLibraryRepository = (
         const entries = read();
         const remaining = entries.filter((entry) => !isSameMediaKey(entry.key, key));
         if (remaining.length !== entries.length) {
+          write(remaining);
+        }
+      }),
+
+    // after a successful merge (BR-08, ADR-0016): an entry changed or added since the merge listed
+    // the store is not the same as any merged one, so it stays for the next merge
+    removeUnchanged: (merged) =>
+      settle(() => {
+        const entries = read();
+        const remaining = entries.filter(
+          (entry) => !merged.some((other) => isSameLibraryEntry(entry, other)),
+        );
+        if (remaining.length === entries.length) {
+          return;
+        }
+        if (remaining.length === 0) {
+          storage.delete(GUEST_LIBRARY_STORAGE_KEY);
+        } else {
           write(remaining);
         }
       }),

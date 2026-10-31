@@ -1,14 +1,16 @@
 // the library repositories (docs/ARCHITECTURE.md §4): the user's library entries, on the device
-// for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03). types only
+// for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03), and the merge
+// of the first into the second at sign in (A-04, ADR-0016). types only
 import type { LibraryEntry } from '../domain/library-entry';
 import type { MediaKey } from '../domain/media';
 
 /**
  * the library of the current user (FR-10 to FR-15, FR-20, FR-23). hooks depend on this interface
  * only; SessionLibraryContextProvider picks the implementation from the session state (the guest
- * store signed out, the account store of the signed-in user, A-03), and hooks do not know which
- * one they use. an instance holds one owner's library for its whole life: the account store is
- * created for one user id, and rejects every call once the session is no longer that user's.
+ * store signed out, the account store of the signed-in user, A-03, once the guest entries are
+ * merged into it, A-04), and hooks do not know which one they use. an instance holds one owner's
+ * library for its whole life: the account store is created for one user id, and rejects every
+ * call once the session is no longer that user's.
  *
  * entries are domain entries, built by the rules of src/core/domain/library-entry.ts and
  * library-progress.ts. there is no filter or partial input: filtering, grouping, sorting and the
@@ -61,13 +63,59 @@ export interface LibraryRepository {
 }
 
 /**
- * the guest library (FR-20), kept on the device only (local/library-repository.ts). `clear` is
- * guest-only: the guest store is emptied after a successful merge into the account (BR-08, A-04:
- * the merge reads `list()`, sends every entry to the account side, and calls `clear()` only once
- * the account side accepted them all) and by the sign-out purge (FR-25, A-06). an account library
- * is removed by account deletion only (A-06).
+ * the guest library (FR-20), kept on the device only (local/library-repository.ts). its two bulk
+ * removals are guest-only: `removeUnchanged` after a successful merge into the account (BR-08,
+ * A-04: the merge reads `list()`, passes those entries to the account store's
+ * `mergeGuestEntries`, and removes them only once it resolved), `clear` at the sign-out purge
+ * (FR-25, A-06). an account library is removed by account deletion only (A-06).
  */
 export interface GuestLibraryRepository extends LibraryRepository {
-  /** removes every guest entry; a no-op when there is none. */
+  /**
+   * removes, in one synchronous read, change and write, each stored entry equal field by field to
+   * one of `entries`: key, snapshot and every other field, `createdAt` and `updatedAt` included. a
+   * stored entry changed or added since `entries` were listed stays, so the next merge sends it.
+   * deletes the stored document when no entry remains, and writes nothing when no stored entry
+   * matches. a storage failure rejects. called after a successful merge with the entries that
+   * merge was given (BR-08: the guest store is cleared after a successful merge), never after a
+   * failed one.
+   */
+  removeUnchanged(entries: readonly LibraryEntry[]): Promise<void>;
+
+  /**
+   * removes every guest entry; a no-op when there is none. the sign-out purge (FR-25, A-06), never
+   * the merge, which removes with `removeUnchanged`.
+   */
   clear(): Promise<void>;
+}
+
+/**
+ * the account library of one signed-in user, in supabase (supabase/library-repository.ts, A-03,
+ * FR-23), into which the guest library is merged (FR-22, BR-08, A-04, ADR-0016). no `clear`: an
+ * account library is removed by account deletion only (A-06).
+ */
+export interface AccountLibraryRepository extends LibraryRepository {
+  /**
+   * merges guest entries into this account (BR-08, FR-22). per entry: inserted when the account
+   * has no entry of its key; replaces the account entry (every field but the key and the
+   * timestamps) only when the guest `updatedAt` is strictly later than the account row's
+   * `updated_at`; otherwise, the account copy newer or equal, the account entry is kept and nothing
+   * is written. the comparison is made by the write itself, so an account entry that became newer
+   * meanwhile (another device) is never overwritten. the database sets the timestamps: an inserted
+   * row takes the merge time as `createdAt` and `updatedAt`, a replaced one keeps its `createdAt`
+   * and takes the merge time as `updatedAt`.
+   *
+   * resolves only once every entry is confirmed written, or confirmed not newer than the account
+   * copy. rejects with a LibraryRemoteError on any failure (`network`, `signed-out`, `rejected`,
+   * `unknown`; `invalid-row` is not used), after which some entries may already be written: calling
+   * again with the same entries completes the merge and gives the same final entries, since a
+   * written entry now carries the later server `updated_at` and is kept (or, with a device clock
+   * ahead of the server, written again with the same values). the session guard (A-03) applies
+   * before every request: with another user's session or none, it rejects with `signed-out` and
+   * that request is not sent.
+   *
+   * an entry libraryEntrySchema rejects, or two entries of the same key, reject with a RangeError
+   * whose message holds no value, and nothing is sent. an empty list resolves without a request.
+   * entries hold personal data: never logged, never in an error or a report tag.
+   */
+  mergeGuestEntries(entries: readonly LibraryEntry[]): Promise<void>;
 }
