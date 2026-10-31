@@ -33,7 +33,8 @@ const selectWithMedia = (media: MediaSummary): SelectEntry => {
 
 /**
  * the library entry of the media `key`, null when the media is not in the library, read through
- * the library writer, so a refetch never returns a state older than a write. always revalidated
+ * the library writer, so a refetch never returns a state older than a write. keyed with the
+ * context's cache scope: a library switch reads the new library's entry from the same render. always revalidated
  * (STALE_TIMES.library). with `media`, the entry is shown with the catalog's current snapshot
  * (withMediaSnapshot): the fresh total enables `+1` and bounds the progress (BR-01). viewing
  * writes nothing; the snapshot is written with the next action (useLibraryEntryActions). a `media`
@@ -43,10 +44,10 @@ export const useLibraryEntry = (
   key: MediaKey,
   { media }: UseLibraryEntryOptions,
 ): UseQueryResult<LibraryEntry | null> => {
-  const { writer } = useLibraryContext();
+  const { writer, scope } = useLibraryContext();
   const select = useMemo(() => (media === null ? keepEntry : selectWithMedia(media)), [media]);
   return useQuery({
-    queryKey: queryKeys.library.entry(key),
+    queryKey: queryKeys.library.entry(scope, key),
     queryFn: () => writer.read(key),
     staleTime: STALE_TIMES.library,
     select,

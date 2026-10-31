@@ -11,7 +11,7 @@ import {
 } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
 import type { MediaKey } from '../domain/media';
-import { queryKeys } from '../query/keys';
+import { queryKeys, type LibraryScope } from '../query/keys';
 import type { LibraryRepository } from '../repositories/library-repository';
 import { mediaKeyId, setListEntry, withListEntry } from './library-list-data';
 
@@ -53,6 +53,8 @@ export interface LibraryWriter {
 export interface LibraryWriterOptions {
   readonly queryClient: QueryClient;
   readonly repository: LibraryRepository;
+  /** the cache scope of every library key this writer reads, sets, cancels or invalidates */
+  readonly scope: LibraryScope;
   /** the clock of the writes, `new Date()` by default */
   readonly now?: () => Date;
 }
@@ -96,6 +98,7 @@ const systemNow = (): Date => new Date();
 export const createLibraryWriter = ({
   queryClient,
   repository,
+  scope,
   now = systemNow,
 }: LibraryWriterOptions): LibraryWriter => {
   // the states of the keys in use: an idle one is pruned, a later use starts a fresh one
@@ -168,8 +171,8 @@ export const createLibraryWriter = ({
     state.timer = undefined;
     state.pending = null;
     const version = state.version;
-    const entryKey = queryKeys.library.entry(state.key);
-    const listKey = queryKeys.library.all();
+    const entryKey = queryKeys.library.entry(scope, state.key);
+    const listKey = queryKeys.library.all(scope);
     // the write holds its key until it settled, so its version is compared on the same state
     state.writing += 1;
     state.busy += 1;
@@ -182,7 +185,7 @@ export const createLibraryWriter = ({
       (stored) => {
         if (state.version === version) {
           queryClient.setQueryData(entryKey, stored);
-          setListEntry(queryClient, state.key, stored);
+          setListEntry(queryClient, scope, state.key, stored);
         }
         finish();
         // exact: the list query only, never an entry over a pending optimistic value
@@ -219,7 +222,7 @@ export const createLibraryWriter = ({
       if (state.pending !== null || state.writing > 0) {
         unconfirmed.add(state.id);
         const optimistic = queryClient.getQueryData<LibraryEntry | null>(
-          queryKeys.library.entry(state.key),
+          queryKeys.library.entry(scope, state.key),
         );
         if (optimistic !== undefined) {
           shown = withListEntry(shown, state.key, optimistic);
@@ -230,7 +233,7 @@ export const createLibraryWriter = ({
     if (settledWrites === settledBefore) {
       for (const entry of stored) {
         if (!unconfirmed.has(mediaKeyId(entry.key))) {
-          queryClient.setQueryData(queryKeys.library.entry(entry.key), entry);
+          queryClient.setQueryData(queryKeys.library.entry(scope, entry.key), entry);
         }
       }
     }
@@ -243,7 +246,7 @@ export const createLibraryWriter = ({
     options: LibraryApplyOptions = {},
   ): Promise<void> => {
     const state = stateOf(key);
-    const entryKey = queryKeys.library.entry(key);
+    const entryKey = queryKeys.library.entry(scope, key);
     state.busy += 1;
     try {
       // first, as documented for optimistic updates: a fetch in flight would otherwise resolve
@@ -264,7 +267,7 @@ export const createLibraryWriter = ({
         return;
       }
       queryClient.setQueryData(entryKey, next);
-      setListEntry(queryClient, key, next);
+      setListEntry(queryClient, scope, key, next);
       state.version += 1;
 
       const settled = new Promise<void>((resolve, reject) => {

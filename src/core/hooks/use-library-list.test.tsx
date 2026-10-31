@@ -29,6 +29,7 @@ import { queryKeys } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import { CatalogContextProvider } from './CatalogContextProvider';
 import { LibraryContextProvider } from './LibraryContextProvider';
+import { useLibraryContext } from './use-library-context';
 import { useLibraryEntryActions } from './use-library-entry-actions';
 import { useLibraryList } from './use-library-list';
 
@@ -76,6 +77,8 @@ const render = (
       list: useLibraryList(options, { showAdult, layoutKey: LAYOUT_KEY }),
       // a list row's actions: no catalog data, the entry seeded by the list
       row: useLibraryEntryActions(MANGA_KEY, { media: null }),
+      // the cache scope the list query is keyed with
+      scope: useLibraryContext().scope,
     }),
     { initialProps, wrapper },
   );
@@ -133,7 +136,9 @@ describe('useLibraryList (FR-14)', () => {
     expect(shown.find((entry) => entry.key === ENTRY_KEY)?.media.imageUrl).toBeNull();
     expect(shown.find((entry) => entry.key === AKIRA.key)).toBe(AKIRA);
     expect(
-      rendered.queryClient.getQueryData<readonly LibraryEntry[]>(queryKeys.library.all()),
+      rendered.queryClient.getQueryData<readonly LibraryEntry[]>(
+        queryKeys.library.all(rendered.result.current.scope),
+      ),
     ).toStrictEqual(LIBRARY);
   });
 

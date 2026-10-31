@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 
 import { createFakeLibraryRepository } from '../../../test/core/fake-library-repository';
 import { entryWithMedia, keyOf } from '../../../test/core/library-entry-fixtures';
+import { switchableLibraryWrapper } from '../../../test/core/library-hooks-support';
 import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
 import type { LibraryEntry } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
@@ -237,5 +238,39 @@ describe('useLibraryList layout', () => {
       ['current', ['Alpha', 'Gamma']],
       ['planned', ['Delta']],
     ]);
+  });
+});
+
+describe('useLibraryList layout across libraries (A-03)', () => {
+  it('lays out another library afresh, whatever layout the previous one kept', async () => {
+    // the next library holds the same media, Beta changed last there
+    const nextBeta = { ...BETA, updatedAt: '2025-12-05T10:00:00.000Z' };
+    const next = createFakeLibraryRepository([ALPHA, nextBeta, GAMMA, PLANNED]);
+    const { wrapper, switchTo } = switchableLibraryWrapper(
+      createQueryClient(),
+      createFakeLibraryRepository(LIBRARY),
+    );
+    const rendered = renderHook(
+      () => useLibraryList(DEFAULT_LIBRARY_VIEW, { showAdult: true, layoutKey: 0 }),
+      { wrapper },
+    );
+    await waitFor(() => {
+      expect(rendered.result.current.view?.groups[0]?.entries).toHaveLength(3);
+    });
+
+    act(() => {
+      switchTo(next);
+      rendered.rerender();
+    });
+    await waitFor(() => {
+      expect(rendered.result.current.view).toBeDefined();
+    });
+
+    // a kept layout would show Alpha first, as the previous library did
+    expect(
+      rendered.result.current.view?.groups.map((group) =>
+        group.entries.map((entry) => entry.media.title),
+      ),
+    ).toStrictEqual([['Beta', 'Alpha', 'Gamma'], ['Delta']]);
   });
 });

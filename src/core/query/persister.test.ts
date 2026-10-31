@@ -13,7 +13,7 @@ import {
   createQueryPersister,
 } from './persister';
 import { CACHE_SCHEMA_VERSION } from './cache-schema-version';
-import { LIBRARY_KEY_ROOT, queryKeys } from './keys';
+import { LIBRARY_KEY_ROOT, queryKeys, toLibraryScope } from './keys';
 import { createQueryClient } from './query-client';
 import { PERSISTED_CACHE_MAX_AGE } from './stale-times';
 
@@ -157,8 +157,13 @@ describe('createQueryPersister', () => {
   it('does not persist library queries, even when successful', async () => {
     const storage = createMemoryStorage();
     const source = createQueryClient();
-    const entryKey = queryKeys.library.entry({ namespace: 'mal', kind: 'anime', externalId: 1 });
-    const listKey = queryKeys.library.all();
+    const scope = toLibraryScope(1);
+    const entryKey = queryKeys.library.entry(scope, {
+      namespace: 'mal',
+      kind: 'anime',
+      externalId: 1,
+    });
+    const listKey = queryKeys.library.all(scope);
     source.setQueryData(entryKey, { progress: 3, notes: LIBRARY_NOTES });
     source.setQueryData(listKey, [{ progress: 3, notes: LIBRARY_NOTES }]);
     source.setQueryData(MEDIA_KEY, MEDIA);

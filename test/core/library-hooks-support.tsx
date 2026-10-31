@@ -6,10 +6,12 @@ import type { ReactNode } from 'react';
 
 import { createFakeLibraryRepository, type FakeLibraryRepository } from './fake-library-repository';
 import { ENTRY_KEY, SNAPSHOT, TITLE_TEXT } from './library-entry-fixtures';
+import { createFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import type { MediaSummary } from '@core/catalog/catalog-provider';
 import type { LibraryEntry } from '@core/domain/library-entry';
 import { createQueryClient } from '@core/query/query-client';
 import type { LibraryRepository } from '@core/repositories/library-repository';
+import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
@@ -43,6 +45,27 @@ export const libraryWrapper =
       <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
     </QueryClientProvider>
   );
+
+/**
+ * libraryWrapper whose repository a test switches, as the session library switch does (A-03):
+ * `switchTo(next)` then a rerender gives the hooks a new repository, writer and cache scope. with
+ * a fake catalog provider, for useLibraryList
+ */
+export const switchableLibraryWrapper = (queryClient: QueryClient, initial: LibraryRepository) => {
+  const current = { repository: initial };
+  const provider = createFakeCatalogProvider();
+  const wrapper = ({ children }: { readonly children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <CatalogContextProvider provider={provider}>
+        <LibraryContextProvider repository={current.repository}>{children}</LibraryContextProvider>
+      </CatalogContextProvider>
+    </QueryClientProvider>
+  );
+  const switchTo = (next: LibraryRepository): void => {
+    current.repository = next;
+  };
+  return { wrapper, switchTo };
+};
 
 export interface EntryHookProps {
   readonly media: MediaSummary | null;

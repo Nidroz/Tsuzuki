@@ -14,7 +14,7 @@ import {
   type LibraryView,
   type LibraryViewOptions,
 } from '../domain/library-view';
-import { queryKeys } from '../query/keys';
+import { queryKeys, type LibraryScope } from '../query/keys';
 import { STALE_TIMES } from '../query/stale-times';
 import { useCatalogProvider } from './use-catalog-provider';
 import { useLibraryContext } from './use-library-context';
@@ -62,8 +62,10 @@ interface CoverSource {
   readonly imageHosts: readonly string[];
 }
 
-// what a shown view was laid out for: the same values keep its layout
+// what a shown view was laid out for: the same values keep its layout. the library scope too, so
+// the layout of one library is never kept for another (a library switch, A-03)
 interface LayoutScope {
+  readonly libraryScope: LibraryScope;
   readonly layoutKey: number | string;
   readonly status: LibraryStatusFilter;
   readonly kind: LibraryKindFilter;
@@ -112,6 +114,7 @@ const selectLibrary =
   };
 
 const sameScope = (a: LayoutScope, b: LayoutScope): boolean =>
+  a.libraryScope === b.libraryScope &&
   a.layoutKey === b.layoutKey &&
   a.status === b.status &&
   a.kind === b.kind &&
@@ -127,13 +130,14 @@ const sameScope = (a: LayoutScope, b: LayoutScope): boolean =>
  * the options or the setting selects again and never refetches. the cached entries are untouched.
  * while `layoutKey`, the options and the setting stay the same, a change of the library keeps the
  * layout last shown (keepLibraryLayout): a row acted on stays where it is, with its new values.
+ * another library (a library switch) is laid out afresh.
  * with `favoritesOnly` (the favorites screen), only the favorites are laid out and counted
  */
 export const useLibraryList = (
   options: LibraryViewOptions,
   { showAdult, layoutKey, favoritesOnly = false }: UseLibraryListOptions,
 ): LibraryListResult => {
-  const { writer } = useLibraryContext();
+  const { writer, scope: libraryScope } = useLibraryContext();
   const { namespace, imageHosts } = useCatalogProvider();
   const { status, kind, sort } = options;
   // one selection per option values: the query reruns it only when its data or one of them changes
@@ -147,7 +151,7 @@ export const useLibraryList = (
     [status, kind, sort, showAdult, favoritesOnly, namespace, imageHosts],
   );
   const query = useQuery({
-    queryKey: queryKeys.library.all(),
+    queryKey: queryKeys.library.all(libraryScope),
     queryFn: () => writer.list(),
     staleTime: STALE_TIMES.library,
     select,
@@ -161,7 +165,15 @@ export const useLibraryList = (
   // view, so the update stops there
   const [shown, setShown] = useState<ShownView | null>(null);
   const selection = query.data;
-  const scope: LayoutScope = { layoutKey, status, kind, sort, showAdult, favoritesOnly };
+  const scope: LayoutScope = {
+    libraryScope,
+    layoutKey,
+    status,
+    kind,
+    sort,
+    showAdult,
+    favoritesOnly,
+  };
   const inScope = shown !== null && sameScope(shown, scope);
   let view: LibraryView | undefined;
   if (selection === undefined) {
