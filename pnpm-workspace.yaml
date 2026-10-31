@@ -13,9 +13,10 @@ overrides:
   'eas-cli>nanoid': 3.3.20
   # GHSA-r292-9mhp-454m: eas-cli pins tar 7.5.19
   'eas-cli>tar': 7.5.22
-  # GHSA-6h2x-m376-mqjq: eas-cli and @expo/eas-json pin joi 17.11.0
-  'eas-cli>joi': 17.13.8
-  '@expo/eas-json>joi': 17.13.8
+  # GHSA-6h2x-m376-mqjq (eas-cli and @expo/eas-json pin joi 17.11.0) and GHSA-4528-x5fx-h6hg
+  # (joi 17 below 17.13.9, also via @expo/eas-build-job and @expo/steps): every joi 17 is forced to
+  # the patched release
+  'joi@>=17.0.0 <17.13.9': 17.13.9
   # GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74: minimatch 5 below 5.1.8 via eas-cli and
   # filelist (jake, through @oclif/core)
   'eas-cli>minimatch': 5.1.9
@@ -23,6 +24,10 @@ overrides:
   # GHSA-mrhx-c7xc-m3w5: any zod 4 below 4.6.6, wherever it comes from, is forced to a patched
   # release, so the ignore of this advisory (auditConfig below, for zod 3) never hides a zod 4
   'zod@>=4.0.0 <4.6.6': ^4.6.7
+  # GHSA-86w9-cpqp-85rv, GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g, GHSA-8hrf-8g6f-7xwp,
+  # GHSA-hqq3-7jhf-c5jx, GHSA-5x38-2vff-x55p: node-forge 1.4.0 and below, via @expo/cli,
+  # @expo/code-signing-certificates, @expo/pkcs12, jks-js and eas-cli (all ^1.x): forced to 1.4.1
+  'node-forge@<1.4.1': 1.4.1
 
 allowBuilds:
   # denied: the sentry-cli binary comes from optional platform packages, the postinstall is only a
@@ -37,13 +42,10 @@ allowBuilds:
   # denied: the native binary comes from optional platform packages, the postinstall is only a fallback
   unrs-resolver: false
 
-# high advisories without a patched version, in dev tooling only (never in the app bundle).
-# re-check at each dependency-update chore (M-01); remove once a patch exists
+# high advisories that cannot be patched here, each with its reason (dev tooling only, or mitigated
+# in the app). re-check at each dependency-update chore (M-01); remove once a patch can be used
 auditConfig:
   ignoreGhsas:
-    # node-forge, via expo > @expo/cli > @expo/code-signing-certificates: used only by the expo cli
-    # on the developer machine and in ci, on the repository's own inputs; the app never imports it
-    - GHSA-86w9-cpqp-85rv
     # braces, via metro > metro-file-map > micromatch: used only by the metro bundler at build time,
     # on glob patterns from the repository's own config, never on user input; not in the app bundle
     - GHSA-vfj7-8cjw-p6xm
@@ -51,6 +53,11 @@ auditConfig:
     # on the developer machine and in ci, on the repository's own inputs; not in the app bundle. zod 4
     # is patched (the app's own zod and the override above). remove once @expo/cli moves to zod 4
     - GHSA-mrhx-c7xc-m3w5
+    # decode-uri-component 0.2, via expo-router > query-string 7, in the app bundle: the fix (0.5.1)
+    # is ESM only and query-string 7 requires it as CommonJS. mitigated: app/+native-intent.tsx sends
+    # any incoming link above the size limits (src/core/schemas/incoming-link.ts) to home before
+    # expo-router parses it. remove once expo-router ships a compatible query-string
+    - GHSA-qr28-fpjm-wq7f
 
 # the sentry gradle step runs node_modules/@sentry/cli/bin/sentry-cli from the project root; with
 # pnpm, @sentry/cli is only a dependency of @sentry/react-native, so it is hoisted to the root

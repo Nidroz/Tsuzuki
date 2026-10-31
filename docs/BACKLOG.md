@@ -346,6 +346,7 @@ Details:
 Details:
 
 ### M-01 Dependency update
+- Next run: drop the braces ignore `GHSA-vfj7-8cjw-p6xm` from `auditConfig.ignoreGhsas` (`pnpm-workspace.yaml`) if `pnpm audit` still no longer reports it (dependency advisories review, 2026-10-31).
 - Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
 - Respect the pins:
   - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.
