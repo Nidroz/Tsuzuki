@@ -30,8 +30,9 @@ export interface LibraryRepository {
    * MEDIA_ID_NAMESPACES and MEDIA_KINDS (the postgres enum order), then externalId. the order is
    * defined on the returned values, so every implementation returns the same order. every entry
    * is returned, never a list cut at a page size (the account store may miss a row another device
-   * moves or deletes during a read of more than one page, until the next refetch); an entry the implementation cannot read is left out
-   * (the guest store drops it, the account store keeps the row on the server and reports it).
+   * moves or deletes during a read of more than one page, until the next refetch); an entry the
+   * implementation cannot read is left out (the guest store drops it, the account store keeps the
+   * row on the server and reports it).
    */
   list(): Promise<readonly LibraryEntry[]>;
 
