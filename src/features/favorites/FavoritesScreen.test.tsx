@@ -2,7 +2,7 @@ import type { GuestMergeValue } from '@core/hooks/guest-merge-context';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import type { Language } from '@core/i18n/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { screen, userEvent } from '@testing-library/react-native';
+import { screen, userEvent, within } from '@testing-library/react-native';
 import type { Href } from 'expo-router';
 
 import {
@@ -169,31 +169,37 @@ describe('FavoritesScreen', () => {
     expect(screen.queryByText('No favorites yet')).not.toBeOnTheScreen();
   });
 
-  it('says the titles of the device are being added to the account instead of the favorites (A-04)', async () => {
+  it('says the titles of the device are being added to the account instead of the favorites, read once (A-04)', async () => {
     const guestMerge: GuestMergeValue = { status: 'merging', retry: jest.fn() };
     await renderFavorites(undefined, 'fr', guestMerge);
     await settle();
 
     const text = 'Ajout à votre compte des titres enregistrés sur cet appareil…';
-    expect(screen.getByLabelText(text)).toHaveProp('testID', 'favorites-merging');
-    expect(screen.getByText(text)).toBeOnTheScreen();
+    expect(screen.getByRole('progressbar', { name: text })).toHaveProp(
+      'testID',
+      'favorites-merging',
+    );
+    expect(screen.getByText(text, { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(screen.queryByText(text)).not.toBeOnTheScreen();
     expect(screen.queryByTestId('favorites-list')).not.toBeOnTheScreen();
   });
 
-  it('shows a failed merge above the favorites, with a retry (A-04)', async () => {
+  it('shows a failed merge instead of the favorites, with a retry (A-04)', async () => {
     const retry = jest.fn<() => void>();
     const { user } = await renderFavorites(undefined, 'en', { status: 'failed', retry });
     await settle();
 
-    const banner = screen.getByTestId('favorites-merge-error');
-    expect(banner).toHaveProp('accessibilityRole', 'alert');
-    expect(banner).toHaveTextContent(
-      'Some titles saved on this device could not be added to your account.',
+    const failure = screen.getByTestId('favorites-merge-error');
+    expect(failure).toHaveProp('accessibilityRole', 'alert');
+    expect(within(failure).getByText('Your library is not ready yet')).toBeOnTheScreen();
+    expect(failure).toHaveTextContent(
+      'The titles saved on this device could not be added to your account.',
       { exact: false },
     );
-    expect(screen.getByTestId('favorites-list')).toBeOnTheScreen();
+    expect(screen.queryByTestId('favorites-list')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('favorites-empty')).not.toBeOnTheScreen();
 
-    await user.press(screen.getByRole('button', { name: 'Try again' }));
+    await user.press(within(failure).getByRole('button', { name: 'Try again' }));
 
     expect(retry).toHaveBeenCalledTimes(1);
   });

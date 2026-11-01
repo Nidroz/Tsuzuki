@@ -17,7 +17,10 @@ export interface GuestMergeRun {
   readonly guest: GuestLibraryRepository;
   /** the account library of the session the run was started for */
   readonly account: AccountLibraryRepository;
-  /** settles once the pending writes made before the run reached their repository */
+  /**
+   * settles once the earlier work settled: the previous run, so runs never overlap, and the
+   * pending writes made before the run, which reached their repository
+   */
   readonly settleWrites: () => Promise<void>;
   /** false once the session's account is no longer `account` */
   readonly isCurrent: () => boolean;
@@ -26,11 +29,11 @@ export interface GuestMergeRun {
 }
 
 /**
- * merges the guest store into `account`: waits for the pending writes, lists the guest store,
- * merges its entries into the account, then removes from the device exactly the entries the
- * account confirmed (removeUnchanged: an entry changed or added meanwhile stays). checks the
- * session between the steps: a run whose session ended removes nothing. a rejection of any step
- * rejects the run, and nothing is removed after a failed merge
+ * merges the guest store into `account`: waits for the earlier work (settleWrites), lists the
+ * guest store, merges its entries into the account, then removes from the device exactly the
+ * entries the account confirmed (removeUnchanged: an entry changed or added meanwhile stays).
+ * checks the session between the steps: a run whose session ended removes nothing. a rejection of
+ * any step rejects the run, and nothing is removed after a failed merge
  */
 export const mergeGuestLibrary = async ({
   guest,

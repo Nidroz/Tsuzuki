@@ -152,6 +152,8 @@ export interface SessionLibrarySetup {
   readonly accountEntries?: ReadonlyMap<string, readonly LibraryEntry[]>;
   /** called with each account repository as it is created, before any call reaches it */
   readonly onAccount?: (userId: string, account: FakeAccountLibraryRepository) => void;
+  /** the catalog data the entry hooks get (MEDIA: add has a snapshot to write), null by default */
+  readonly media?: MediaSummary | null;
 }
 
 const neverReports = (): (() => void) => () => undefined;
@@ -159,14 +161,16 @@ const neverReports = (): (() => void) => () => undefined;
 /**
  * renders SessionLibraryContextProvider over a session the test drives (`emit`), a fake guest
  * library and a new fake account library per accountRepositoryFor call, with a recording reporter.
- * the hook reads the library, the merge status and the entry of ENTRY_KEY with its actions, and
- * records each committed render in `frames`. resolves once the initial session was reported
+ * the hook reads the library, the merge status and the entry of ENTRY_KEY with its actions (with
+ * `media` as the catalog data), and records each committed render in `frames`. resolves once the
+ * initial session was reported
  */
 export const renderSessionLibrary = async ({
   session = null,
   guestEntries = [],
   accountEntries = new Map<string, readonly LibraryEntry[]>(),
   onAccount,
+  media = null,
 }: SessionLibrarySetup = {}) => {
   const source = createSessionSource(session === 'loading' ? null : session);
   const auth = createSessionAuthRepository(null, {
@@ -200,8 +204,8 @@ export const renderSessionLibrary = async ({
     () => {
       const { repository } = useLibraryContext();
       const merge = useGuestMerge();
-      const entry = useLibraryEntry(ENTRY_KEY, { media: null });
-      const actions = useLibraryEntryActions(ENTRY_KEY, { media: null });
+      const entry = useLibraryEntry(ENTRY_KEY, { media });
+      const actions = useLibraryEntryActions(ENTRY_KEY, { media });
       useEffect(() => {
         frames.push({ repository, status: merge.status, entry: entry.data });
       });

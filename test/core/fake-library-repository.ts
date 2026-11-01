@@ -101,8 +101,10 @@ const parseGuestEntries = (entries: readonly LibraryEntry[]): LibraryEntry[] => 
 /**
  * the fake repository plus `mergeGuestEntries`: after `beforeCall('mergeGuestEntries')`, it
  * rejects an entry outside libraryEntrySchema or two entries of one key with a RangeError, writing
- * nothing, then applies guestMergeDecision to each entry, storing the inserted and replaced ones
- * as `save` does (with their own timestamps, where the account store takes the server's)
+ * nothing, then applies guestMergeDecision to each entry. like the database, it stamps the time of
+ * the merge (the current clock, `new Date()`: fake timers apply) on what it writes, never the
+ * guest times: an inserted entry takes it as `createdAt` and `updatedAt`, a replaced one as
+ * `updatedAt`, its stored `createdAt` kept
  */
 export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntry[] = []) => {
   const { entries, store, repository } = createInMemoryLibrary(initial);
@@ -110,15 +112,36 @@ export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntr
     ...repository,
     mergeGuestEntries: jest.fn<AccountLibraryRepository['mergeGuestEntries']>(async (guest) => {
       await repository.beforeCall('mergeGuestEntries');
-      for (const entry of parseGuestEntries(guest)) {
+      const parsed = parseGuestEntries(guest);
+      const mergedAt = new Date().toISOString();
+      for (const entry of parsed) {
         const account = entries.get(idOf(entry.key));
-        if (guestMergeDecision(entry.updatedAt, account?.updatedAt ?? null) !== 'keep') {
-          store(entry);
+        const decision = guestMergeDecision(entry.updatedAt, account?.updatedAt ?? null);
+        if (decision === 'insert') {
+          store({ ...entry, createdAt: mergedAt, updatedAt: mergedAt });
+        } else if (decision === 'replace') {
+          // store keeps the stored createdAt
+          store({ ...entry, updatedAt: mergedAt });
         }
       }
     }),
   } satisfies AccountLibraryRepository;
 };
+
+/**
+ * `entry` as the account holds it once a merge wrote it at `mergedAt` (the fake above, as the
+ * database): inserted, both timestamps are the merge time; replacing `replaced`, only `updatedAt`
+ * is, its `createdAt` kept
+ */
+export const mergedCopyOf = (
+  entry: LibraryEntry,
+  mergedAt: string,
+  replaced: LibraryEntry | null = null,
+): LibraryEntry => ({
+  ...entry,
+  createdAt: replaced?.createdAt ?? mergedAt,
+  updatedAt: mergedAt,
+});
 
 export type FakeAccountLibraryRepository = ReturnType<typeof createFakeAccountLibraryRepository>;
 

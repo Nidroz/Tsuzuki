@@ -40,10 +40,10 @@ export interface SessionLibraryContextProviderProps {
 const neverSettles = <T,>(): Promise<T> => new Promise<T>(() => undefined);
 
 /**
- * the library while the session is not known yet, or while the guest library is merged into the
- * account: every call stays pending, so the library screens show their loading state, never the
- * guest library to a signed-in user nor an empty one. no write reaches it: library actions wait
- * for a loaded entry, which never comes
+ * the library while the session is not known yet, or until the guest library was merged into the
+ * account (a merge running or failed): every call stays pending, so the library screens never show
+ * the guest library to a signed-in user, an empty one, nor an account library lacking a guest
+ * entry. no write reaches it: library actions wait for a loaded entry, which never comes
  */
 export const PENDING_LIBRARY_REPOSITORY: LibraryRepository = Object.freeze({
   list: neverSettles,
@@ -79,11 +79,14 @@ const noop = (): void => undefined;
  * switch", ADR-0016): the guest library signed out, the account library of the user signed in
  * (one per user id: a token refresh keeps it, another user or a new sign in gets a new one), the
  * pending library while the session loads. each new account instance first gets the guest
- * library merged into it (BR-08, FR-22): the pending library while the guest store is read and
- * its entries are sent, from the very first render of that instance, then the account library,
- * with the merge status and its retry given to useGuestMerge(). a merge waits for the pending
- * writes of the retired libraries first, and one whose session ended changes and removes nothing.
- * render it inside AuthContextProvider and the query client provider
+ * library merged into it (BR-08, FR-22): the pending library from the very first render of that
+ * instance until its merge succeeded (the guest store read, its entries sent, or a failure until a
+ * retry succeeds), then the account library, with the merge status and its retry given to
+ * useGuestMerge(). so no library action ever computes a write on an account library lacking a
+ * guest entry, which a later merge would then keep over the guest copy. a merge waits for the
+ * previous merge of this provider and for the pending writes of the retired libraries first, so
+ * two merges never overlap, and one whose session ended changes and removes nothing. render it
+ * inside AuthContextProvider and the query client provider
  */
 export function SessionLibraryContextProvider({
   guest,
@@ -100,7 +103,7 @@ export function SessionLibraryContextProvider({
 
   const [merge, setMerge] = useState<MergeState>(NO_MERGE);
   // derived, so the first render of a new account instance is already `checking`: the account
-  // library never shows before its merge concluded, and no write can reach it meanwhile
+  // library never shows before its merge succeeded, and no write can reach it meanwhile
   const isMergeOfAccount = account !== null && merge.account === account;
   const phase: MergePhase | null =
     account === null ? null : isMergeOfAccount ? merge.phase : 'checking';
@@ -130,6 +133,12 @@ export function SessionLibraryContextProvider({
     });
   }, []);
 
+  // the last run started, settled whatever its outcome: the next run waits for it. a stale run
+  // (the same user signed in again) still passes the account store's session guard, so its later
+  // rounds would otherwise run next to the new run's, and could write back an entry deleted
+  // meanwhile
+  const lastRunRef = useRef<Promise<void>>(Promise.resolve());
+
   const run = useCallback(
     (runAccount: AccountLibraryRepository, runAttempt: number) => {
       const isCurrent = (): boolean => liveAccountRef.current === runAccount;
@@ -138,17 +147,20 @@ export function SessionLibraryContextProvider({
           setMerge({ account: runAccount, phase: next, attempt: runAttempt });
         }
       };
-      mergeGuestLibrary({
+      const previous = lastRunRef.current;
+      const started = mergeGuestLibrary({
         guest,
         account: runAccount,
-        // called as the run starts: the flushes reported so far, the writer retired in the commit
-        // that started the run included
-        settleWrites: () => Promise.all([...flushesRef.current]).then(noop),
+        // called as the run starts: the previous run, and the flushes reported so far, the writer
+        // retired in the commit that started the run included
+        settleWrites: () => Promise.all([previous, ...flushesRef.current]).then(noop),
         isCurrent,
         onMerging: () => {
           conclude('merging');
         },
-      }).then(
+      });
+      lastRunRef.current = started.then(noop, noop);
+      started.then(
         (outcome) => {
           if (outcome !== 'stale') {
             conclude('done');
@@ -202,7 +214,10 @@ export function SessionLibraryContextProvider({
   if (account === null) {
     repository = status === 'loading' ? PENDING_LIBRARY_REPOSITORY : guest;
   } else {
-    repository = phase === 'checking' || phase === 'merging' ? PENDING_LIBRARY_REPOSITORY : account;
+    // a failed merge too: the account may lack a guest entry, and an Add or a `+1` computed on
+    // that view would write an account copy newer than the guest one, which the next merge keeps
+    // before removing the guest copy (its progress and notes lost)
+    repository = phase === 'done' ? account : PENDING_LIBRARY_REPOSITORY;
   }
 
   return (

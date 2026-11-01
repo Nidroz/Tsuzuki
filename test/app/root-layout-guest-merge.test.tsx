@@ -4,13 +4,13 @@ import type { GuestLibraryRepository } from '@core/repositories/library-reposito
 import type * as LocalLibrary from '@core/repositories/local/library-repository';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
-import { act, userEvent } from '@testing-library/react-native';
+import { act, userEvent, within } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { createMMKV } from 'react-native-mmkv';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 
-import { holdNextCall, type Deferred } from '../core/fake-library-repository';
+import { holdNextCall, mergedCopyOf, type Deferred } from '../core/fake-library-repository';
 import { entryOf, entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
@@ -81,8 +81,9 @@ const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
 const USER_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
 const MERGING_TEXT = 'Adding the titles saved on this device to your account…';
+const FAILED_TITLE = 'Your library is not ready yet';
 const FAILED_TEXT =
-  'Some titles saved on this device could not be added to your account. They stay on this device until they are.';
+  'The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.';
 
 // no cover: the rows need no image host. two guest entries and one account entry, of three media
 const noCover = { ...entryOf().media, imageUrl: null };
@@ -184,12 +185,15 @@ describe('root layout guest merge (A-04)', () => {
     await reportSession(USER_ID);
 
     expect(screen.getByTestId('library-merging')).toHaveAccessibleName(MERGING_TEXT);
-    expect(screen.getByText(MERGING_TEXT)).toBeOnTheScreen();
+    // its caption, read once through the spinner
+    expect(screen.getByText(MERGING_TEXT, { includeHiddenElements: true })).toBeOnTheScreen();
     expect(screen.queryByTestId('library-list')).not.toBeOnTheScreen();
     // nothing leaves the device before the account confirmed it
     expect(storedGuestLibrary()).toBe(stored);
 
     await merge.release();
+    // the account stamps the time of the merge on what it writes
+    const mergedAt = new Date().toISOString();
 
     expect(await screen.findByTestId(rowOf(ACCOUNT_ENTRY))).toHaveTextContent(
       ACCOUNT_ENTRY.media.title,
@@ -202,10 +206,10 @@ describe('root layout guest merge (A-04)', () => {
     expect(screen.queryByTestId('library-merging')).not.toBeOnTheScreen();
     expect(screen.queryByTestId('library-merge-error')).not.toBeOnTheScreen();
     expect(storedGuestLibrary()).toBeUndefined();
-    expect(accountOf(0).stored(GUEST_OTHER.key)).toStrictEqual(GUEST_OTHER);
+    expect(accountOf(0).stored(GUEST_OTHER.key)).toStrictEqual(mergedCopyOf(GUEST_OTHER, mergedAt));
   });
 
-  it('shows the account library under the failure with the guest store kept, then merges on Try again', async () => {
+  it('shows the failure instead of the library with the guest store kept, then merges on Try again', async () => {
     await saveGuestEntries();
     supabaseLibraryModule.accountEntries.set(USER_ID, [ACCOUNT_ENTRY]);
     const merge = holdNextMerge();
@@ -217,17 +221,16 @@ describe('root layout guest merge (A-04)', () => {
     await merge.release(new LibraryRemoteError('network'));
     await settle();
 
-    expect(await screen.findByTestId(rowOf(ACCOUNT_ENTRY))).toBeOnTheScreen();
-    expect(screen.getByTestId('library-merge-error')).toHaveTextContent(FAILED_TEXT, {
-      exact: false,
-    });
-    expect(screen.getByTestId('library-list')).toBeOnTheScreen();
-    // the account library, without the entries the failed merge did not write
-    expect(screen.queryByTestId(rowOf(GUEST_ENTRY))).not.toBeOnTheScreen();
-    expect(screen.queryByTestId(rowOf(GUEST_OTHER))).not.toBeOnTheScreen();
+    const failure = await screen.findByTestId('library-merge-error');
+    expect(within(failure).getByText(FAILED_TITLE)).toBeOnTheScreen();
+    expect(within(failure).getByText(FAILED_TEXT)).toBeOnTheScreen();
+    // no library under it: the account library, lacking the guest entries, is never read
+    expect(screen.queryByTestId('library-list')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(rowOf(ACCOUNT_ENTRY))).not.toBeOnTheScreen();
+    expect(accountOf(0).list).not.toHaveBeenCalled();
     expect(storedGuestLibrary()).toBe(stored);
 
-    await userEvent.setup().press(screen.getByTestId('library-merge-error-action'));
+    await userEvent.setup().press(within(failure).getByRole('button', { name: 'Try again' }));
     await settle();
 
     expect(await screen.findByTestId(rowOf(GUEST_OTHER))).toBeOnTheScreen();

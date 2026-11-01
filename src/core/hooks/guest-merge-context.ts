@@ -4,8 +4,9 @@ import { createContext } from 'react';
  * where the merge of the guest library into the account library of the session stands (BR-08,
  * FR-22, ADR-0016): `checking` while the guest store is read (the library shows its loading
  * state), `merging` while its entries are sent to the account, `failed` once a merge failed (the
- * account library is shown, the guest store kept), `idle` otherwise: signed out, the session
- * loading, or the merge concluded without failure (nothing to merge, or merged)
+ * guest store kept, the library still pending until a retry succeeds: no read, no write), `idle`
+ * otherwise: signed out, the session loading, or the merge concluded without failure (nothing to
+ * merge, or merged)
  */
 export const GUEST_MERGE_STATUSES = ['idle', 'checking', 'merging', 'failed'] as const;
 

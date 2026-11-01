@@ -5,16 +5,7 @@ import { useLibraryList } from '@core/hooks/use-library-list';
 import { useTranslation } from '@core/i18n/index';
 import { usePreferences } from '@core/preferences/index';
 import { toMediaRouteParams } from '@core/schemas/media-route-params';
-import {
-  EmptyState,
-  ErrorState,
-  InlineError,
-  Screen,
-  Spinner,
-  Stack,
-  Text,
-  type ScreenEdge,
-} from '@ui/index';
+import { EmptyState, ErrorState, Screen, Spinner, Stack, Text, type ScreenEdge } from '@ui/index';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
@@ -42,8 +33,8 @@ export interface LibraryEntriesScreenProps {
   favoritesOnly: boolean;
   /**
    * the testID prefix: the screen is `<testID>-screen`, its states `-loading`, `-error`,
-   * `-empty`, `-merging`, its list `-list`, its filters `-filters` and the guest merge failure
-   * `-merge-error` (its action `-merge-error-action`)
+   * `-empty`, the guest merge's `-merging` and `-merge-error`, its list `-list` and its filters
+   * `-filters`
    */
   testID: string;
   empty: LibraryEntriesEmptyTexts;
@@ -62,7 +53,7 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * entry unfavorited from the favorites included: the list is laid out again on an option change
  * or when the screen gains focus (a tab switch, back from the detail). while the guest library is
  * merged into the account (ADR-0016), a labelled spinner says so instead; after a failed merge, an
- * error with a retry stays above the account library
+ * error with a retry: the library stays pending until a retry succeeded, so nothing is listed
  */
 export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
   const { t } = useTranslation();
@@ -102,12 +93,25 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
 
   let content: ReactElement;
   if (merge.status === 'merging') {
-    // the library is the pending one meanwhile: no list to show, no write possible
+    // the library is the pending one meanwhile: no list to show, no write possible. the spinner
+    // announces the sentence: its visible caption is hidden from screen readers, read once
     content = (
       <Stack gap="md" align="center" justify="center" flex>
         <Spinner accessibilityLabel={t('library.merge.inProgress')} testID={`${testID}-merging`} />
-        <Text align="center">{t('library.merge.inProgress')}</Text>
+        <Text align="center" accessibilityHidden>
+          {t('library.merge.inProgress')}
+        </Text>
       </Stack>
+    );
+  } else if (merge.status === 'failed') {
+    // still the pending library: the account may lack a guest entry, so nothing to list or write
+    content = (
+      <ErrorState
+        title={t('library.merge.failedTitle')}
+        message={t('library.merge.failed')}
+        retry={{ label: t('library.merge.retry'), onPress: merge.retry }}
+        testID={`${testID}-merge-error`}
+      />
     );
   } else if (view === undefined) {
     // while the retry of an error runs, the spinner replaces it
@@ -150,16 +154,7 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
 
   return (
     <Screen edges={EDGES} testID={`${testID}-screen`}>
-      <Stack gap="md" flex>
-        {merge.status === 'failed' ? (
-          <InlineError
-            message={t('library.merge.failed')}
-            action={{ label: t('library.merge.retry'), onPress: merge.retry }}
-            testID={`${testID}-merge-error`}
-          />
-        ) : null}
-        {content}
-      </Stack>
+      {content}
     </Screen>
   );
 }

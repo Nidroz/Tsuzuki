@@ -9,7 +9,7 @@ import { screen } from 'expo-router/testing-library';
 import { createMMKV } from 'react-native-mmkv';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 
-import { holdNextCall, type Deferred } from '../core/fake-library-repository';
+import { holdNextCall, mergedCopyOf, type Deferred } from '../core/fake-library-repository';
 import { entryOf, entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
@@ -20,8 +20,10 @@ import { APP_ROUTES } from './app-routes';
 // the guest merge through the composition root across session changes (A-04, BR-08, ADR-0016): a
 // merge whose session ended leaves the guest store (the real local store over the app storage)
 // untouched, the guest entries go to the account library created for the signed-in user only,
-// and a `+1` still in its coalescing window at sign in reaches the guest store before the merge
-// reads it. every supabase factory is a fake: no real client
+// an entry changed while the merge ran stays on the device for the next merge, and a `+1` still
+// in its coalescing window at sign in reaches the guest store before the merge reads it. every
+// supabase factory is a fake (its merge stamps the merge time, as the database does): no real
+// client
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -88,6 +90,9 @@ const GUEST_OTHER = entryWithMedia(
   { key: keyOf('manga', 2), updatedAt: '2026-02-01T00:00:00.000Z' },
 );
 
+// between two steps on the device: a minute of fake time
+const DEVICE_STEP_MS = 60_000;
+
 const rowOf = (entry: LibraryEntry): string =>
   `library-entry-${entry.key.namespace}-${entry.key.kind}-${String(entry.key.externalId)}`;
 
@@ -112,10 +117,11 @@ const accountOf = (call: number) => {
   return result.value;
 };
 
-// the merge steps settle inside act: a state update of the merge never lands outside of it
-const settle = async () => {
+// the merge steps settle inside act, after `ms` of fake time: a state update of the merge never
+// lands outside of it
+const settle = async (ms = 0) => {
   await act(async () => {
-    await jest.advanceTimersByTimeAsync(0);
+    await jest.advanceTimersByTimeAsync(ms);
   });
 };
 
@@ -212,32 +218,52 @@ describe('root layout guest merge across sessions (A-04)', () => {
     expect(storedGuestLibrary()).toBeUndefined();
   });
 
-  it('keeps a guest entry changed while the merge ran, and merges it at the next sign in', async () => {
-    await guestLibrary().save(GUEST_ENTRY);
-    await guestLibrary().save(GUEST_OTHER);
+  it('keeps a guest entry changed while the merge ran, and its next merge keeps the account copy written at the merge, newer (ADR-0016 open question)', async () => {
+    // the guest entries, last changed on the device before the sign in
+    const lastChanged = {
+      createdAt: '2025-11-02T10:00:00.000Z',
+      updatedAt: '2025-12-20T10:00:00.000Z',
+    };
+    const first = { ...GUEST_ENTRY, ...lastChanged };
+    const other = { ...GUEST_OTHER, ...lastChanged };
+    await guestLibrary().save(first);
+    await guestLibrary().save(other);
     const merge = holdNextMerge();
     await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
-    expect(await screen.findByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
+    expect(await screen.findByTestId(rowOf(first))).toBeOnTheScreen();
     await reportSession(USER_A);
+    // the merge listed the guest store, its write is held
+    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([[[first, other]]]);
 
-    // a write the merge did not list
+    // a change on the device after the listing, before the merge write, at the device's time
+    await settle(DEVICE_STEP_MS);
     const changed = await guestLibrary().save({
-      ...GUEST_OTHER,
-      progress: GUEST_OTHER.progress + 1,
-      updatedAt: '2026-02-15T00:00:00.000Z',
+      ...other,
+      progress: other.progress + 1,
+      updatedAt: new Date().toISOString(),
     });
+    await settle(DEVICE_STEP_MS);
     await merge.release();
+    const mergedAt = new Date().toISOString();
     await settle();
 
     // only the entry the account got as it is on the device leaves it
     await expect(guestLibrary().list()).resolves.toStrictEqual([changed]);
-    expect(accountOf(0).stored(GUEST_OTHER.key)).toStrictEqual(GUEST_OTHER);
+    const merged = [mergedCopyOf(first, mergedAt), mergedCopyOf(other, mergedAt)];
+    expect(merged.map(({ key }) => accountOf(0).stored(key))).toStrictEqual(merged);
+    expect(Date.parse(mergedAt)).toBeGreaterThan(Date.parse(changed.updatedAt));
 
+    // the account keeps what the merge wrote: the next instance of the same user holds it
+    supabaseLibraryModule.accountEntries.set(USER_A, merged);
     await reportSession(null);
     await reportSession(USER_A);
     await settle();
 
+    // the change is sent again, but the account copy, written at the merge time, is newer: it is
+    // kept, and the change leaves the device (ADR-0016 "Open question": merged rows take the
+    // server's merge time)
     expect(accountOf(1).mergeGuestEntries.mock.calls).toStrictEqual([[[changed]]]);
+    expect(accountOf(1).stored(other.key)).toStrictEqual(merged[1]);
     expect(storedGuestLibrary()).toBeUndefined();
   });
 

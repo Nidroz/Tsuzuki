@@ -5,6 +5,7 @@ import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
   holdNextCall,
+  mergedCopyOf,
 } from '../../../test/core/fake-library-repository';
 import { entryOf, keyOf } from '../../../test/core/library-entry-fixtures';
 import { LibraryRemoteError } from '../errors/library-errors';
@@ -63,7 +64,10 @@ describe('mergeGuestLibrary (BR-08)', () => {
     expect(account.mergeGuestEntries).toHaveBeenCalledWith([FRIEREN, BERSERK]);
     const merged = account.mergeGuestEntries.mock.calls[0]?.[0];
     expect(guest.removeUnchanged.mock.calls[0]?.[0]).toBe(merged);
-    expect(account.stored(BERSERK.key)).toStrictEqual(BERSERK);
+    // written at the merge time, as the account store's database does
+    expect(account.stored(BERSERK.key)).toStrictEqual(
+      mergedCopyOf(BERSERK, new Date().toISOString()),
+    );
     await expect(guest.list()).resolves.toStrictEqual([]);
   });
 
@@ -162,7 +166,9 @@ describe('mergeGuestLibrary (BR-08)', () => {
 
     await expect(mergeGuestLibrary(run)).rejects.toBe(failure);
 
-    expect(account.stored(FRIEREN.key)).toStrictEqual(FRIEREN);
+    expect(account.stored(FRIEREN.key)).toStrictEqual(
+      mergedCopyOf(FRIEREN, new Date().toISOString()),
+    );
     expect(guest.stored(FRIEREN.key)).toStrictEqual(FRIEREN);
   });
 });

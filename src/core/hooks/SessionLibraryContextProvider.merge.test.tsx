@@ -1,7 +1,11 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, waitFor } from '@testing-library/react';
 
-import { holdNextCall, type Deferred } from '../../../test/core/fake-library-repository';
+import {
+  holdNextCall,
+  mergedCopyOf,
+  type Deferred,
+} from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf, keyOf } from '../../../test/core/library-entry-fixtures';
 import {
   renderSessionLibrary,
@@ -80,11 +84,13 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
       merges[0]?.resolve();
       await jest.advanceTimersByTimeAsync(0);
     });
-    await showsEntry(rendered, GUEST_ENTRY);
+    // written at the merge time, as the account store's database does
+    const mergedAt = new Date().toISOString();
+    await showsEntry(rendered, mergedCopyOf(GUEST_ENTRY, mergedAt, ENTRY_A));
 
     expect(rendered.result.current.repository).toBe(account);
     expect(rendered.result.current.merge.status).toBe('idle');
-    expect(account.stored(GUEST_OTHER.key)).toStrictEqual(GUEST_OTHER);
+    expect(account.stored(GUEST_OTHER.key)).toStrictEqual(mergedCopyOf(GUEST_OTHER, mergedAt));
     // exactly the entries the account received leave the device
     expect(rendered.guest.removeUnchanged).toHaveBeenCalledTimes(1);
     expect(rendered.guest.removeUnchanged.mock.calls[0]?.[0]).toBe(
@@ -149,7 +155,7 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
       merges[0]?.resolve();
       await jest.advanceTimersByTimeAsync(0);
     });
-    await showsEntry(rendered, GUEST_ENTRY);
+    await showsEntry(rendered, mergedCopyOf(GUEST_ENTRY, new Date().toISOString(), ENTRY_A));
     expect(rendered.shownSince(0)).toStrictEqual([
       'idle pending',
       'checking pending',
