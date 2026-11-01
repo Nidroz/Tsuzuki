@@ -80,8 +80,8 @@ describe('account store session guard under the request timeout', () => {
     const timers = setTimer.mock.calls.flatMap((args, index) =>
       args[1] === LIBRARY_REQUEST_TIMEOUT_MS ? [setTimer.mock.results[index]?.value] : [],
     );
-    // the read and the insert
-    expect(timers).toHaveLength(2);
+    // the merge call
+    expect(timers).toHaveLength(1);
     const cleared = clearTimer.mock.calls.map(([timer]) => timer);
     for (const timer of timers) {
       expect(cleared).toContain(timer);

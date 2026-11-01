@@ -1,19 +1,21 @@
-// an msw fake of the postgrest `library_entries` endpoint, for the account library store tests:
-// in-memory rows of every user, the user read from the bearer token (rls), and what supabase-js
-// sends for the repository's calls: the paged select (select, eq filters, order, offset and limit,
-// `Prefer: count=exact` answered with Content-Range) and the writes of library-writes.ts (the
-// upsert of save, the insert and the conditional update of the guest merge, the filtered delete).
-// server timestamps in postgrest's form (microseconds, +00:00): created_at kept on update,
-// updated_at set on each write. a configurable max_rows caps every page, every request is logged,
-// so a test can assert that nothing was sent, and a test can answer a request itself or change the
-// rows before one
+// an msw fake of the postgrest api of the account library store tests: the `library_entries`
+// endpoint and the guest merge function, over in-memory rows of every user, the user read from the
+// bearer token (rls), and what supabase-js sends for the repository's calls: the paged select
+// (select, eq filters, order, offset and limit, `Prefer: count=exact` answered with Content-Range),
+// the writes of library-writes.ts (the upsert of save, the filtered delete) and the call of
+// merge-function.ts. server timestamps in postgrest's form (microseconds, +00:00): created_at kept
+// on update, updated_at set on each write but the merge's. a configurable max_rows caps every page,
+// every request is logged, so a test can assert that nothing was sent, and a test can answer a
+// request itself or change the rows before one
 import { http, HttpResponse, type HttpHandler } from 'msw';
 
 import { PROJECT_URL } from './auth-handlers';
-import { handleDelete, handlePatch, handlePost, type RowStore } from './library-writes';
+import { handleDelete, handlePost, type RowStore } from './library-writes';
+import { handleMerge } from './merge-function';
 import {
   BAD_REQUEST,
   NOT_ACCEPTABLE,
+  NOT_FOUND,
   OK,
   PARTIAL_CONTENT,
   UNAUTHORIZED,
@@ -28,11 +30,19 @@ import {
 
 export const LIBRARY_ENDPOINT = `${PROJECT_URL}/rest/v1/library_entries`;
 
+/** the endpoint of the guest merge function, merge_guest_library_entries. */
+export const MERGE_ENDPOINT = `${PROJECT_URL}/rest/v1/rpc/merge_guest_library_entries`;
+
+// every endpoint of the rest api: the fake answers the two above and refuses the others
+const REST_ENDPOINTS = `${PROJECT_URL}/rest/v1/*`;
+
 /** the access token of a user's fake session; the fake reads the user back from it. */
 export const accessTokenOf = (userId: string): string => `access-token-${userId}`;
 const ACCESS_TOKEN_PREFIX = 'Bearer access-token-';
 
 export interface LibraryRequest {
+  /** the url without its query: LIBRARY_ENDPOINT or MERGE_ENDPOINT. */
+  readonly endpoint: string;
   readonly method: string;
   readonly search: URLSearchParams;
   readonly prefer: string | null;
@@ -101,10 +111,32 @@ export const createLibraryBackend = () => {
     return HttpResponse.json(body, { status, headers: { 'Content-Range': `${range}/${total}` } });
   };
 
-  const handler: HttpHandler = http.all(LIBRARY_ENDPOINT, async ({ request }) => {
-    const search = new URL(request.url).searchParams;
+  const handleTable = (
+    request: Request,
+    userId: string,
+    search: URLSearchParams,
+    body: unknown,
+  ) => {
+    const write = { request, userId, search, body };
+    switch (request.method) {
+      case 'GET':
+        return handleGet(request, userId, search);
+      case 'POST':
+        return handlePost(store, write);
+      case 'DELETE':
+        return handleDelete(store, write);
+      default:
+        return errorResponse(BAD_REQUEST, 'PGRST000', 'unsupported method in the fake');
+    }
+  };
+
+  const handler: HttpHandler = http.all(REST_ENDPOINTS, async ({ request }) => {
+    const url = new URL(request.url);
+    const endpoint = `${url.origin}${url.pathname}`;
+    const search = url.searchParams;
     const body = await readBody(request.clone());
     requests.push({
+      endpoint,
       method: request.method,
       search,
       prefer: request.headers.get('prefer'),
@@ -118,22 +150,16 @@ export const createLibraryBackend = () => {
     }
     const authorization = request.headers.get('authorization') ?? '';
     if (!authorization.startsWith(ACCESS_TOKEN_PREFIX)) {
-      return errorResponse(UNAUTHORIZED, '42501', 'permission denied for table library_entries');
+      return errorResponse(UNAUTHORIZED, '42501', 'permission denied');
     }
     const userId = authorization.slice(ACCESS_TOKEN_PREFIX.length);
-    const write = { request, userId, search, body };
-    switch (request.method) {
-      case 'GET':
-        return handleGet(request, userId, search);
-      case 'POST':
-        return handlePost(store, write);
-      case 'PATCH':
-        return handlePatch(store, write);
-      case 'DELETE':
-        return handleDelete(store, write);
-      default:
-        return errorResponse(BAD_REQUEST, 'PGRST000', 'unsupported method in the fake');
+    if (endpoint === MERGE_ENDPOINT && request.method === 'POST') {
+      return handleMerge(store, userId, body);
     }
+    if (endpoint === LIBRARY_ENDPOINT) {
+      return handleTable(request, userId, search, body);
+    }
+    return errorResponse(NOT_FOUND, 'PGRST000', 'unsupported endpoint in the fake');
   });
 
   return {

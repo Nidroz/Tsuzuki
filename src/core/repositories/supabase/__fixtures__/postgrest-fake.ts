@@ -1,6 +1,6 @@
 // the parts of the postgrest fake (library-handlers.ts) that read a request: statuses and error
-// bodies, timestamps in postgrest's form, the filters, order and select params supabase-js sends,
-// and the stored rows of library_entries with their column defaults
+// bodies, timestamps in postgrest's form and as instants, the filters, order and select params
+// supabase-js sends, and the stored rows of library_entries with their column defaults
 import { HttpResponse } from 'msw';
 
 import type { LibraryEntry } from '../../../domain/library-entry';
@@ -23,13 +23,12 @@ export const PARTIAL_CONTENT = 206;
 export const BAD_REQUEST = 400;
 export const UNAUTHORIZED = 401;
 export const FORBIDDEN = 403;
+export const NOT_FOUND = 404;
 export const NOT_ACCEPTABLE = 406;
 
 const OBJECT_ACCEPT = 'application/vnd.pgrst.object+json';
 const EQ_PREFIX = 'eq.';
-const LT_PREFIX = 'lt.';
 const RESERVED_PARAMS = new Set(['select', 'order', 'offset', 'limit', 'on_conflict', 'columns']);
-const TIMESTAMP_COLUMNS = new Set(['created_at', 'updated_at']);
 const US_PER_MS = 1000;
 const MS_DIGITS = 23;
 const US_DIGITS = 6;
@@ -110,21 +109,13 @@ export const representation = (request: Request, search: URLSearchParams, found:
   return shaped.length === 1 ? shaped[0] : null;
 };
 
-// one filter param: `eq.` on any column, `lt.` on a timestamp column compared as instants (the
-// stored microseconds against the filter's milliseconds); null for anything else
+// one filter param: `eq.` on any column; null for anything else
 const filterOf = (column: string, value: string): ((row: LibraryRow) => boolean) | null => {
-  if (value.startsWith(EQ_PREFIX)) {
-    const operand = value.slice(EQ_PREFIX.length);
-    return (row) => String(valueOf(row, column)) === operand;
-  }
-  const bound = value.startsWith(LT_PREFIX) ? instantOf(value.slice(LT_PREFIX.length)) : null;
-  if (bound === null || !TIMESTAMP_COLUMNS.has(column)) {
+  if (!value.startsWith(EQ_PREFIX)) {
     return null;
   }
-  return (row) => {
-    const instant = instantOf(valueOf(row, column));
-    return instant !== null && instant < bound;
-  };
+  const operand = value.slice(EQ_PREFIX.length);
+  return (row) => String(valueOf(row, column)) === operand;
 };
 
 /** the rows of `userId` (rls) matching every filter of `search`, or a 400 for one the fake lacks. */

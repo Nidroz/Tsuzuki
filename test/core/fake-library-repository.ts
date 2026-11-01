@@ -98,13 +98,18 @@ const parseGuestEntries = (entries: readonly LibraryEntry[]): LibraryEntry[] => 
   });
 };
 
+// the time a merge at `mergedAt` keeps for an entry changed at `updatedAt`: its own, capped at the
+// merge time (both in the Date#toISOString form)
+const cappedAt = (updatedAt: string, mergedAt: string): string =>
+  updatedAt < mergedAt ? updatedAt : mergedAt;
+
 /**
  * the fake repository plus `mergeGuestEntries`: after `beforeCall('mergeGuestEntries')`, it
  * rejects an entry outside libraryEntrySchema or two entries of one key with a RangeError, writing
- * nothing, then applies guestMergeDecision to each entry. like the database, it stamps the time of
- * the merge (the current clock, `new Date()`: fake timers apply) on what it writes, never the
- * guest times: an inserted entry takes it as `createdAt` and `updatedAt`, a replaced one as
- * `updatedAt`, its stored `createdAt` kept
+ * nothing, then applies guestMergeDecision to each entry's own `updatedAt` capped at the time of
+ * the merge (the current clock, `new Date()`: fake timers apply), as the database does. what it
+ * writes keeps that capped time as `updatedAt`; an inserted entry takes the merge time as
+ * `createdAt`, a replaced one keeps its stored `createdAt`
  */
 export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntry[] = []) => {
   const { entries, store, repository } = createInMemoryLibrary(initial);
@@ -115,13 +120,14 @@ export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntr
       const parsed = parseGuestEntries(guest);
       const mergedAt = new Date().toISOString();
       for (const entry of parsed) {
+        const updatedAt = cappedAt(entry.updatedAt, mergedAt);
         const account = entries.get(idOf(entry.key));
-        const decision = guestMergeDecision(entry.updatedAt, account?.updatedAt ?? null);
+        const decision = guestMergeDecision(updatedAt, account?.updatedAt ?? null);
         if (decision === 'insert') {
-          store({ ...entry, createdAt: mergedAt, updatedAt: mergedAt });
+          store({ ...entry, createdAt: mergedAt, updatedAt });
         } else if (decision === 'replace') {
           // store keeps the stored createdAt
-          store({ ...entry, updatedAt: mergedAt });
+          store({ ...entry, updatedAt });
         }
       }
     }),
@@ -129,9 +135,9 @@ export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntr
 };
 
 /**
- * `entry` as the account holds it once a merge wrote it at `mergedAt` (the fake above, as the
- * database): inserted, both timestamps are the merge time; replacing `replaced`, only `updatedAt`
- * is, its `createdAt` kept
+ * `entry` as the account holds it once a merge at `mergedAt` wrote it (the fake above, as the
+ * database): its own `updatedAt` capped at the merge time; inserted, the merge time as
+ * `createdAt`; replacing `replaced`, the `createdAt` of `replaced`
  */
 export const mergedCopyOf = (
   entry: LibraryEntry,
@@ -140,7 +146,7 @@ export const mergedCopyOf = (
 ): LibraryEntry => ({
   ...entry,
   createdAt: replaced?.createdAt ?? mergedAt,
-  updatedAt: mergedAt,
+  updatedAt: cappedAt(entry.updatedAt, mergedAt),
 });
 
 export type FakeAccountLibraryRepository = ReturnType<typeof createFakeAccountLibraryRepository>;

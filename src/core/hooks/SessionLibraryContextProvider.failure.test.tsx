@@ -23,10 +23,20 @@ import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 // account) with the failure and the guest store kept, until a retry (or the next launch or sign
 // in) merges it
 
-// the guest entry of ENTRY_KEY, newer than the account's, and one of a media the account lacks
-const GUEST_ENTRY = entryOf({ progress: 1, updatedAt: '2026-03-01T00:00:00.000Z' });
+// the guest entry of ENTRY_KEY, changed on the device after the account's (both before the fixed
+// clock, the server's now: a merge keeps the guest time), and one of a media the account lacks
+// (its time after the clock: a merge caps it at the clock)
+const GUEST_ENTRY = entryOf({
+  progress: 1,
+  createdAt: '2025-11-02T00:00:00.000Z',
+  updatedAt: '2025-12-20T00:00:00.000Z',
+});
 const GUEST_OTHER = entryOf({ key: keyOf('manga', 2), progress: 4 });
-const ENTRY_A = entryOf({ progress: 2 });
+const ENTRY_A = entryOf({
+  progress: 2,
+  createdAt: '2025-11-01T00:00:00.000Z',
+  updatedAt: '2025-12-01T00:00:00.000Z',
+});
 const ACCOUNT_ENTRIES: ReadonlyMap<string, readonly LibraryEntry[]> = new Map([
   [USER_A, [ENTRY_A]],
 ]);
@@ -156,7 +166,8 @@ describe('SessionLibraryContextProvider failed guest merge (A-04)', () => {
 
     await retry(rendered);
 
-    // inserted with its progress and notes, at the merge time; then the account library shows it
+    // inserted with its progress, notes and device time, created at the merge time; then the
+    // account library shows it
     const merged = mergedCopyOf(guestOnly, new Date().toISOString());
     expect(account.stored(ENTRY_KEY)).toStrictEqual(merged);
     expect(rendered.guest.stored(ENTRY_KEY)).toBeNull();

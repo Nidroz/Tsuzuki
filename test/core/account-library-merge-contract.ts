@@ -2,8 +2,9 @@
 // account store (supabase/, A-04) and the in-memory fake of the hook tests. it knows the
 // interface, the domain and the schemas only, never a storage: each implementation test calls
 // describeAccountLibraryMergeContract with a factory of a repository holding seed entries stored
-// with their own timestamps. the database sets the timestamps of what a merge writes, so written
-// entries are compared without them, and untouched ones whole
+// with their own timestamps, its server time after every time below. a written entry keeps its own
+// `updatedAt`, capped at the server time, and the server sets the `createdAt` of an inserted one,
+// so written entries are compared without `createdAt`, and untouched ones whole
 import { describe, expect, it } from '@jest/globals';
 
 import type { LibraryEntry } from '@core/domain/library-entry';
@@ -20,7 +21,10 @@ export type AccountLibraryMergeFactory = (
 
 // guest and account times, all before any time a server sets in the tests
 const EARLIER = '2026-02-01T08:00:00.000Z';
+const BETWEEN = '2026-02-10T08:00:00.000Z';
 const LATER = '2026-02-20T08:00:00.000Z';
+// a guest time after the server time: a device clock ahead of the server
+const FUTURE = '2100-01-01T00:00:00.000Z';
 
 /** a guest entry of a key the seeded account never has. */
 export const GUEST_ONLY = entryOf({
@@ -33,6 +37,7 @@ const ACCOUNT_ONLY = entryOf({ key: keyOf('anime', 2), notes: 'account', updated
 const ACCOUNT_OLDER = entryOf({ key: keyOf('anime', 3), progress: 3, updatedAt: EARLIER });
 const GUEST_NEWER = entryOf({
   key: keyOf('anime', 3),
+  createdAt: BETWEEN,
   status: 'completed',
   progress: 28,
   score: 10,
@@ -56,14 +61,19 @@ const GUEST_TIED = entryOf({
 const MIXED_ACCOUNT = [ACCOUNT_ONLY, ACCOUNT_OLDER, ACCOUNT_NEWER, ACCOUNT_TIED];
 const MIXED_GUEST = [GUEST_ONLY, GUEST_NEWER, GUEST_OLDER, GUEST_TIED];
 
-/** an entry without its timestamps, which the account store takes from the server. */
-export const valuesOf = (entry: LibraryEntry) => ({
-  ...entry,
-  createdAt: undefined,
-  updatedAt: undefined,
+// one media changed as a guest on two devices: the first device's change, then the second's
+const FIRST_DEVICE = entryOf({ key: keyOf('anime', 6), progress: 2, updatedAt: EARLIER });
+const SECOND_DEVICE = entryOf({
+  key: keyOf('anime', 6),
+  progress: 7,
+  notes: 'second device',
+  updatedAt: BETWEEN,
 });
 
-/** the listed entries without their timestamps, in key order. */
+/** an entry without its `createdAt`, which the server sets on insert. */
+export const valuesOf = (entry: LibraryEntry) => ({ ...entry, createdAt: undefined });
+
+/** the listed entries without their `createdAt`, in key order. */
 export const listedValues = async (repository: AccountLibraryRepository) =>
   [...(await repository.list())].sort((a, b) => compareMediaKeys(a.key, b.key)).map(valuesOf);
 
@@ -80,7 +90,7 @@ export const describeAccountLibraryMergeContract = (
   createRepository: AccountLibraryMergeFactory,
 ): void => {
   describe(`${name} guest merge contract (BR-08)`, () => {
-    it('inserts a guest entry the account does not have', async () => {
+    it('inserts a guest entry the account does not have, with its own updatedAt', async () => {
       const repository = await createRepository([]);
 
       await repository.mergeGuestEntries([GUEST_ONLY]);
@@ -104,6 +114,51 @@ export const describeAccountLibraryMergeContract = (
       await repository.mergeGuestEntries([GUEST_NEWER]);
 
       await expect(listedValues(repository)).resolves.toStrictEqual([valuesOf(GUEST_NEWER)]);
+    });
+
+    it('keeps the guest updatedAt and the account createdAt of a replaced entry', async () => {
+      const repository = await createRepository([ACCOUNT_OLDER]);
+
+      await repository.mergeGuestEntries([GUEST_NEWER]);
+
+      await expect(repository.list()).resolves.toStrictEqual([
+        { ...GUEST_NEWER, createdAt: ACCOUNT_OLDER.createdAt },
+      ]);
+    });
+
+    it.each([
+      { label: 'an inserted', seed: [] },
+      { label: 'a replacing', seed: [ACCOUNT_OLDER] },
+    ])('caps the future updatedAt of $label entry at the server time', async ({ seed }) => {
+      const repository = await createRepository(seed);
+
+      await repository.mergeGuestEntries([{ ...GUEST_NEWER, updatedAt: FUTURE }]);
+
+      const listed = await repository.list();
+      expect(listed).toMatchObject([{ key: GUEST_NEWER.key, progress: GUEST_NEWER.progress }]);
+      // the server time: after every time of the entries, before the guest's
+      const updatedAt = listed[0]?.updatedAt ?? '';
+      expect(updatedAt > LATER && updatedAt < FUTURE).toBe(true);
+    });
+
+    it('keeps the most recent change of two devices when it is merged second (BR-08)', async () => {
+      const repository = await createRepository([]);
+
+      await repository.mergeGuestEntries([FIRST_DEVICE]);
+      await repository.mergeGuestEntries([SECOND_DEVICE]);
+
+      await expect(listedValues(repository)).resolves.toStrictEqual([valuesOf(SECOND_DEVICE)]);
+    });
+
+    it('keeps the most recent change of two devices when it is merged first (BR-08)', async () => {
+      const repository = await createRepository([]);
+
+      await repository.mergeGuestEntries([SECOND_DEVICE]);
+      const merged = await repository.list();
+      await repository.mergeGuestEntries([FIRST_DEVICE]);
+
+      await expect(repository.list()).resolves.toStrictEqual(merged);
+      await expect(listedValues(repository)).resolves.toStrictEqual([valuesOf(SECOND_DEVICE)]);
     });
 
     it('keeps an account entry newer than the guest one', async () => {

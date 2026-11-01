@@ -95,20 +95,23 @@ export interface GuestLibraryRepository extends LibraryRepository {
  */
 export interface AccountLibraryRepository extends LibraryRepository {
   /**
-   * merges guest entries into this account (BR-08, FR-22). per entry: inserted when the account
-   * has no entry of its key; replaces the account entry (every field but the key and the
-   * timestamps) only when the guest `updatedAt` is strictly later than the account row's
-   * `updated_at`; otherwise, the account copy newer or equal, the account entry is kept and nothing
-   * is written. the comparison is made by the write itself, so an account entry that became newer
-   * meanwhile (another device) is never overwritten. the database sets the timestamps: an inserted
-   * row takes the merge time as `createdAt` and `updatedAt`, a replaced one keeps its `createdAt`
-   * and takes the merge time as `updatedAt`.
+   * merges guest entries into this account (BR-08, FR-22). each entry's time is its own
+   * `updatedAt`, capped at the server's now (a device clock ahead of the server never wins over
+   * later changes). per entry: inserted when the account has no entry of its key; replaces the
+   * account entry (every field but the key and `createdAt`) only when that time is strictly later
+   * than the account row's `updated_at`; otherwise, the account copy newer or equal, the account
+   * entry is kept and nothing is written. the database compares at the write, so an account entry
+   * that became newer meanwhile (another device) is never overwritten, and with guest data on two
+   * devices the most recent change wins whatever the order of the merges. a written entry keeps
+   * that time as `updatedAt`; an inserted one takes the merge time as `createdAt`, a replaced one
+   * keeps its `createdAt`.
    *
-   * resolves only once every entry is confirmed written, or confirmed not newer than the account
-   * copy. rejects with a LibraryRemoteError on any failure (`network`, `signed-out`, `rejected`,
-   * `unknown`; `invalid-row` is not used), after which some entries may already be written: calling
-   * again with the same entries completes the merge and gives the same final entries, since a
-   * written entry now carries the later server `updated_at` and is kept (or, with a device clock
+   * entries are sent in batches, each written whole or not at all, and the merge resolves only
+   * once every batch is confirmed: each entry written, or kept as not newer than the account copy.
+   * rejects with a LibraryRemoteError on any failure (`network`, `signed-out`, `rejected`,
+   * `unknown`; `invalid-row` is not used), after which the batches before the failed one may be
+   * written: calling again with the same entries completes the merge and gives the same final
+   * entries, since a written entry now carries the same time and is kept (or, with a device clock
    * ahead of the server, written again with the same values). the session guard (A-03) applies
    * before every request: with another user's session or none, it rejects with `signed-out` and
    * that request is not sent.

@@ -135,7 +135,7 @@ export function SessionLibraryContextProvider({
 
   // the last run started, settled whatever its outcome: the next run waits for it. a stale run
   // (the same user signed in again) still passes the account store's session guard, so its later
-  // rounds would otherwise run next to the new run's, and could write back an entry deleted
+  // batches would otherwise run next to the new run's, and could write back an entry deleted
   // meanwhile
   const lastRunRef = useRef<Promise<void>>(Promise.resolve());
 

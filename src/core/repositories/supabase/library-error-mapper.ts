@@ -15,16 +15,15 @@ export const LIBRARY_REPORT_SOURCE = 'library-remote';
 
 /**
  * a failed call before it is mapped: a postgrest response (`status` 0 when no response came: a
- * lost connection, the timeout; `error` its postgrest error, null for a success without its row),
- * the session guard, a row parseLibraryRow rejects, an error thrown by the client, or guest
- * entries a merge could not confirm after its last round (`unresolved`).
+ * lost connection, the timeout; `error` its postgrest error, null for a success without its row or
+ * whose body is not the expected answer), the session guard, a row parseLibraryRow rejects, or an
+ * error thrown by the client.
  */
 export type LibraryFailure =
   | { readonly type: 'response'; readonly status: number; readonly error: unknown }
   | { readonly type: 'session' }
   | { readonly type: 'invalid-row' }
-  | { readonly type: 'thrown'; readonly error: unknown }
-  | { readonly type: 'unresolved' };
+  | { readonly type: 'thrown'; readonly error: unknown };
 
 const NO_RESPONSE = 0;
 const HTTP_UNAUTHORIZED = 401;
@@ -67,7 +66,6 @@ export const libraryRemoteReason = (failure: LibraryFailure): LibraryRemoteReaso
     case 'invalid-row':
       return 'invalid-row';
     case 'thrown':
-    case 'unresolved':
       return 'unknown';
   }
 };

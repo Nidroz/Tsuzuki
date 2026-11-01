@@ -20,10 +20,10 @@ import { APP_ROUTES } from './app-routes';
 // the guest merge through the composition root across session changes (A-04, BR-08, ADR-0016): a
 // merge whose session ended leaves the guest store (the real local store over the app storage)
 // untouched, the guest entries go to the account library created for the signed-in user only,
-// an entry changed while the merge ran stays on the device for the next merge, and a `+1` still
-// in its coalescing window at sign in reaches the guest store before the merge reads it. every
-// supabase factory is a fake (its merge stamps the merge time, as the database does): no real
-// client
+// an entry changed while the merge ran stays on the device and replaces the merged copy at the next
+// merge, and a `+1` still in its coalescing window at sign in reaches the guest store before the
+// merge reads it. every supabase factory is a fake (its merge keeps the guest times, capped at the
+// merge time, as the database does): no real client
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -218,7 +218,7 @@ describe('root layout guest merge across sessions (A-04)', () => {
     expect(storedGuestLibrary()).toBeUndefined();
   });
 
-  it('keeps a guest entry changed while the merge ran, and its next merge keeps the account copy written at the merge, newer (ADR-0016 open question)', async () => {
+  it('keeps a guest entry changed while the merge ran, and its next merge replaces the merged copy with that newer change (BR-08)', async () => {
     // the guest entries, last changed on the device before the sign in
     const lastChanged = {
       createdAt: '2025-11-02T10:00:00.000Z',
@@ -249,9 +249,11 @@ describe('root layout guest merge across sessions (A-04)', () => {
 
     // only the entry the account got as it is on the device leaves it
     await expect(guestLibrary().list()).resolves.toStrictEqual([changed]);
+    // the account keeps the guest times, so the change is newer than the merged copy
     const merged = [mergedCopyOf(first, mergedAt), mergedCopyOf(other, mergedAt)];
     expect(merged.map(({ key }) => accountOf(0).stored(key))).toStrictEqual(merged);
-    expect(Date.parse(mergedAt)).toBeGreaterThan(Date.parse(changed.updatedAt));
+    expect(merged[1]?.updatedAt).toBe(other.updatedAt);
+    expect(changed.updatedAt > other.updatedAt).toBe(true);
 
     // the account keeps what the merge wrote: the next instance of the same user holds it
     supabaseLibraryModule.accountEntries.set(USER_A, merged);
@@ -259,11 +261,14 @@ describe('root layout guest merge across sessions (A-04)', () => {
     await reportSession(USER_A);
     await settle();
 
-    // the change is sent again, but the account copy, written at the merge time, is newer: it is
-    // kept, and the change leaves the device (ADR-0016 "Open question": merged rows take the
-    // server's merge time)
+    // the change is sent again and, newer, replaces the merged copy (BR-08); then nothing is left
+    // on the device that the account does not hold
     expect(accountOf(1).mergeGuestEntries.mock.calls).toStrictEqual([[[changed]]]);
-    expect(accountOf(1).stored(other.key)).toStrictEqual(merged[1]);
+    expect(accountOf(1).stored(other.key)).toStrictEqual({
+      ...changed,
+      createdAt: merged[1]?.createdAt,
+    });
+    expect(accountOf(1).stored(first.key)).toStrictEqual(merged[0]);
     expect(storedGuestLibrary()).toBeUndefined();
   });
 

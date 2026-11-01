@@ -47,32 +47,32 @@ describe('createFakeAccountLibraryRepository', () => {
     );
   });
 
-  it('stamps the merge time on what it writes, as the database does, never the guest times', async () => {
+  it('keeps the guest times on what it writes, capped at the merge time, as the database does', async () => {
     jest.setSystemTime(SERVER_NOW);
     const mergedAt = new Date(SERVER_NOW).toISOString();
     const older = { ...BERSERK, progress: 1, updatedAt: '2026-01-15T00:00:00.000Z' };
     const newer = { ...BERSERK, progress: 3, updatedAt: '2026-02-20T00:00:00.000Z' };
+    const ahead = entryOf({ key: keyOf('manga', 3), updatedAt: '2100-01-01T00:00:00.000Z' });
     const repository = createFakeAccountLibraryRepository([older]);
 
-    await repository.mergeGuestEntries([FRIEREN, newer]);
+    await repository.mergeGuestEntries([FRIEREN, newer, ahead]);
 
-    // inserted: both timestamps are the merge time
-    expect(repository.stored(FRIEREN.key)).toStrictEqual({
-      ...FRIEREN,
+    // inserted: its own updatedAt, the merge time as createdAt
+    expect(repository.stored(FRIEREN.key)).toStrictEqual({ ...FRIEREN, createdAt: mergedAt });
+    // replaced: its own updatedAt, the stored createdAt kept
+    expect(repository.stored(BERSERK.key)).toStrictEqual({ ...newer, createdAt: older.createdAt });
+    // a time after the merge is capped at it
+    expect(repository.stored(ahead.key)).toStrictEqual({
+      ...ahead,
       createdAt: mergedAt,
-      updatedAt: mergedAt,
-    });
-    // replaced: the merge time as updatedAt, the stored createdAt kept
-    expect(repository.stored(BERSERK.key)).toStrictEqual({
-      ...newer,
-      createdAt: older.createdAt,
       updatedAt: mergedAt,
     });
     expect(mergedCopyOf(FRIEREN, mergedAt)).toStrictEqual(repository.stored(FRIEREN.key));
     expect(mergedCopyOf(newer, mergedAt, older)).toStrictEqual(repository.stored(BERSERK.key));
+    expect(mergedCopyOf(ahead, mergedAt)).toStrictEqual(repository.stored(ahead.key));
   });
 
-  it('keeps the merged copy over the same guest entry merged again later: it is newer', async () => {
+  it('keeps the merged copy over a change of the same time merged again later (BR-08)', async () => {
     jest.setSystemTime(SERVER_NOW);
     const repository = createFakeAccountLibraryRepository();
     const guest = { ...FRIEREN, updatedAt: '2026-02-20T00:00:00.000Z' };
@@ -83,6 +83,20 @@ describe('createFakeAccountLibraryRepository', () => {
     await repository.mergeGuestEntries([{ ...guest, progress: guest.progress + 1 }]);
 
     expect(repository.stored(FRIEREN.key)).toBe(merged);
+  });
+
+  it('compares the capped time: a time ahead merged again after the merge time replaces it', async () => {
+    jest.setSystemTime(SERVER_NOW);
+    const repository = createFakeAccountLibraryRepository();
+    const ahead = { ...FRIEREN, updatedAt: '2100-01-01T00:00:00.000Z' };
+    await repository.mergeGuestEntries([ahead]);
+
+    await jest.advanceTimersByTimeAsync(LATER_MERGE_DELAY_MS);
+    await repository.mergeGuestEntries([ahead]);
+
+    expect(repository.stored(FRIEREN.key)?.updatedAt).toBe(
+      new Date(SERVER_NOW + LATER_MERGE_DELAY_MS).toISOString(),
+    );
   });
 });
 

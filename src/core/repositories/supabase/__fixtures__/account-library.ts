@@ -33,15 +33,20 @@ export interface AccountLibraryOptions {
   readonly sessionUserId?: string | null;
   /** a session storage whose reads never settle (a stalled secure store). */
   readonly stalledSessionRead?: boolean;
+  /** the fake of another store (another device of the user) to share, a fresh one otherwise. */
+  readonly backend?: LibraryBackend;
 }
 
-/** an account store of `userId` over a fresh fake, the stored session that of `sessionUserId`. */
+/**
+ * an account store of `userId` over a fresh fake (or `backend`), the stored session that of
+ * `sessionUserId`.
+ */
 export const createAccountLibrary = ({
   userId = USER_ID,
   sessionUserId = userId,
   stalledSessionRead = false,
+  backend = createLibraryBackend(),
 }: AccountLibraryOptions = {}) => {
-  const backend = createLibraryBackend();
   const session = createMemorySessionStorage();
   if (sessionUserId !== null) {
     session.values.set(SESSION_STORAGE_KEY, JSON.stringify(sessionOf(sessionUserId)));

@@ -1,7 +1,8 @@
 // the guest to account merge (BR-08, FR-22, ADR-0016): per guest entry, whether the account gets
 // it, takes its values or keeps its own copy, and the equality that tells a guest entry unchanged
-// since the merge listed it. pure: the account store applies the decision with conditional writes
-// (src/core/repositories/supabase/library-merge.ts), the guest store removes the unchanged entries
+// since the merge listed it. pure: the reference rule, which the database function of the merge
+// mirrors (supabase/migrations/*_guest_merge_client_time.sql) and the in-memory account store of
+// the tests applies; the guest store removes the unchanged entries
 import type { LibraryEntry } from './library-entry';
 import { isSameMediaSnapshot } from './library-snapshot';
 import { compareMediaKeys } from './media';

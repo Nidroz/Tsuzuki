@@ -1,30 +1,26 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { HttpResponse } from 'msw';
 
 import {
   GUEST_ONLY,
   describeAccountLibraryMergeContract,
+  listedValues,
+  valuesOf,
 } from '../../../../test/core/account-library-merge-contract';
-import { ENTRY_KEY, entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
+import { entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
 import { INVALID_ENTRIES } from '../../../../test/core/library-repository-contract-support';
 import { server } from '../../../../test/core/msw-server';
 import type { LibraryEntry } from '../../domain/library-entry';
 import { createAccountLibrary, seedEntries } from './__fixtures__/account-library';
 import { USER_ID } from './__fixtures__/auth-handlers';
-import type { LibraryRequest } from './__fixtures__/library-handlers';
-import {
-  LIBRARY_CONFLICT_COLUMNS,
-  rowOfEntry,
-  type LibraryRow,
-} from './__fixtures__/postgrest-fake';
-import { GUEST_MERGE_INSERT_BATCH_SIZE } from './library-merge';
-import { LIBRARY_PAGE_SIZE } from './library-requests';
-import { toLibraryRowPayload, toLibraryRowValues } from './library-row';
+import { MERGE_ENDPOINT, type LibraryRequest } from './__fixtures__/library-handlers';
+import { instantOf, isRecord } from './__fixtures__/postgrest-fake';
+import { GUEST_MERGE_BATCH_SIZE } from './library-merge';
+import { toLibraryRowPayload } from './library-row';
 
+// times before the fake's server clock (2026-03-01T09:00:00Z, a second per write), and one after
 const EARLIER = '2026-02-01T08:00:00.000Z';
-const BETWEEN = '2026-02-10T08:00:00.000Z';
 const LATER = '2026-02-20T08:00:00.000Z';
-const WRITTEN_COLUMNS = 'id_namespace,media_kind,external_id,user_id';
+const FUTURE = '2100-01-01T00:00:00.000Z';
 
 // an account entry of ENTRY_KEY and a newer guest entry of the same key
 const ACCOUNT_ENTRY = entryOf({ progress: 3, updatedAt: EARLIER });
@@ -38,109 +34,73 @@ const setup = (seed: readonly LibraryEntry[] = []) => {
   return library;
 };
 
-const methodsOf = (requests: readonly LibraryRequest[]) =>
-  requests.map((request) => request.method);
-
-/** a page as postgrest answers it, with its Content-Range. */
-const pageOf = (rows: readonly LibraryRow[], contentRange: string) => () =>
-  HttpResponse.json(rows, { headers: { 'Content-Range': contentRange } });
-
 const animeEntries = (count: number): LibraryEntry[] =>
   Array.from({ length: count }, (_, index) => entryOf({ key: keyOf('anime', index + 1) }));
+
+// the `entries` argument of a merge call
+const entriesOf = (request: LibraryRequest | undefined): unknown[] => {
+  const entries = isRecord(request?.body) ? request.body.entries : null;
+  return Array.isArray(entries) ? entries : [];
+};
 
 describeAccountLibraryMergeContract('supabase account', (seed) => setup(seed).repository);
 
 describe('mergeGuestEntries requests', () => {
-  it('reads the key and time of every row of its user in key order, counting them', async () => {
+  it('calls the merge function once with every writable column and the time of each entry', async () => {
+    const { backend, repository } = setup();
+    const entries = [GUEST_ONLY, entryOf({ key: keyOf('manga', 7), updatedAt: EARLIER })];
+
+    await repository.mergeGuestEntries(entries);
+
+    expect(backend.requests).toHaveLength(1);
+    const [call] = backend.requests;
+    expect(call?.endpoint).toBe(MERGE_ENDPOINT);
+    expect(call?.method).toBe('POST');
+    expect([...(call?.search.keys() ?? [])]).toStrictEqual([]);
+    expect(call?.body).toStrictEqual({
+      entries: entries.map((entry) => ({
+        ...toLibraryRowPayload(entry),
+        updated_at: entry.updatedAt,
+      })),
+    });
+  });
+
+  it('never sends the user id, the row id or created_at: the database takes the user from the token', async () => {
     const { backend, repository } = setup();
 
     await repository.mergeGuestEntries([GUEST_ONLY]);
 
-    const [read] = backend.requests;
-    expect(read?.method).toBe('GET');
-    expect(read?.search.get('select')).toBe('id_namespace,media_kind,external_id,updated_at');
-    expect(read?.search.get('user_id')).toBe(`eq.${USER_ID}`);
-    expect(read?.search.get('order')).toBe('id_namespace.asc,media_kind.asc,external_id.asc');
-    expect(read?.search.get('offset')).toBe('0');
-    expect(read?.search.get('limit')).toBe(String(LIBRARY_PAGE_SIZE));
-    expect(read?.prefer).toBe('count=exact');
-  });
-
-  it('inserts new entries ignoring existing keys, asking for the key and owner of each row', async () => {
-    const { backend, repository } = setup();
-    const entries = [GUEST_ONLY, entryOf({ key: keyOf('manga', 7) })];
-
-    await repository.mergeGuestEntries(entries);
-
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'POST']);
-    const insert = backend.requests[1];
-    expect(insert?.search.get('on_conflict')).toBe(LIBRARY_CONFLICT_COLUMNS);
-    expect(insert?.search.get('select')).toBe(WRITTEN_COLUMNS);
-    expect(insert?.search.get('columns')).toBe(
-      Object.keys(toLibraryRowPayload(GUEST_ONLY))
-        .map((column) => `"${column}"`)
-        .join(','),
+    const [sent] = entriesOf(backend.requests[0]);
+    expect(Object.keys(isRecord(sent) ? sent : {}).sort()).toStrictEqual(
+      [...Object.keys(toLibraryRowPayload(GUEST_ONLY)), 'updated_at'].sort(),
     );
-    expect(insert?.prefer).toBe('resolution=ignore-duplicates, return=representation');
-    expect(insert?.body).toStrictEqual(entries.map((entry) => toLibraryRowPayload(entry)));
-  });
-
-  it('replaces a newer guest entry with an update conditional on the account time', async () => {
-    const { backend, repository } = setup([ACCOUNT_ENTRY]);
-
-    await repository.mergeGuestEntries([GUEST_ENTRY]);
-
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'PATCH']);
-    const update = backend.requests[1];
-    expect(Object.fromEntries(update?.search ?? [])).toStrictEqual({
-      user_id: `eq.${USER_ID}`,
-      id_namespace: 'eq.mal',
-      media_kind: 'eq.anime',
-      external_id: `eq.${String(ENTRY_KEY.externalId)}`,
-      updated_at: `lt.${LATER}`,
-      select: WRITTEN_COLUMNS,
-    });
-    expect(update?.prefer).toBe('return=representation');
-    expect(update?.body).toStrictEqual(toLibraryRowValues(GUEST_ENTRY));
-    for (const column of [
-      'id_namespace',
-      'media_kind',
-      'external_id',
-      'created_at',
-      'updated_at',
-    ]) {
-      expect(update?.body).not.toHaveProperty(column);
+    for (const column of ['user_id', 'id', 'created_at']) {
+      expect(sent).not.toHaveProperty(column);
     }
   });
 
-  it('writes nothing for a guest entry as recent as the account one', async () => {
-    const { backend, repository } = setup([ACCOUNT_ENTRY]);
-
-    await repository.mergeGuestEntries([{ ...GUEST_ENTRY, updatedAt: EARLIER }]);
-
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET']);
-  });
-
-  it('merges into a new account with one read and one insert', async () => {
+  it('sends each time in the Date#toISOString form', async () => {
     const { backend, repository } = setup();
 
-    await repository.mergeGuestEntries(animeEntries(3));
+    await repository.mergeGuestEntries([{ ...GUEST_ONLY, updatedAt: '2026-02-20T09:00:00+01:00' }]);
 
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'POST']);
-    expect(backend.rows).toHaveLength(3);
+    expect(entriesOf(backend.requests[0])).toMatchObject([{ updated_at: LATER }]);
   });
 
-  it('inserts 250 new entries in batches of 100, 100 and 50', async () => {
+  it('merges 250 entries in batches of 100, 100 and 50, one call each', async () => {
     const { backend, repository } = setup();
 
     await repository.mergeGuestEntries(animeEntries(250));
 
-    expect(GUEST_MERGE_INSERT_BATCH_SIZE).toBe(100);
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'POST', 'POST', 'POST']);
-    const batchSizes = backend.requests
-      .slice(1)
-      .map((request) => (Array.isArray(request.body) ? request.body.length : null));
-    expect(batchSizes).toStrictEqual([100, 100, 50]);
+    expect(GUEST_MERGE_BATCH_SIZE).toBe(100);
+    expect(backend.requests.map(({ endpoint }) => endpoint)).toStrictEqual([
+      MERGE_ENDPOINT,
+      MERGE_ENDPOINT,
+      MERGE_ENDPOINT,
+    ]);
+    expect(backend.requests.map((request) => entriesOf(request).length)).toStrictEqual([
+      100, 100, 50,
+    ]);
     expect(backend.rows).toHaveLength(250);
   });
 
@@ -172,37 +132,50 @@ describe('mergeGuestEntries requests', () => {
   });
 });
 
-describe('mergeGuestEntries account read', () => {
-  it('reads every page, the offset advanced by the rows received', async () => {
-    const { backend, repository } = setup(animeEntries(20));
-    backend.setMaxRows(7);
+describe('mergeGuestEntries times (BR-08)', () => {
+  it('keeps the guest time on a replaced row', async () => {
+    const { backend, repository } = setup([ACCOUNT_ENTRY]);
 
-    await repository.mergeGuestEntries([entryOf({ key: keyOf('anime', 21) })]);
+    await repository.mergeGuestEntries([GUEST_ENTRY]);
 
-    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'GET', 'GET', 'POST']);
-    expect(
-      backend.requests.slice(0, 3).map((request) => request.search.get('offset')),
-    ).toStrictEqual(['0', '7', '14']);
+    expect(backend.rows).toHaveLength(1);
+    expect(instantOf(backend.rows[0]?.updated_at)).toBe(instantOf(LATER));
+    await expect(repository.list()).resolves.toStrictEqual([GUEST_ENTRY]);
   });
 
-  const earlier = rowOfEntry(USER_ID, 1, { ...ACCOUNT_ENTRY, updatedAt: EARLIER });
-  const later = rowOfEntry(USER_ID, 1, { ...ACCOUNT_ENTRY, updatedAt: LATER });
-  const other = rowOfEntry(USER_ID, 2, entryOf({ key: keyOf('manga', 1) }));
+  it('caps a future guest time at the server time of the call', async () => {
+    const { backend, repository } = setup();
+
+    await repository.mergeGuestEntries([{ ...GUEST_ONLY, updatedAt: FUTURE }]);
+
+    // the row was inserted at the server time of the call, which is also its updated_at
+    const [row] = backend.rows;
+    expect(row?.updated_at).toBe(row?.created_at);
+    const [merged] = await repository.list();
+    expect(merged?.updatedAt).toBe(merged?.createdAt);
+    expect((merged?.updatedAt ?? FUTURE) < FUTURE).toBe(true);
+  });
+
+  // the same media changed as a guest on a phone, then on a tablet
+  const PHONE_CHANGE = entryOf({ progress: 2, notes: 'on the phone', updatedAt: EARLIER });
+  const TABLET_CHANGE = entryOf({ progress: 9, notes: 'on the tablet', updatedAt: LATER });
 
   it.each([
-    { label: 'second', firstRead: earlier, secondRead: later },
-    { label: 'first', firstRead: later, secondRead: earlier },
+    { label: 'second', first: PHONE_CHANGE, second: TABLET_CHANGE },
+    { label: 'first', first: TABLET_CHANGE, second: PHONE_CHANGE },
   ])(
-    'keeps the latest time of a row read twice, read $label',
-    async ({ firstRead, secondRead }) => {
-      const { backend, repository } = setup();
-      backend.respondNext(pageOf([firstRead, other], '0-1/3'), 'GET');
-      backend.respondNext(pageOf([secondRead], '2-2/3'), 'GET');
+    'keeps the most recent change of two devices of the user merged $label',
+    async ({ first, second }) => {
+      const phone = setup();
+      const tablet = createAccountLibrary({ backend: phone.backend });
 
-      await repository.mergeGuestEntries([{ ...GUEST_ENTRY, updatedAt: BETWEEN }]);
+      await phone.repository.mergeGuestEntries([first]);
+      await tablet.repository.mergeGuestEntries([second]);
 
-      // the account copy is newer than the guest one: nothing is written
-      expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'GET']);
+      await expect(listedValues(phone.repository)).resolves.toStrictEqual([
+        valuesOf(TABLET_CHANGE),
+      ]);
+      expect(phone.backend.rows).toMatchObject([{ user_id: USER_ID }]);
     },
   );
 });

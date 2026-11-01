@@ -64,7 +64,7 @@ describe('mergeGuestLibrary (BR-08)', () => {
     expect(account.mergeGuestEntries).toHaveBeenCalledWith([FRIEREN, BERSERK]);
     const merged = account.mergeGuestEntries.mock.calls[0]?.[0];
     expect(guest.removeUnchanged.mock.calls[0]?.[0]).toBe(merged);
-    // written at the merge time, as the account store's database does
+    // its time after the clock is capped at the merge time, as the account store's database does
     expect(account.stored(BERSERK.key)).toStrictEqual(
       mergedCopyOf(BERSERK, new Date().toISOString()),
     );
