@@ -221,7 +221,7 @@ Details:
 - [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
 - [x] A-03 Supabase library repository + repository switch on auth state: account store with a session guard, library cache scoped per repository, `media_is_adult` without default
-- [x] A-04 Guest → account merge (BR-08): conditional client writes under RLS, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, proposed)
+- [x] A-04 Guest → account merge (BR-08): a security definer merge function keeping each entry's own time capped at the server's now, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, proposed)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
 - [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
@@ -238,8 +238,9 @@ Details:
 - Coalesced `+1` taps not yet written (the `PROGRESS_WRITE_COALESCE_MS` window, 500 ms) are lost if the app is killed: consider flushing on app background (`LibraryWriter.flushAll`) together with the offline queue (L-03).
 - Library queries keep TanStack's default `networkMode` (`online`): once `onlineManager` is wired, the guest store must not pause offline; set `networkMode: 'always'` for the local repository, or decide per repository. Offline reading of the account library is not served by the persisted cache (library keys are never persisted, `ARCHITECTURE.md` §6): decide it here (L-03).
 - A failed library write whose newer change is still pending is saved by that next write (it carries the whole optimistic entry), while the hook already showed "could not be saved" (`src/core/hooks/library-writer.ts`, L-03 review): with the queue, drop the pending change on failure or present the next write as a retry, and test it.
-- A guest entry the account refuses on every attempt (`rejected` after a schema drift, or `unresolved`) keeps the account library pending on that device after every retry and launch, and only sign out escapes; unreachable while the guest entry schema matches the database (A-04 review). With the queue, plan a way out (for example keep the refused entries on the device and show the account library), or accept it in ADR-0016.
-- A stale merge run of the same user (a request in flight at sign out, then a sign in) keeps sending its later batches until it ends; the next run waits for it (A-04 review). Pass the run's `isCurrent` or an `AbortSignal` into `mergeGuestEntries` and check it before each request, together with the ADR-0016 open question (B1) if it is taken.
+- A guest entry the account refuses on every attempt (`rejected` after a schema drift) keeps the account library pending on that device after every retry and launch, and only sign out escapes; unreachable while the guest entry schema matches the database (A-04 review). With the queue, plan a way out (for example keep the refused entries on the device and show the account library), or accept it in ADR-0016.
+- A stale merge run of the same user (a request in flight at sign out, then a sign in) keeps sending its later batches until it ends; the next run waits for it (A-04 review). Pass the run's `isCurrent` or an `AbortSignal` into `mergeGuestEntries` and check it before each batch.
+- Replay of offline writes: reuse the timestamp rule of the guest merge, `private.write_client_library_entry` (a write carrying its own time, applied only when strictly newer than the stored copy, the time capped at the server's now), through a security definer wrapper with the same guards and validation as `public.merge_guest_library_entries` (ADR-0016 "Reuse by A-05"). A queued removal carries no time (no tombstone): decide how it competes with a newer change from another device.
 - A failed guest merge keeps the library pending until Try again, the next launch or the next sign in (A-04, ADR-0016): once `onlineManager` follows the connectivity, retry it automatically on reconnect (`useGuestMerge().retry`), so an offline launch with guest entries recovers without a tap.
 - Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
@@ -291,7 +292,7 @@ Details:
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
 ### R-02 Performance pass
-- Guest merge cost (A-04 review): `removeUnchanged` (`src/core/repositories/local/library-repository.ts`) compares every stored entry with every merged one (n×m `isSameLibraryEntry` on the JS thread, about a million at 1,000 entries): index the merged entries by `libraryEntryId` first. The account merge updates one guest-newer entry at a time, each request with its own session read (secure store), while the library stays pending: measure a large merge on a device, and batch or parallelize the updates if it is slow.
+- Guest merge cost (A-04 review): `removeUnchanged` (`src/core/repositories/local/library-repository.ts`) compares every stored entry with every merged one (n×m `isSameLibraryEntry` on the JS thread, about a million at 1,000 entries): index the merged entries by `libraryEntryId` first.
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
 
 ### R-03 Accessibility pass
