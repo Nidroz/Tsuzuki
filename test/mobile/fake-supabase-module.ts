@@ -52,21 +52,31 @@ export const fakeSupabaseAuthModule = () => {
   return { ...module, sessionSource };
 };
 
+/** sets up an account repository the mocked library factory just created, before it is returned */
+export type FakeAccountSetup = (repository: FakeAccountLibraryRepository, userId: string) => void;
+
 /**
  * the account library module, whose factory records its arguments and returns a new fake account
  * repository per call (its guest merge applied in memory), holding the entries a test put in
- * `accountEntries` for its user id (empty otherwise); the composition root reads its factory only
+ * `accountEntries` for its user id (empty otherwise); the composition root reads its factory only.
+ * each new repository is first given to the oldest setup a test queued in `accountSetups`, which it
+ * consumes: a test holds or fails the next repository's calls before the composition root gets it
+ * (`holdNextCall(repository, 'mergeGuestEntries')`). clear both between tests: the module lives as
+ * long as the test file
  */
 export const fakeSupabaseLibraryModule = () => {
   const accountEntries = new Map<string, readonly LibraryEntry[]>();
+  const accountSetups: FakeAccountSetup[] = [];
   const module = {
     createSupabaseLibraryRepository: jest.fn<
       (client: unknown, options: SupabaseLibraryRepositoryOptions) => FakeAccountLibraryRepository
-    >((_client, { userId }) =>
-      createFakeAccountLibraryRepository(accountEntries.get(userId) ?? []),
-    ),
+    >((_client, { userId }) => {
+      const repository = createFakeAccountLibraryRepository(accountEntries.get(userId) ?? []);
+      accountSetups.shift()?.(repository, userId);
+      return repository;
+    }),
   } satisfies Pick<typeof SupabaseLibrary, 'createSupabaseLibraryRepository'>;
-  return { ...module, accountEntries };
+  return { ...module, accountEntries, accountSetups };
 };
 
 /** the mocked modules, as a test reads them with jest.requireMock */

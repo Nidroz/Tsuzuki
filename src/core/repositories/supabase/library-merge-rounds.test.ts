@@ -75,6 +75,26 @@ describe('mergeGuestEntries concurrent writes', () => {
     expect(backend.rows).toStrictEqual([concurrent]);
   });
 
+  // the update matches no row, so the entry is not confirmed: the next round reads no row of its
+  // key and inserts it, so it is never left out of the account while the merge resolves
+  it('inserts an entry whose row another device deleted after the read, in the next round', async () => {
+    const { backend, repository, captureError } = setup([ACCOUNT_ENTRY]);
+    backend.changeBefore('PATCH', () => {
+      backend.rows.splice(0, 1);
+    });
+
+    await repository.mergeGuestEntries([GUEST_ENTRY]);
+
+    expect(methodsOf(backend.requests)).toStrictEqual(['GET', 'PATCH', 'GET', 'POST']);
+    expect(backend.rows).toHaveLength(1);
+    expect(backend.rows[0]).toMatchObject({
+      user_id: USER_ID,
+      external_id: GUEST_ENTRY.key.externalId,
+      progress: GUEST_ENTRY.progress,
+    });
+    expect(captureError).not.toHaveBeenCalled();
+  });
+
   // the server keeps microseconds, the guest time milliseconds (ADR-0016)
   it.each([
     { stored: '2026-02-20T08:00:00.123456+00:00', guest: '2026-02-20T08:00:00.123Z', rounds: 2 },
