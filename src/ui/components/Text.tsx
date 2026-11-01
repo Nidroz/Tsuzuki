@@ -35,6 +35,12 @@ const ALIGN: Readonly<Record<TextAlign, string>> = {
   end: 'text-right',
 };
 
+// ios and android each have their own flag; no-hide-descendants also hides nested texts
+const HIDDEN_FROM_SCREEN_READERS = {
+  accessibilityElementsHidden: true,
+  importantForAccessibility: 'no-hide-descendants',
+} as const;
+
 export interface TextProps {
   /** translated text: src/ui never translates */
   children: ReactNode;
@@ -48,6 +54,11 @@ export interface TextProps {
   numberOfLines?: number;
   /** replaces the text for screen readers, e.g. for a symbol */
   accessibilityLabel?: string;
+  /**
+   * hides the text from screen readers, which then read it once: for a visible text another
+   * element already announces, e.g. the caption of a spinner labelled with the same sentence
+   */
+  accessibilityHidden?: boolean;
   testID?: string;
 }
 
@@ -60,6 +71,7 @@ export function Text({
   align,
   numberOfLines,
   accessibilityLabel,
+  accessibilityHidden = false,
   testID,
 }: TextProps) {
   return (
@@ -68,6 +80,7 @@ export function Text({
       accessibilityRole={heading || variant === 'title' ? 'header' : 'text'}
       {...(numberOfLines !== undefined && { numberOfLines })}
       {...(accessibilityLabel !== undefined && { accessibilityLabel })}
+      {...(accessibilityHidden && HIDDEN_FROM_SCREEN_READERS)}
       testID={testID}
     >
       {children}

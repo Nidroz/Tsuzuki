@@ -128,6 +128,28 @@ describe('Text', () => {
     expect(screen.getByTestId(TEST_ID).props).not.toHaveProperty('accessibilityLabel');
   });
 
+  it('stays readable by screen readers by default', async () => {
+    await render(<Text testID={TEST_ID}>{CONTENT}</Text>);
+
+    expect(screen.getByTestId(TEST_ID).props).not.toHaveProperty('accessibilityElementsHidden');
+    expect(screen.getByTestId(TEST_ID).props).not.toHaveProperty('importantForAccessibility');
+  });
+
+  it('hides the text from screen readers on both platforms with accessibilityHidden, still shown', async () => {
+    await render(
+      <Text accessibilityHidden testID={TEST_ID}>
+        {CONTENT}
+      </Text>,
+    );
+
+    // not reachable by a screen reader, so not by the default queries either
+    expect(screen.queryByText(CONTENT)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('text', { name: CONTENT })).not.toBeOnTheScreen();
+    const text = screen.getByText(CONTENT, { includeHiddenElements: true });
+    expect(text).toHaveProp('accessibilityElementsHidden', true);
+    expect(text).toHaveProp('importantForAccessibility', 'no-hide-descendants');
+  });
+
   it('replaces the text for screen readers with accessibilityLabel', async () => {
     await render(<Text accessibilityLabel="More pages">…</Text>);
 
