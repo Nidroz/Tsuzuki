@@ -238,6 +238,7 @@ Details:
 - Coalesced `+1` taps not yet written (the `PROGRESS_WRITE_COALESCE_MS` window, 500 ms) are lost if the app is killed: consider flushing on app background (`LibraryWriter.flushAll`) together with the offline queue (L-03).
 - Library queries keep TanStack's default `networkMode` (`online`): once `onlineManager` is wired, the guest store must not pause offline; set `networkMode: 'always'` for the local repository, or decide per repository. Offline reading of the account library is not served by the persisted cache (library keys are never persisted, `ARCHITECTURE.md` §6): decide it here (L-03).
 - A failed library write whose newer change is still pending is saved by that next write (it carries the whole optimistic entry), while the hook already showed "could not be saved" (`src/core/hooks/library-writer.ts`, L-03 review): with the queue, drop the pending change on failure or present the next write as a retry, and test it.
+- A failed guest merge keeps the library pending until Try again, the next launch or the next sign in (A-04, ADR-0016): once `onlineManager` follows the connectivity, retry it automatically on reconnect (`useGuestMerge().retry`), so an offline launch with guest entries recovers without a tap.
 - Count network errors in the catalog failure monitor (`src/core/catalog/catalog-failure-monitor.ts`) while the device is online (C-03): they are ignored today, because an offline device and a provider outage at the DNS or TCP level look the same, so a provider that stops resolving is not reported.
 
 ### A-06 Sign out purge and account deletion
@@ -288,6 +289,7 @@ Details:
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
 ### R-02 Performance pass
+- Guest merge cost (A-04 review): `removeUnchanged` (`src/core/repositories/local/library-repository.ts`) compares every stored entry with every merged one (n×m `isSameLibraryEntry` on the JS thread, about a million at 1,000 entries): index the merged entries by `libraryEntryId` first. The account merge updates one guest-newer entry at a time, each request with its own session read (secure store), while the library stays pending: measure a large merge on a device, and batch or parallelize the updates if it is slow.
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
 
 ### R-03 Accessibility pass
