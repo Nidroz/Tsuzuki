@@ -221,7 +221,7 @@ Details:
 - [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
 - [x] A-03 Supabase library repository + repository switch on auth state: account store with a session guard, library cache scoped per repository, `media_is_adult` without default
-- [ ] A-04 Guest → account merge (BR-08)
+- [x] A-04 Guest → account merge (BR-08): conditional client writes under RLS, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, proposed)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
 - [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
@@ -230,7 +230,7 @@ Details:
 Details:
 
 ### A-05 Offline write queue and replay
-- The account store's session guard (`hasOwnSession`, `src/core/repositories/supabase/library-repository.ts`) reads any `getSession()` error as `signed-out`, a failed offline token refresh included, and runs before the `LIBRARY_REQUEST_TIMEOUT_MS` timer, so a stalled refresh has no timeout: start the timer before the guard, and never drop a queued write as final on a `signed-out` caused by a session read error (A-03 review).
+- The account store's session guard (`hasOwnSession`, `src/core/repositories/supabase/library-requests.ts`) reads any `getSession()` error as `signed-out`, a failed offline token refresh included: never drop a queued write as final on a `signed-out` caused by a session read error (A-03 review). The guard already runs under the request timeout (A-04), so a stalled session read rejects with `network`; after such a timeout the supabase-js session lock can stay held, so later calls time out too until the app restarts: check it with the queue.
 - `LibraryContextProvider` retires its writer and cache scope in an effect cleanup, assuming one cleanup per value (`// TODO(A-05)`): React StrictMode (on in a Next.js app in development) or `<Activity>` would run it on a live value and remove the live scope's queries. When touching the writer lifecycle, retire only a value that is no longer current, with a test under StrictMode (A-03 review).
 - No test fails if the library writer stops pruning idle key states (`src/core/hooks/library-writer-list.test.ts`, L-04 review): when touching the writer for the queue, make pruning observable (for example a count of active keys exposed to tests only) and assert the map is empty once every call settled.
 - A foreground request that joins an in-flight background prefetch and fails is observed twice by the catalog failure monitor (once per provider call, C-06 review): count a shared failure once, or record it as accepted in `ARCHITECTURE.md` §3.
@@ -243,7 +243,8 @@ Details:
 ### A-06 Sign out purge and account deletion
 - A coalesced `+1` still in its 500 ms window at sign out is flushed by the old account writer after the session is gone: the session guard refuses it as `signed-out` and the error is hidden with the old scope, so the change is lost (`ARCHITECTURE.md` §8 "Sign out"). Flush the library writer (`flushAll`) before `signOut()` (A-03 review).
 - Sign out purges the recent searches (`RecentSearchesRepository.clear`, FR-25): they are personal data kept on the device (C-04).
-- Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). If a guest → account merge (A-04) failed and was never retried, that purge would delete the guest's only copy: decide whether sign out waits for a successful merge, or accept and document the loss.
+- Sign out also clears the guest library (`GuestLibraryRepository.clear`, L-02). While the guest merge is `checking`, `merging` or `failed` (`useGuestMerge().status`, ADR-0016), the guest store holds entries the account has not confirmed: the purge must keep the guest library then (or ask first), never delete it silently. Test it.
+- A failed `removeUnchanged` after a successful merge shows the merge error (`library.merge.failed`), whose text says the titles could not be added, although they were; Try again only removes them. Give that case its own wording if the purge touches the merge states (A-04).
 - Apple sign-in (A-09, ADR-0015): before deleting an account with an Apple identity, revoke the user's Apple tokens (App Store guideline 5.1.1(v)), or record why it does not apply while iOS builds are off.
 
 ### A-08 Captcha provider on the auth endpoints
@@ -283,6 +284,7 @@ Details:
 - Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04).
 - Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
 - Sign in E2E flow against the staging project with a dedicated test account passed as Maestro env values, never committed (A-01): `e2e/flows/auth.yaml` covers the auth screens without a backend only.
+- Guest → account merge E2E flow (CONTRIBUTING.md §6) against the same staging test account: add titles as a guest, sign in, check the merge state then the titles in the account library (A-04: covered by route tests and pgTAP without a backend).
 - Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
 
 ### R-02 Performance pass
