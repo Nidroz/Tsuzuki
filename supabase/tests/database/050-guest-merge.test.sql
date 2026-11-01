@@ -4,12 +4,13 @@
 -- replaces the stored copy, an equal or older one keeps it, the microsecond updated_at compared
 -- with the millisecond guest time as the client compares the truncated value. two devices merging
 -- the same media keep the most recent change whatever their order. a batch is validated whole and
--- written whole or not at all; another user's rows are out of reach
+-- written whole or not at all, updated_at in the rfc 3339 form only and no earlier than the year
+-- 1; another user's rows are out of reach
 begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(50);
 
 -- a guest entry as the client sends it: every writable column and updated_at
 create function pg_temp.guest_entry(
@@ -436,6 +437,70 @@ select throws_ok(
   'a null updated_at is rejected'
 );
 
+-- updated_at in the rfc 3339 form only, checked before any cast: strings postgres would read as
+-- a time are refused, and the valid entry of each batch is not written either
+select throws_ok(
+  format(
+    $$
+      select * from public.merge_guest_library_entries(jsonb_build_array(
+        pg_temp.guest_entry(%s, '2026-01-15T08:00:00.000Z'),
+        pg_temp.guest_entry(%s, %L)
+      ))
+    $$,
+    probe.external_id, probe.external_id + 1, probe.updated_at
+  ),
+  '22023',
+  'an entry has no rfc 3339 updated_at',
+  format('an updated_at of %s is rejected', probe.label)
+)
+from (
+  values
+    (40, 'infinity', 'infinity'),
+    (42, '-infinity', '-infinity'),
+    (44, '0044-03-15 00:00:00+00 BC', 'a BC date'),
+    (46, 'epoch', 'epoch'),
+    (48, 'now', 'now'),
+    (50, '1/2/2026', 'a DateStyle-dependent date')
+) as probe (external_id, updated_at, label);
+
+-- a valid form whose offset reaches before the year 1 in utc is refused after the cast: the
+-- batch's first entry, already written, is rolled back with it
+select throws_ok(
+  $$
+    select * from public.merge_guest_library_entries(jsonb_build_array(
+      pg_temp.guest_entry(52, '2026-01-15T08:00:00.000Z'),
+      pg_temp.guest_entry(53, '0001-01-01T00:00:00+01:00')
+    ))
+  $$,
+  '22023',
+  'updated_at must not be before the year 1',
+  'a time before the year 1 in utc is rejected'
+);
+
+select results_eq(
+  $$
+    select outcome
+    from public.merge_guest_library_entries(jsonb_build_array(
+      pg_temp.guest_entry(54, '0001-01-01T00:00:00.000Z')
+    ))
+  $$,
+  $$ values ('written') $$,
+  'the first instant of the year 1 is written'
+);
+
+-- the key as the table types it: a number and a numeric string are one external_id
+select throws_ok(
+  $$
+    select * from public.merge_guest_library_entries(jsonb_build_array(
+      pg_temp.guest_entry(30, '2026-01-15T08:00:00.000Z'),
+      pg_temp.guest_entry(30, '2026-01-16T08:00:00.000Z') || '{"external_id": "30"}'
+    ))
+  $$,
+  '22023',
+  'entries hold a key twice',
+  'a key spelled as a number and as a string is rejected as a key twice'
+);
+
 select throws_ok(
   $$
     select * from public.merge_guest_library_entries(jsonb_build_array(
@@ -515,11 +580,41 @@ select results_eq(
   'each user has their own row of the key'
 );
 
+-- the private rule checks the form itself, for its other callers (A-05): a time postgres would
+-- read, and a null one, are refused before any cast
+select throws_ok(
+  format(
+    $$ select private.write_client_library_entry(pg_temp.guest_entry(%s, %L)) $$,
+    probe.external_id, probe.updated_at
+  ),
+  '22023',
+  'updated_at must be an rfc 3339 timestamp',
+  format('the private rule refuses an updated_at of %s', probe.label)
+)
+from (
+  values
+    (56, 'epoch', 'epoch'),
+    (57, null, 'null')
+) as probe (external_id, updated_at, label);
+
+select is(
+  (
+    select to_jsonb(updated_at) #>> '{}'
+    from public.library_entries
+    where user_id = '00000000-0000-0000-0000-000000000001' and external_id = 54
+  ),
+  '0001-01-01T00:00:00+00:00',
+  'the first instant of the year 1 is stored and served without a BC suffix'
+);
+
 select is_empty(
   $$
     select external_id
     from public.library_entries
-    where external_id in (30, 31, 32) or external_id > 2000
+    where external_id in (30, 31, 32)
+      or external_id between 40 and 53
+      or external_id in (56, 57)
+      or external_id > 2000
   $$,
   'a rejected batch writes none of its entries'
 );

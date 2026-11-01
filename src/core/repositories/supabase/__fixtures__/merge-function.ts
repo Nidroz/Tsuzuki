@@ -1,11 +1,12 @@
 // the fake of the database function merge_guest_library_entries
-// (supabase/migrations/*_guest_merge_client_time.sql) for the postgrest fake (library-handlers.ts):
-// the user from the token only, the input checks in the function's order (each a 400 with code
-// 22023), then per entry, among the rows of that user: its time capped at the server clock of the
-// call, an insert when the user has no row of its key, a replace when the capped time is strictly
-// later than the stored one (compared as instants: stored microseconds against the entry's
-// milliseconds), else kept. the batch is written whole or not at all. answers one row per entry:
-// its key, the user id and `written` or `kept`
+// (supabase/migrations/*_guest_merge_client_time.sql, *_guest_merge_time_format.sql) for the
+// postgrest fake (library-handlers.ts): the user from the token only, the input checks in the
+// function's order (each a 400 with code 22023), then per entry, among the rows of that user: a
+// time before the year 1 refused, its time capped at the server clock of the call, an insert when
+// the user has no row of its key, a replace when the capped time is strictly later than the
+// stored one (compared as instants: stored microseconds against the entry's milliseconds), else
+// kept. the batch is written whole or not at all. answers one row per entry: its key, the user id
+// and `written` or `kept`
 import { HttpResponse } from 'msw';
 
 import type { RowStore } from './library-writes';
@@ -45,6 +46,11 @@ const ENTRY_KEYS = [
   'finished_at',
   'updated_at',
 ];
+// the rfc 3339 form the function accepts for updated_at, its client_time_pattern
+const CLIENT_TIME_PATTERN =
+  /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})$/;
+// the earliest time the function writes, its earliest_time: postgres serves an earlier one as BC
+const EARLIEST_TIME = '0001-01-01T00:00:00.000Z';
 // the not null columns an entry sets
 const NOT_NULL_COLUMNS = [
   ...KEY_COLUMNS,
@@ -88,6 +94,13 @@ const validEntries = (entries: unknown): Entry[] | Response => {
   if (!entries.every((entry) => typeof entry.updated_at === 'string')) {
     return invalid('an entry has no updated_at string');
   }
+  if (
+    !entries.every(
+      (entry) => typeof entry.updated_at === 'string' && CLIENT_TIME_PATTERN.test(entry.updated_at),
+    )
+  ) {
+    return invalid('an entry has no rfc 3339 updated_at');
+  }
   if (new Set(entries.map(keyIdOf)).size !== entries.length) {
     return invalid('entries hold a key twice');
   }
@@ -109,8 +122,12 @@ const writeEntry = (
   }
   const entryUs = instantOf(entry.updated_at);
   const nowUs = instantOf(now);
-  if (entryUs === null || nowUs === null) {
+  const earliestUs = instantOf(EARLIEST_TIME);
+  if (entryUs === null || nowUs === null || earliestUs === null) {
     return errorResponse(BAD_REQUEST, '22007', 'invalid input syntax for type timestamp');
+  }
+  if (entryUs < earliestUs) {
+    return invalid('updated_at must not be before the year 1');
   }
   // least(updated_at, now())
   const updatedAt = entryUs < nowUs ? postgrestTimestamp(entryUs) : now;
