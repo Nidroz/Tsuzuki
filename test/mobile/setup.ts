@@ -14,6 +14,14 @@ stubNetworkGlobals();
 // imports nitro modules first, whose native module jest lacks: an empty stub lets it load
 jest.mock('react-native-nitro-modules', () => ({ NitroModules: {} }));
 
+// the device network, online and never changing: the root layout binds the onlineManager to it as
+// it loads (src/platform/connectivity.ts), and the jest-expo native stub would read as offline. a
+// test that drives the network mocks expo-network itself
+jest.mock('expo-network', () => ({
+  addNetworkStateListener: () => ({ remove: () => undefined }),
+  getNetworkStateAsync: () => Promise.resolve({ isConnected: true, isInternetReachable: true }),
+}));
+
 // the app env that app.config.ts validates into extra.env (ADR-0012), with test values: the root
 // layout reads it as it loads and fails closed without it. a test that needs another env mocks
 // expo-constants itself

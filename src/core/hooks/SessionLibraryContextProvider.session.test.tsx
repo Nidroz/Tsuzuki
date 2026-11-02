@@ -8,6 +8,7 @@ import {
 } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf, keyOf } from '../../../test/core/library-entry-fixtures';
 import {
+  MERGE_OPTIONS,
   renderSessionLibrary,
   settleSession,
   USER_A,
@@ -76,7 +77,7 @@ describe('SessionLibraryContextProvider guest merge across sessions (A-04)', () 
     expect(rendered.guest.removeUnchanged).not.toHaveBeenCalled();
     expect(rendered.guest.stored(ENTRY_KEY)).toStrictEqual(GUEST_ENTRY);
     expect(accountA.mergeGuestEntries).toHaveBeenCalledTimes(1);
-    expect(accountB.mergeGuestEntries).toHaveBeenCalledWith(GUEST_ENTRIES);
+    expect(accountB.mergeGuestEntries).toHaveBeenCalledWith(GUEST_ENTRIES, MERGE_OPTIONS);
 
     await rendered.release(1);
 
@@ -119,7 +120,7 @@ describe('SessionLibraryContextProvider guest merge across sessions (A-04)', () 
 
       // the first run, stale, removed nothing; the second one read the guest store only then
       expect(rendered.guest.list).toHaveBeenCalledTimes(2);
-      expect(second.mergeGuestEntries).toHaveBeenCalledWith(GUEST_ENTRIES);
+      expect(second.mergeGuestEntries).toHaveBeenCalledWith(GUEST_ENTRIES, MERGE_OPTIONS);
       expect(rendered.guest.removeUnchanged).not.toHaveBeenCalled();
       expect(rendered.result.current.merge.status).toBe('merging');
 

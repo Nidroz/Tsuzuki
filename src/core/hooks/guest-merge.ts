@@ -24,6 +24,11 @@ export interface GuestMergeRun {
   readonly settleWrites: () => Promise<void>;
   /** false once the session's account is no longer `account` */
   readonly isCurrent: () => boolean;
+  /**
+   * aborted once the session's account is no longer `account`: passed to the merge, which sends
+   * no further batch then (ADR-0017)
+   */
+  readonly signal: AbortSignal;
   /** called once the guest entries are about to be sent to the account */
   readonly onMerging: () => void;
 }
@@ -32,14 +37,16 @@ export interface GuestMergeRun {
  * merges the guest store into `account`: waits for the earlier work (settleWrites), lists the
  * guest store, merges its entries into the account, then removes from the device exactly the
  * entries the account confirmed (removeUnchanged: an entry changed or added meanwhile stays).
- * checks the session between the steps: a run whose session ended removes nothing. a rejection of
- * any step rejects the run, and nothing is removed after a failed merge
+ * checks the session between the steps: a run whose session ended removes nothing, and `signal`
+ * stops its merge before the next batch. a rejection of any step rejects the run, and nothing is
+ * removed after a failed merge
  */
 export const mergeGuestLibrary = async ({
   guest,
   account,
   settleWrites,
   isCurrent,
+  signal,
   onMerging,
 }: GuestMergeRun): Promise<GuestMergeOutcome> => {
   await settleWrites();
@@ -54,9 +61,11 @@ export const mergeGuestLibrary = async ({
     return 'stale';
   }
   onMerging();
-  await account.mergeGuestEntries(entries);
+  await account.mergeGuestEntries(entries, { signal });
   // the entries are in this account, but the session is another one's now: they stay on the
-  // device, and the next session's merge sends them (a retry of a merge is a no-op, BR-08)
+  // device, and the next session's merge sends them. merging them again keeps their values (BR-08):
+  // an entry is kept, or, its time ahead of the server, written again with the same values at its
+  // later capped time (ADR-0016 Update)
   if (!isCurrent()) {
     return 'stale';
   }

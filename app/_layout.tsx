@@ -24,9 +24,11 @@ import {
   saveThemePreference,
   type ThemePreference,
 } from '@core/preferences/index';
+import { followConnectivity, isDeviceOnline } from '@core/query/online-manager';
 import { createPersistOptions, createQueryPersister } from '@core/query/persister';
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha } from '@core/repositories/auth-repository';
+import { createOfflineAccountLibraries } from '@core/repositories/local/account-libraries';
 import { createLocalLibraryRepository } from '@core/repositories/local/library-repository';
 import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
 import { createSupabaseAuthRepository } from '@core/repositories/supabase/auth-repository';
@@ -37,6 +39,7 @@ import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
 import { subscribeToForeground } from '@platform/app-state';
 import { APP_VERSION } from '@platform/app-version';
+import { createConnectivitySubscription } from '@platform/connectivity';
 import { useDeviceLanguageTags } from '@platform/locale';
 import { createSecureSessionStorage } from '@platform/secure-session';
 import { createErrorReporter, initSentry } from '@platform/sentry';
@@ -70,6 +73,10 @@ const reporter = createErrorReporter(initSentry(appEnv));
 const I18N_SOURCE = 'i18n';
 const THEME_SOURCE = 'theme';
 
+// the onlineManager follows the device network (expo-network): catalog queries pause offline, and
+// the offline account library and the catalog failure monitor read the same flag (ADR-0017)
+followConnectivity(createConnectivitySubscription(reporter));
+
 // a key and a language are not personal data. the polyfill above should make the plural report
 // unreachable; it stays as a guard
 if (!hasIntlPluralRules()) {
@@ -97,8 +104,8 @@ const reportThemeError = (error: unknown) => {
 };
 
 // the app's single key-value storage: it holds the preferences, the recent searches, the guest
-// library and the persisted query cache. module level, so the persist options stay one stable
-// object for PersistQueryClientProvider
+// library, the device copy and write queue of each account library, and the persisted query
+// cache. module level, so the persist options stay one stable object for PersistQueryClientProvider
 const storage = createStorage();
 
 // a new app version or cache schema version drops the persisted cache
@@ -108,11 +115,12 @@ const persistOptions = createPersistOptions({
 });
 
 // the only place that selects a catalog provider and its instance (ADR-0013): tenrai unless the
-// build sets a self-hosted jikan base url. sustained provider failures go to the reporter.
-// module level, like the repository below: each is one stable object for its context
+// build sets a self-hosted jikan base url. sustained provider failures go to the reporter, network
+// errors counted only while the device is online. module level, like the repository below: each
+// is one stable object for its context
 const catalogProvider = monitorCatalogProvider(
   createJikanCatalogProvider(jikanInstanceFor(appEnv.jikanBaseUrl)),
-  { reporter },
+  { reporter, isOnline: isDeviceOnline },
 );
 
 // the recent searches on the device (FR-02), checked against the provider's search text limit
@@ -140,11 +148,16 @@ const authRepository = createSupabaseAuthRepository(supabase, {
   reporter,
 });
 
-// the account library of a signed-in user (FR-23), in supabase: the session library switch calls
-// it once per user id, and merges the guest library into each one it gets. module level, so the
-// switch gets one stable function
-const accountLibraryFor = (userId: string) =>
-  createSupabaseLibraryRepository(supabase, { userId, reporter });
+// the account library of a signed-in user (FR-23), in supabase behind a device copy and a write
+// queue per user in the app storage, so it reads and writes offline and replays its writes
+// (ADR-0017): the session library switch calls it once per user id, and merges the guest library
+// into each one it gets. module level, so the switch gets one stable function
+const accountLibraryFor = createOfflineAccountLibraries({
+  storage,
+  remoteFor: (userId) => createSupabaseLibraryRepository(supabase, { userId, reporter }),
+  isOnline: isDeviceOnline,
+  reporter,
+});
 
 // the token auto refresh runs only while the app is in the foreground (supabase-js on react
 // native): no timer in the background, and a token close to expiry is refreshed on return
@@ -230,6 +243,7 @@ export default function RootLayout() {
               guest={libraryRepository}
               accountRepositoryFor={accountLibraryFor}
               reporter={reporter}
+              subscribeToForeground={subscribeToForeground}
             >
               <PreferencesProvider
                 theme={themePreference}

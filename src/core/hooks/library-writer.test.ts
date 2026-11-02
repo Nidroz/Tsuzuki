@@ -45,6 +45,7 @@ describe('createLibraryWriter: optimistic writes', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.stored(ENTRY_KEY)?.score).toBe(7);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('replaces the optimistic entry with the stored one the repository returns', async () => {
@@ -81,6 +82,7 @@ describe('createLibraryWriter: optimistic writes', () => {
     expect(repository.remove).not.toHaveBeenCalled();
     expect(cached()).toBe(ENTRY);
     expect(cached(OTHER_KEY)).toBeNull();
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('adds an entry missing from the library, and removes it with null', async () => {
@@ -99,6 +101,7 @@ describe('createLibraryWriter: optimistic writes', () => {
     expect(repository.remove).toHaveBeenCalledWith(OTHER_KEY);
     expect(repository.stored(OTHER_KEY)).toBeNull();
     expect(cached(OTHER_KEY)).toBeNull();
+    expect(writer.activeKeyCount()).toBe(0);
   });
 });
 
@@ -123,6 +126,7 @@ describe('createLibraryWriter: coalesced `+1` taps (BR-09)', () => {
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({ progress: 15 }));
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(15);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('writes a change made during the window at once, with the taps, in one save', async () => {
@@ -136,6 +140,7 @@ describe('createLibraryWriter: coalesced `+1` taps (BR-09)', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.stored(ENTRY_KEY)).toMatchObject({ progress: 13, status: 'paused' });
+    expect(writer.activeKeyCount()).toBe(0);
   });
 });
 
@@ -162,6 +167,7 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(3);
     expect(repository.stored(ENTRY_KEY)).toMatchObject({ score: 7, status: 'paused' });
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('keeps a newer optimistic entry when an older write settles, then shows the stored one', async () => {
@@ -189,6 +195,7 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(cached()).toStrictEqual(repository.stored(ENTRY_KEY));
     expect(cached()?.score).toBe(5);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('cancels a refetch in flight, whose older result never replaces the change', async () => {
@@ -212,6 +219,7 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(repository.get).toHaveBeenCalledTimes(2);
     expect(cached()).toStrictEqual(repository.stored(ENTRY_KEY));
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('invalidates the list query alone, exactly, after a write', async () => {

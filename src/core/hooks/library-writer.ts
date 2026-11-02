@@ -14,6 +14,7 @@ import type { MediaKey } from '../domain/media';
 import { queryKeys, type LibraryScope } from '../query/keys';
 import type { LibraryRepository } from '../repositories/library-repository';
 import { mediaKeyId, setListEntry, withListEntry } from './library-list-data';
+import { createKeyState, type KeyState } from './library-writer-state';
 
 /**
  * a library rule applied to the cached entry of a key (null: not in the library). it returns the
@@ -48,6 +49,11 @@ export interface LibraryWriter {
   apply(key: MediaKey, change: LibraryChange, options?: LibraryApplyOptions): Promise<void>;
   /** writes every pending coalesced change now; resolves once every call settled, never rejects */
   flushAll(): Promise<void>;
+  /**
+   * for tests only: the number of keys whose state the writer keeps, 0 once every call settled
+   * (an idle key is pruned)
+   */
+  activeKeyCount(): number;
 }
 
 export interface LibraryWriterOptions {
@@ -57,34 +63,6 @@ export interface LibraryWriterOptions {
   readonly scope: LibraryScope;
   /** the clock of the writes, `new Date()` by default */
   readonly now?: () => Date;
-}
-
-interface Waiter {
-  readonly resolve: () => void;
-  readonly reject: (error: unknown) => void;
-}
-
-// the latest optimistic entry of a key, not written yet, and the applies it carries
-interface PendingWrite {
-  readonly value: LibraryEntry | null;
-  readonly waiters: Waiter[];
-}
-
-interface KeyState {
-  readonly id: string;
-  readonly key: MediaKey;
-  // the tail of the serial chain of repository calls; never rejects
-  queue: Promise<unknown>;
-  // the tail of the applies waiting for their query cancel, so they compute in call order
-  gate: Promise<unknown>;
-  // bumped by every optimistic change: a write result never replaces a newer one
-  version: number;
-  pending: PendingWrite | null;
-  timer: ReturnType<typeof setTimeout> | undefined;
-  // the applies at their gate or computing, and the repository calls queued or running
-  busy: number;
-  // the writes started and not settled: their change is not confirmed yet
-  writing: number;
 }
 
 const noop = (): void => undefined;
@@ -112,17 +90,7 @@ export const createLibraryWriter = ({
     if (existing !== undefined) {
       return existing;
     }
-    const created: KeyState = {
-      id,
-      key,
-      queue: Promise.resolve(),
-      gate: Promise.resolve(),
-      version: 0,
-      pending: null,
-      timer: undefined,
-      busy: 0,
-      writing: 0,
-    };
+    const created = createKeyState(id, key);
     states.set(id, created);
     return created;
   };
@@ -195,11 +163,17 @@ export const createLibraryWriter = ({
         }
       },
       (error: unknown) => {
+        // a newer pending change was computed from this write's optimistic entry, so it carries
+        // the failed change: it is dropped and fails with it, never written on its own
+        const dropped = state.pending;
+        clearTimeout(state.timer);
+        state.timer = undefined;
+        state.pending = null;
         finish();
-        // the entry refetches the stored truth through read, after any newer pending change
+        // the entry refetches the stored truth through read
         void queryClient.invalidateQueries({ queryKey: entryKey, exact: true });
         void queryClient.invalidateQueries({ queryKey: listKey, exact: true });
-        for (const waiter of pending.waiters) {
+        for (const waiter of [...pending.waiters, ...(dropped?.waiters ?? [])]) {
           waiter.reject(error);
         }
       },
@@ -302,5 +276,5 @@ export const createLibraryWriter = ({
     await Promise.all([...writes, ...all.map((state) => state.queue)]);
   };
 
-  return { read, list, apply, flushAll };
+  return { read, list, apply, flushAll, activeKeyCount: () => states.size };
 };
