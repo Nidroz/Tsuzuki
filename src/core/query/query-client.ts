@@ -1,6 +1,6 @@
 import { QueryClient } from '@tanstack/react-query';
 
-import { SEARCH_KEY_ROOT } from './keys';
+import { LIBRARY_KEY_ROOT, SEARCH_KEY_ROOT } from './keys';
 import { PERSISTED_CACHE_MAX_AGE, SEARCH_GC_TIME, STALE_TIMES } from './stale-times';
 
 /**
@@ -25,5 +25,9 @@ export const createQueryClient = (): QueryClient => {
     staleTime: STALE_TIMES.search,
     gcTime: SEARCH_GC_TIME,
   });
+  // library queries never pause offline (ADR-0017): the guest store never needs the network, and
+  // the offline account library answers from its device copy itself. catalog queries keep the
+  // default 'online' mode: offline they pause instead of failing, and keep their success state
+  client.setQueryDefaults([LIBRARY_KEY_ROOT], { networkMode: 'always' });
   return client;
 };
