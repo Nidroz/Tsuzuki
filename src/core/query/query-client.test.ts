@@ -41,6 +41,7 @@ describe('createQueryClient', () => {
 
     expect(client.getQueryDefaults(queryKeys.library.all(scope)).networkMode).toBe('always');
     expect(client.getQueryDefaults(queryKeys.library.entry(scope, key)).networkMode).toBe('always');
+    expect(client.getQueryDefaults(queryKeys.library.all(scope)).refetchOnReconnect).toBe(true);
     expect(client.getQueryDefaults(queryKeys.media(key)).networkMode).toBeUndefined();
     expect(client.getDefaultOptions().queries?.networkMode).toBeUndefined();
   });

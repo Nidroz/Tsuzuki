@@ -27,7 +27,9 @@ export const createQueryClient = (): QueryClient => {
   });
   // library queries never pause offline (ADR-0017): the guest store never needs the network, and
   // the offline account library answers from its device copy itself. catalog queries keep the
-  // default 'online' mode: offline they pause instead of failing, and keep their success state
-  client.setQueryDefaults([LIBRARY_KEY_ROOT], { networkMode: 'always' });
+  // default 'online' mode: offline they pause instead of failing, and keep their success state.
+  // tanstack turns refetchOnReconnect off with networkMode 'always': set again, so a library read
+  // from the device copy, or failed offline, is read from the server when the device reconnects
+  client.setQueryDefaults([LIBRARY_KEY_ROOT], { networkMode: 'always', refetchOnReconnect: true });
   return client;
 };
