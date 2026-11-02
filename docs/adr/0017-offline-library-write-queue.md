@@ -1,6 +1,6 @@
 # ADR-0017: Offline write queue and replay of the account library
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-02
 
 ## Context

@@ -222,7 +222,7 @@ Details:
 - [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
 - [x] A-03 Supabase library repository + repository switch on auth state: account store with a session guard, library cache scoped per repository, `media_is_adult` without default
 - [x] A-04 Guest → account merge (BR-08): a security definer merge function keeping each entry's own time capped at the server's now, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, accepted)
-- [x] A-05 Offline write queue and replay: the account library reads from a per-user device copy and queues its writes before any request, replayed with the time of each change through a security definer function (removals deleting only an older entry), onlineManager following expo-network, background flush and foreground replay (ADR-0017, proposed)
+- [x] A-05 Offline write queue and replay: the account library reads from a per-user device copy and queues its writes before any request, replayed with the time of each change through a security definer function (removals deleting only an older entry), onlineManager following expo-network, background flush and foreground replay (ADR-0017)
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
 - [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
 - [ ] A-09 Google and Apple sign-in go live: browser session dependency, provider accounts and project settings, per-build provider list, branded buttons (pending the owner's accounts; release blocker: no Google sign-in on iOS without Sign in with Apple)
