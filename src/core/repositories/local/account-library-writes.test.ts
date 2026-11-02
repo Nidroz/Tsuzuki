@@ -7,8 +7,8 @@ import { USER_A, flush, setupOfflineLibraries } from './__fixtures__/in-memory-r
 import { readAccountQueue } from './account-library-documents';
 
 // the writes of the offline account library (ADR-0017 "Writes"): queued on the device before any
-// request, tried at once online, kept for the replay on network and signed-out, removed and
-// rejected when the server refused them
+// request, tried at once online, kept for the replay on network, signed-out and unknown (the
+// server may have committed them), removed and rejected when the server refused them
 
 // the jest clock starts at 2026-01-01T00:00:00Z (test/core/fixed-clock.ts): the server time
 const DEVICE_TIME = '2025-12-31T23:00:00.000Z';
@@ -55,7 +55,7 @@ describe('a save', () => {
     expect(queued().records).toHaveLength(1);
   });
 
-  it.each(['network', 'signed-out'] as const)(
+  it.each(['network', 'signed-out', 'unknown'] as const)(
     'failing with %s, keeps the write for this user and resolves with the queued entry',
     async (reason) => {
       const { library, remote, listener, queued } = setup();
@@ -84,7 +84,7 @@ describe('a save', () => {
     expect(queued().records).toStrictEqual([]);
   });
 
-  it.each(['rejected', 'unknown', 'invalid-row'] as const)(
+  it.each(['rejected', 'invalid-row'] as const)(
     'refused with %s, leaves the queue and rejects with that error',
     async (reason) => {
       const { library, remote, listener, queued } = setup();
@@ -96,6 +96,18 @@ describe('a save', () => {
       expect(queued().records).toStrictEqual([]);
     },
   );
+
+  it('failing with an error the account store did not map, keeps the write, reported', async () => {
+    const { library, remote, listener, queued, captureError } = setup();
+    const bug = new TypeError('store bug');
+    remote.failNext('save', bug);
+
+    await expect(library.save(changed())).resolves.toStrictEqual(changed());
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(queued().records).toHaveLength(1);
+    expect(captureError).toHaveBeenCalledWith(bug, { source: 'library-replay' });
+  });
 
   it('confirmed, leaves a newer write of its key queued meanwhile in the queue', async () => {
     const { library, remote, connectivity, queued } = setup();

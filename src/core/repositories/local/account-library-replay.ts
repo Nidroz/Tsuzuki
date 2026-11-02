@@ -116,6 +116,7 @@ const failureOf = (
   error: unknown,
 ): BatchResult => {
   const reason = error instanceof LibraryRemoteError ? error.reason : null;
+  // transient, a 408 or a 429 included (network): retried with backoff, never split nor refused
   if (reason === 'network' || reason === 'unknown') {
     return { type: 'retry' };
   }

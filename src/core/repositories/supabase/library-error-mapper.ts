@@ -32,13 +32,18 @@ export type LibraryFailure =
 
 const NO_RESPONSE = 0;
 const HTTP_UNAUTHORIZED = 401;
+const HTTP_REQUEST_TIMEOUT = 408;
+const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_CLIENT_ERROR_MIN = 400;
 const HTTP_CLIENT_ERROR_MAX = 499;
 const HTTP_BAD_GATEWAY = 502;
 const HTTP_SERVICE_UNAVAILABLE = 503;
 const HTTP_GATEWAY_TIMEOUT = 504;
-// the api or its proxy is unreachable
-const GATEWAY_STATUSES: ReadonlySet<number> = new Set([
+// the api or its proxy is unreachable, or asks to try later (no answer in time, a rate limit):
+// transient, never a refusal of the write (a queued write is retried with backoff, not split)
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([
+  HTTP_REQUEST_TIMEOUT,
+  HTTP_TOO_MANY_REQUESTS,
   HTTP_BAD_GATEWAY,
   HTTP_SERVICE_UNAVAILABLE,
   HTTP_GATEWAY_TIMEOUT,
@@ -50,7 +55,7 @@ const REPORTABLE_CODE = /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/;
 const errorCodeSchema = z.object({ code: z.string().regex(REPORTABLE_CODE) });
 
 const responseReason = (status: number): LibraryRemoteReason => {
-  if (status === NO_RESPONSE || GATEWAY_STATUSES.has(status)) {
+  if (status === NO_RESPONSE || RETRYABLE_STATUSES.has(status)) {
     return 'network';
   }
   if (status === HTTP_UNAUTHORIZED) {

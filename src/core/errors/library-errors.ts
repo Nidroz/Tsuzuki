@@ -37,8 +37,8 @@ export class LibrarySnapshotError extends RangeError {
 }
 
 /**
- * why a call of the account store failed (docs/ARCHITECTURE.md §4 "Account store"): no response or
- * a gateway status (`network`); the session is no longer the store's user, or the token was
+ * why a call of the account store failed (docs/ARCHITECTURE.md §4 "Account store"): no response, a
+ * gateway status, a 408 or a 429 (`network`, transient); the session is no longer the store's user, or the token was
  * refused (`signed-out`); the database refused the request (`rejected`, a bug or a schema drift); a
  * row this version cannot read (`invalid-row`); anything else (`unknown`).
  */

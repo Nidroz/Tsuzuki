@@ -24,7 +24,11 @@ import {
   notifyQueued,
   recordId,
 } from './account-library-coordination';
-import { replayQueuedWrites, type ReplayContext } from './account-library-replay';
+import {
+  LIBRARY_REPLAY_REPORT_SOURCE,
+  replayQueuedWrites,
+  type ReplayContext,
+} from './account-library-replay';
 
 /** a replay context and the wall clock that times a removal. */
 export interface OfflineAccountLibraryContext extends ReplayContext {
@@ -34,8 +38,11 @@ export interface OfflineAccountLibraryContext extends ReplayContext {
 const isRemoteFailure = (error: unknown, reasons: readonly string[]): boolean =>
   error instanceof LibraryRemoteError && reasons.includes(error.reason);
 
-// a direct attempt failing so leaves its write queued for this user; a read falls back to the copy
-const KEPT_REASONS = ['network', 'signed-out'] as const;
+// a direct attempt failing so leaves the queue and rejects: the server refused the write, or wrote
+// it and answered a row that does not parse. any other failure (network, signed-out, unknown: the
+// server may have committed it) keeps the write queued for this user, until a replay confirms it
+const LEAVING_REASONS = ['rejected', 'invalid-row'] as const;
+// a read failing so falls back to the copy
 const UNREACHABLE_REASONS = ['network'] as const;
 
 // the state a queued write asks for: its entry, or null for a removal
@@ -45,7 +52,7 @@ const stateOf = (write: LibraryQueuedWrite): LibraryEntry | null =>
 export const createOfflineAccountLibrary = (
   context: OfflineAccountLibraryContext,
 ): OfflineAccountLibraryRepository => {
-  const { coordination, remote, isOnline, now } = context;
+  const { coordination, remote, isOnline, reporter, now } = context;
   const { store } = coordination;
 
   const queuedStateOf = (key: MediaKey): LibraryEntry | null | undefined => {
@@ -103,8 +110,8 @@ export const createOfflineAccountLibrary = (
     return queued;
   };
 
-  // the regular request of a queued write: a success confirms it, network or signed-out keeps
-  // it, any other failure removes it (the server refused it) and rejects
+  // the regular request of a queued write: a success confirms it, a definite refusal (rejected,
+  // invalid-row) removes it and rejects, any other failure keeps it for the replay
   const attemptDirect = async <T, R>(
     record: QueuedWriteRecord,
     request: () => Promise<T>,
@@ -122,11 +129,15 @@ export const createOfflineAccountLibrary = (
     } catch (error) {
       // released before the listeners hear of the write: a run they start may send it
       countDirectAttempt(coordination, id, -1);
-      if (isRemoteFailure(error, KEPT_REASONS)) {
-        return keepQueued(queued);
+      if (isRemoteFailure(error, LEAVING_REASONS)) {
+        store.removeConfirmed([record]);
+        throw error;
       }
-      store.removeConfirmed([record]);
-      throw error;
+      if (!(error instanceof LibraryRemoteError)) {
+        // a bug of the account store, which maps its failures: read as unknown, never silent
+        reporter.captureError(error, { source: LIBRARY_REPLAY_REPORT_SOURCE });
+      }
+      return keepQueued(queued);
     }
     countDirectAttempt(coordination, id, -1);
     store.removeConfirmed([record]);

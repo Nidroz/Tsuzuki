@@ -169,7 +169,7 @@ export interface RemoteAccountLibraryRepository extends AccountLibraryRepository
    * request. the session guard applies (A-03), and the database refuses the call when the token's
    * user is not this store's user, so the writes of one user never reach another account.
    * rejects with a LibraryRemoteError on any failure: `network` (no answer, the timeout, a gateway
-   * status, a session read error), `signed-out` (another user's session or none, a refused token,
+   * status, a 408 or a 429, a session read error), `signed-out` (another user's session or none, a refused token,
    * or a row of another user in the answer), `rejected` (the database refused the call: nothing
    * was written), `unknown` (an answer that does not parse or does not hold each key exactly once,
    * reported); `invalid-row` is not used. writes hold personal data: never logged, never in an
@@ -202,9 +202,10 @@ export interface LibraryReplayRun {
  * `save` and `remove` resolve as soon as the change is kept on the device: with the stored entry
  * when the server confirmed it at once, else with the queued state (a save's entry at its queued
  * time, its `createdAt` kept from the copy when known). they reject with the LibraryRemoteError of
- * a direct attempt the server refused (`rejected`, `unknown`, `invalid-row`: the write leaves the
- * queue, so the user sees the failure and the entry refetches), never on `network` or
- * `signed-out` (the write stays queued for this user only). `get` and `list` show every queued
+ * a direct attempt the server definitely refused (`rejected`) or wrote (`invalid-row`): the write
+ * leaves the queue, so the user sees the failure and the entry refetches. any other failure
+ * (`network`, `signed-out`, `unknown`: the server may have committed it) keeps the write queued
+ * for this user only, until a replay confirms it. `get` and `list` show every queued
  * write over the server state (read your writes); offline, or when the server is unreachable,
  * they read the device copy, and reject with `network` when this user has no copy yet.
  * `mergeGuestEntries` goes to the account store directly, never through the queue.
@@ -228,8 +229,8 @@ export interface OfflineAccountLibraryRepository extends AccountLibraryRepositor
 
   /**
    * calls `listener` each time a write call leaves its write in the queue (offline, a replay run
-   * sending its key, or a direct attempt failing with `network` or `signed-out`), for every
-   * instance of this user. returns the unsubscribe function.
+   * sending its key, or a direct attempt failing otherwise than `rejected` or `invalid-row`), for
+   * every instance of this user. returns the unsubscribe function.
    */
   subscribeToQueuedWrites(listener: () => void): () => void;
 }

@@ -23,6 +23,11 @@ describe('libraryRemoteReason', () => {
     expect(libraryRemoteReason(response(status))).toBe('network');
   });
 
+  // no answer in time, a rate limit: try later, never a refusal of the write
+  it.each([408, 429])('reads status %p as network, not rejected', (status) => {
+    expect(libraryRemoteReason(response(status, 'PGRST000'))).toBe('network');
+  });
+
   it('reads a 401 and the session guard as signed-out', () => {
     expect(libraryRemoteReason(response(401))).toBe('signed-out');
     expect(libraryRemoteReason({ type: 'session' })).toBe('signed-out');
@@ -32,9 +37,12 @@ describe('libraryRemoteReason', () => {
     expect(libraryRemoteReason({ type: 'session-read' })).toBe('network');
   });
 
-  it.each([400, 403, 404, 406, 409, 499])('reads status %p as rejected', (status) => {
-    expect(libraryRemoteReason(response(status, '23514'))).toBe('rejected');
-  });
+  it.each([400, 403, 404, 406, 407, 409, 410, 428, 430, 499])(
+    'reads status %p as rejected',
+    (status) => {
+      expect(libraryRemoteReason(response(status, '23514'))).toBe('rejected');
+    },
+  );
 
   it('reads a row the schema rejects as invalid-row', () => {
     expect(libraryRemoteReason({ type: 'invalid-row' })).toBe('invalid-row');
