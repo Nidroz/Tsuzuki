@@ -1,6 +1,7 @@
 import type { MediaDetail } from '@core/catalog/catalog-provider';
 import type { MediaKey } from '@core/domain/media';
 import { LibrarySnapshotError } from '@core/errors/library-errors';
+import { useGuestMerge } from '@core/hooks/use-guest-merge';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
 import { useTranslation } from '@core/i18n/index';
@@ -25,19 +26,48 @@ export interface LibrarySectionProps {
  * library", an entry its panel. once the entry is read, the heading has the favorite toggle: on a
  * media outside the library it adds a planned favorite (BR-05). viewing only reads the library:
  * every write is a tap, and a failed write shows a translated message until it is dismissed or
- * the next action runs
+ * the next action runs. while the guest library is merged into the account (ADR-0016), a spinner
+ * labelled with the merge says so; after a failed merge, the failure with a retry. the library
+ * stays pending until a merge succeeded: neither Add nor the favorite toggle shows meanwhile
  */
 export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
   const { t } = useTranslation();
+  const merge = useGuestMerge();
   const { data, error, isFetching, refetch } = useLibraryEntry(mediaKey, { media });
   const actions = useLibraryEntryActions(mediaKey, { media });
+  // no entry to act on: the account may lack the guest copy of this media
+  const isMergeUnfinished = merge.status === 'merging' || merge.status === 'failed';
 
   const retry = useCallback(() => {
     void refetch();
   }, [refetch]);
 
   let body: ReactNode;
-  if (data === undefined) {
+  if (merge.status === 'merging') {
+    // the spinner announces the sentence: its visible caption is hidden from screen readers
+    body = (
+      <Row gap="sm">
+        <Spinner
+          size="small"
+          accessibilityLabel={t('library.merge.inProgress')}
+          testID={`${TEST_ID}-merging`}
+        />
+        <Stack gap="none" flex>
+          <Text tone="muted" accessibilityHidden>
+            {t('library.merge.inProgress')}
+          </Text>
+        </Stack>
+      </Row>
+    );
+  } else if (merge.status === 'failed') {
+    body = (
+      <InlineError
+        message={t('library.merge.failed')}
+        action={{ label: t('library.merge.retry'), onPress: merge.retry }}
+        testID={`${TEST_ID}-merge-error`}
+      />
+    );
+  } else if (data === undefined) {
     // a media no snapshot can hold fails the read again on any retry: none is offered. while the
     // retry of another error runs, the spinner replaces it: a tap never restarts the read
     body =
@@ -81,7 +111,7 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
             {t('mediaDetail.library.title')}
           </Text>
         </Stack>
-        {data === undefined ? null : (
+        {data === undefined || isMergeUnfinished ? null : (
           <IconButton
             icon={isFavorite ? 'favorite' : 'favorite-outline'}
             accessibilityLabel={t(

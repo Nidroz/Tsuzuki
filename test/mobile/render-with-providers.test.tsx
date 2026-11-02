@@ -1,5 +1,6 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { useAuthContext } from '@core/hooks/use-auth-context';
+import { useGuestMerge, type GuestMergeValue } from '@core/hooks/use-guest-merge';
 import { useCatalogProvider } from '@core/hooks/use-catalog-provider';
 import { useRecentSearches } from '@core/hooks/use-recent-searches';
 import { type Language, useTranslation } from '@core/i18n/index';
@@ -26,6 +27,7 @@ import {
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 import { takeUnexpectedConsoleMessages } from '../core/fail-on-console';
 import {
+  IDLE_GUEST_MERGE,
   missingKeyMessage,
   providersFor,
   renderWithProviders,
@@ -85,6 +87,19 @@ const SHOW_ADULT_TEST_ID = 'show-adult';
 function ShowAdultProbe() {
   const { showAdult } = usePreferences();
   return <Text testID={SHOW_ADULT_TEST_ID}>{String(showAdult)}</Text>;
+}
+
+const GUEST_MERGE_TEST_ID = 'guest-merge';
+
+// what the guest merge probe last read
+const guestMergeSeen: { value: GuestMergeValue | null } = { value: null };
+
+function GuestMergeProbe() {
+  const value = useGuestMerge();
+  useEffect(() => {
+    guestMergeSeen.value = value;
+  }, [value]);
+  return <Text testID={GUEST_MERGE_TEST_ID}>{value.status}</Text>;
 }
 
 describe('renderWithProviders', () => {
@@ -205,6 +220,18 @@ describe('renderWithProviders', () => {
     expect(authSeen.repository).toBe(authRepository);
     expect(screen.getByTestId(AUTH_STATUS_TEST_ID)).toHaveTextContent('signed-in');
     await expect(authSeen.captcha?.getToken('sign-in')).resolves.toBeNull();
+  });
+
+  it('gives an idle guest merge by default, or the one passed', async () => {
+    await renderWithProviders(<GuestMergeProbe />);
+
+    expect(guestMergeSeen.value).toBe(IDLE_GUEST_MERGE);
+    expect(screen.getByTestId(GUEST_MERGE_TEST_ID)).toHaveTextContent('idle');
+
+    const failed: GuestMergeValue = { status: 'failed', retry: () => undefined };
+    await renderWithProviders(<GuestMergeProbe />, { guestMerge: failed });
+
+    expect(guestMergeSeen.value).toBe(failed);
   });
 
   it('gives each render a new query client and catalog provider', async () => {

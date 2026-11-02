@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 -- anon: no access at all
 
@@ -61,8 +61,9 @@ select is_empty(
   'authenticated cannot truncate, reference or add triggers to any table in public'
 );
 
--- functions: only triggers call them, never the api. extension members are skipped: supabase test
--- db installs pgtap in public for the duration of the run
+-- functions: the api calls the guest merge only (ADR-0016), every other function is called by a
+-- trigger or by that function. extension members are skipped: supabase test db installs pgtap in
+-- public for the duration of the run
 
 select is_empty(
   $$
@@ -75,10 +76,28 @@ select is_empty(
       )
       and (
         has_function_privilege('anon', p.oid, 'execute')
-        or has_function_privilege('authenticated', p.oid, 'execute')
+        or has_function_privilege('public', p.oid, 'execute')
       )
   $$,
-  'no function in public or private is executable by anon or authenticated'
+  'no function in public or private is executable by anon or public'
+);
+
+-- the names (collation "C") and the arguments (the default collation) give the text no collation
+select results_eq(
+  $$
+    select pg_catalog.format(
+      '%I.%I(%s)', n.nspname, p.proname, pg_catalog.pg_get_function_identity_arguments(p.oid)
+    ) collate "default"
+    from pg_catalog.pg_proc p
+    join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private')
+      and not exists (
+        select 1 from pg_catalog.pg_depend d where d.objid = p.oid and d.deptype = 'e'
+      )
+      and has_function_privilege('authenticated', p.oid, 'execute')
+  $$,
+  $$ values ('public.merge_guest_library_entries(entries jsonb)') $$,
+  'authenticated executes public.merge_guest_library_entries(jsonb) only'
 );
 
 select ok(

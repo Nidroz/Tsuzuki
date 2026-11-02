@@ -7,16 +7,17 @@ import { z } from 'zod';
 import type { ErrorContext } from '../../errors/error-reporter';
 import { LibraryRemoteError, type LibraryRemoteReason } from '../../errors/library-errors';
 
-/** the repository calls, as named in reports. */
-export type LibraryOperation = 'list' | 'get' | 'save' | 'remove';
+/** the repository calls, as named in reports; `merge` is mergeGuestEntries (A-04). */
+export type LibraryOperation = 'list' | 'get' | 'save' | 'remove' | 'merge';
 
 /** the `source` of every account library report. */
 export const LIBRARY_REPORT_SOURCE = 'library-remote';
 
 /**
  * a failed call before it is mapped: a postgrest response (`status` 0 when no response came: a
- * lost connection, the timeout; `error` its postgrest error, null for a success without its row),
- * the session guard, a row parseLibraryRow rejects, or an error thrown by the client.
+ * lost connection, the timeout; `error` its postgrest error, null for a success without its row or
+ * whose body is not the expected answer), the session guard, a row parseLibraryRow rejects, or an
+ * error thrown by the client.
  */
 export type LibraryFailure =
   | { readonly type: 'response'; readonly status: number; readonly error: unknown }

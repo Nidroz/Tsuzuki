@@ -217,6 +217,12 @@
       },
       "writeError": "Votre modification n'a pas pu être enregistrée.",
       "dismiss": "Fermer"
+    },
+    "merge": {
+      "inProgress": "Ajout à votre compte des titres enregistrés sur cet appareil…",
+      "failedTitle": "Votre bibliothèque n'est pas encore prête",
+      "failed": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte. Ils restent sur cet appareil : réessayez pour les ajouter et ouvrir votre bibliothèque.",
+      "retry": "Réessayer"
     }
   },
   "favorites": {

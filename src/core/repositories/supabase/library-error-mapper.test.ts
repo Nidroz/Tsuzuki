@@ -97,4 +97,12 @@ describe('libraryReportContext', () => {
       tags: { operation: 'list' },
     });
   });
+
+  it('tags the merge operation', () => {
+    expect(libraryReportContext('merge', response(409, '23505')).tags).toStrictEqual({
+      operation: 'merge',
+      code: '23505',
+      status: '409',
+    });
+  });
 });

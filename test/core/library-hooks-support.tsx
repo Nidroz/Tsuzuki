@@ -1,18 +1,41 @@
-// a wrapper giving the library hooks a query client and a library repository, and catalog data
-// of the media of ENTRY_KEY, for the library hook tests (src/core/hooks/)
+// wrappers giving the library hooks a query client and a library repository, and catalog data
+// of the media of ENTRY_KEY, for the library hook tests (src/core/hooks/); the session library
+// over a session the test drives, for the session library and guest merge tests
+import { jest } from '@jest/globals';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
-import { renderHook } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { act, renderHook } from '@testing-library/react';
+import { useEffect, type ReactNode } from 'react';
 
-import { createFakeLibraryRepository, type FakeLibraryRepository } from './fake-library-repository';
+import { flushSessionReports } from './auth-hooks-support';
+import { createSessionAuthRepository, createSessionSource } from './fake-auth-repository';
+import {
+  createFakeAccountLibraryRepository,
+  createFakeGuestLibraryRepository,
+  createFakeLibraryRepository,
+  type FakeAccountLibraryRepository,
+  type FakeLibraryRepository,
+} from './fake-library-repository';
 import { ENTRY_KEY, SNAPSHOT, TITLE_TEXT } from './library-entry-fixtures';
 import { createFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import type { MediaSummary } from '@core/catalog/catalog-provider';
 import type { LibraryEntry } from '@core/domain/library-entry';
+import type { ErrorReporter } from '@core/errors/error-reporter';
 import { createQueryClient } from '@core/query/query-client';
+import { noCaptcha, type AuthSession } from '@core/repositories/auth-repository';
 import type { LibraryRepository } from '@core/repositories/library-repository';
+import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
-import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
+import type { GuestMergeStatus } from '@core/hooks/guest-merge-context';
+import {
+  LibraryContextProvider,
+  type LibraryContextProviderProps,
+} from '@core/hooks/LibraryContextProvider';
+import {
+  PENDING_LIBRARY_REPOSITORY,
+  SessionLibraryContextProvider,
+} from '@core/hooks/SessionLibraryContextProvider';
+import { useGuestMerge } from '@core/hooks/use-guest-merge';
+import { useLibraryContext } from '@core/hooks/use-library-context';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
 
@@ -46,25 +69,43 @@ export const libraryWrapper =
     </QueryClientProvider>
   );
 
+type OnRetired = LibraryContextProviderProps['onRetired'];
+
 /**
  * libraryWrapper whose repository a test switches, as the session library switch does (A-03):
- * `switchTo(next)` then a rerender gives the hooks a new repository, writer and cache scope. with
- * a fake catalog provider, for useLibraryList
+ * `switchTo(next)` then a rerender gives the hooks a new repository, writer and cache scope;
+ * `setOnRetired(next)` then a rerender gives the provider another `onRetired`. with a fake catalog
+ * provider, for useLibraryList
  */
-export const switchableLibraryWrapper = (queryClient: QueryClient, initial: LibraryRepository) => {
-  const current = { repository: initial };
+export const switchableLibraryWrapper = (
+  queryClient: QueryClient,
+  initial: LibraryRepository,
+  onRetired?: OnRetired,
+) => {
+  const current: { repository: LibraryRepository; onRetired: OnRetired } = {
+    repository: initial,
+    onRetired,
+  };
   const provider = createFakeCatalogProvider();
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={provider}>
-        <LibraryContextProvider repository={current.repository}>{children}</LibraryContextProvider>
+        <LibraryContextProvider
+          repository={current.repository}
+          {...(current.onRetired !== undefined && { onRetired: current.onRetired })}
+        >
+          {children}
+        </LibraryContextProvider>
       </CatalogContextProvider>
     </QueryClientProvider>
   );
   const switchTo = (next: LibraryRepository): void => {
     current.repository = next;
   };
-  return { wrapper, switchTo };
+  const setOnRetired = (next: OnRetired): void => {
+    current.onRetired = next;
+  };
+  return { wrapper, switchTo, setOnRetired };
 };
 
 export interface EntryHookProps {
@@ -89,4 +130,154 @@ export const renderLibraryEntry = (
     { initialProps: { media }, wrapper: libraryWrapper(queryClient, repository) },
   );
   return { ...rendered, queryClient, repository };
+};
+
+/** placeholder user ids */
+export const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+export const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+
+/** what one committed render under the session library showed */
+export interface SessionLibraryFrame {
+  readonly repository: LibraryRepository;
+  readonly status: GuestMergeStatus;
+  /** the entry of ENTRY_KEY: undefined while it loads */
+  readonly entry: LibraryEntry | null | undefined;
+}
+
+export interface SessionLibrarySetup {
+  /** the session reported once the provider subscribes; `loading`: never reported */
+  readonly session?: AuthSession | null | 'loading';
+  readonly guestEntries?: readonly LibraryEntry[];
+  /** the entries of each user's account library, empty for a user left out */
+  readonly accountEntries?: ReadonlyMap<string, readonly LibraryEntry[]>;
+  /** called with each account repository as it is created, before any call reaches it */
+  readonly onAccount?: (userId: string, account: FakeAccountLibraryRepository) => void;
+  /** the catalog data the entry hooks get (MEDIA: add has a snapshot to write), null by default */
+  readonly media?: MediaSummary | null;
+}
+
+const neverReports = (): (() => void) => () => undefined;
+
+/**
+ * renders SessionLibraryContextProvider over a session the test drives (`emit`), a fake guest
+ * library and a new fake account library per accountRepositoryFor call, with a recording reporter.
+ * the hook reads the library, the merge status and the entry of ENTRY_KEY with its actions (with
+ * `media` as the catalog data), and records each committed render in `frames`. resolves once the
+ * initial session was reported
+ */
+export const renderSessionLibrary = async ({
+  session = null,
+  guestEntries = [],
+  accountEntries = new Map<string, readonly LibraryEntry[]>(),
+  onAccount,
+  media = null,
+}: SessionLibrarySetup = {}) => {
+  const source = createSessionSource(session === 'loading' ? null : session);
+  const auth = createSessionAuthRepository(null, {
+    onAuthStateChange: session === 'loading' ? neverReports : source.subscribe,
+  });
+  const guest = createFakeGuestLibraryRepository(guestEntries);
+  const accountRepositoryFor = jest.fn((userId: string): FakeAccountLibraryRepository => {
+    const account = createFakeAccountLibraryRepository(accountEntries.get(userId) ?? []);
+    onAccount?.(userId, account);
+    return account;
+  });
+  const captureError = jest.fn<ErrorReporter['captureError']>();
+  // the reporter prop, which replaceReporter changes
+  const current: { reporter: ErrorReporter } = { reporter: { captureError } };
+  const queryClient = createQueryClient();
+  const frames: SessionLibraryFrame[] = [];
+  const wrapper = ({ children }: { readonly children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <AuthContextProvider repository={auth} captcha={noCaptcha}>
+        <SessionLibraryContextProvider
+          guest={guest}
+          accountRepositoryFor={accountRepositoryFor}
+          reporter={current.reporter}
+        >
+          {children}
+        </SessionLibraryContextProvider>
+      </AuthContextProvider>
+    </QueryClientProvider>
+  );
+  const rendered = renderHook(
+    () => {
+      const { repository } = useLibraryContext();
+      const merge = useGuestMerge();
+      const entry = useLibraryEntry(ENTRY_KEY, { media });
+      const actions = useLibraryEntryActions(ENTRY_KEY, { media });
+      useEffect(() => {
+        frames.push({ repository, status: merge.status, entry: entry.data });
+      });
+      return { repository, merge, entry, actions };
+    },
+    { wrapper },
+  );
+  await flushSessionReports();
+
+  /**
+   * reports another session (a sign in, a sign out, another user, a token refresh), then lets the
+   * calls it starts settle inside act: a merge step never updates the provider outside of it
+   */
+  const emit = async (next: AuthSession | null): Promise<void> => {
+    await act(async () => {
+      source.emit(next);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+  };
+  /** the account repository created by the nth accountRepositoryFor call (0 first) */
+  const accountOf = (call: number): FakeAccountLibraryRepository => {
+    const result = accountRepositoryFor.mock.results[call];
+    if (result?.type !== 'return') {
+      throw new Error('no account repository was created');
+    }
+    return result.value;
+  };
+  const nameOf = (repository: LibraryRepository): string => {
+    if (repository === PENDING_LIBRARY_REPOSITORY) {
+      return 'pending';
+    }
+    if (repository === guest) {
+      return 'guest';
+    }
+    const call = accountRepositoryFor.mock.results.findIndex(
+      (result) => result.type === 'return' && result.value === repository,
+    );
+    return `account ${String(call)}`;
+  };
+  /**
+   * the frames since the nth one (0 first) as `<status> <library>`, the library `pending`,
+   * `guest` or `account <n>` (accountOf(n)), a frame equal to the previous one left out
+   */
+  const shownSince = (from: number): readonly string[] => {
+    const shown = frames.slice(from).map((frame) => `${frame.status} ${nameOf(frame.repository)}`);
+    return shown.filter((label, index) => index === 0 || label !== shown[index - 1]);
+  };
+  /** rerenders the provider with another reporter prop, the session and libraries kept */
+  const replaceReporter = (next: ErrorReporter): void => {
+    act(() => {
+      current.reporter = next;
+      rendered.rerender();
+    });
+  };
+  return {
+    ...rendered,
+    replaceReporter,
+    guest,
+    accountRepositoryFor,
+    accountOf,
+    captureError,
+    frames,
+    shownSince,
+    emit,
+  };
+};
+
+export type RenderedSessionLibrary = Awaited<ReturnType<typeof renderSessionLibrary>>;
+
+/** lets the pending calls settle, after `ms` of fake time */
+export const settleSession = async (ms = 0): Promise<void> => {
+  await act(async () => {
+    await jest.advanceTimersByTimeAsync(ms);
+  });
 };

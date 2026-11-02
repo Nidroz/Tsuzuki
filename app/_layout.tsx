@@ -121,7 +121,8 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
 });
 
 // the guest library on the device (FR-20); a damaged store is reported, never thrown. shown while
-// signed out: the session library switch picks it or the account library below
+// signed out: the session library switch picks it or the account library below, into which it
+// merges it at sign in (BR-08, ADR-0016)
 const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 
 // the supabase client of the app: anon key only, its session in the secure store, never in the
@@ -140,7 +141,8 @@ const authRepository = createSupabaseAuthRepository(supabase, {
 });
 
 // the account library of a signed-in user (FR-23), in supabase: the session library switch calls
-// it once per user id. module level, so the switch gets one stable function
+// it once per user id, and merges the guest library into each one it gets. module level, so the
+// switch gets one stable function
 const accountLibraryFor = (userId: string) =>
   createSupabaseLibraryRepository(supabase, { userId, reporter });
 
@@ -188,10 +190,11 @@ function RootStack() {
 // query cache (persisted to the storage), the auth (its mutations need the query client), the
 // catalog provider, the recent searches and the library of the session (the data dependencies,
 // next to the query client; the library writer keeps its optimistic entries in that cache, and
-// the library switch reads the session, inside the auth), then the preferences, the translations
-// and the theme. the stored preferences are read synchronously on mount, so the first frame
-// already uses them. expo-router's root already provides the SafeAreaProvider that Screen relies
-// on; ThemeProvider renders the status bar and gives navigators their theme
+// the library switch reads the session, inside the auth, and reports the guest merge failures),
+// then the preferences, the translations and the theme. the stored preferences are read
+// synchronously on mount, so the first frame already uses them. expo-router's root already
+// provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
+// gives navigators their theme
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [initialPreferences] = useState(() => loadPreferences(storage));
@@ -226,6 +229,7 @@ export default function RootLayout() {
             <SessionLibraryContextProvider
               guest={libraryRepository}
               accountRepositoryFor={accountLibraryFor}
+              reporter={reporter}
             >
               <PreferencesProvider
                 theme={themePreference}

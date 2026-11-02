@@ -17,7 +17,8 @@ import { APP_ROUTES } from './app-routes';
 
 // the session library switch (A-03): the composition root (app/_layout.tsx) shows the guest
 // library signed out and the account library of the signed-in user, created by the supabase
-// library factory over the app's client. every supabase factory is a fake: no real client
+// library factory over the app's client, into which the guest library is merged first (A-04).
+// every supabase factory is a fake: no real client
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -118,7 +119,9 @@ describe('root layout session library (A-03)', () => {
       ACCOUNT_ENTRY.media.title,
       { exact: false },
     );
-    expect(screen.queryByTestId(rowOf(GUEST_ENTRY))).not.toBeOnTheScreen();
+    // merged into the account library, and removed from the device (BR-08)
+    expect(screen.getByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
+    await expect(created.value.list()).resolves.toStrictEqual([]);
     expect(createAccountLibrary).toHaveBeenCalledTimes(1);
     expect(createAccountLibrary).toHaveBeenCalledWith(FAKE_SUPABASE_CLIENT, {
       userId: USER_ID,
@@ -127,7 +130,9 @@ describe('root layout session library (A-03)', () => {
 
     await reportSession(null);
 
-    expect(await screen.findByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
+    // the guest library, emptied by the merge
+    expect(await screen.findByTestId('library-empty')).toBeOnTheScreen();
     expect(screen.queryByTestId(rowOf(ACCOUNT_ENTRY))).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(rowOf(GUEST_ENTRY))).not.toBeOnTheScreen();
   });
 });

@@ -130,7 +130,16 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      merge_guest_library_entries: {
+        Args: { entries: Json };
+        Returns: {
+          external_id: number;
+          id_namespace: Database['public']['Enums']['media_id_namespace'];
+          media_kind: Database['public']['Enums']['media_kind'];
+          outcome: string;
+          user_id: string;
+        }[];
+      };
     };
     Enums: {
       library_status: 'current' | 'planned' | 'completed' | 'paused' | 'dropped';

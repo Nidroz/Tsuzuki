@@ -1,6 +1,7 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { GuestMergeContext, type GuestMergeValue } from '@core/hooks/guest-merge-context';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import {
   I18nProvider,
@@ -46,16 +47,30 @@ export interface ProvidersOptions {
   readonly queryClient?: QueryClient;
   /** the adult content setting of the tree (BR-06), off by default as in the app */
   readonly showAdult?: boolean;
+  /** the guest merge state the library screens read, IDLE_GUEST_MERGE by default */
+  readonly guestMerge?: GuestMergeValue;
 }
 
 interface AppProvidersProps extends WrapperProps {
   readonly language: Language;
   readonly showAdult: boolean;
+  readonly guestMerge: GuestMergeValue;
   readonly authRepository: AuthRepository;
   readonly catalogProvider: CatalogProvider;
   readonly recentSearchesRepository: RecentSearchesRepository;
   readonly queryClient: QueryClient;
 }
+
+const ignoreRetry = (): void => undefined;
+
+/**
+ * no guest merge running or failed, as signed out or once merged: the default fixed state of
+ * AppProviders, whose library is the test's own LibraryContextProvider, not the session library
+ */
+export const IDLE_GUEST_MERGE: GuestMergeValue = Object.freeze({
+  status: 'idle',
+  retry: ignoreRetry,
+});
 
 export const missingKeyMessage = (language: string, key: string): string =>
   `missing translation key "${key}" (${language}): add it to en.json and fr.json`;
@@ -104,12 +119,14 @@ export function TestPreferences({ showAdult, language = 'en', children }: TestPr
 /**
  * the providers the composition root (app/_layout.tsx) gives every route and feature, in its
  * order: the query cache (not persisted here), the auth (noCaptcha), the catalog provider, the
- * recent searches, fixed preferences with `showAdult`, the real catalogs in `language` with a
- * missing key failing the test, and the light palette for predictable colors
+ * recent searches, the fixed guest merge state `guestMerge` (where the root has the session
+ * library: a test gives its library itself), fixed preferences with `showAdult`, the real catalogs
+ * in `language` with a missing key failing the test, and the light palette for predictable colors
  */
 export function AppProviders({
   language,
   showAdult,
+  guestMerge,
   authRepository,
   catalogProvider,
   recentSearchesRepository,
@@ -121,11 +138,13 @@ export function AppProviders({
       <AuthContextProvider repository={authRepository} captcha={noCaptcha}>
         <CatalogContextProvider provider={catalogProvider}>
           <RecentSearchesContextProvider repository={recentSearchesRepository}>
-            <TestPreferences showAdult={showAdult} language={language}>
-              <I18nProvider language={language} onMissingKey={failOnMissingKey}>
-                <ThemeProvider preference="light">{children}</ThemeProvider>
-              </I18nProvider>
-            </TestPreferences>
+            <GuestMergeContext value={guestMerge}>
+              <TestPreferences showAdult={showAdult} language={language}>
+                <I18nProvider language={language} onMissingKey={failOnMissingKey}>
+                  <ThemeProvider preference="light">{children}</ThemeProvider>
+                </I18nProvider>
+              </TestPreferences>
+            </GuestMergeContext>
           </RecentSearchesContextProvider>
         </CatalogContextProvider>
       </AuthContextProvider>
@@ -145,12 +164,14 @@ export const providersFor = ({
   recentSearchesRepository = createFakeRecentSearchesRepository(),
   queryClient = createQueryClient(),
   showAdult = false,
+  guestMerge = IDLE_GUEST_MERGE,
 }: ProvidersOptions = {}): ComponentType<WrapperProps> =>
   function Providers({ children }: WrapperProps) {
     return (
       <AppProviders
         language={language}
         showAdult={showAdult}
+        guestMerge={guestMerge}
         authRepository={authRepository}
         catalogProvider={catalogProvider}
         recentSearchesRepository={recentSearchesRepository}

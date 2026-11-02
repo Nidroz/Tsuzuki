@@ -1,5 +1,6 @@
 // renders the library screen over an in-memory library repository, for the LibraryScreen tests.
 // the tests mock expo-router's router themselves
+import type { GuestMergeValue } from '@core/hooks/guest-merge-context';
 import type { Language } from '@core/i18n/index';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { createQueryClient } from '@core/query/query-client';
@@ -13,7 +14,7 @@ import {
   createFakeLibraryRepository,
   type FakeLibraryRepository,
 } from '../core/fake-library-repository';
-import { renderWithProviders } from './render-with-providers';
+import { IDLE_GUEST_MERGE, renderWithProviders } from './render-with-providers';
 
 export interface LibraryScreenSetup {
   /** the repository of the screen; a fake holding LIBRARY by default */
@@ -23,6 +24,8 @@ export interface LibraryScreenSetup {
   readonly queryClient?: QueryClient;
   /** the adult content setting (BR-06), off by default */
   readonly showAdult?: boolean;
+  /** the guest merge state the screen reads, IDLE_GUEST_MERGE by default */
+  readonly guestMerge?: GuestMergeValue;
 }
 
 /** renders LibraryScreen over a fake library repository and returns it with a user */
@@ -31,12 +34,13 @@ export const renderLibraryScreen = async ({
   language = 'en',
   queryClient = createQueryClient(),
   showAdult = false,
+  guestMerge = IDLE_GUEST_MERGE,
 }: LibraryScreenSetup = {}) => {
   await renderWithProviders(
     <LibraryContextProvider repository={repository}>
       <LibraryScreen />
     </LibraryContextProvider>,
-    { language, queryClient, showAdult },
+    { language, queryClient, showAdult, guestMerge },
   );
   return { repository, user: userEvent.setup() };
 };

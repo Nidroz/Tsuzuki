@@ -19,8 +19,8 @@ import {
   LIBRARY_CONFLICT_COLUMNS,
   defaultRow,
   type LibraryRow,
-} from './__fixtures__/library-handlers';
-import { LIBRARY_PAGE_SIZE } from './library-repository';
+} from './__fixtures__/postgrest-fake';
+import { LIBRARY_PAGE_SIZE } from './library-requests';
 import { LIBRARY_ROW_COLUMNS } from './library-row';
 
 const SEEDED_AT = '2026-02-01T08:00:00.000000+00:00';
