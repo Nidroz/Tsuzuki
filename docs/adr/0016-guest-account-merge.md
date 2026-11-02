@@ -1,6 +1,6 @@
 # ADR-0016: Guest to account library merge
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-31, revised 2026-11-01 (the open question resolved: B1)
 
 ## Context

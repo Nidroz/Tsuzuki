@@ -221,7 +221,7 @@ Details:
 - [x] A-01 Email auth (sign up with confirmation, sign in, reset password), captcha on the auth endpoints (`ARCHITECTURE.md` §9)
 - [x] A-02 Google and Apple sign-in (PKCE): flow, buttons, redirect route and errors behind the `OAuthBrowser` seam (ADR-0015); going live is A-09
 - [x] A-03 Supabase library repository + repository switch on auth state: account store with a session guard, library cache scoped per repository, `media_is_adult` without default
-- [x] A-04 Guest → account merge (BR-08): a security definer merge function keeping each entry's own time capped at the server's now, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, proposed)
+- [x] A-04 Guest → account merge (BR-08): a security definer merge function keeping each entry's own time capped at the server's now, guest store emptied of the confirmed entries only, merge status and retry in the library tabs (ADR-0016, accepted)
 - [ ] A-05 Offline write queue and replay
 - [ ] A-06 Sign out purge; `delete-account` Edge Function + in-app flow
 - [ ] A-08 Captcha provider on the auth endpoints (pending the owner's provider account; blocker before public release, prerequisite of R-06)
