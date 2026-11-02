@@ -254,11 +254,12 @@ Details:
 - Apple sign-in (A-09, ADR-0015): before deleting an account with an Apple identity, revoke the user's Apple tokens (App Store guideline 5.1.1(v)), or record why it does not apply while iOS builds are off.
 - Offline queue follow-ups from the A-05 review, when the purge touches the queue:
   - a queue document with a newer envelope version (an update rolled back) reads as empty, and the next queued write replaces it: make an unknown version read-only, or skip the write (`src/core/repositories/local/account-library-documents.ts`);
-  - a write refused during a replay stays queued and shown over the server state on every launch, with no notice: give it a way out (a retry cap with a visible state, or dropping it with a message);
+  - a write refused during a replay, or one that keeps failing `unknown` (a lasting 5xx), stays queued and shown over the server state on every launch, with no notice: give it a way out (a retry cap with a visible state, or dropping it with a message);
   - a `kept` replay leaves the device copy at the state before the change, so an offline read can show an entry that is neither the user's version nor the server's until the next list: refresh `kept` keys (`remote.get`) or drop them from the copy (`account-library-replay.ts`);
   - a direct write that times out but commits at server time S stays queued at its client time t1; a later change timed before S (device clock behind) then answers `kept` and is lost without a message: qualify "Clock residuals" in ADR-0017 or time the next change of that key after S;
   - on a failed write, the library writer drops the pending coalesced change only: a non-coalesced write already chained behind the failed one still saves the failed change (`src/core/hooks/library-writer.ts`);
-  - nits: `LibraryWriter.activeKeyCount` is a test-only method on the production interface; `LIBRARY_REPLAY_DRIVER_SOURCE` duplicates `LIBRARY_REPLAY_REPORT_SOURCE`.
+  - nits: `LibraryWriter.activeKeyCount` is a test-only method on the production interface; `LIBRARY_REPLAY_DRIVER_SOURCE` duplicates `LIBRARY_REPLAY_REPORT_SOURCE`; a store bug in a direct attempt is reported under the `library-replay` source (`account-library.ts`): give it its own source;
+  - during a 5xx outage every direct write and up to 4 replay calls per trigger are each reported as `unknown` (`library-requests.ts`): deduplicate or throttle these reports.
 
 ### A-08 Captcha provider on the auth endpoints
 - Owner decision (A-01): a blocker before any public release, done before R-06. The provider will likely be Cloudflare Turnstile; the owner creates the account when A-08 starts. Record the provider choice as an Update section of ADR-0014 or as a new ADR.
