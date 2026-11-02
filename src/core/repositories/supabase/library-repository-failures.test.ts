@@ -89,12 +89,14 @@ describe('createSupabaseLibraryRepository session guard', () => {
     expect(backend.requests).toHaveLength(1);
   });
 
-  it('rejects with signed-out when the session cannot be read', async () => {
-    const { backend, repository, client } = setup();
+  // a failed read (a token refresh failing offline) is transient, never a sign out (ADR-0017)
+  it('rejects with network, never reported, when the session cannot be read', async () => {
+    const { backend, repository, client, captureError } = setup();
     jest.spyOn(client.auth, 'getSession').mockRejectedValue(new Error('keystore locked'));
 
-    await expect(repository.save(entryOf())).rejects.toMatchObject({ reason: 'signed-out' });
+    await expect(repository.save(entryOf())).rejects.toMatchObject({ reason: 'network' });
     expect(backend.requests).toStrictEqual([]);
+    expect(captureError).not.toHaveBeenCalled();
   });
 });
 

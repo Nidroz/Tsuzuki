@@ -29,7 +29,7 @@ describe('library errors', () => {
 
     expect(error.name).toBe('LibraryStorageError');
     expect(error.reason).toBe('invalid-json');
-    expect(error.message).toBe('Guest library storage is damaged: invalid-json');
+    expect(error.message).toBe('Library storage is damaged: invalid-json');
     expect(Object.keys(error).sort()).toStrictEqual(['name', 'reason']);
   });
 

@@ -1,10 +1,11 @@
 import { describe, expect, it, jest } from '@jest/globals';
+import { AuthError } from '@supabase/supabase-js';
 
 import { ENTRY_KEY, entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
 import { failureOf } from '../../../../test/core/library-repository-contract-support';
 import { server } from '../../../../test/core/msw-server';
-import type { AccountLibraryRepository } from '../library-repository';
-import { createAccountLibrary, seedEntries } from './__fixtures__/account-library';
+import type { RemoteAccountLibraryRepository } from '../library-repository';
+import { OTHER_USER_ID, createAccountLibrary, seedEntries } from './__fixtures__/account-library';
 import { LIBRARY_REQUEST_TIMEOUT_MS } from './library-requests';
 
 // the session guard and the request timeout of every account store request (library-requests.ts)
@@ -15,9 +16,21 @@ const setup = (options?: Parameters<typeof createAccountLibrary>[0]) => {
   return library;
 };
 
-type Operation = 'list' | 'get' | 'save' | 'remove' | 'mergeGuestEntries';
+type Operation = 'list' | 'get' | 'save' | 'remove' | 'mergeGuestEntries' | 'replayWrites';
 
-const call = (repository: AccountLibraryRepository, operation: Operation): Promise<unknown> => {
+const OPERATIONS: readonly Operation[] = [
+  'list',
+  'get',
+  'save',
+  'remove',
+  'mergeGuestEntries',
+  'replayWrites',
+];
+
+const call = (
+  repository: RemoteAccountLibraryRepository,
+  operation: Operation,
+): Promise<unknown> => {
   switch (operation) {
     case 'list':
       return repository.list();
@@ -29,11 +42,13 @@ const call = (repository: AccountLibraryRepository, operation: Operation): Promi
       return repository.remove(ENTRY_KEY);
     case 'mergeGuestEntries':
       return repository.mergeGuestEntries([entryOf()]);
+    case 'replayWrites':
+      return repository.replayWrites([{ type: 'save', entry: entryOf() }]);
   }
 };
 
 describe('account store session guard under the request timeout', () => {
-  it.each<Operation>(['list', 'get', 'save', 'remove', 'mergeGuestEntries'])(
+  it.each(OPERATIONS)(
     'rejects %s with network when the session read does not answer in time, sending nothing',
     async (operation) => {
       const { backend, repository, captureError } = setup({ stalledSessionRead: true });
@@ -54,6 +69,48 @@ describe('account store session guard under the request timeout', () => {
       expect(captureError).not.toHaveBeenCalled();
     },
   );
+
+  // a failed read (a token refresh failing offline) is transient, never a sign out (ADR-0017)
+  it.each(OPERATIONS)(
+    'rejects %s with network, never reported, when the session read answers an error',
+    async (operation) => {
+      const { backend, repository, client, captureError } = setup();
+      jest
+        .spyOn(client.auth, 'getSession')
+        .mockResolvedValue({ data: { session: null }, error: new AuthError('refresh failed') });
+
+      await expect(call(repository, operation)).rejects.toMatchObject({
+        name: 'LibraryRemoteError',
+        reason: 'network',
+      });
+      expect(backend.requests).toStrictEqual([]);
+      expect(captureError).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(OPERATIONS)(
+    'rejects %s with network, never reported, when the session read throws',
+    async (operation) => {
+      const { backend, repository, client, captureError } = setup();
+      jest.spyOn(client.auth, 'getSession').mockRejectedValue(new Error('keystore locked'));
+
+      await expect(call(repository, operation)).rejects.toMatchObject({ reason: 'network' });
+      expect(backend.requests).toStrictEqual([]);
+      expect(captureError).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    { label: 'without a session', sessionUserId: null },
+    { label: "under another user's session", sessionUserId: OTHER_USER_ID },
+  ])('still rejects with signed-out $label', async ({ sessionUserId }) => {
+    const { backend, repository } = setup({ sessionUserId });
+
+    await expect(
+      repository.replayWrites([{ type: 'save', entry: entryOf() }]),
+    ).rejects.toMatchObject({ reason: 'signed-out' });
+    expect(backend.requests).toStrictEqual([]);
+  });
 
   it('checks the session again before each page of a list', async () => {
     const { backend, repository, session } = setup();

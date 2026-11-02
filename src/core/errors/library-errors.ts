@@ -3,21 +3,23 @@
 // cause is attached, since these errors reach the error reporter
 
 /**
- * why the guest store could not be read whole: the stored text is not json, the json is not a
- * version 1 envelope, some entries failed the entry schema and were dropped, or several entries
- * had the same key and only the most recent was kept.
+ * why a library document on the device (the guest store, the account library's device copy or
+ * write queue, ADR-0017) could not be read whole: the stored text is not json, the json is not a
+ * version 1 envelope, some elements failed their schema and were dropped, or several elements had
+ * the same key and only one was kept.
  */
 export type LibraryStorageReason =
   'invalid-json' | 'invalid-envelope' | 'invalid-entries' | 'duplicate-keys';
 
 /**
- * the guest library store is damaged; reported, never thrown on read. it holds the reason only.
+ * a library document on the device is damaged; reported, never thrown on read. it holds the
+ * reason only: which document is a report tag.
  */
 export class LibraryStorageError extends Error {
   readonly reason: LibraryStorageReason;
 
   constructor(reason: LibraryStorageReason) {
-    super(`Guest library storage is damaged: ${reason}`);
+    super(`Library storage is damaged: ${reason}`);
     this.name = 'LibraryStorageError';
     this.reason = reason;
   }

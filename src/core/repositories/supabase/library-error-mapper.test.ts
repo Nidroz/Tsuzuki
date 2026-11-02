@@ -28,6 +28,10 @@ describe('libraryRemoteReason', () => {
     expect(libraryRemoteReason({ type: 'session' })).toBe('signed-out');
   });
 
+  it('reads a session that could not be read as network', () => {
+    expect(libraryRemoteReason({ type: 'session-read' })).toBe('network');
+  });
+
   it.each([400, 403, 404, 406, 409, 499])('reads status %p as rejected', (status) => {
     expect(libraryRemoteReason(response(status, '23514'))).toBe('rejected');
   });

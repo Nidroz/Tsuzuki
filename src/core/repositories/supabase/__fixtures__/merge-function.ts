@@ -28,9 +28,10 @@ import {
 export const MERGE_MAX_ENTRIES = 100;
 
 const INVALID_PARAMETER = '22023';
-const KEY_COLUMNS = ['id_namespace', 'media_kind', 'external_id'];
-// the keys of every entry, exactly: the writable columns and updated_at
-const ENTRY_KEYS = [
+/** the media key columns. */
+export const KEY_COLUMNS = ['id_namespace', 'media_kind', 'external_id'];
+/** the keys of every entry, exactly: the writable columns and updated_at. */
+export const ENTRY_KEYS = [
   ...KEY_COLUMNS,
   'media_title',
   'media_image_url',
@@ -46,11 +47,11 @@ const ENTRY_KEYS = [
   'finished_at',
   'updated_at',
 ];
-// the rfc 3339 form the function accepts for updated_at, its client_time_pattern
-const CLIENT_TIME_PATTERN =
+/** the rfc 3339 form the functions accept for updated_at, their client_time_pattern. */
+export const CLIENT_TIME_PATTERN =
   /^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]{1,6})?(?:Z|[+-][0-9]{2}:[0-9]{2})$/;
-// the earliest time the function writes, its earliest_time: postgres serves an earlier one as BC
-const EARLIEST_TIME = '0001-01-01T00:00:00.000Z';
+/** the earliest time the functions write, their earliest_time (postgres serves earlier as BC). */
+export const EARLIEST_TIME = '0001-01-01T00:00:00.000Z';
 // the not null columns an entry sets
 const NOT_NULL_COLUMNS = [
   ...KEY_COLUMNS,
@@ -62,18 +63,21 @@ const NOT_NULL_COLUMNS = [
   'is_favorite',
 ];
 
-type Entry = Record<string, unknown>;
+/** an element of a function's json input. */
+export type Entry = Record<string, unknown>;
 
-// what the function answers for one entry
-type MergeOutcome = 'written' | 'kept';
+/** what the functions answer for one entry. */
+export type MergeOutcome = 'written' | 'kept';
 
-const invalid = (message: string): Response =>
+/** a 400 with code 22023 and `message`, as the functions raise. */
+export const invalid = (message: string): Response =>
   errorResponse(BAD_REQUEST, INVALID_PARAMETER, message);
 
 const hasExactKeys = (entry: Entry): boolean =>
   Object.keys(entry).length === ENTRY_KEYS.length && ENTRY_KEYS.every((key) => key in entry);
 
-const keyIdOf = (entry: Entry): string =>
+/** the key of an element, as one string. */
+export const keyIdOf = (entry: Entry): string =>
   KEY_COLUMNS.map((column) => String(entry[column])).join(':');
 
 // the function's checks of `entries`, in its order: the entries, or the refusal of the first
@@ -107,9 +111,11 @@ const validEntries = (entries: unknown): Entry[] | Response => {
   return entries;
 };
 
-// writes one entry into `rows` at `now` (the call's server time): its outcome, or the refusal of a
-// value postgres would reject
-const writeEntry = (
+/**
+ * private.write_client_library_entry: writes one entry of `userId` into `rows` at `now` (the call's
+ * server time): its outcome, or the refusal of a value postgres would reject.
+ */
+export const writeEntry = (
   store: RowStore,
   rows: LibraryRow[],
   { userId, now }: { readonly userId: string; readonly now: string },

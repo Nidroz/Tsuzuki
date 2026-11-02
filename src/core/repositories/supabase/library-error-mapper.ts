@@ -7,8 +7,11 @@ import { z } from 'zod';
 import type { ErrorContext } from '../../errors/error-reporter';
 import { LibraryRemoteError, type LibraryRemoteReason } from '../../errors/library-errors';
 
-/** the repository calls, as named in reports; `merge` is mergeGuestEntries (A-04). */
-export type LibraryOperation = 'list' | 'get' | 'save' | 'remove' | 'merge';
+/**
+ * the repository calls, as named in reports; `merge` is mergeGuestEntries (A-04), `replay` is
+ * replayWrites (A-05).
+ */
+export type LibraryOperation = 'list' | 'get' | 'save' | 'remove' | 'merge' | 'replay';
 
 /** the `source` of every account library report. */
 export const LIBRARY_REPORT_SOURCE = 'library-remote';
@@ -16,12 +19,14 @@ export const LIBRARY_REPORT_SOURCE = 'library-remote';
 /**
  * a failed call before it is mapped: a postgrest response (`status` 0 when no response came: a
  * lost connection, the timeout; `error` its postgrest error, null for a success without its row or
- * whose body is not the expected answer), the session guard, a row parseLibraryRow rejects, or an
- * error thrown by the client.
+ * whose body is not the expected answer), the session guard (`session`: no session or another
+ * user's; `session-read`: the session could not be read, such as a token refresh failing offline),
+ * a row parseLibraryRow rejects, or an error thrown by the client.
  */
 export type LibraryFailure =
   | { readonly type: 'response'; readonly status: number; readonly error: unknown }
   | { readonly type: 'session' }
+  | { readonly type: 'session-read' }
   | { readonly type: 'invalid-row' }
   | { readonly type: 'thrown'; readonly error: unknown };
 
@@ -63,6 +68,9 @@ export const libraryRemoteReason = (failure: LibraryFailure): LibraryRemoteReaso
       return responseReason(failure.status);
     case 'session':
       return 'signed-out';
+    // transient (ADR-0017): the write stays queued for this user, the read falls back to the copy
+    case 'session-read':
+      return 'network';
     case 'invalid-row':
       return 'invalid-row';
     case 'thrown':

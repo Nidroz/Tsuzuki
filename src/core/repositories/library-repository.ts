@@ -1,8 +1,19 @@
 // the library repositories (docs/ARCHITECTURE.md §4): the user's library entries, on the device
-// for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03), and the merge
-// of the first into the second at sign in (A-04, ADR-0016). types only
+// for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03), the merge of
+// the first into the second at sign in (A-04, ADR-0016), and the account library's offline writes,
+// queued on the device and replayed (A-05, ADR-0017). types only
 import type { LibraryEntry } from '../domain/library-entry';
+import type { LibraryQueuedWrite, LibraryReplayOutcome } from '../domain/library-sync';
 import type { MediaKey } from '../domain/media';
+
+/** the options of a long account library call. */
+export interface LibraryCallOptions {
+  /**
+   * stops the call between its requests once aborted: a request already sent is never cut (each is
+   * one transaction), and none is sent after the abort.
+   */
+  readonly signal?: AbortSignal;
+}
 
 /**
  * the library of the current user (FR-10 to FR-15, FR-20, FR-23). hooks depend on this interface
@@ -123,6 +134,102 @@ export interface AccountLibraryRepository extends LibraryRepository {
    * an entry libraryEntrySchema rejects, or two entries of the same key, reject with a RangeError
    * whose message holds no value, and nothing is sent. an empty list resolves without a request.
    * entries hold personal data: never logged, never in an error or a report tag.
+   *
+   * `options.signal` (A-05): checked before each batch. once it is aborted, the merge rejects with
+   * a LibraryRemoteError `signed-out` and sends no further batch; a batch already sent completes
+   * on the server, and the batches before it may be written, as after any failure. the merge never
+   * goes through the offline write queue: it needs the server, and a failure leaves the guest store
+   * whole (ADR-0016).
    */
-  mergeGuestEntries(entries: readonly LibraryEntry[]): Promise<void>;
+  mergeGuestEntries(entries: readonly LibraryEntry[], options?: LibraryCallOptions): Promise<void>;
+}
+
+/**
+ * the account library in supabase as the offline account library uses it (supabase/, A-05,
+ * ADR-0017): its regular calls write at the server time, and `replayWrites` sends the writes the
+ * server has not confirmed with the time of their change.
+ */
+export interface RemoteAccountLibraryRepository extends AccountLibraryRepository {
+  /**
+   * replays queued writes of this user with their own times (ADR-0017), in one call that is one
+   * transaction: every write is applied, or none. per write, in input order: a save is applied as
+   * a guest merge entry (BR-08: inserted when the account has no entry of its key, replacing the
+   * stored values only when its `updatedAt`, capped at the server's now of the call, is strictly
+   * later than the stored `updated_at`); a removal deletes the stored entry of its key only when
+   * that entry's `updated_at` is strictly earlier than `removedAt`, capped likewise. resolves with
+   * one outcome per write, in input order: `written` when the state the write asked for now holds
+   * (a removal of a key the account does not hold included), `kept` when the stored copy was as
+   * recent or newer and nothing was written. a write already applied answers `kept`, or, its time
+   * ahead of the server, is written again with the same values at the later capped time, so a
+   * replay of the same writes reaches the same values.
+   *
+   * at most LIBRARY_REPLAY_BATCH_SIZE writes; more, a save libraryEntrySchema rejects, a removal
+   * whose key or time is invalid, or two writes of one key reject with a RangeError whose message
+   * holds no value, and nothing is sent. an empty list resolves to an empty list without a
+   * request. the session guard applies (A-03), and the database refuses the call when the token's
+   * user is not this store's user, so the writes of one user never reach another account.
+   * rejects with a LibraryRemoteError on any failure: `network` (no answer, the timeout, a gateway
+   * status, a session read error), `signed-out` (another user's session or none, a refused token,
+   * or a row of another user in the answer), `rejected` (the database refused the call: nothing
+   * was written), `unknown` (an answer that does not parse or does not hold each key exactly once,
+   * reported); `invalid-row` is not used. writes hold personal data: never logged, never in an
+   * error or a report tag.
+   */
+  replayWrites(writes: readonly LibraryQueuedWrite[]): Promise<readonly LibraryReplayOutcome[]>;
+}
+
+/**
+ * how a replay run of the offline account library ended (ADR-0017): every replayable write
+ * confirmed (`done`), the device offline (`offline`, at the start or before a retry), the retries
+ * spent on `network` or `unknown` failures (`failed`), the session no longer this user's
+ * (`signed-out`), or the run's signal aborted (`aborted`). the queue keeps every write the run did
+ * not confirm, whatever the status. `confirmed` counts the writes the run removed from the queue
+ * (`written` and `kept` alike).
+ */
+export interface LibraryReplayRun {
+  readonly status: 'done' | 'offline' | 'failed' | 'signed-out' | 'aborted';
+  readonly confirmed: number;
+}
+
+/**
+ * the account library of one signed-in user as the hooks use it (local/, A-05, ADR-0017): the
+ * account store behind a device copy of the last server state seen and a write queue, both kept
+ * per user id in the app storage, so the library reads and writes offline. a write is queued
+ * before any request (it survives the app being killed), tried at once when the device is online,
+ * and replayed with the time of its change until the server confirmed it. the copy and the queue
+ * hold personal data in the app storage, never logged.
+ *
+ * `save` and `remove` resolve as soon as the change is kept on the device: with the stored entry
+ * when the server confirmed it at once, else with the queued state (a save's entry at its queued
+ * time, its `createdAt` kept from the copy when known). they reject with the LibraryRemoteError of
+ * a direct attempt the server refused (`rejected`, `unknown`, `invalid-row`: the write leaves the
+ * queue, so the user sees the failure and the entry refetches), never on `network` or
+ * `signed-out` (the write stays queued for this user only). `get` and `list` show every queued
+ * write over the server state (read your writes); offline, or when the server is unreachable,
+ * they read the device copy, and reject with `network` when this user has no copy yet.
+ * `mergeGuestEntries` goes to the account store directly, never through the queue.
+ */
+export interface OfflineAccountLibraryRepository extends AccountLibraryRepository {
+  /**
+   * sends the queued writes this process may replay (none with a direct attempt of its key in
+   * flight, none the server refused in this process) by ascending queue order, in batches of
+   * LIBRARY_REPLAY_BATCH_SIZE, each taken from the queue as it stands when it is sent, until none
+   * is left. each confirmed write leaves the queue unless a newer write of its key replaced it
+   * meanwhile, and the device copy takes the state of each `written` one. one run per user at a
+   * time: a call while a run is in flight joins it (its result), unless that run was aborted,
+   * then a new run starts once it settled. `network` and `unknown` failures are retried after
+   * each of LIBRARY_REPLAY_RETRY_DELAYS_MS, then the run ends `failed`; a batch the database
+   * refuses is sent again one write per call, and a write refused alone stays queued but is not
+   * replayed again in this process. `options.signal` aborted: no further request, the wait for a
+   * retry cut, the run ends `aborted`. never rejects for a failure of the server or the network:
+   * the status tells it.
+   */
+  replayQueuedWrites(options?: LibraryCallOptions): Promise<LibraryReplayRun>;
+
+  /**
+   * calls `listener` each time a write call leaves its write in the queue (offline, a replay run
+   * sending its key, or a direct attempt failing with `network` or `signed-out`), for every
+   * instance of this user. returns the unsubscribe function.
+   */
+  subscribeToQueuedWrites(listener: () => void): () => void;
 }
