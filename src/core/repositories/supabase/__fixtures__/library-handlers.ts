@@ -1,17 +1,19 @@
 // an msw fake of the postgrest api of the account library store tests: the `library_entries`
-// endpoint and the guest merge function, over in-memory rows of every user, the user read from the
-// bearer token (rls), and what supabase-js sends for the repository's calls: the paged select
-// (select, eq filters, order, offset and limit, `Prefer: count=exact` answered with Content-Range),
-// the writes of library-writes.ts (the upsert of save, the filtered delete) and the call of
-// merge-function.ts. server timestamps in postgrest's form (microseconds, +00:00): created_at kept
-// on update, updated_at set on each write but the merge's. a configurable max_rows caps every page,
-// every request is logged, so a test can assert that nothing was sent, and a test can answer a
-// request itself or change the rows before one
+// endpoint, the guest merge function and the replay function, over in-memory rows of every user,
+// the user read from the bearer token (rls), and what supabase-js sends for the repository's
+// calls: the paged select (select, eq filters, order, offset and limit, `Prefer: count=exact`
+// answered with Content-Range), the writes of library-writes.ts (the upsert of save, the filtered
+// delete) and the calls of merge-function.ts and replay-function.ts. server timestamps in
+// postgrest's form (microseconds, +00:00): created_at kept on update, updated_at set on each write
+// but the merge's and the replay's. a configurable max_rows caps every page, every request is
+// logged, so a test can assert that nothing was sent, and a test can answer a request itself or
+// change the rows before one
 import { http, HttpResponse, type HttpHandler } from 'msw';
 
 import { PROJECT_URL } from './auth-handlers';
 import { handleDelete, handlePost, type RowStore } from './library-writes';
 import { handleMerge } from './merge-function';
+import { handleReplay } from './replay-function';
 import {
   BAD_REQUEST,
   NOT_ACCEPTABLE,
@@ -33,7 +35,10 @@ export const LIBRARY_ENDPOINT = `${PROJECT_URL}/rest/v1/library_entries`;
 /** the endpoint of the guest merge function, merge_guest_library_entries. */
 export const MERGE_ENDPOINT = `${PROJECT_URL}/rest/v1/rpc/merge_guest_library_entries`;
 
-// every endpoint of the rest api: the fake answers the two above and refuses the others
+/** the endpoint of the replay function, replay_library_writes. */
+export const REPLAY_ENDPOINT = `${PROJECT_URL}/rest/v1/rpc/replay_library_writes`;
+
+// every endpoint of the rest api: the fake answers the three above and refuses the others
 const REST_ENDPOINTS = `${PROJECT_URL}/rest/v1/*`;
 
 /** the access token of a user's fake session; the fake reads the user back from it. */
@@ -41,7 +46,7 @@ export const accessTokenOf = (userId: string): string => `access-token-${userId}
 const ACCESS_TOKEN_PREFIX = 'Bearer access-token-';
 
 export interface LibraryRequest {
-  /** the url without its query: LIBRARY_ENDPOINT or MERGE_ENDPOINT. */
+  /** the url without its query: LIBRARY_ENDPOINT, MERGE_ENDPOINT or REPLAY_ENDPOINT. */
   readonly endpoint: string;
   readonly method: string;
   readonly search: URLSearchParams;
@@ -155,6 +160,9 @@ export const createLibraryBackend = () => {
     const userId = authorization.slice(ACCESS_TOKEN_PREFIX.length);
     if (endpoint === MERGE_ENDPOINT && request.method === 'POST') {
       return handleMerge(store, userId, body);
+    }
+    if (endpoint === REPLAY_ENDPOINT && request.method === 'POST') {
+      return handleReplay(store, userId, body);
     }
     if (endpoint === LIBRARY_ENDPOINT) {
       return handleTable(request, userId, search, body);

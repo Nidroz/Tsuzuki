@@ -41,6 +41,7 @@ const setUp = (guestEntries = [FRIEREN, BERSERK], currentChecks: readonly boolea
       return Promise.resolve();
     }),
     isCurrent,
+    signal: new AbortController().signal,
     onMerging: jest.fn(() => {
       log.push('onMerging');
     }),
@@ -61,7 +62,9 @@ describe('mergeGuestLibrary (BR-08)', () => {
       'account.mergeGuestEntries',
       'guest.removeUnchanged',
     ]);
-    expect(account.mergeGuestEntries).toHaveBeenCalledWith([FRIEREN, BERSERK]);
+    expect(account.mergeGuestEntries).toHaveBeenCalledWith([FRIEREN, BERSERK], {
+      signal: run.signal,
+    });
     const merged = account.mergeGuestEntries.mock.calls[0]?.[0];
     expect(guest.removeUnchanged.mock.calls[0]?.[0]).toBe(merged);
     // its time after the clock is capped at the merge time, as the account store's database does

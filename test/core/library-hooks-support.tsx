@@ -1,7 +1,7 @@
 // wrappers giving the library hooks a query client and a library repository, and catalog data
 // of the media of ENTRY_KEY, for the library hook tests (src/core/hooks/); the session library
 // over a session the test drives, for the session library and guest merge tests
-import { jest } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
@@ -12,7 +12,6 @@ import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
   createFakeLibraryRepository,
-  type FakeAccountLibraryRepository,
   type FakeLibraryRepository,
 } from './fake-library-repository';
 import { ENTRY_KEY, SNAPSHOT, TITLE_TEXT } from './library-entry-fixtures';
@@ -22,7 +21,12 @@ import type { LibraryEntry } from '@core/domain/library-entry';
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha, type AuthSession } from '@core/repositories/auth-repository';
-import type { LibraryRepository } from '@core/repositories/library-repository';
+import type {
+  LibraryReplayRun,
+  LibraryRepository,
+  OfflineAccountLibraryRepository,
+} from '@core/repositories/library-repository';
+import type { ForegroundSubscription } from '@core/hooks/foreground';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import type { GuestMergeStatus } from '@core/hooks/guest-merge-context';
@@ -132,6 +136,67 @@ export const renderLibraryEntry = (
   return { ...rendered, queryClient, repository };
 };
 
+/** the options of every guest merge call: the signal of its run */
+export const MERGE_OPTIONS = { signal: expect.any(AbortSignal) };
+
+/** a replay run that found nothing to send */
+export const NOTHING_REPLAYED: LibraryReplayRun = { status: 'done', confirmed: 0 };
+
+/**
+ * the fake account repository as the offline account library the session library gets: its
+ * `replayQueuedWrites` resolves NOTHING_REPLAYED by default (a jest mock a test sets up), and
+ * `notifyQueued()` calls every listener of `subscribeToQueuedWrites`, as a write left in the queue
+ * does
+ */
+export const createSessionAccount = (initial: readonly LibraryEntry[] = []) => {
+  const listeners = new Set<() => void>();
+  return {
+    ...createFakeAccountLibraryRepository(initial),
+    replayQueuedWrites: jest.fn<OfflineAccountLibraryRepository['replayQueuedWrites']>(() =>
+      Promise.resolve(NOTHING_REPLAYED),
+    ),
+    subscribeToQueuedWrites: jest.fn<OfflineAccountLibraryRepository['subscribeToQueuedWrites']>(
+      (listener) => {
+        const subscription = (): void => {
+          listener();
+        };
+        listeners.add(subscription);
+        return () => {
+          listeners.delete(subscription);
+        };
+      },
+    ),
+    notifyQueued: (): void => {
+      for (const listener of [...listeners]) {
+        listener();
+      }
+    },
+  };
+};
+
+export type FakeSessionAccount = ReturnType<typeof createSessionAccount>;
+
+/**
+ * a ForegroundSubscription a test drives: `change(foreground)` calls every listener, which first
+ * hears `initial` as it subscribes, as src/platform/app-state.ts does
+ */
+export const createForegroundSource = (initial = true) => {
+  const listeners = new Set<(foreground: boolean) => void>();
+  const subscribe = jest.fn<ForegroundSubscription>((listener) => {
+    listeners.add(listener);
+    listener(initial);
+    return () => {
+      listeners.delete(listener);
+    };
+  });
+  const change = (foreground: boolean): void => {
+    for (const listener of [...listeners]) {
+      listener(foreground);
+    }
+  };
+  return { subscribe, change, listenerCount: () => listeners.size };
+};
+
 /** placeholder user ids */
 export const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 export const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
@@ -151,16 +216,21 @@ export interface SessionLibrarySetup {
   /** the entries of each user's account library, empty for a user left out */
   readonly accountEntries?: ReadonlyMap<string, readonly LibraryEntry[]>;
   /** called with each account repository as it is created, before any call reaches it */
-  readonly onAccount?: (userId: string, account: FakeAccountLibraryRepository) => void;
+  readonly onAccount?: (userId: string, account: FakeSessionAccount) => void;
   /** the catalog data the entry hooks get (MEDIA: add has a snapshot to write), null by default */
   readonly media?: MediaSummary | null;
+  /** the app foreground the provider gets, none by default */
+  readonly subscribeToForeground?: ForegroundSubscription;
+  /** renders under StrictMode, which runs the effect cleanups of the first mount once more */
+  readonly strictMode?: boolean;
 }
 
 const neverReports = (): (() => void) => () => undefined;
 
 /**
  * renders SessionLibraryContextProvider over a session the test drives (`emit`), a fake guest
- * library and a new fake account library per accountRepositoryFor call, with a recording reporter.
+ * library and a new fake account library (createSessionAccount) per accountRepositoryFor call,
+ * with a recording reporter and `subscribeToForeground` when given.
  * the hook reads the library, the merge status and the entry of ENTRY_KEY with its actions (with
  * `media` as the catalog data), and records each committed render in `frames`. resolves once the
  * initial session was reported
@@ -171,14 +241,16 @@ export const renderSessionLibrary = async ({
   accountEntries = new Map<string, readonly LibraryEntry[]>(),
   onAccount,
   media = null,
+  subscribeToForeground,
+  strictMode = false,
 }: SessionLibrarySetup = {}) => {
   const source = createSessionSource(session === 'loading' ? null : session);
   const auth = createSessionAuthRepository(null, {
     onAuthStateChange: session === 'loading' ? neverReports : source.subscribe,
   });
   const guest = createFakeGuestLibraryRepository(guestEntries);
-  const accountRepositoryFor = jest.fn((userId: string): FakeAccountLibraryRepository => {
-    const account = createFakeAccountLibraryRepository(accountEntries.get(userId) ?? []);
+  const accountRepositoryFor = jest.fn((userId: string): FakeSessionAccount => {
+    const account = createSessionAccount(accountEntries.get(userId) ?? []);
     onAccount?.(userId, account);
     return account;
   });
@@ -194,6 +266,7 @@ export const renderSessionLibrary = async ({
           guest={guest}
           accountRepositoryFor={accountRepositoryFor}
           reporter={current.reporter}
+          subscribeToForeground={subscribeToForeground}
         >
           {children}
         </SessionLibraryContextProvider>
@@ -211,7 +284,7 @@ export const renderSessionLibrary = async ({
       });
       return { repository, merge, entry, actions };
     },
-    { wrapper },
+    { wrapper, reactStrictMode: strictMode },
   );
   await flushSessionReports();
 
@@ -226,7 +299,7 @@ export const renderSessionLibrary = async ({
     });
   };
   /** the account repository created by the nth accountRepositoryFor call (0 first) */
-  const accountOf = (call: number): FakeAccountLibraryRepository => {
+  const accountOf = (call: number): FakeSessionAccount => {
     const result = accountRepositoryFor.mock.results[call];
     if (result?.type !== 'return') {
       throw new Error('no account repository was created');

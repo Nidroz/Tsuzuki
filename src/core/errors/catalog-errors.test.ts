@@ -76,6 +76,7 @@ describe('catalog errors', () => {
       'client_error',
       'timeout',
       'malformed_response',
+      'network',
     ]);
     for (const kind of CATALOG_FAILURE_KINDS) {
       const error = new CatalogProviderFailureError(kind);

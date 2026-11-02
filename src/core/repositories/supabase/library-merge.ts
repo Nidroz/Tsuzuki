@@ -10,6 +10,7 @@ import { z } from 'zod';
 import type { LibraryEntry } from '../../domain/library-entry';
 import { libraryEntryId } from '../../domain/library-view';
 import { libraryEntrySchema, mediaKeySchema } from '../../schemas/library-entry';
+import type { LibraryCallOptions } from '../library-repository';
 import { responseFailure, type LibraryRequests } from './library-requests';
 import { toLibraryRowPayload, type LibraryRowPayload } from './library-row';
 
@@ -114,11 +115,14 @@ const mergeBatch = async (
  * ../library-repository.ts): validates every entry first (a RangeError, nothing sent), resolves an
  * empty list without a request, then merges batches of GUEST_MERGE_BATCH_SIZE one after the
  * other, each call behind the session guard and the timeout. a failed batch stops the merge; the
- * batches before it stay written.
+ * batches before it stay written. `options.signal` is checked before each batch: once aborted (the
+ * account is no longer the committed one), the merge rejects with `signed-out`, never reported,
+ * and sends no further batch.
  */
 export const mergeGuestEntries = async (
   requests: LibraryRequests,
   entries: readonly LibraryEntry[],
+  options: LibraryCallOptions = {},
 ): Promise<void> => {
   const guestEntries = parseGuestEntries(entries);
   if (guestEntries.length === 0) {
@@ -126,6 +130,9 @@ export const mergeGuestEntries = async (
   }
   await requests.run('merge', async () => {
     for (let start = 0; start < guestEntries.length; start += GUEST_MERGE_BATCH_SIZE) {
+      if (options.signal?.aborted === true) {
+        throw requests.fail('merge', { type: 'session' });
+      }
       await mergeBatch(requests, guestEntries.slice(start, start + GUEST_MERGE_BATCH_SIZE));
     }
   });

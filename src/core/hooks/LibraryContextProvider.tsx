@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'rea
 
 import { queryKeys, toLibraryScope, type LibraryScope } from '../query/keys';
 import type { LibraryRepository } from '../repositories/library-repository';
+import type { ForegroundSubscription } from './foreground';
 import { LibraryContext, type LibraryContextValue } from './library-context';
 import { createLibraryWriter } from './library-writer';
 
@@ -25,6 +26,12 @@ export interface LibraryContextProviderProps {
    * run. read when the value retires: a new function never retires the live value
    */
   onRetired?: (retired: RetiredLibrary) => void;
+  /**
+   * the app foreground (src/platform/app-state.ts on mobile): going to the background writes the
+   * live writer's pending coalesced changes at once (flushAll), so a killed app loses none of
+   * them. pass a stable function (module level): a new one subscribes again
+   */
+  subscribeToForeground?: ForegroundSubscription | undefined;
   children: ReactNode;
 }
 
@@ -45,11 +52,13 @@ const nextLibraryScope = (): LibraryScope => {
  * writer and a new scope in the same render, so the hooks never read the previous library's keys.
  * the previous scope's queries are then removed, its pending coalesced writes go to the repository
  * they were made for, and once they settled its queries are removed again; on unmount too. each
- * retired value is reported to `onRetired` with the promise of that flush
+ * retired value is reported to `onRetired` with the promise of that flush. an extra effect cleanup
+ * of a live value (StrictMode, Activity) flushes and reports it too, but never removes its queries
  */
 export function LibraryContextProvider({
   repository,
   onRetired,
+  subscribeToForeground,
   children,
 }: LibraryContextProviderProps) {
   const queryClient = useQueryClient();
@@ -65,25 +74,42 @@ export function LibraryContextProvider({
     onRetiredRef.current = onRetired;
   }, [onRetired]);
 
-  // the cleanup runs once per value, when it is retired: the app renders no StrictMode or Activity,
-  // whose extra effect cleanup would remove the live scope too
-  // TODO(A-05): retire only a value that is no longer current, so a repeated cleanup is harmless
-  useEffect(
-    () => () => {
+  // the value whose effect is set up, null between a cleanup and the next setup: StrictMode and
+  // Activity run a cleanup of the live value then set it up again in the same commit
+  const currentRef = useRef<LibraryContextValue | null>(null);
+  useEffect(() => {
+    currentRef.current = value;
+    return () => {
+      currentRef.current = null;
       const { repository: retired, writer, scope } = value;
-      // no mounted hook reads this scope any more: its fetches are cancelled, its entries leave
+      // no mounted hook reads a retired scope any more: its fetches are cancelled, its entries
+      // leave. checked after the commit, so a cleanup of the live value removes nothing
       const removeScope = (): void => {
-        queryClient.removeQueries({ queryKey: queryKeys.library.all(scope) });
+        if (currentRef.current !== value) {
+          queryClient.removeQueries({ queryKey: queryKeys.library.all(scope) });
+        }
       };
-      removeScope();
+      void Promise.resolve().then(removeScope);
       // never rejects: a failed write already reached the action that made it. a flushed write
       // that succeeded set its entry again, so the scope is removed once more after it
       const flushed = writer.flushAll();
       void flushed.then(removeScope);
       onRetiredRef.current?.({ repository: retired, flushed });
-    },
-    [queryClient, value],
-  );
+    };
+  }, [queryClient, value]);
+
+  // the background: the live writer's pending coalesced writes leave now, those of the account
+  // library reaching its write-ahead queue (ADR-0017). one subscription for every value
+  useEffect(() => {
+    if (subscribeToForeground === undefined) {
+      return undefined;
+    }
+    return subscribeToForeground((foreground) => {
+      if (!foreground) {
+        void currentRef.current?.writer.flushAll();
+      }
+    });
+  }, [subscribeToForeground]);
 
   return <LibraryContext value={value}>{children}</LibraryContext>;
 }

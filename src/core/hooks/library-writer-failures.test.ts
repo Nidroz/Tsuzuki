@@ -1,8 +1,8 @@
-import { describe, expect, it } from '@jest/globals';
+import { describe, expect, it, jest } from '@jest/globals';
 
 import { createDeferred } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY } from '../../../test/core/library-entry-fixtures';
-import { setProgress } from '../domain/library-progress';
+import { PROGRESS_WRITE_COALESCE_MS, setProgress } from '../domain/library-progress';
 import { queryKeys } from '../query/keys';
 import {
   ENTRY,
@@ -25,6 +25,7 @@ describe('createLibraryWriter: reads', () => {
 
     await expect(writer.read(ENTRY_KEY)).resolves.toBe(ENTRY);
     await expect(writer.read(OTHER_KEY)).resolves.toBeNull();
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('writes a pending `+1` before reading, so a read never returns an older state', async () => {
@@ -40,6 +41,7 @@ describe('createLibraryWriter: reads', () => {
     expect(repository.save.mock.invocationCallOrder[0]).toBeLessThan(
       repository.get.mock.invocationCallOrder.at(-1) ?? 0,
     );
+    expect(writer.activeKeyCount()).toBe(0);
   });
 });
 
@@ -60,6 +62,7 @@ describe('createLibraryWriter: failures', () => {
     await writer.apply(ENTRY_KEY, scoreOf(5));
 
     expect(repository.stored(ENTRY_KEY)?.score).toBe(5);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('invalidates the cached list too, exactly, after a failed write', async () => {
@@ -94,6 +97,37 @@ describe('createLibraryWriter: failures', () => {
       { status: 'rejected', reason: STORAGE_FAILURE },
     ]);
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(12);
+    expect(writer.activeKeyCount()).toBe(0);
+  });
+
+  it('drops a newer pending change of a key whose write failed: it fails with it, never written', async () => {
+    const { queryClient, repository, writer, load, cached } = setupWriter();
+    await load();
+    const held = createDeferred();
+    repository.beforeCall.mockReturnValueOnce(held.promise);
+    const failed = writer.apply(ENTRY_KEY, scoreOf(7));
+    await flushMicrotasks();
+    // a `+1` computed from the optimistic score 7, waiting in its window
+    const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
+    const outcomes = Promise.allSettled([failed, tap]);
+    await flushMicrotasks();
+
+    expect(cached()).toMatchObject({ score: 7, progress: ENTRY.progress + 1 });
+
+    held.reject(STORAGE_FAILURE);
+
+    expect(await outcomes).toStrictEqual([
+      { status: 'rejected', reason: STORAGE_FAILURE },
+      { status: 'rejected', reason: STORAGE_FAILURE },
+    ]);
+    await jest.advanceTimersByTimeAsync(PROGRESS_WRITE_COALESCE_MS);
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(ENTRY_KEY)).toStrictEqual(ENTRY);
+    expect(
+      queryClient.getQueryState(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated,
+    ).toBe(true);
+    await expect(writer.read(ENTRY_KEY)).resolves.toStrictEqual(ENTRY);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('rejects a change on an entry not loaded yet, writing nothing', async () => {
@@ -105,6 +139,7 @@ describe('createLibraryWriter: failures', () => {
 
     expect(repository.save).not.toHaveBeenCalled();
     expect(cached()).toBeUndefined();
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('rejects a change whose rule throws, leaving the entry as it was', async () => {
@@ -119,6 +154,7 @@ describe('createLibraryWriter: failures', () => {
 
     expect(repository.save).not.toHaveBeenCalled();
     expect(cached()).toBe(ENTRY);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 });
 
@@ -139,6 +175,7 @@ describe('createLibraryWriter: flushAll', () => {
     expect(repository.save).toHaveBeenCalledTimes(2);
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
     expect(repository.stored(OTHER_KEY)?.progress).toBe(13);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('writes a `+1` applied just before, still waiting for its cancel', async () => {
@@ -173,6 +210,7 @@ describe('createLibraryWriter: flushAll', () => {
     await flushing;
 
     await expect(failed).resolves.toBe(STORAGE_FAILURE);
+    expect(writer.activeKeyCount()).toBe(0);
   });
 
   it('resolves at once with nothing pending', async () => {

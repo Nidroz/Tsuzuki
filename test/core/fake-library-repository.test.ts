@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import { describeAccountLibraryMergeContract } from './account-library-merge-contract';
+import { describeAccountLibraryReplayContract } from './account-library-replay-contract';
 import {
   createDeferred,
   createFakeAccountLibraryRepository,
@@ -23,6 +24,10 @@ describe('in-memory fake at a server time after the entries', () => {
   });
 
   describeAccountLibraryMergeContract('in-memory fake', (seed) =>
+    createFakeAccountLibraryRepository(seed),
+  );
+
+  describeAccountLibraryReplayContract('in-memory fake', (seed) =>
     createFakeAccountLibraryRepository(seed),
   );
 });
@@ -97,6 +102,85 @@ describe('createFakeAccountLibraryRepository', () => {
     expect(repository.stored(FRIEREN.key)?.updatedAt).toBe(
       new Date(SERVER_NOW + LATER_MERGE_DELAY_MS).toISOString(),
     );
+  });
+});
+
+describe('createFakeAccountLibraryRepository replayWrites', () => {
+  const replayedAt = new Date(SERVER_NOW).toISOString();
+  const ahead = '2100-01-01T00:00:00.000Z';
+
+  beforeEach(() => {
+    jest.setSystemTime(SERVER_NOW);
+  });
+
+  it('holds a replay on beforeCall, changing nothing until it is released', async () => {
+    const repository = createFakeAccountLibraryRepository([BERSERK]);
+    const held = holdNextCall(repository, 'replayWrites');
+
+    const replay = repository.replayWrites([
+      { type: 'save', entry: FRIEREN },
+      { type: 'remove', key: BERSERK.key, removedAt: ahead },
+    ]);
+
+    expect(repository.beforeCall).toHaveBeenCalledWith('replayWrites');
+    expect(repository.stored(FRIEREN.key)).toBeNull();
+    expect(repository.stored(BERSERK.key)).toStrictEqual(BERSERK);
+    held.resolve();
+    await expect(replay).resolves.toStrictEqual(['written', 'written']);
+    expect(repository.stored(FRIEREN.key)).toStrictEqual({ ...FRIEREN, createdAt: replayedAt });
+    expect(repository.stored(BERSERK.key)).toBeNull();
+  });
+
+  it('fails a replay through beforeCall, writing nothing', async () => {
+    const repository = createFakeAccountLibraryRepository([BERSERK]);
+    const failure = new Error('network failure');
+    repository.beforeCall.mockRejectedValueOnce(failure);
+
+    await expect(
+      repository.replayWrites([{ type: 'remove', key: BERSERK.key, removedAt: ahead }]),
+    ).rejects.toBe(failure);
+
+    expect(repository.stored(BERSERK.key)).toStrictEqual(BERSERK);
+  });
+
+  it('caps a removal time at the call: an entry stored at that time is kept (BR-08)', async () => {
+    const repository = createFakeAccountLibraryRepository();
+    await repository.replayWrites([{ type: 'save', entry: { ...FRIEREN, updatedAt: ahead } }]);
+    const stored = repository.stored(FRIEREN.key);
+    expect(stored?.updatedAt).toBe(replayedAt);
+
+    await expect(
+      repository.replayWrites([{ type: 'remove', key: FRIEREN.key, removedAt: ahead }]),
+    ).resolves.toStrictEqual(['kept']);
+
+    expect(repository.stored(FRIEREN.key)).toBe(stored);
+  });
+
+  it('caps a save time at the call: a later save timed ahead does not replace a copy of that time', async () => {
+    const repository = createFakeAccountLibraryRepository();
+    await repository.replayWrites([{ type: 'save', entry: { ...FRIEREN, updatedAt: ahead } }]);
+    const stored = repository.stored(FRIEREN.key);
+
+    await expect(
+      repository.replayWrites([
+        { type: 'save', entry: { ...FRIEREN, progress: FRIEREN.progress + 1, updatedAt: ahead } },
+      ]),
+    ).resolves.toStrictEqual(['kept']);
+
+    expect(repository.stored(FRIEREN.key)).toBe(stored);
+  });
+
+  it('normalizes the times it compares: a removal at an offset older than the entry keeps it', async () => {
+    // 2026-02-10T21:00:00+01:00 is 20:00Z, before the stored 20:30Z
+    const repository = createFakeAccountLibraryRepository([FRIEREN]);
+
+    await expect(
+      repository.replayWrites([
+        { type: 'remove', key: FRIEREN.key, removedAt: '2026-02-10T21:00:00+01:00' },
+      ]),
+    ).resolves.toStrictEqual(['kept']);
+
+    expect(repository.stored(FRIEREN.key)).toStrictEqual(FRIEREN);
   });
 });
 

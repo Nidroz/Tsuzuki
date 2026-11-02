@@ -77,6 +77,9 @@ const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryReposito
 
 const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
 
+// the options of every guest merge call: the signal of its run, aborted once its session ended
+const MERGE_OPTIONS = { signal: expect.any(AbortSignal) };
+
 // a placeholder user id
 const USER_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 
@@ -262,6 +265,6 @@ describe('root layout guest merge (A-04)', () => {
     expect(storedGuestLibrary()).toBeUndefined();
     expect(createAccountLibrary).toHaveBeenCalledTimes(1);
     expect(createAccountLibrary.mock.calls[0]?.[1]).toMatchObject({ userId: USER_ID });
-    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([[listed]]);
+    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([[listed, MERGE_OPTIONS]]);
   });
 });

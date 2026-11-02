@@ -66,18 +66,28 @@ const SUPABASE_ANON_KEY = 'sb_publishable_test-key';
 const appAuthRepository = () => appAuthRepositoryOf(supabaseAuthModule);
 
 // the react native jest preset mocks AppState: the current state is set (and restored), and the
-// change handler captured
+// change handlers subscribed captured (the auth refresh and the library writer follow it)
 const presetCurrentState: unknown = AppState.currentState;
-let appStateHandler: ((state: AppStateStatus) => void) | null = null;
-const removeAppStateListener = jest.fn<() => void>();
+const appStateHandlers = new Set<(state: AppStateStatus) => void>();
+const changeAppState = (state: AppStateStatus): void => {
+  for (const handler of [...appStateHandlers]) {
+    handler(state);
+  }
+};
 
 beforeEach(() => {
   Reflect.set(AppState, 'currentState', presetCurrentState);
-  appStateHandler = null;
-  removeAppStateListener.mockClear();
+  appStateHandlers.clear();
   jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
-    appStateHandler = handler;
-    return { remove: removeAppStateListener };
+    const subscribed = (state: AppStateStatus): void => {
+      handler(state);
+    };
+    appStateHandlers.add(subscribed);
+    return {
+      remove: () => {
+        appStateHandlers.delete(subscribed);
+      },
+    };
   });
   appAuthRepository().setAutoRefresh.mockClear();
 });
@@ -132,10 +142,10 @@ describe('root layout auth wiring (A-01)', () => {
     expect(setAutoRefresh.mock.calls).toStrictEqual([[true]]);
 
     await act(() => {
-      appStateHandler?.('background');
+      changeAppState('background');
     });
     await act(() => {
-      appStateHandler?.('active');
+      changeAppState('active');
     });
 
     expect(setAutoRefresh.mock.calls).toStrictEqual([[true], [false], [true]]);
@@ -145,10 +155,10 @@ describe('root layout auth wiring (A-01)', () => {
     await renderRouterAsync(appRoutesWithDiscover(AuthProbe));
 
     expect(appAuthRepository().setAutoRefresh).toHaveBeenLastCalledWith(false);
-    expect(removeAppStateListener).not.toHaveBeenCalled();
+    expect(appStateHandlers.size).toBeGreaterThan(0);
 
     await screen.unmount();
 
-    expect(removeAppStateListener).toHaveBeenCalledTimes(1);
+    expect(appStateHandlers.size).toBe(0);
   });
 });

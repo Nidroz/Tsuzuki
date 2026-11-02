@@ -9,9 +9,10 @@ import { compareLibraryEntries, libraryEntryId } from '../../domain/library-view
 import type { MediaKey } from '../../domain/media';
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { libraryEntrySchema } from '../../schemas/library-entry';
-import type { AccountLibraryRepository } from '../library-repository';
+import type { RemoteAccountLibraryRepository } from '../library-repository';
 import type { Database } from './database.types';
 import { mergeGuestEntries } from './library-merge';
+import { replayWrites } from './library-replay';
 import {
   LIBRARY_CONFLICT_TARGET,
   LIBRARY_TABLE,
@@ -45,16 +46,16 @@ const latestByKey = (entries: readonly LibraryEntry[]): LibraryEntry[] => {
 const compareListOrder = compareLibraryEntries('updated');
 
 /**
- * the AccountLibraryRepository of the signed-in user `userId` over `client`. before every request
- * it checks that the client's session is still that user's, else it rejects with `signed-out` and
- * sends nothing (library-requests.ts). failures reject with a LibraryRemoteError, but an entry
- * libraryEntrySchema rejects, which `save` and `mergeGuestEntries` reject with a RangeError before
- * sending anything.
+ * the RemoteAccountLibraryRepository of the signed-in user `userId` over `client`. before every
+ * request it checks that the client's session is still that user's, else it rejects with
+ * `signed-out` and sends nothing (library-requests.ts). failures reject with a LibraryRemoteError,
+ * but an entry libraryEntrySchema rejects, which `save`, `mergeGuestEntries` and `replayWrites`
+ * reject with a RangeError before sending anything.
  */
 export const createSupabaseLibraryRepository = (
   client: SupabaseClient<Database>,
   { userId, reporter }: SupabaseLibraryRepositoryOptions,
-): AccountLibraryRepository => {
+): RemoteAccountLibraryRepository => {
   const requests = createLibraryRequests(client, { userId, reporter });
   const { fail, run, send, readAllRows } = requests;
 
@@ -157,6 +158,7 @@ export const createSupabaseLibraryRepository = (
     get,
     save,
     remove,
-    mergeGuestEntries: (entries) => mergeGuestEntries(requests, entries),
+    mergeGuestEntries: (entries, options) => mergeGuestEntries(requests, entries, options),
+    replayWrites: (writes) => replayWrites(requests, writes),
   };
 };

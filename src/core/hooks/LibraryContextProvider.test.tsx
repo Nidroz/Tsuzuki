@@ -125,8 +125,12 @@ describe('LibraryContextProvider', () => {
     first.beforeCall.mockReturnValueOnce(save.promise);
 
     rendered.swap(next);
+    await act(async () => {
+      await Promise.resolve();
+    });
 
-    // removed at once, before the flush settled
+    // removed once the commit is over, before the flush settled
+    expect(first.save).toHaveBeenCalledTimes(1);
     expect(queriesOf(rendered.queryClient, oldScope)).toHaveLength(0);
     await waitFor(() => {
       expect(rendered.result.current.entry.data).toStrictEqual(NEXT_ENTRY);
@@ -238,6 +242,46 @@ describe('LibraryContextProvider', () => {
     expect(first).not.toHaveBeenCalled();
     expect(latest).toHaveBeenCalledTimes(1);
     expect(latest.mock.calls[0]?.[0].repository).toBe(repository);
+  });
+
+  it('keeps the live scope under StrictMode, and still removes a retired one', async () => {
+    const first = createFakeLibraryRepository([ENTRY]);
+    const queryClient = createQueryClient();
+    const onRetired = jest.fn<(retired: RetiredLibrary) => void>();
+    const { wrapper, switchTo } = switchableLibraryWrapper(queryClient, first, onRetired);
+    // strict mode runs the effect cleanups of the first mount once more, on the live value
+    const rendered = renderHook(useLibraryProbe, { wrapper, reactStrictMode: true });
+    await waitFor(() => {
+      expect(rendered.result.current.entry.isSuccess).toBe(true);
+      expect(rendered.result.current.list.query.isSuccess).toBe(true);
+    });
+    const live = rendered.result.current.context.scope;
+    await act(async () => {
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    // the extra cleanup flushed and reported the live value, and removed none of its queries
+    expect(onRetired).toHaveBeenCalledTimes(1);
+    expect(queriesOf(queryClient, live)).toHaveLength(2);
+    expect(rendered.result.current.entry.data).toStrictEqual(ENTRY);
+    await act(async () => {
+      rendered.result.current.actions.setScore(7);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+    expect(rendered.result.current.entry.data?.score).toBe(7);
+    expect(first.stored(ENTRY_KEY)?.score).toBe(7);
+
+    act(() => {
+      switchTo(createFakeLibraryRepository([NEXT_ENTRY]));
+      rendered.rerender();
+    });
+    await waitFor(() => {
+      expect(rendered.result.current.entry.data).toStrictEqual(NEXT_ENTRY);
+    });
+
+    expect(onRetired).toHaveBeenCalledTimes(2);
+    expect(queriesOf(queryClient, live)).toHaveLength(0);
+    expect(queriesOf(queryClient, rendered.result.current.context.scope)).toHaveLength(2);
   });
 
   it('makes useLibraryContext throw outside of it', () => {

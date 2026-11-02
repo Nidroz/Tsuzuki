@@ -74,7 +74,7 @@ export class CatalogAbortedError extends CatalogError {
 /**
  * the kinds of provider failure the failure monitor counts and reports. `client_error` is a
  * non-2xx below 500 other than 429 and 404; a 404 is never counted, it is a normal answer for a
- * missing title.
+ * missing title. `network` is a request that could not be transferred while the device was online.
  */
 export const CATALOG_FAILURE_KINDS = [
   'server_error',
@@ -82,6 +82,7 @@ export const CATALOG_FAILURE_KINDS = [
   'client_error',
   'timeout',
   'malformed_response',
+  'network',
 ] as const;
 
 export type CatalogFailureKind = (typeof CATALOG_FAILURE_KINDS)[number];

@@ -1,17 +1,26 @@
 // in-memory test doubles of the library repositories (src/core/repositories/), for tests of the
-// library writer, the hooks and the guest merge: calls can be held or failed one by one to
-// control their order
+// library writer, the hooks, the guest merge and the replay: calls can be held or failed one by
+// one to control their order
 import { jest } from '@jest/globals';
 
 import { guestMergeDecision, isSameLibraryEntry } from '@core/domain/guest-merge';
 import type { LibraryEntry } from '@core/domain/library-entry';
+import {
+  LIBRARY_REPLAY_BATCH_SIZE,
+  libraryQueuedWriteKey,
+  replayRemovalOutcome,
+  type LibraryQueuedWrite,
+  type LibraryReplayOutcome,
+} from '@core/domain/library-sync';
 import type { MediaKey } from '@core/domain/media';
 import type {
   AccountLibraryRepository,
   GuestLibraryRepository,
   LibraryRepository,
+  RemoteAccountLibraryRepository,
 } from '@core/repositories/library-repository';
-import { libraryEntrySchema } from '@core/schemas/library-entry';
+import { libraryEntrySchema, mediaKeySchema } from '@core/schemas/library-entry';
+import { timestampSchema } from '@core/schemas/timestamp';
 
 /** a promise settled from the outside */
 export interface Deferred<T> {
@@ -31,7 +40,7 @@ export const createDeferred = <T = void>(): Deferred<T> => {
 };
 
 /** every method of the library repositories, as `beforeCall` receives it */
-export type LibraryMethod = keyof AccountLibraryRepository | keyof GuestLibraryRepository;
+export type LibraryMethod = keyof RemoteAccountLibraryRepository | keyof GuestLibraryRepository;
 
 const idOf = (key: MediaKey): string => `${key.namespace}:${key.kind}:${String(key.externalId)}`;
 
@@ -103,16 +112,66 @@ const parseGuestEntries = (entries: readonly LibraryEntry[]): LibraryEntry[] => 
 const cappedAt = (updatedAt: string, mergedAt: string): string =>
   updatedAt < mergedAt ? updatedAt : mergedAt;
 
+// a queued write as the account store takes it: within the database limits, times normalized
+const parseQueuedWrite = (write: LibraryQueuedWrite): LibraryQueuedWrite | null => {
+  if (write.type === 'save') {
+    const entry = libraryEntrySchema.safeParse(write.entry);
+    return entry.success ? { type: 'save', entry: entry.data } : null;
+  }
+  const key = mediaKeySchema.safeParse(write.key);
+  const removedAt = timestampSchema.safeParse(write.removedAt);
+  return key.success && removedAt.success
+    ? { type: 'remove', key: key.data, removedAt: removedAt.data }
+    : null;
+};
+
+// the replay input checks of the account store: at most LIBRARY_REPLAY_BATCH_SIZE writes, each
+// within the limits, each key once; else a RangeError holding no value
+const parseQueuedWrites = (writes: readonly LibraryQueuedWrite[]): LibraryQueuedWrite[] => {
+  if (writes.length > LIBRARY_REPLAY_BATCH_SIZE) {
+    throw new RangeError('too many queued writes');
+  }
+  const ids = new Set<string>();
+  return writes.map((write) => {
+    const parsed = parseQueuedWrite(write);
+    if (parsed === null || ids.has(idOf(libraryQueuedWriteKey(parsed)))) {
+      throw new RangeError('invalid queued writes');
+    }
+    ids.add(idOf(libraryQueuedWriteKey(parsed)));
+    return parsed;
+  });
+};
+
 /**
  * the fake repository plus `mergeGuestEntries`: after `beforeCall('mergeGuestEntries')`, it
  * rejects an entry outside libraryEntrySchema or two entries of one key with a RangeError, writing
  * nothing, then applies guestMergeDecision to each entry's own `updatedAt` capped at the time of
  * the merge (the current clock, `new Date()`: fake timers apply), as the database does. what it
  * writes keeps that capped time as `updatedAt`; an inserted entry takes the merge time as
- * `createdAt`, a replaced one keeps its stored `createdAt`
+ * `createdAt`, a replaced one keeps its stored `createdAt`.
+ *
+ * `replayWrites`, after `beforeCall('replayWrites')`, rejects more than LIBRARY_REPLAY_BATCH_SIZE
+ * writes, a write outside the limits or two writes of one key with a RangeError, writing nothing,
+ * then applies each write in input order at the time of the call (the current clock): a save as a
+ * merge entry (guestMergeDecision), a removal through replayRemovalOutcome, deleting the stored
+ * entry only when strictly older than `removedAt` capped at that time. it resolves `written` or `kept` per write, in input order, as the database
+ * does
  */
 export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntry[] = []) => {
   const { entries, store, repository } = createInMemoryLibrary(initial);
+  // one merge entry at `writtenAt` (BR-08): true when written, false when the stored copy is kept
+  const writeAt = (entry: LibraryEntry, writtenAt: string): boolean => {
+    const updatedAt = cappedAt(entry.updatedAt, writtenAt);
+    const account = entries.get(idOf(entry.key));
+    const decision = guestMergeDecision(updatedAt, account?.updatedAt ?? null);
+    if (decision === 'insert') {
+      store({ ...entry, createdAt: writtenAt, updatedAt });
+    } else if (decision === 'replace') {
+      // store keeps the stored createdAt
+      store({ ...entry, updatedAt });
+    }
+    return decision !== 'keep';
+  };
   return {
     ...repository,
     mergeGuestEntries: jest.fn<AccountLibraryRepository['mergeGuestEntries']>(async (guest) => {
@@ -120,18 +179,29 @@ export const createFakeAccountLibraryRepository = (initial: readonly LibraryEntr
       const parsed = parseGuestEntries(guest);
       const mergedAt = new Date().toISOString();
       for (const entry of parsed) {
-        const updatedAt = cappedAt(entry.updatedAt, mergedAt);
-        const account = entries.get(idOf(entry.key));
-        const decision = guestMergeDecision(updatedAt, account?.updatedAt ?? null);
-        if (decision === 'insert') {
-          store({ ...entry, createdAt: mergedAt, updatedAt });
-        } else if (decision === 'replace') {
-          // store keeps the stored createdAt
-          store({ ...entry, updatedAt });
-        }
+        writeAt(entry, mergedAt);
       }
     }),
-  } satisfies AccountLibraryRepository;
+    replayWrites: jest.fn<RemoteAccountLibraryRepository['replayWrites']>(async (writes) => {
+      await repository.beforeCall('replayWrites');
+      const parsed = parseQueuedWrites(writes);
+      const replayedAt = new Date().toISOString();
+      return parsed.map((write): LibraryReplayOutcome => {
+        if (write.type === 'save') {
+          return writeAt(write.entry, replayedAt) ? 'written' : 'kept';
+        }
+        const id = idOf(write.key);
+        const outcome = replayRemovalOutcome(
+          cappedAt(write.removedAt, replayedAt),
+          entries.get(id)?.updatedAt ?? null,
+        );
+        if (outcome === 'written') {
+          entries.delete(id);
+        }
+        return outcome;
+      });
+    }),
+  } satisfies RemoteAccountLibraryRepository;
 };
 
 /**

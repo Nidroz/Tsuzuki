@@ -7,8 +7,11 @@ import { z } from 'zod';
 import type { ErrorContext } from '../../errors/error-reporter';
 import { LibraryRemoteError, type LibraryRemoteReason } from '../../errors/library-errors';
 
-/** the repository calls, as named in reports; `merge` is mergeGuestEntries (A-04). */
-export type LibraryOperation = 'list' | 'get' | 'save' | 'remove' | 'merge';
+/**
+ * the repository calls, as named in reports; `merge` is mergeGuestEntries (A-04), `replay` is
+ * replayWrites (A-05).
+ */
+export type LibraryOperation = 'list' | 'get' | 'save' | 'remove' | 'merge' | 'replay';
 
 /** the `source` of every account library report. */
 export const LIBRARY_REPORT_SOURCE = 'library-remote';
@@ -16,24 +19,31 @@ export const LIBRARY_REPORT_SOURCE = 'library-remote';
 /**
  * a failed call before it is mapped: a postgrest response (`status` 0 when no response came: a
  * lost connection, the timeout; `error` its postgrest error, null for a success without its row or
- * whose body is not the expected answer), the session guard, a row parseLibraryRow rejects, or an
- * error thrown by the client.
+ * whose body is not the expected answer), the session guard (`session`: no session or another
+ * user's; `session-read`: the session could not be read, such as a token refresh failing offline),
+ * a row parseLibraryRow rejects, or an error thrown by the client.
  */
 export type LibraryFailure =
   | { readonly type: 'response'; readonly status: number; readonly error: unknown }
   | { readonly type: 'session' }
+  | { readonly type: 'session-read' }
   | { readonly type: 'invalid-row' }
   | { readonly type: 'thrown'; readonly error: unknown };
 
 const NO_RESPONSE = 0;
 const HTTP_UNAUTHORIZED = 401;
+const HTTP_REQUEST_TIMEOUT = 408;
+const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_CLIENT_ERROR_MIN = 400;
 const HTTP_CLIENT_ERROR_MAX = 499;
 const HTTP_BAD_GATEWAY = 502;
 const HTTP_SERVICE_UNAVAILABLE = 503;
 const HTTP_GATEWAY_TIMEOUT = 504;
-// the api or its proxy is unreachable
-const GATEWAY_STATUSES: ReadonlySet<number> = new Set([
+// the api or its proxy is unreachable, or asks to try later (no answer in time, a rate limit):
+// transient, never a refusal of the write (a queued write is retried with backoff, not split)
+const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([
+  HTTP_REQUEST_TIMEOUT,
+  HTTP_TOO_MANY_REQUESTS,
   HTTP_BAD_GATEWAY,
   HTTP_SERVICE_UNAVAILABLE,
   HTTP_GATEWAY_TIMEOUT,
@@ -45,7 +55,7 @@ const REPORTABLE_CODE = /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/;
 const errorCodeSchema = z.object({ code: z.string().regex(REPORTABLE_CODE) });
 
 const responseReason = (status: number): LibraryRemoteReason => {
-  if (status === NO_RESPONSE || GATEWAY_STATUSES.has(status)) {
+  if (status === NO_RESPONSE || RETRYABLE_STATUSES.has(status)) {
     return 'network';
   }
   if (status === HTTP_UNAUTHORIZED) {
@@ -63,6 +73,9 @@ export const libraryRemoteReason = (failure: LibraryFailure): LibraryRemoteReaso
       return responseReason(failure.status);
     case 'session':
       return 'signed-out';
+    // transient (ADR-0017): the write stays queued for this user, the read falls back to the copy
+    case 'session-read':
+      return 'network';
     case 'invalid-row':
       return 'invalid-row';
     case 'thrown':

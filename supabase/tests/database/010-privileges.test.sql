@@ -61,9 +61,9 @@ select is_empty(
   'authenticated cannot truncate, reference or add triggers to any table in public'
 );
 
--- functions: the api calls the guest merge only (ADR-0016), every other function is called by a
--- trigger or by that function. extension members are skipped: supabase test db installs pgtap in
--- public for the duration of the run
+-- functions: the api calls the guest merge (ADR-0016) and the replay of queued writes (ADR-0017)
+-- only, every other function is called by a trigger or by those functions. extension members are
+-- skipped: supabase test db installs pgtap in public for the duration of the run
 
 select is_empty(
   $$
@@ -95,9 +95,15 @@ select results_eq(
         select 1 from pg_catalog.pg_depend d where d.objid = p.oid and d.deptype = 'e'
       )
       and has_function_privilege('authenticated', p.oid, 'execute')
+    order by 1
   $$,
-  $$ values ('public.merge_guest_library_entries(entries jsonb)') $$,
-  'authenticated executes public.merge_guest_library_entries(jsonb) only'
+  $$
+    values
+      ('public.merge_guest_library_entries(entries jsonb)'),
+      ('public.replay_library_writes(expected_user_id uuid, writes jsonb)')
+  $$,
+  'authenticated executes public.merge_guest_library_entries(jsonb) and '
+    || 'public.replay_library_writes(uuid, jsonb) only'
 );
 
 select ok(

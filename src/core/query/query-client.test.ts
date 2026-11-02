@@ -1,6 +1,6 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { queryKeys } from './keys';
+import { queryKeys, toLibraryScope } from './keys';
 import { createQueryClient } from './query-client';
 import { PERSISTED_CACHE_MAX_AGE, SEARCH_GC_TIME, STALE_TIMES } from './stale-times';
 
@@ -32,6 +32,18 @@ describe('createQueryClient', () => {
     const query = client.getQueryCache().find({ queryKey: key, exact: true });
     expect(query?.options.gcTime).toBe(PERSISTED_CACHE_MAX_AGE);
     expect(client.getQueryDefaults(key).staleTime).toBeUndefined();
+  });
+
+  it('never pauses a library query offline, of any scope or entry, and keeps catalog keys online', () => {
+    const client = createQueryClient();
+    const scope = toLibraryScope(3);
+    const key = { namespace: 'mal', kind: 'anime', externalId: 1 } as const;
+
+    expect(client.getQueryDefaults(queryKeys.library.all(scope)).networkMode).toBe('always');
+    expect(client.getQueryDefaults(queryKeys.library.entry(scope, key)).networkMode).toBe('always');
+    expect(client.getQueryDefaults(queryKeys.library.all(scope)).refetchOnReconnect).toBe(true);
+    expect(client.getQueryDefaults(queryKeys.media(key)).networkMode).toBeUndefined();
+    expect(client.getDefaultOptions().queries?.networkMode).toBeUndefined();
   });
 
   it('returns a new client on each call', () => {

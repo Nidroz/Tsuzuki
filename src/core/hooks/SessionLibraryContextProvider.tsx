@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import {
   useCallback,
   useEffect,
@@ -11,10 +12,11 @@ import {
 import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
 import type {
-  AccountLibraryRepository,
   GuestLibraryRepository,
   LibraryRepository,
+  OfflineAccountLibraryRepository,
 } from '../repositories/library-repository';
+import type { ForegroundSubscription } from './foreground';
 import { mergeGuestLibrary } from './guest-merge';
 import {
   GuestMergeContext,
@@ -22,18 +24,28 @@ import {
   type GuestMergeValue,
 } from './guest-merge-context';
 import { LibraryContextProvider, type RetiredLibrary } from './LibraryContextProvider';
+import { LibraryReplayDriver } from './LibraryReplayDriver';
 import { useAuthSession } from './use-auth-session';
 
 export interface SessionLibraryContextProviderProps {
   /** the guest library, shown signed out and merged at sign in; pass a stable object (module level) */
   guest: GuestLibraryRepository;
   /**
-   * the account library of a signed-in user id, called once per user id while signed in; pass a
-   * stable function (module level)
+   * the offline account library of a signed-in user id (ADR-0017), called once per user id while
+   * signed in; pass a stable function (module level)
    */
-  accountRepositoryFor: (userId: string) => AccountLibraryRepository;
-  /** receives the merge failures that are not an account store failure (those report themselves) */
+  accountRepositoryFor: (userId: string) => OfflineAccountLibraryRepository;
+  /**
+   * receives the merge failures that are not an account store failure (those report themselves)
+   * and the replay runs that rejected
+   */
   reporter: ErrorReporter;
+  /**
+   * the app foreground (src/platform/app-state.ts on mobile): going to the background flushes the
+   * live library writer, a return to the foreground replays the queued writes. pass a stable
+   * function (module level)
+   */
+  subscribeToForeground?: ForegroundSubscription | undefined;
   children: ReactNode;
 }
 
@@ -57,14 +69,14 @@ type MergePhase = 'checking' | 'merging' | 'failed' | 'done';
 
 interface MergeState {
   /** the account instance this state is about; any other instance is still `checking` */
-  readonly account: AccountLibraryRepository | null;
+  readonly account: OfflineAccountLibraryRepository | null;
   readonly phase: MergePhase;
   /** the run of that instance: 0 for the first, one more per retry */
   readonly attempt: number;
 }
 
 interface StartedRun {
-  readonly account: AccountLibraryRepository;
+  readonly account: OfflineAccountLibraryRepository;
   readonly attempt: number;
 }
 
@@ -85,13 +97,17 @@ const noop = (): void => undefined;
  * useGuestMerge(). so no library action ever computes a write on an account library lacking a
  * guest entry, which a later merge would then keep over the guest copy. a merge waits for the
  * previous merge of this provider and for the pending writes of the retired libraries first, so
- * two merges never overlap, and one whose session ended changes and removes nothing. render it
- * inside AuthContextProvider and the query client provider
+ * two merges never overlap, and one whose session ended changes and removes nothing: each run's
+ * signal is aborted once its account is no longer the committed one, which stops its next batch.
+ * a failed merge is retried when the device reconnects, as by `retry()`. once the merge is done,
+ * LibraryReplayDriver replays the account's queued writes (ADR-0017). render it inside
+ * AuthContextProvider and the query client provider
  */
 export function SessionLibraryContextProvider({
   guest,
   accountRepositoryFor,
   reporter,
+  subscribeToForeground,
   children,
 }: SessionLibraryContextProviderProps) {
   const { status, session } = useAuthSession();
@@ -111,11 +127,23 @@ export function SessionLibraryContextProvider({
 
   // the account instance of the session as committed, null once unmounted: a run started for
   // another instance is stale. set in the commit, before any effect of the same commit runs
-  const liveAccountRef = useRef<AccountLibraryRepository | null>(null);
+  const liveAccountRef = useRef<OfflineAccountLibraryRepository | null>(null);
+  // the abort controller of the run of each account instance, until that run settled
+  const runControllersRef = useRef(new Map<OfflineAccountLibraryRepository, AbortController>());
   useLayoutEffect(() => {
     liveAccountRef.current = account;
+    const controllers = runControllersRef.current;
     return () => {
       liveAccountRef.current = null;
+      if (account === null) {
+        return;
+      }
+      // after the commit: a cleanup of the committed account (StrictMode) aborts nothing
+      void Promise.resolve().then(() => {
+        if (liveAccountRef.current !== account) {
+          controllers.get(account)?.abort();
+        }
+      });
     };
   }, [account]);
 
@@ -140,7 +168,10 @@ export function SessionLibraryContextProvider({
   const lastRunRef = useRef<Promise<void>>(Promise.resolve());
 
   const run = useCallback(
-    (runAccount: AccountLibraryRepository, runAttempt: number) => {
+    (runAccount: OfflineAccountLibraryRepository, runAttempt: number) => {
+      const controllers = runControllersRef.current;
+      const controller = new AbortController();
+      controllers.set(runAccount, controller);
       const isCurrent = (): boolean => liveAccountRef.current === runAccount;
       const conclude = (next: MergePhase): void => {
         if (isCurrent()) {
@@ -155,11 +186,17 @@ export function SessionLibraryContextProvider({
         // retired in the commit that started the run included
         settleWrites: () => Promise.all([previous, ...flushesRef.current]).then(noop),
         isCurrent,
+        signal: controller.signal,
         onMerging: () => {
           conclude('merging');
         },
       });
       lastRunRef.current = started.then(noop, noop);
+      void lastRunRef.current.then(() => {
+        if (controllers.get(runAccount) === controller) {
+          controllers.delete(runAccount);
+        }
+      });
       started.then(
         (outcome) => {
           if (outcome !== 'stale') {
@@ -204,6 +241,18 @@ export function SessionLibraryContextProvider({
     );
   }, []);
 
+  // a failed merge needs the server: it is retried when the device reconnects
+  useEffect(() => {
+    if (phase !== 'failed') {
+      return undefined;
+    }
+    return onlineManager.subscribe((online) => {
+      if (online) {
+        retry();
+      }
+    });
+  }, [phase, retry]);
+
   const mergeStatus: GuestMergeStatus = phase === null || phase === 'done' ? 'idle' : phase;
   const mergeValue = useMemo(
     (): GuestMergeValue => ({ status: mergeStatus, retry }),
@@ -222,7 +271,16 @@ export function SessionLibraryContextProvider({
 
   return (
     <GuestMergeContext value={mergeValue}>
-      <LibraryContextProvider repository={repository} onRetired={onRetired}>
+      <LibraryContextProvider
+        repository={repository}
+        onRetired={onRetired}
+        subscribeToForeground={subscribeToForeground}
+      >
+        <LibraryReplayDriver
+          account={phase === 'done' ? account : null}
+          reporter={reporter}
+          subscribeToForeground={subscribeToForeground}
+        />
         {children}
       </LibraryContextProvider>
     </GuestMergeContext>

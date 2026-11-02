@@ -8,6 +8,7 @@ import {
 } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf, keyOf } from '../../../test/core/library-entry-fixtures';
 import {
+  MERGE_OPTIONS,
   renderSessionLibrary,
   settleSession,
   USER_A,
@@ -84,7 +85,10 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
     expect(rendered.result.current.merge.status).toBe('merging');
     expect(rendered.result.current.repository).toBe(PENDING_LIBRARY_REPOSITORY);
     expect(rendered.result.current.entry.isPending).toBe(true);
-    expect(account.mergeGuestEntries).toHaveBeenCalledWith([GUEST_ENTRY, GUEST_OTHER]);
+    expect(account.mergeGuestEntries).toHaveBeenCalledWith(
+      [GUEST_ENTRY, GUEST_OTHER],
+      MERGE_OPTIONS,
+    );
     // no library call reaches the account while its merge runs
     expect(account.list).not.toHaveBeenCalled();
     expect(account.get).not.toHaveBeenCalled();
@@ -204,7 +208,10 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
     });
     await settleSession();
     expect(rendered.result.current.repository).toBe(rendered.accountOf(1));
-    expect(rendered.accountOf(1).mergeGuestEntries).toHaveBeenCalledWith([GUEST_OTHER]);
+    expect(rendered.accountOf(1).mergeGuestEntries).toHaveBeenCalledWith(
+      [GUEST_OTHER],
+      MERGE_OPTIONS,
+    );
     expect(rendered.accountOf(0).mergeGuestEntries).not.toHaveBeenCalled();
     expect(rendered.guest.stored(GUEST_OTHER.key)).toBeNull();
   });

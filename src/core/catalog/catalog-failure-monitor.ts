@@ -5,6 +5,7 @@
 // params, status code, response text or the original error
 import {
   CatalogHttpError,
+  CatalogNetworkError,
   CatalogProviderFailureError,
   CatalogResponseError,
   CatalogTimeoutError,
@@ -34,15 +35,27 @@ export interface CatalogFailureMonitorOptions {
    * so fake timers apply.
    */
   readonly now?: () => number;
+  /**
+   * whether the device is online now (isDeviceOnline, src/core/query/online-manager.ts): a network
+   * error is counted, as `network`, only while it returns true, since an offline device and a
+   * provider outage look the same otherwise. without it, network errors are never counted.
+   */
+  readonly isOnline?: () => boolean;
 }
 
+// without a connectivity source, a network error never says anything about the provider
+const NEVER_ONLINE = (): boolean => false;
+
 // the kind of a failure, or null when it is not counted: a 404 (a normal answer for a missing
-// title: gaps in MAL ids, a stale library row, a deep link to a missing id), a network error (an
-// offline device and a provider outage look the same until A-05 brings connectivity), an abort,
-// an input RangeError or an unknown error
-const failureKindOf = (error: unknown): CatalogFailureKind | null => {
+// title: gaps in MAL ids, a stale library row, a deep link to a missing id), a network error while
+// the device is offline (an offline device and a provider outage look the same), an abort, an
+// input RangeError or an unknown error
+const failureKindOf = (error: Error, isOnline: () => boolean): CatalogFailureKind | null => {
   if (isCatalogNotFoundError(error)) {
     return null;
+  }
+  if (error instanceof CatalogNetworkError) {
+    return isOnline() ? 'network' : null;
   }
   if (error instanceof CatalogHttpError) {
     if (error.status >= HTTP_SERVER_ERROR_MIN) {
@@ -70,6 +83,11 @@ export const monitorCatalogProvider = (
 ): CatalogProvider => {
   const { reporter } = options;
   const now = options.now ?? (() => performance.now());
+  const isOnline = options.isOnline ?? NEVER_ONLINE;
+  // the errors already counted: the http client rejects every caller of one request in flight
+  // (a foreground call that joined a background prefetch) with the same error object, a failure of
+  // the provider counted once. a new request always fails with a new error
+  const counted = new WeakSet<object>();
   // the times of the counted failures since the last success, oldest first
   let streak: readonly number[] = [];
   const reportedAt = new Map<CatalogFailureKind, number>();
@@ -91,10 +109,15 @@ export const monitorCatalogProvider = (
   };
 
   const onFailure = (error: unknown): void => {
-    const kind = failureKindOf(error);
+    // every counted kind is an Error: anything else thrown is never counted
+    if (!(error instanceof Error) || counted.has(error)) {
+      return;
+    }
+    const kind = failureKindOf(error, isOnline);
     if (kind === null) {
       return;
     }
+    counted.add(error);
     const at = now();
     streak = [...streak.filter((failedAt) => at - failedAt <= CATALOG_FAILURE_WINDOW_MS), at];
     if (streak.length >= CATALOG_FAILURE_THRESHOLD) {

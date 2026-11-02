@@ -78,6 +78,9 @@ const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryReposito
 
 const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
 
+// the options of every guest merge call: the signal of its run, aborted once its session ended
+const MERGE_OPTIONS = { signal: expect.any(AbortSignal) };
+
 // placeholder user ids
 const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
@@ -211,8 +214,8 @@ describe('root layout guest merge across sessions (A-04)', () => {
       USER_B,
     ]);
     const [accountA, accountB] = [accountOf(0), accountOf(1)];
-    expect(accountA.mergeGuestEntries.mock.calls).toStrictEqual([[[GUEST_ENTRY]]]);
-    expect(accountB.mergeGuestEntries.mock.calls).toStrictEqual([[[GUEST_OTHER]]]);
+    expect(accountA.mergeGuestEntries.mock.calls).toStrictEqual([[[GUEST_ENTRY], MERGE_OPTIONS]]);
+    expect(accountB.mergeGuestEntries.mock.calls).toStrictEqual([[[GUEST_OTHER], MERGE_OPTIONS]]);
     expect(accountA.stored(GUEST_OTHER.key)).toBeNull();
     expect(accountB.stored(GUEST_ENTRY.key)).toBeNull();
     expect(storedGuestLibrary()).toBeUndefined();
@@ -233,7 +236,9 @@ describe('root layout guest merge across sessions (A-04)', () => {
     expect(await screen.findByTestId(rowOf(first))).toBeOnTheScreen();
     await reportSession(USER_A);
     // the merge listed the guest store, its write is held
-    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([[[first, other]]]);
+    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([
+      [[first, other], MERGE_OPTIONS],
+    ]);
 
     // a change on the device after the listing, before the merge write, at the device's time
     await settle(DEVICE_STEP_MS);
@@ -263,7 +268,7 @@ describe('root layout guest merge across sessions (A-04)', () => {
 
     // the change is sent again and, newer, replaces the merged copy (BR-08); then nothing is left
     // on the device that the account does not hold
-    expect(accountOf(1).mergeGuestEntries.mock.calls).toStrictEqual([[[changed]]]);
+    expect(accountOf(1).mergeGuestEntries.mock.calls).toStrictEqual([[[changed], MERGE_OPTIONS]]);
     expect(accountOf(1).stored(other.key)).toStrictEqual({
       ...changed,
       createdAt: merged[1]?.createdAt,

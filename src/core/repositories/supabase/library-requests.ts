@@ -38,6 +38,9 @@ export interface PostgrestResult {
   readonly status: number;
 }
 
+// what the session guard read: the session of this user, none or another user's, or an error
+type SessionState = 'own' | 'other' | 'unreadable';
+
 /** a postgrest response of a page: its rows, unless the server failed, and the exact count. */
 export interface PostgrestPage extends PostgrestResult {
   readonly data: unknown;
@@ -71,8 +74,8 @@ export const isRowArray = (value: unknown): value is readonly unknown[] => Array
 /**
  * the requests of the user `userId` over `client`. `send` checks before each request, under the
  * request timeout, that the client's session is still that user's, else it rejects with
- * `signed-out` and sends nothing; a session read that does not answer in time rejects with
- * `network`, and nothing is sent either.
+ * `signed-out` and sends nothing; a session read that fails or does not answer in time rejects
+ * with `network`, and nothing is sent either.
  */
 export const createLibraryRequests = (
   client: SupabaseClient<Database>,
@@ -92,25 +95,29 @@ export const createLibraryRequests = (
     return error;
   };
 
-  // whether the client's session is this user's; an error reading it counts as no session, which
-  // the caller rejects with signed-out
-  const hasOwnSession = async (): Promise<boolean> => {
+  // whose session the client holds: this user's, none or another user's (`other`), or it could not
+  // be read (`unreadable`: an error result or a thrown error, such as a token refresh failing
+  // offline), which is transient and never read as a sign out (ADR-0017)
+  const readSession = async (): Promise<SessionState> => {
     try {
       const { data, error } = await client.auth.getSession();
-      return error === null && data.session?.user.id === userId;
+      if (error !== null) {
+        return 'unreadable';
+      }
+      return data.session?.user.id === userId ? 'own' : 'other';
     } catch {
-      return false;
+      return 'unreadable';
     }
   };
 
   // the session guard's answer, or null when `signal` aborts first: supabase-js reads the session
   // storage (the secure store on mobile) behind a lock, and that read has no timeout of its own
-  const guard = (signal: AbortSignal): Promise<boolean | null> =>
+  const guard = (signal: AbortSignal): Promise<SessionState | null> =>
     new Promise((resolve) => {
       signal.addEventListener('abort', () => {
         resolve(null);
       });
-      void hasOwnSession().then(resolve);
+      void readSession().then(resolve);
     });
 
   // runs a call; anything thrown that is not already mapped is unknown
@@ -137,11 +144,14 @@ export const createLibraryRequests = (
       controller.abort();
     }, LIBRARY_REQUEST_TIMEOUT_MS);
     try {
-      const isOwnSession = await guard(controller.signal);
-      if (isOwnSession === null) {
+      const session = await guard(controller.signal);
+      if (session === null) {
         throw fail(operation, TIMED_OUT);
       }
-      if (!isOwnSession) {
+      if (session === 'unreadable') {
+        throw fail(operation, { type: 'session-read' });
+      }
+      if (session === 'other') {
         throw fail(operation, { type: 'session' });
       }
       const response = await request(controller.signal);

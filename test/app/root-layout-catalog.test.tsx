@@ -3,6 +3,7 @@ import type * as FailureMonitor from '@core/catalog/catalog-failure-monitor';
 import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider';
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
 import { useCatalogProvider } from '@core/hooks/use-catalog-provider';
+import { isDeviceOnline } from '@core/query/online-manager';
 import { describe, expect, it, jest } from '@jest/globals';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
@@ -84,7 +85,10 @@ describe('root layout catalog wiring (ADR-0013)', () => {
     const created = createJikan.mock.results[0];
     const monitored = monitor.mock.results[0];
     expect(monitor).toHaveBeenCalledTimes(1);
-    expect(monitor).toHaveBeenCalledWith(created?.value, { reporter: expect.any(Object) });
+    expect(monitor).toHaveBeenCalledWith(created?.value, {
+      reporter: expect.any(Object),
+      isOnline: isDeviceOnline,
+    });
     expect(seen.provider).toBe(monitored?.value);
     expect(seen.provider).not.toBe(created?.value);
     expect(seen.provider).toMatchObject({

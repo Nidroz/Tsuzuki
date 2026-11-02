@@ -107,7 +107,7 @@ describe('a sustained failure', () => {
     const fake = createFakeCatalogProvider();
     const captureError = jest.fn<ErrorReporter['captureError']>();
     const monitored = monitorCatalogProvider(fake, { reporter: { captureError } });
-    fake.getTop.mockRejectedValue(SERVER_ERROR);
+    fake.getTop.mockImplementation(() => Promise.reject(new CatalogHttpError(503, 2_000)));
     // `count` failures, each followed by `move`
     const failAndMove = async (count: number, move: () => void): Promise<void> => {
       for (let failure = 0; failure < count; failure += 1) {
@@ -172,7 +172,7 @@ describe('the report interval', () => {
     const captureError = jest.fn<ErrorReporter['captureError']>();
     const options = { reporter: { captureError }, now: () => 0 };
     const monitors = [monitorCatalogProvider(fake, options), monitorCatalogProvider(fake, options)];
-    fake.getGenres.mockRejectedValue(SERVER_ERROR);
+    fake.getGenres.mockImplementation(() => Promise.reject(new CatalogHttpError(503, 2_000)));
 
     for (const monitor of [...monitors, ...monitors]) {
       await monitor.getGenres('anime').catch(() => undefined);
