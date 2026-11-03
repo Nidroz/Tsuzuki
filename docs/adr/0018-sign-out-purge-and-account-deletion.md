@@ -34,6 +34,7 @@ Options considered:
 type VerifiedUser =
   | { readonly status: 'verified'; readonly userId: string }
   | { readonly status: 'refused' } // an auth 4xx, or no user
+  | { readonly status: 'gone' } // user_not_found: a valid token whose user no longer exists
   | { readonly status: 'unavailable' }; // the auth server unreachable, or a 5xx
 interface DeleteAccountPorts {
   verifyUser(token: string): Promise<VerifiedUser>;
@@ -49,15 +50,15 @@ A port that throws counts as `unavailable` (verify) or `failed` (delete). Checks
 | env missing | 500 | `{"error":"server-misconfigured"}` |
 | `Authorization` not exactly `Bearer <token>`, or the token not three base64url segments of at most 8192 characters in all: no port called | 401 | `{"error":"unauthorized"}` |
 | `verifyUser`: `refused` | 401 | `{"error":"unauthorized"}` |
+| `verifyUser`: `gone` (the auth server answers `user_not_found`: the token's signature is valid, its user no longer exists) | 200 | `{"deleted":true}` |
 | `verifyUser`: `unavailable` | 503 | `{"error":"unavailable"}` |
 | the verified user id not a UUID | 500 | `{"error":"deletion-failed"}` |
-| `verifyUser`: `gone` (the auth server answers `user_not_found`: the token's signature is valid, its user no longer exists) | 200 | `{"deleted":true}` |
 | `deleteUser`: `deleted`, or `not-found` (already gone) | 200 | `{"deleted":true}` |
 | `deleteUser`: `failed` | 500 | `{"error":"deletion-failed"}` |
 
 Security model:
 
-- The user id comes only from the user the auth server returned for the token: the body and the query are never read, so a request cannot name another user. The anon key, a token of another project or of a deleted user is refused by the gateway or by `getUser`.
+- The user id comes only from the user the auth server returned for the token: the body and the query are never read, so a request cannot name another user. The anon key or a token of another project is refused by the gateway or by `getUser`; a valid token whose user is already gone answers deleted without any call (`gone`), which only tells the token's holder what already holds.
 - The service role key exists only in the function env: never in the app, the repository, a request or response body, a header or a log. The admin client keeps no session.
 - Fixed bodies: no error text, id, token or key, so a supabase error message (which can hold an email) never leaves the function.
 - No CORS headers at all: the caller is the mobile app, which CORS does not concern; a web page cannot call the function (its preflight gets no CORS answer), and the bearer token is never a cookie, so no cross-site request carries it. The future web app decides a restricted CORS in its own ADR.
