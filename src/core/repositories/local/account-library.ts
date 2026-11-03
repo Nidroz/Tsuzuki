@@ -2,16 +2,11 @@
 // device copy and the write queue shared by every instance of that user. a write is queued before
 // any request, tried at once when the device is online and its key is not being replayed, and
 // replayed later otherwise; reads show the queue over the server state, or over the device copy
-// offline. entries hold personal data: never logged, never in an error or a report tag
+// offline. the device purge (ADR-0018) closes every instance of the user for good. entries hold
+// personal data: never logged, never in an error or a report tag
 import type { LibraryEntry } from '../../domain/library-entry';
-import {
-  libraryQueuedWriteTime,
-  overlayQueuedWrites,
-  queuedWriteTime,
-  type LibraryQueuedWrite,
-} from '../../domain/library-sync';
+import { overlayQueuedWrites } from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
-import type { MediaKey } from '../../domain/media';
 import { LibraryRemoteError } from '../../errors/library-errors';
 import { libraryEntrySchema, mediaKeySchema } from '../../schemas/library-entry';
 import type { OfflineAccountLibraryRepository } from '../library-repository';
@@ -21,18 +16,22 @@ import {
   confirmState,
   countDirectAttempt,
   endRead,
+  isClosed,
   notifyQueued,
   recordId,
 } from './account-library-coordination';
+import { createDeviceReads, timeOfChange } from './account-library-device';
 import {
   LIBRARY_REPLAY_REPORT_SOURCE,
   replayQueuedWrites,
   type ReplayContext,
 } from './account-library-replay';
 
-/** a replay context and the wall clock that times a removal. */
+/** a replay context, the wall clock that times a removal, and the purge of the user's documents. */
 export interface OfflineAccountLibraryContext extends ReplayContext {
   readonly now: () => Date;
+  /** closes the coordination and deletes the documents, unless it was closed before. */
+  readonly purge: () => void;
 }
 
 const isRemoteFailure = (error: unknown, reasons: readonly string[]): boolean =>
@@ -45,64 +44,20 @@ const LEAVING_REASONS = ['rejected', 'invalid-row'] as const;
 // a read failing so falls back to the copy
 const UNREACHABLE_REASONS = ['network'] as const;
 
-// the state a queued write asks for: its entry, or null for a removal
-const stateOf = (write: LibraryQueuedWrite): LibraryEntry | null =>
-  write.type === 'save' ? write.entry : null;
-
 export const createOfflineAccountLibrary = (
   context: OfflineAccountLibraryContext,
 ): OfflineAccountLibraryRepository => {
-  const { coordination, remote, isOnline, reporter, now } = context;
+  const { coordination, remote, isOnline, reporter, now, purge } = context;
   const { store } = coordination;
+  const { queuedStateOf, copyEntryOf, deviceGet, deviceList } = createDeviceReads(store);
 
-  const queuedStateOf = (key: MediaKey): LibraryEntry | null | undefined => {
-    const record = store.recordOf(key);
-    return record === undefined ? undefined : stateOf(record.write);
-  };
-
-  const copyEntryOf = (key: MediaKey): LibraryEntry | undefined => {
-    const id = libraryEntryId(key);
-    return store.readCopy()?.find((entry) => libraryEntryId(entry.key) === id);
-  };
-
-  // the device answer of a read: the queued write, else the copy, else no copy to read: network
-  const deviceGet = (key: MediaKey): LibraryEntry | null => {
-    const queued = queuedStateOf(key);
-    if (queued !== undefined) {
-      return queued;
+  // once the purge closed the coordination, every call and every call in flight ends `signed-out`
+  // without touching the documents (the store refuses them too)
+  const ensureOpen = (): void => {
+    if (isClosed(coordination)) {
+      throw new LibraryRemoteError('signed-out');
     }
-    const copy = store.readCopy();
-    if (copy === null) {
-      throw new LibraryRemoteError('network');
-    }
-    const id = libraryEntryId(key);
-    return copy.find((entry) => libraryEntryId(entry.key) === id) ?? null;
   };
-
-  const deviceList = (): readonly LibraryEntry[] => {
-    const copy = store.readCopy();
-    if (copy === null) {
-      throw new LibraryRemoteError('network');
-    }
-    return overlayQueuedWrites(
-      copy,
-      store.readRecords().map(({ write }) => write),
-    );
-  };
-
-  // the time of a change of `key` made at `changeTime`: after the known state of the key, the
-  // key's queued write else its copy entry
-  const timeOfChange = (
-    changeTime: string,
-    previous: QueuedWriteRecord | undefined,
-    copyEntry: LibraryEntry | undefined,
-  ): string =>
-    queuedWriteTime(
-      changeTime,
-      previous === undefined
-        ? (copyEntry?.updatedAt ?? null)
-        : libraryQueuedWriteTime(previous.write),
-    );
 
   // the queued write stays for the replay: the call resolves with the queued state
   const keepQueued = <R>(queued: R): R => {
@@ -129,6 +84,8 @@ export const createOfflineAccountLibrary = (
     } catch (error) {
       // released before the listeners hear of the write: a run they start may send it
       countDirectAttempt(coordination, id, -1);
+      // purged meanwhile: the outcome is not stored
+      ensureOpen();
       if (isRemoteFailure(error, LEAVING_REASONS)) {
         store.removeConfirmed([record]);
         throw error;
@@ -140,12 +97,14 @@ export const createOfflineAccountLibrary = (
       return keepQueued(queued);
     }
     countDirectAttempt(coordination, id, -1);
+    ensureOpen();
     store.removeConfirmed([record]);
     return onConfirmed(value);
   };
 
   return {
     get: async (key) => {
+      ensureOpen();
       const queued = queuedStateOf(key);
       if (queued !== undefined) {
         return queued;
@@ -177,6 +136,7 @@ export const createOfflineAccountLibrary = (
     },
 
     list: async () => {
+      ensureOpen();
       if (!isOnline()) {
         return deviceList();
       }
@@ -206,6 +166,7 @@ export const createOfflineAccountLibrary = (
     },
 
     save: async (entry) => {
+      ensureOpen();
       const parsed = libraryEntrySchema.safeParse(entry);
       if (!parsed.success) {
         // the message holds no value: the ui validates user input first, this is a bug
@@ -236,6 +197,7 @@ export const createOfflineAccountLibrary = (
     },
 
     remove: async (key) => {
+      ensureOpen();
       const parsed = mediaKeySchema.safeParse(key);
       if (!parsed.success) {
         throw new RangeError('media key is outside the database limits');
@@ -256,7 +218,10 @@ export const createOfflineAccountLibrary = (
       );
     },
 
-    mergeGuestEntries: (entries, options) => remote.mergeGuestEntries(entries, options),
+    mergeGuestEntries: async (entries, options) => {
+      ensureOpen();
+      await remote.mergeGuestEntries(entries, options);
+    },
 
     replayQueuedWrites: (options) => replayQueuedWrites(context, options),
 
@@ -265,10 +230,17 @@ export const createOfflineAccountLibrary = (
       const subscription = (): void => {
         listener();
       };
-      coordination.listeners.add(subscription);
+      // a closed coordination never notifies again
+      if (!isClosed(coordination)) {
+        coordination.listeners.add(subscription);
+      }
       return () => {
         coordination.listeners.delete(subscription);
       };
     },
+
+    queuedWriteCount: () => (isClosed(coordination) ? 0 : store.readRecords().length),
+
+    purgeDeviceData: purge,
   };
 };

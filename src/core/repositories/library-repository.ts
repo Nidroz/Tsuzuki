@@ -1,7 +1,8 @@
 // the library repositories (docs/ARCHITECTURE.md §4): the user's library entries, on the device
 // for a guest (local/, L-02) and in supabase for a signed-in user (supabase/, A-03), the merge of
-// the first into the second at sign in (A-04, ADR-0016), and the account library's offline writes,
-// queued on the device and replayed (A-05, ADR-0017). types only
+// the first into the second at sign in (A-04, ADR-0016), the account library's offline writes,
+// queued on the device and replayed (A-05, ADR-0017), and the purge of the device data at sign out
+// and account deletion (A-06, ADR-0018). types only
 import type { LibraryEntry } from '../domain/library-entry';
 import type { LibraryQueuedWrite, LibraryReplayOutcome } from '../domain/library-sync';
 import type { MediaKey } from '../domain/media';
@@ -77,8 +78,10 @@ export interface LibraryRepository {
  * the guest library (FR-20), kept on the device only (local/library-repository.ts). its two bulk
  * removals are guest-only: `removeUnchanged` after a successful merge into the account (BR-08,
  * A-04: the merge reads `list()`, passes those entries to the account store's
- * `mergeGuestEntries`, and removes them only once it resolved), `clear` at the sign-out purge
- * (FR-25, A-06). an account library is removed by account deletion only (A-06).
+ * `mergeGuestEntries`, and removes them only once it resolved), `clear` at the device purge of a
+ * sign out or an account deletion (FR-25, ADR-0018). an account library is removed from the
+ * server by account deletion only (AuthRepository.deleteAccount), and from the device by
+ * OfflineAccountLibraryRepository.purgeDeviceData.
  */
 export interface GuestLibraryRepository extends LibraryRepository {
   /**
@@ -93,8 +96,11 @@ export interface GuestLibraryRepository extends LibraryRepository {
   removeUnchanged(entries: readonly LibraryEntry[]): Promise<void>;
 
   /**
-   * removes every guest entry; a no-op when there is none. the sign-out purge (FR-25, A-06), never
-   * the merge, which removes with `removeUnchanged`.
+   * removes every guest entry; a no-op when there is none. called by the device purge of a sign
+   * out or an account deletion (FR-25, ADR-0018) only once the guest merge is `idle`: while it is
+   * `checking`, `merging` or `failed`, the guest store holds the only copy of entries the account
+   * has not confirmed, and the purge keeps it. never called by the merge, which removes with
+   * `removeUnchanged`.
    */
   clear(): Promise<void>;
 }
@@ -102,7 +108,8 @@ export interface GuestLibraryRepository extends LibraryRepository {
 /**
  * the account library of one signed-in user, in supabase (supabase/library-repository.ts, A-03,
  * FR-23), into which the guest library is merged (FR-22, BR-08, A-04, ADR-0016). no `clear`: an
- * account library is removed by account deletion only (A-06).
+ * account library is removed from the server by account deletion only, through the foreign key
+ * cascades (AuthRepository.deleteAccount, ADR-0018).
  */
 export interface AccountLibraryRepository extends LibraryRepository {
   /**
@@ -208,7 +215,8 @@ export interface LibraryReplayRun {
  * for this user only, until a replay confirms it. `get` and `list` show every queued
  * write over the server state (read your writes); offline, or when the server is unreachable,
  * they read the device copy, and reject with `network` when this user has no copy yet.
- * `mergeGuestEntries` goes to the account store directly, never through the queue.
+ * `mergeGuestEntries` goes to the account store directly, never through the queue. the sign out
+ * and the account deletion delete the copy and the queue with `purgeDeviceData` (ADR-0018).
  */
 export interface OfflineAccountLibraryRepository extends AccountLibraryRepository {
   /**
@@ -233,4 +241,43 @@ export interface OfflineAccountLibraryRepository extends AccountLibraryRepositor
    * every instance of this user. returns the unsubscribe function.
    */
   subscribeToQueuedWrites(listener: () => void): () => void;
+
+  /**
+   * the number of writes in this user's queue now (FR-25, ADR-0018): every write the server has
+   * not confirmed, whatever its state (waiting, sent by a replay run or a direct attempt, refused
+   * in this process), since `purgeDeviceData` would delete each of them. the sign out asks before
+   * purging when it is above 0. no request: read from the device synchronously, like every
+   * operation of the store over the synchronous app storage, so it counts a write queued by a call
+   * made just before. a queue document that does not parse counts 0 (reported by the store, as on
+   * every read). 0 on an instance closed by `purgeDeviceData`.
+   */
+  queuedWriteCount(): number;
+
+  /**
+   * deletes this user's library data from the device (FR-24, FR-25, ADR-0018): the device copy and
+   * the write queue (`account-library-copy.<userId>`, `account-library-queue.<userId>`), with every
+   * queued write the server has not confirmed: the caller has synced or asked first (sign out), or
+   * the account is gone (account deletion). sends nothing: the account library on the server and
+   * the documents of other users are untouched.
+   *
+   * it first closes the coordination every instance of this user shares (the replay run, the keys
+   * in flight, the refused writes, the queue listeners), then deletes both documents. from then on
+   * no instance of this user created before the call, this one included, reads or writes either
+   * document again or sends a request: `list`, `get`, `save`, `remove` and `mergeGuestEntries`
+   * reject with a LibraryRemoteError `signed-out` (a late flush of a retired writer is refused,
+   * never queued); `replayQueuedWrites` resolves `{ status: 'signed-out', confirmed: 0 }`;
+   * `queuedWriteCount()` is 0; the listeners are dropped and never called again. a call in flight
+   * ends without touching the documents: a request already sent completes on the server (it cannot
+   * be cut) but its outcome is not stored, and a replay run sends no further batch and ends
+   * `signed-out`. an instance the factory creates afterwards for the same user id (the next sign
+   * in) gets a new coordination and starts afresh: an empty queue and no copy (offline reads
+   * reject with `network` until a `list()` succeeds). on an instance already closed it does
+   * nothing, so it never deletes the documents of a later instance of the same user.
+   *
+   * synchronous, like every operation of the store over the synchronous app storage: the closing
+   * and the deletion happen in one step, so no write of another instance can land between them,
+   * and the documents are gone when it returns. a storage failure throws once both deletions were
+   * tried, the coordination staying closed; the caller reports it and goes on with the purge.
+   */
+  purgeDeviceData(): void;
 }

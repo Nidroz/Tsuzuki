@@ -144,7 +144,8 @@ export const NOTHING_REPLAYED: LibraryReplayRun = { status: 'done', confirmed: 0
 
 /**
  * the fake account repository as the offline account library the session library gets: its
- * `replayQueuedWrites` resolves NOTHING_REPLAYED by default (a jest mock a test sets up), and
+ * `replayQueuedWrites` resolves NOTHING_REPLAYED by default (a jest mock a test sets up),
+ * `queuedWriteCount` answers 0 and `purgeDeviceData` does nothing (jest mocks too), and
  * `notifyQueued()` calls every listener of `subscribeToQueuedWrites`, as a write left in the queue
  * does
  */
@@ -166,6 +167,8 @@ export const createSessionAccount = (initial: readonly LibraryEntry[] = []) => {
         };
       },
     ),
+    queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(() => 0),
+    purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
     notifyQueued: (): void => {
       for (const listener of [...listeners]) {
         listener();
