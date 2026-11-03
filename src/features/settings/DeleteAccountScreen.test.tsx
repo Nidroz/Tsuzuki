@@ -1,0 +1,216 @@
+import {
+  AccountDeletionError,
+  type AccountDeletionErrorReason,
+} from '@core/errors/account-deletion-errors';
+import type { AuthRepository, AuthSession } from '@core/repositories/auth-repository';
+import type {
+  LibraryReplayRun,
+  OfflineAccountLibraryRepository,
+} from '@core/repositories/library-repository';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { screen, userEvent, within } from '@testing-library/react-native';
+
+import {
+  createFakeAuthRepository,
+  createSessionSource,
+} from '../../../test/core/fake-auth-repository';
+import {
+  createFakeAccountLibraryRepository,
+  createFakeGuestLibraryRepository,
+} from '../../../test/core/fake-library-repository';
+import { renderWithProviders } from '../../../test/mobile/render-with-providers';
+import { DeleteAccountScreen } from './DeleteAccountScreen';
+
+const SESSION: AuthSession = { userId: '7d4c0f52-7b8e-4a43-9f8a-2f1b3c4d5e6f' };
+const TEST_ID = 'delete-account';
+const CONFIRM_TEST_ID = `${TEST_ID}-confirm`;
+const NOTHING_REPLAYED: LibraryReplayRun = { status: 'done', confirmed: 0 };
+
+const mockPush = jest.fn<(href: string) => void>();
+const mockDismissTo = jest.fn<(href: string) => void>();
+
+// the real module otherwise: the theme provider builds the navigation theme from it
+jest.mock('expo-router', () => ({
+  ...jest.requireActual<object>('expo-router'),
+  useRouter: () => ({ push: mockPush, dismissTo: mockDismissTo }),
+}));
+
+beforeEach(() => {
+  mockPush.mockClear();
+  mockDismissTo.mockClear();
+});
+
+// the account instance of the session, its queue empty
+const createAccount = () =>
+  ({
+    ...createFakeAccountLibraryRepository(),
+    replayQueuedWrites: jest.fn<OfflineAccountLibraryRepository['replayQueuedWrites']>(() =>
+      Promise.resolve(NOTHING_REPLAYED),
+    ),
+    subscribeToQueuedWrites: jest.fn<OfflineAccountLibraryRepository['subscribeToQueuedWrites']>(
+      () => () => undefined,
+    ),
+    queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(() => 0),
+    purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
+  }) satisfies OfflineAccountLibraryRepository;
+
+/**
+ * the screen with `session` reported (null: signed out) and its account instance; the local sign
+ * out ends the session, every other auth call is the test's `overrides`
+ */
+const renderScreen = async (
+  session: AuthSession | null,
+  overrides: Partial<AuthRepository> = {},
+) => {
+  const source = createSessionSource(session);
+  const account = session === null ? null : createAccount();
+  const repository = createFakeAuthRepository({
+    onAuthStateChange: source.subscribe,
+    signOut: () => {
+      source.emit(null);
+      return Promise.resolve();
+    },
+    ...overrides,
+  });
+  await renderWithProviders(<DeleteAccountScreen />, {
+    authRepository: repository,
+    sessionLibrary: { account, guest: createFakeGuestLibraryRepository() },
+  });
+  return { repository, account };
+};
+
+const deleteButton = () => screen.getByTestId(`${TEST_ID}-delete`);
+const confirmSheet = () => screen.queryByTestId(CONFIRM_TEST_ID);
+
+// the first tap opens the confirmation, the second one deletes
+const deleteAndConfirm = async () => {
+  const user = userEvent.setup();
+  await user.press(deleteButton());
+  await user.press(screen.getByTestId(`${CONFIRM_TEST_ID}-confirm`));
+};
+
+describe('DeleteAccountScreen', () => {
+  it('shows a spinner until the session is known, and no action', async () => {
+    // a repository that never reports the session
+    await renderWithProviders(<DeleteAccountScreen />, {
+      authRepository: createFakeAuthRepository({ onAuthStateChange: () => () => undefined }),
+    });
+
+    expect(screen.getByRole('progressbar', { name: 'Loading your account' })).toBeOnTheScreen();
+    expect(screen.queryByRole('button')).not.toBeOnTheScreen();
+  });
+
+  it('asks to sign in first while signed out, with no deletion at all', async () => {
+    const { repository } = await renderScreen(null);
+
+    expect(
+      screen.getByRole('header', { name: 'Sign in to delete your account' }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId(`${TEST_ID}-delete`)).not.toBeOnTheScreen();
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(mockPush.mock.calls).toStrictEqual([['/auth/sign-in']]);
+    expect(repository.deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('explains what is deleted, and the first tap only opens the confirmation', async () => {
+    const { repository } = await renderScreen(SESSION);
+
+    expect(screen.getByRole('header', { name: 'Delete your account' })).toBeOnTheScreen();
+    for (const text of [
+      'Your account and its sign-in methods.',
+      'Your library on every device: titles, progress, scores, notes and favorites.',
+      'Your progress history.',
+      'On this device: the copy of your library, the changes not synced yet, your recent searches and the cached data.',
+      'This cannot be undone.',
+    ]) {
+      expect(screen.getByText(text)).toBeOnTheScreen();
+    }
+    expect(confirmSheet()).not.toBeOnTheScreen();
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Delete account' }));
+
+    const sheet = screen.getByTestId(CONFIRM_TEST_ID);
+    expect(within(sheet).getByText('Delete your account?')).toBeOnTheScreen();
+    expect(within(sheet).getByRole('button', { name: 'Delete my account' })).toBeOnTheScreen();
+    expect(repository.deleteAccount).not.toHaveBeenCalled();
+  });
+
+  it('closes the confirmation on Cancel without deleting anything', async () => {
+    const { repository, account } = await renderScreen(SESSION);
+    const user = userEvent.setup();
+
+    await user.press(deleteButton());
+    await user.press(
+      within(screen.getByTestId(CONFIRM_TEST_ID)).getByRole('button', { name: 'Cancel' }),
+    );
+
+    expect(confirmSheet()).not.toBeOnTheScreen();
+    expect(deleteButton()).toBeEnabled();
+    expect(repository.deleteAccount).not.toHaveBeenCalled();
+    expect(account?.purgeDeviceData).not.toHaveBeenCalled();
+  });
+
+  it('disables the deletion and labels its spinner while it runs', async () => {
+    // a deletion that never settles
+    await renderScreen(SESSION, { deleteAccount: () => new Promise<never>(() => undefined) });
+
+    await deleteAndConfirm();
+
+    expect(confirmSheet()).not.toBeOnTheScreen();
+    expect(deleteButton()).toHaveAccessibleName('Deleting your account');
+    expect(deleteButton()).toBeDisabled();
+  });
+
+  it('deletes once confirmed, then shows the deleted state signed out, back to settings', async () => {
+    const { repository, account } = await renderScreen(SESSION, {
+      deleteAccount: () => Promise.resolve(),
+    });
+
+    await deleteAndConfirm();
+
+    expect(repository.deleteAccount).toHaveBeenCalledTimes(1);
+    expect(account?.purgeDeviceData).toHaveBeenCalledTimes(1);
+    expect(repository.signOut).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole('header', { name: 'Your account was deleted' }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId(`${TEST_ID}-signed-out`)).not.toBeOnTheScreen();
+
+    await userEvent.setup().press(screen.getByRole('button', { name: 'Back to Settings' }));
+
+    expect(mockDismissTo.mock.calls).toStrictEqual([['/settings']]);
+  });
+
+  it.each<[string, AccountDeletionErrorReason | 'not an AccountDeletionError']>([
+    [
+      'You are offline. Connect to the internet to delete your account. Nothing was deleted.',
+      'offline',
+    ],
+    [
+      'The server could not be reached, so your account may not have been deleted. Check your connection, then try again.',
+      'network',
+    ],
+    ['Your session has ended. Sign out, sign in again, then try again.', 'session-expired'],
+    ['Your account could not be deleted. Try again later.', 'unknown'],
+    ['Your account could not be deleted. Try again later.', 'not an AccountDeletionError'],
+  ])('shows "%s" for %s, still signed in', async (message, reason) => {
+    const error =
+      reason === 'not an AccountDeletionError'
+        ? new Error('boom')
+        : new AccountDeletionError(reason);
+    const { repository, account } = await renderScreen(SESSION, {
+      deleteAccount: () => Promise.reject(error),
+    });
+
+    await deleteAndConfirm();
+
+    expect(await screen.findByTestId(`${TEST_ID}-error`)).toHaveTextContent(message);
+    expect(repository.deleteAccount).toHaveBeenCalledTimes(1);
+    expect(repository.signOut).not.toHaveBeenCalled();
+    expect(account?.purgeDeviceData).not.toHaveBeenCalled();
+    expect(screen.getByTestId(`${TEST_ID}-form`)).toBeOnTheScreen();
+    expect(deleteButton()).toBeEnabled();
+  });
+});

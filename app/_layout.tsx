@@ -178,6 +178,7 @@ function RootStack() {
       emailConfirmed: { title: t('auth.emailConfirmed.title') },
       resetPassword: { title: t('auth.resetPassword.title') },
       oauthCallback: { title: t('auth.oauthCallback.title') },
+      deleteAccount: { title: t('settings.deleteAccount.title') },
       notFound: { title: t('notFound.title') },
     }),
     [t],
@@ -193,6 +194,7 @@ function RootStack() {
       <Stack.Screen name="auth/callback" options={options.emailConfirmed} />
       <Stack.Screen name="auth/reset-password" options={options.resetPassword} />
       <Stack.Screen name="auth/oauth-callback" options={options.oauthCallback} />
+      <Stack.Screen name="account/delete" options={options.deleteAccount} />
       <Stack.Screen name="+not-found" options={options.notFound} />
     </Stack>
   );
