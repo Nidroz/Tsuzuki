@@ -21,7 +21,8 @@ export type AuthOperation =
   | 'update-password'
   | 'sign-out'
   | 'session'
-  | 'auto-refresh';
+  | 'auto-refresh'
+  | 'delete-account';
 
 /** the `source` of every auth report. */
 export const AUTH_REPORT_SOURCE = 'auth';
