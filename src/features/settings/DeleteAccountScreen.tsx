@@ -162,7 +162,8 @@ function DeletionForm({ pending, error, onDelete }: DeletionFormProps) {
 /**
  * the account deletion (FR-24, ADR-0018 "Account deletion, client"): signed in only, it lists what
  * is deleted and that it cannot be undone, and deletes after a destructive button and a
- * destructive confirmation. it reads no param: a link opens it at most. a failure shows its
+ * destructive confirmation. it reads no param: a link opens it at most. while the deletion runs,
+ * the pending form shows even once its local sign out ended the session; a failure shows its
  * translated reason, still signed in; a success shows the deleted state, then back to settings
  */
 export function DeleteAccountScreen() {
@@ -171,11 +172,11 @@ export function DeleteAccountScreen() {
   const deletion = useDeleteAccount();
 
   const content = () => {
-    // first: the deletion signs the device out once it succeeded
+    // the deletion first, whatever the session: it signs the device out before it resolves
     if (deletion.isSuccess) {
       return <Deleted />;
     }
-    if (status === 'signed-in') {
+    if (deletion.isPending || status === 'signed-in') {
       return (
         <DeletionForm
           pending={deletion.isPending}

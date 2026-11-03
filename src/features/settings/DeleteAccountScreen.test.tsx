@@ -8,13 +8,14 @@ import type {
   OfflineAccountLibraryRepository,
 } from '@core/repositories/library-repository';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { screen, userEvent, within } from '@testing-library/react-native';
+import { act, screen, userEvent, waitFor, within } from '@testing-library/react-native';
 
 import {
   createFakeAuthRepository,
   createSessionSource,
 } from '../../../test/core/fake-auth-repository';
 import {
+  createDeferred,
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
 } from '../../../test/core/fake-library-repository';
@@ -56,11 +57,13 @@ const createAccount = () =>
 
 /**
  * the screen with `session` reported (null: signed out) and its account instance; the local sign
- * out ends the session, every other auth call is the test's `overrides`
+ * out ends the session at once, then resolves with `signOutSettled`; every other auth call is the
+ * test's `overrides`
  */
 const renderScreen = async (
   session: AuthSession | null,
   overrides: Partial<AuthRepository> = {},
+  signOutSettled: Promise<void> = Promise.resolve(),
 ) => {
   const source = createSessionSource(session);
   const account = session === null ? null : createAccount();
@@ -68,7 +71,7 @@ const renderScreen = async (
     onAuthStateChange: source.subscribe,
     signOut: () => {
       source.emit(null);
-      return Promise.resolve();
+      return signOutSettled;
     },
     ...overrides,
   });
@@ -181,6 +184,37 @@ describe('DeleteAccountScreen', () => {
     await userEvent.setup().press(screen.getByRole('button', { name: 'Back to Settings' }));
 
     expect(mockDismissTo.mock.calls).toStrictEqual([['/settings']]);
+  });
+
+  it('keeps the pending form while its sign out ends the session, never asking to sign in', async () => {
+    const signOutHeld = createDeferred();
+    const { repository } = await renderScreen(
+      SESSION,
+      { deleteAccount: () => Promise.resolve() },
+      signOutHeld.promise,
+    );
+
+    await deleteAndConfirm();
+    // signed out on the device, the deletion not resolved yet
+    await waitFor(() => {
+      expect(repository.signOut).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.queryByTestId(`${TEST_ID}-signed-out`)).not.toBeOnTheScreen();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).not.toBeOnTheScreen();
+    expect(screen.getByTestId(`${TEST_ID}-form`)).toBeOnTheScreen();
+    expect(deleteButton()).toHaveAccessibleName('Deleting your account');
+    expect(deleteButton()).toBeDisabled();
+
+    await act(async () => {
+      signOutHeld.resolve();
+      await signOutHeld.promise;
+    });
+
+    expect(
+      await screen.findByRole('header', { name: 'Your account was deleted' }),
+    ).toBeOnTheScreen();
+    expect(screen.queryByTestId(`${TEST_ID}-signed-out`)).not.toBeOnTheScreen();
   });
 
   it.each<[string, AccountDeletionErrorReason | 'not an AccountDeletionError']>([
