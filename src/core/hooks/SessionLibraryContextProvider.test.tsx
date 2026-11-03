@@ -111,6 +111,34 @@ describe('SessionLibraryContextProvider (A-03)', () => {
     expect(shownForB.map((frame) => frame.entry)).toStrictEqual([undefined, ENTRY_B]);
   });
 
+  it('gives useSessionLibrary the account instance in any merge phase, null signed out', async () => {
+    const rendered = await renderSessionLibrary({
+      session: { userId: USER_A },
+      guestEntries: [entryOf({ progress: 1 })],
+      // the merge never ends: the library stays pending
+      onAccount: (_userId, account) => {
+        account.mergeGuestEntries.mockImplementation(() => new Promise(() => undefined));
+      },
+    });
+    const first = rendered.result.current.sessionLibrary;
+
+    expect(first.account).toBe(rendered.accountOf(0));
+    expect(first.guest).toBe(rendered.guest);
+
+    await settleSession();
+
+    expect(rendered.result.current.merge.status).toBe('merging');
+    expect(rendered.result.current.repository).toBe(PENDING_LIBRARY_REPOSITORY);
+    expect(rendered.result.current.sessionLibrary).toBe(first);
+
+    await rendered.emit(null);
+
+    expect(rendered.result.current.sessionLibrary).toStrictEqual({
+      account: null,
+      guest: rendered.guest,
+    });
+  });
+
   it('makes useGuestMerge throw outside of it', () => {
     expect(() => renderHook(useGuestMerge)).toThrow(MISSING_GUEST_MERGE_PROVIDER_MESSAGE);
   });

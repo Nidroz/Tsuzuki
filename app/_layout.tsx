@@ -6,6 +6,7 @@ import { createJikanCatalogProvider } from '@core/catalog/jikan/jikan-catalog-pr
 import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { DevicePurgeContextProvider } from '@core/hooks/DevicePurgeContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import { SessionLibraryContextProvider } from '@core/hooks/SessionLibraryContextProvider';
 import {
@@ -108,11 +109,10 @@ const reportThemeError = (error: unknown) => {
 // cache. module level, so the persist options stay one stable object for PersistQueryClientProvider
 const storage = createStorage();
 
-// a new app version or cache schema version drops the persisted cache
-const persistOptions = createPersistOptions({
-  persister: createQueryPersister(storage),
-  appVersion: APP_VERSION,
-});
+// a new app version or cache schema version drops the persisted cache; the device purge of a sign
+// out or an account deletion deletes it (removeClient, ADR-0018)
+const queryPersister = createQueryPersister(storage);
+const persistOptions = createPersistOptions({ persister: queryPersister, appVersion: APP_VERSION });
 
 // the only place that selects a catalog provider and its instance (ADR-0013): tenrai unless the
 // build sets a self-hosted jikan base url. sustained provider failures go to the reporter, network
@@ -204,7 +204,8 @@ function RootStack() {
 // catalog provider, the recent searches and the library of the session (the data dependencies,
 // next to the query client; the library writer keeps its optimistic entries in that cache, and
 // the library switch reads the session, inside the auth, and reports the guest merge failures),
-// then the preferences, the translations and the theme. the stored preferences are read
+// the device purge of a sign out (inside all of them, whose data it deletes), then the
+// preferences, the translations and the theme. the stored preferences are read
 // synchronously on mount, so the first frame already uses them. expo-router's root already
 // provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
 // gives navigators their theme
@@ -245,20 +246,25 @@ export default function RootLayout() {
               reporter={reporter}
               subscribeToForeground={subscribeToForeground}
             >
-              <PreferencesProvider
-                theme={themePreference}
-                language={languagePreference}
-                onThemeChange={changeTheme}
-                onLanguageChange={changeLanguage}
-                showAdult={showAdult}
-                onShowAdultChange={changeShowAdult}
+              <DevicePurgeContextProvider
+                removePersistedCache={queryPersister.removeClient}
+                reporter={reporter}
               >
-                <I18nProvider language={language} onMissingKey={reportMissingKey}>
-                  <ThemeProvider preference={themePreference} onError={reportThemeError}>
-                    <RootStack />
-                  </ThemeProvider>
-                </I18nProvider>
-              </PreferencesProvider>
+                <PreferencesProvider
+                  theme={themePreference}
+                  language={languagePreference}
+                  onThemeChange={changeTheme}
+                  onLanguageChange={changeLanguage}
+                  showAdult={showAdult}
+                  onShowAdultChange={changeShowAdult}
+                >
+                  <I18nProvider language={language} onMissingKey={reportMissingKey}>
+                    <ThemeProvider preference={themePreference} onError={reportThemeError}>
+                      <RootStack />
+                    </ThemeProvider>
+                  </I18nProvider>
+                </PreferencesProvider>
+              </DevicePurgeContextProvider>
             </SessionLibraryContextProvider>
           </RecentSearchesContextProvider>
         </CatalogContextProvider>

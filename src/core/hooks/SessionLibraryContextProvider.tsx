@@ -25,6 +25,7 @@ import {
 } from './guest-merge-context';
 import { LibraryContextProvider, type RetiredLibrary } from './LibraryContextProvider';
 import { LibraryReplayDriver } from './LibraryReplayDriver';
+import { SessionLibraryContext, type SessionLibraryValue } from './session-library-context';
 import { useAuthSession } from './use-auth-session';
 
 export interface SessionLibraryContextProviderProps {
@@ -100,8 +101,9 @@ const noop = (): void => undefined;
  * two merges never overlap, and one whose session ended changes and removes nothing: each run's
  * signal is aborted once its account is no longer the committed one, which stops its next batch.
  * a failed merge is retried when the device reconnects, as by `retry()`. once the merge is done,
- * LibraryReplayDriver replays the account's queued writes (ADR-0017). render it inside
- * AuthContextProvider and the query client provider
+ * LibraryReplayDriver replays the account's queued writes (ADR-0017). useSessionLibrary() reads
+ * the account instance (any merge phase) and the guest library, for the sign out and the account
+ * deletion (ADR-0018). render it inside AuthContextProvider and the query client provider
  */
 export function SessionLibraryContextProvider({
   guest,
@@ -259,6 +261,8 @@ export function SessionLibraryContextProvider({
     [mergeStatus, retry],
   );
 
+  const sessionValue = useMemo((): SessionLibraryValue => ({ account, guest }), [account, guest]);
+
   let repository: LibraryRepository;
   if (account === null) {
     repository = status === 'loading' ? PENDING_LIBRARY_REPOSITORY : guest;
@@ -270,19 +274,21 @@ export function SessionLibraryContextProvider({
   }
 
   return (
-    <GuestMergeContext value={mergeValue}>
-      <LibraryContextProvider
-        repository={repository}
-        onRetired={onRetired}
-        subscribeToForeground={subscribeToForeground}
-      >
-        <LibraryReplayDriver
-          account={phase === 'done' ? account : null}
-          reporter={reporter}
+    <SessionLibraryContext value={sessionValue}>
+      <GuestMergeContext value={mergeValue}>
+        <LibraryContextProvider
+          repository={repository}
+          onRetired={onRetired}
           subscribeToForeground={subscribeToForeground}
-        />
-        {children}
-      </LibraryContextProvider>
-    </GuestMergeContext>
+        >
+          <LibraryReplayDriver
+            account={phase === 'done' ? account : null}
+            reporter={reporter}
+            subscribeToForeground={subscribeToForeground}
+          />
+          {children}
+        </LibraryContextProvider>
+      </GuestMergeContext>
+    </SessionLibraryContext>
   );
 }

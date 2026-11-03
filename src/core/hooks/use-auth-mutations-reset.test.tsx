@@ -7,7 +7,7 @@ import { createSessionAuthRepository } from '../../../test/core/fake-auth-reposi
 import { AuthError } from '../errors/auth-errors';
 import { createQueryClient } from '../query/query-client';
 import type { AuthRepository } from '../repositories/auth-repository';
-import { useCompletePasswordReset, useSignIn, useSignOut } from './use-auth-mutations';
+import { useCompletePasswordReset, useSignIn } from './use-auth-mutations';
 
 const SESSION = { userId: '7d4c0f52-7b8e-4a43-9f8a-2f1b3c4d5e6f' };
 const LINK = { code: '3f2a9c1e-5b7d-4e8f-a1b2-c3d4e5f6a7b8', flowId: 'flow_id-12345' };
@@ -137,28 +137,6 @@ describe('useCompletePasswordReset', () => {
 
     expect(repository.completeEmailLink).toHaveBeenCalledTimes(2);
     expect(repository.completeEmailLink).toHaveBeenLastCalledWith(OTHER_LINK);
-  });
-});
-
-describe('useSignOut', () => {
-  it('signs out', async () => {
-    const repository = createSessionAuthRepository(SESSION, { signOut: () => Promise.resolve() });
-    const { result } = renderHook(useSignOut, { wrapper: authWrapper(repository) });
-
-    await act(() => result.current.mutateAsync());
-
-    expect(repository.signOut).toHaveBeenCalledTimes(1);
-  });
-
-  it('rejects with the AuthError of the repository', async () => {
-    const repository = createSessionAuthRepository(SESSION, {
-      signOut: () => Promise.reject(new AuthError('network')),
-    });
-    const { result } = renderHook(useSignOut, { wrapper: authWrapper(repository) });
-
-    await act(async () => {
-      await expect(result.current.mutateAsync()).rejects.toMatchObject({ reason: 'network' });
-    });
   });
 });
 

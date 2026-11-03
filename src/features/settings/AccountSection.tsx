@@ -1,5 +1,5 @@
-import { useSignOut } from '@core/hooks/use-auth-mutations';
 import { useAuthSession } from '@core/hooks/use-auth-session';
+import { useSignOut } from '@core/hooks/use-sign-out';
 import { useTranslation } from '@core/i18n/index';
 import { authErrorKey } from '@features/auth/auth-error-keys';
 import { AUTH_PATHS } from '@features/auth/auth-routes';
@@ -33,7 +33,7 @@ function SignedOut() {
   );
 }
 
-// no confirmation: signing out deletes nothing until the purge of A-06 (FR-25)
+// signing out syncs the library, then purges the user's data from the device (FR-25, ADR-0018)
 function SignedIn() {
   const { t } = useTranslation();
   const signOut = useSignOut();
@@ -46,7 +46,7 @@ function SignedIn() {
       <Button
         label={t('settings.account.signOut')}
         onPress={() => {
-          signOut.mutate();
+          signOut.mutate({});
         }}
         variant="secondary"
         loading={signOut.isPending}

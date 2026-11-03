@@ -38,6 +38,7 @@ import {
   PENDING_LIBRARY_REPOSITORY,
   SessionLibraryContextProvider,
 } from '@core/hooks/SessionLibraryContextProvider';
+import { useSessionLibrary } from '@core/hooks/session-library-context';
 import { useGuestMerge } from '@core/hooks/use-guest-merge';
 import { useLibraryContext } from '@core/hooks/use-library-context';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
@@ -234,8 +235,9 @@ const neverReports = (): (() => void) => () => undefined;
  * renders SessionLibraryContextProvider over a session the test drives (`emit`), a fake guest
  * library and a new fake account library (createSessionAccount) per accountRepositoryFor call,
  * with a recording reporter and `subscribeToForeground` when given.
- * the hook reads the library, the merge status and the entry of ENTRY_KEY with its actions (with
- * `media` as the catalog data), and records each committed render in `frames`. resolves once the
+ * the hook reads the library, the merge status, the session libraries (useSessionLibrary) and the
+ * entry of ENTRY_KEY with its actions (with `media` as the catalog data), and records each
+ * committed render in `frames`. resolves once the
  * initial session was reported
  */
 export const renderSessionLibrary = async ({
@@ -280,12 +282,13 @@ export const renderSessionLibrary = async ({
     () => {
       const { repository } = useLibraryContext();
       const merge = useGuestMerge();
+      const sessionLibrary = useSessionLibrary();
       const entry = useLibraryEntry(ENTRY_KEY, { media });
       const actions = useLibraryEntryActions(ENTRY_KEY, { media });
       useEffect(() => {
         frames.push({ repository, status: merge.status, entry: entry.data });
       });
-      return { repository, merge, entry, actions };
+      return { repository, merge, sessionLibrary, entry, actions };
     },
     { wrapper, reactStrictMode: strictMode },
   );

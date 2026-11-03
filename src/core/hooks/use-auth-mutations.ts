@@ -14,9 +14,12 @@ import { useAuthContext } from './use-auth-context';
 // the auth actions (docs/ARCHITECTURE.md §8, ADR-0014): one mutation per action over the
 // AuthRepository of the context. the variables hold passwords: a mutation never pauses offline
 // (networkMode always: an offline call fails at once with `network`) and is dropped as soon as no
-// screen observes it (gcTime 0); the persister never stores mutations. rejections are AuthError
+// screen observes it (gcTime 0); the persister never stores mutations. rejections are AuthError.
+// the sign out and the account deletion have their own modules (use-sign-out.ts,
+// use-delete-account.ts, ADR-0018)
 
-const AUTH_MUTATION_OPTIONS = { networkMode: 'always', gcTime: 0 } as const;
+/** the options of every auth mutation: never paused offline, dropped once no screen observes it */
+export const AUTH_MUTATION_OPTIONS = { networkMode: 'always', gcTime: 0 } as const;
 
 // a protected call asks the captcha provider for a token first, and sends it only when there is
 // one: null means the captcha is disabled
@@ -140,14 +143,5 @@ export const useSignInWithProvider = () => {
   return useMutation({
     ...AUTH_MUTATION_OPTIONS,
     mutationFn: (provider: OAuthProvider) => repository.signInWithProvider(provider),
-  });
-};
-
-/** signs out on this device (local scope); rejects with `network` when the session must stay */
-export const useSignOut = () => {
-  const { repository } = useAuthContext();
-  return useMutation({
-    ...AUTH_MUTATION_OPTIONS,
-    mutationFn: () => repository.signOut(),
   });
 };
