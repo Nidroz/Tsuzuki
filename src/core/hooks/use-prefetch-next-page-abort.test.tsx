@@ -1,10 +1,11 @@
 import { describe, expect, it } from '@jest/globals';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
-import type { CatalogProvider } from '../catalog/catalog-provider';
+import type { CatalogProvider, MediaSummary, Page } from '../catalog/catalog-provider';
+import { queryKeys } from '../query/keys';
 import { createQueryClient } from '../query/query-client';
 import {
   answering,
@@ -12,14 +13,38 @@ import {
   backgroundCalls,
   frieren,
   MUSHISHI,
+  pageNumber,
   searchPendingUntilAborted,
   settle,
   setupPrefetch,
+  type Search,
 } from './__fixtures__/prefetch-search';
 import { CatalogContextProvider } from './CatalogContextProvider';
 import { useSearch } from './use-search';
 
-// c-06: when the next page prefetch of useSearch is aborted, and when it keeps running
+// c-06: when the next page prefetch of useSearch is aborted, and when it keeps running. a-06: an
+// answer landing after the abort or after a purge emptied the cache is never written
+
+// a prefetch that ignores its signal and answers when `answer` is called
+const heldPrefetch = () => {
+  const answers: ((page: Page<MediaSummary>) => void)[] = [];
+  const search: Search = () =>
+    new Promise<Page<MediaSummary>>((resolve) => {
+      answers.push(resolve);
+    });
+  const answer = async (page: Page<MediaSummary>): Promise<void> => {
+    await act(async () => {
+      for (const resolve of answers) {
+        resolve(page);
+      }
+      await Promise.resolve();
+    });
+    await settle();
+  };
+  return { search, answer };
+};
+
+const SECOND_PAGE_KEY = queryKeys.search('mal', frieren(2));
 
 describe('useSearch next page prefetch aborts (C-06)', () => {
   it('keeps the prefetch running when its page is opened, so the opened request joins it', async () => {
@@ -91,5 +116,35 @@ describe('useSearch next page prefetch aborts (C-06)', () => {
     unmount();
 
     expect(prefetchSignal?.aborted).toBe(true);
+  });
+
+  it('writes nothing when the prefetch answers after its abort', async () => {
+    const held = heldPrefetch();
+    const { provider, queryClient, unmount } = setupPrefetch(frieren(1), answering(held.search));
+    await waitFor(() => {
+      expect(backgroundCalls(provider)).toHaveLength(1);
+    });
+
+    unmount();
+    await held.answer(pageNumber(2));
+
+    expect(queryClient.getQueryState(queryKeys.search('mal', frieren(1)))).toBeDefined();
+    expect(queryClient.getQueryState(SECOND_PAGE_KEY)).toBeUndefined();
+  });
+
+  it('writes nothing when the query of the page shown was removed meanwhile (a purge)', async () => {
+    const held = heldPrefetch();
+    const { provider, queryClient } = setupPrefetch(frieren(1), answering(held.search));
+    await waitFor(() => {
+      expect(backgroundCalls(provider)).toHaveLength(1);
+    });
+
+    act(() => {
+      queryClient.removeQueries();
+    });
+    await held.answer(pageNumber(2));
+
+    expect(queryClient.getQueryState(SECOND_PAGE_KEY)).toBeUndefined();
+    expect(backgroundCalls(provider)[0]?.[1]?.aborted).toBe(false);
   });
 });
