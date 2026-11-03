@@ -35,7 +35,10 @@ const SCOPE = toLibraryScope(1);
 const rejectUnexpected = (): Promise<never> =>
   Promise.reject(new Error('unexpected call to the fake library writer'));
 
-/** a library writer whose flushAll resolves (a jest mock a test sets up); its other calls reject */
+/**
+ * a library writer whose flushAll resolves and whose pendingChangeCount is 0 (jest mocks a test sets
+ * up); its other calls reject
+ */
 export const createFakeWriter = () =>
   ({
     read: jest.fn<LibraryWriter['read']>(rejectUnexpected),
@@ -43,6 +46,7 @@ export const createFakeWriter = () =>
     apply: jest.fn<LibraryWriter['apply']>(rejectUnexpected),
     flushAll: jest.fn<LibraryWriter['flushAll']>(() => Promise.resolve()),
     activeKeyCount: () => 0,
+    pendingChangeCount: jest.fn<LibraryWriter['pendingChangeCount']>(() => 0),
   }) satisfies LibraryWriter;
 
 export interface SessionEndSetup {

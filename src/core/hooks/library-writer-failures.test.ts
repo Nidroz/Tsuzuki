@@ -221,3 +221,38 @@ describe('createLibraryWriter: flushAll', () => {
     expect(repository.save).not.toHaveBeenCalled();
   });
 });
+
+describe('createLibraryWriter: pendingChangeCount (A-06)', () => {
+  it('counts the keys with a change pending or being written, never a read', async () => {
+    const { repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
+    await load();
+    await load(OTHER_KEY);
+    expect(writer.pendingChangeCount()).toBe(0);
+
+    const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
+    await flushMicrotasks();
+    expect(writer.pendingChangeCount()).toBe(1);
+
+    const heldSave = createDeferred();
+    const heldRead = createDeferred();
+    repository.beforeCall
+      .mockReturnValueOnce(heldSave.promise)
+      .mockReturnValueOnce(heldRead.promise);
+    const flushing = writer.flushAll();
+    await flushMicrotasks();
+    const read = writer.read(OTHER_KEY);
+    await flushMicrotasks();
+    expect(writer.pendingChangeCount()).toBe(1);
+    expect(writer.activeKeyCount()).toBe(2);
+
+    heldSave.resolve();
+    await flushing;
+    await tap;
+    expect(writer.pendingChangeCount()).toBe(0);
+    expect(writer.activeKeyCount()).toBe(1);
+
+    heldRead.resolve();
+    await read;
+    expect(writer.activeKeyCount()).toBe(0);
+  });
+});

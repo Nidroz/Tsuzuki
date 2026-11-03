@@ -54,6 +54,11 @@ export interface LibraryWriter {
    * (an idle key is pruned)
    */
   activeKeyCount(): number;
+  /**
+   * the number of keys with a change not confirmed yet: pending (in its coalescing window) or
+   * being written. a pending read is not counted
+   */
+  pendingChangeCount(): number;
 }
 
 export interface LibraryWriterOptions {
@@ -276,5 +281,8 @@ export const createLibraryWriter = ({
     await Promise.all([...writes, ...all.map((state) => state.queue)]);
   };
 
-  return { read, list, apply, flushAll, activeKeyCount: () => states.size };
+  const pendingChangeCount = (): number =>
+    [...states.values()].filter((state) => state.pending !== null || state.writing > 0).length;
+
+  return { read, list, apply, flushAll, activeKeyCount: () => states.size, pendingChangeCount };
 };

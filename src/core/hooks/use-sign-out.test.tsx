@@ -11,7 +11,12 @@ import {
 } from '../../../test/core/session-end-hooks-support';
 import { AuthError } from '../errors/auth-errors';
 import type { LibraryReplayRun } from '../repositories/library-repository';
-import { SIGN_OUT_SYNC_TIMEOUT_MS, useSignOut, type SignOutResult } from './use-sign-out';
+import {
+  SIGN_OUT_SYNC_TIMEOUT_MS,
+  SignOutSyncError,
+  useSignOut,
+  type SignOutResult,
+} from './use-sign-out';
 
 const signOutResolves = { signOut: () => Promise.resolve() };
 
@@ -45,12 +50,19 @@ const expectNothingPurged = (rendered: Rendered): void => {
 };
 
 describe('useSignOut', () => {
-  it('flushes, replays, counts and signs out, then purges the device, the mutation kept', async () => {
+  it('flushes, replays, flushes, counts and signs out, then purges the device, the mutation kept', async () => {
     const rendered = renderSignOut();
 
     await expect(signOut(rendered)).resolves.toStrictEqual({ status: 'signed-out' });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'count', 'signOut', ...PURGE]);
+    expect(rendered.sequence()).toStrictEqual([
+      'flush',
+      'replay',
+      'flush',
+      'count',
+      'signOut',
+      ...PURGE,
+    ]);
     expect(rendered.account?.replayQueuedWrites).toHaveBeenCalledWith({
       signal: expect.any(AbortSignal),
     });
@@ -76,7 +88,19 @@ describe('useSignOut', () => {
 
     await expect(signOut(rendered)).resolves.toStrictEqual({ status: 'unsynced', count: 2 });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'count']);
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'count']);
+    expectNothingPurged(rendered);
+  });
+
+  it('counts the changes the live writer still holds after its second flush as unsynced', async () => {
+    const account = createSessionAccount();
+    account.queuedWriteCount.mockReturnValue(1);
+    const rendered = renderSignOut({ account });
+    rendered.writer.pendingChangeCount.mockReturnValue(1);
+
+    await expect(signOut(rendered)).resolves.toStrictEqual({ status: 'unsynced', count: 2 });
+
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'count']);
     expectNothingPurged(rendered);
   });
 
@@ -87,8 +111,9 @@ describe('useSignOut', () => {
 
     await expect(signOut(rendered, true)).resolves.toStrictEqual({ status: 'signed-out' });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'signOut', ...PURGE]);
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'signOut', ...PURGE]);
     expect(account.queuedWriteCount).not.toHaveBeenCalled();
+    expect(rendered.writer.pendingChangeCount).not.toHaveBeenCalled();
   });
 
   it('stops waiting for a stuck replay at the budget, its signal aborted', async () => {
@@ -137,22 +162,24 @@ describe('useSignOut', () => {
   it.each<['flush' | 'replay', 'writer' | 'account']>([
     ['flush', 'writer'],
     ['replay', 'account'],
-  ])('reports a failed %s and still signs out', async (step, target) => {
-    const failure = new Error('storage unavailable');
+  ])('reports a failed %s without its error and still signs out', async (step, target) => {
+    // stored content quoted by a storage error
+    const failure = new Error('storage unavailable: Title A');
     const rendered = renderSignOut();
     if (target === 'writer') {
-      rendered.writer.flushAll.mockRejectedValue(failure);
+      rendered.writer.flushAll.mockRejectedValueOnce(failure);
     } else {
-      rendered.account?.replayQueuedWrites.mockRejectedValue(failure);
+      rendered.account?.replayQueuedWrites.mockRejectedValueOnce(failure);
     }
 
     await expect(signOut(rendered)).resolves.toStrictEqual({ status: 'signed-out' });
 
     expect(rendered.captureError).toHaveBeenCalledTimes(1);
-    expect(rendered.captureError).toHaveBeenCalledWith(failure, {
-      source: 'sign-out',
-      tags: { step },
-    });
+    const [reported, context] = rendered.captureError.mock.calls[0] ?? [];
+    expect(reported).toBeInstanceOf(SignOutSyncError);
+    expect(reported).toMatchObject({ step, message: `Sign out sync failed: ${step}` });
+    expect(reported).not.toHaveProperty('cause');
+    expect(context).toStrictEqual({ source: 'sign-out', tags: { step } });
     expect(rendered.account?.purgeDeviceData).toHaveBeenCalledTimes(1);
   });
 
@@ -167,12 +194,12 @@ describe('useSignOut', () => {
       });
     });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'count', 'signOut']);
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'count', 'signOut']);
     expectNothingPurged(rendered);
   });
 
   it.each(['checking', 'merging', 'failed'] as const)(
-    'keeps the guest library while the merge is %s',
+    'keeps the guest library and flushes no writer while the merge is %s',
     async (mergeStatus) => {
       const rendered = renderSignOut({ mergeStatus });
 
@@ -180,7 +207,6 @@ describe('useSignOut', () => {
 
       expect(rendered.guest.clear).not.toHaveBeenCalled();
       expect(rendered.sequence()).toStrictEqual([
-        'flush',
         'replay',
         'count',
         'signOut',
@@ -210,5 +236,25 @@ describe('useSignOut', () => {
 
     await expect(outcome).resolves.toStrictEqual({ status: 'signed-out' });
     expect(rendered.guest.clear).toHaveBeenCalledTimes(1);
+    // the merge concluded during the replay: the account's writer is flushed after it
+    expect(rendered.sequence().slice(0, 3)).toStrictEqual(['replay', 'flush', 'count']);
+  });
+
+  it('signs out without waiting for the budget while the merge failed and a read is pending', async () => {
+    const rendered = renderSignOut({ mergeStatus: 'failed' });
+    // the pending library's writer: a read that never settles holds its flush
+    rendered.writer.flushAll.mockReturnValue(createDeferred().promise);
+    let outcome: Promise<SignOutResult> | undefined;
+
+    await act(async () => {
+      outcome = rendered.result.current.hook.mutateAsync({});
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    await expect(outcome).resolves.toStrictEqual({ status: 'signed-out' });
+    expect(rendered.writer.flushAll).not.toHaveBeenCalled();
+    expect(rendered.writer.pendingChangeCount).not.toHaveBeenCalled();
+    expect(rendered.sequence()).toContain('replay');
+    expect(rendered.account?.purgeDeviceData).toHaveBeenCalledTimes(1);
   });
 });
