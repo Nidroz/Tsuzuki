@@ -7,5 +7,8 @@ pnpm-lock.yaml
 # shell hooks are not a prettier language; husky generates .husky/_
 .husky/
 
-# sql and toml have no prettier parser here (no plugin added); revisit when edge functions arrive (A-06)
-/supabase/
+# the database side of supabase/ (sql, toml, cli state) has no prettier parser here (no plugin
+# added); the edge functions are typescript and formatted, their deno entry (index.ts) included.
+# a folder ignored as a whole cannot be re-included, so supabase/ ignores its entries instead
+/supabase/*
+!/supabase/functions/

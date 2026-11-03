@@ -73,6 +73,10 @@ export const PROBES = {
   hooksDotFolder: 'src/core/hooks/.probe/probe.mjs',
   // the deepest dot-folder nesting a globstar target covers (tools/eslint/glob-dot-names.mjs)
   hooksNestedDotFolders: 'src/core/hooks/.a/.b/probe.mjs',
+  // an edge function module and its jest test; the function's deno entry (index.ts) is ignored,
+  // so it is no probe (layers.test.mjs checks it)
+  edgeFunction: 'supabase/functions/probe/handler.ts',
+  edgeFunctionTest: 'supabase/functions/probe/handler.test.ts',
   // node-only tooling and root tool configs
   tools: 'tools/probe.mjs',
   toolsTest: 'tools/probe.test.mjs',

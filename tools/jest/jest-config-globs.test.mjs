@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
-import config, { isCoveredSource } from '../../jest.config.mjs';
+import config, { isCoveredSource, TEST_ROOTS, testsOutsideOneProject } from '../../jest.config.mjs';
 
 const ROOT_DIR_TAG = '<rootDir>';
 const ROOTS = { posix: '/repo', win32: 'C:\\repo' };
@@ -44,9 +44,15 @@ const projectOf = (name) => {
 
 const testMatchOf = (name) => projectOf(name).testMatch;
 
-// core tests are split by extension: .ts in node, .tsx (react rendering) in jsdom
+// core tests are split by extension: .ts in node, .tsx (react rendering) in jsdom. edge function
+// handler tests use the web Request and Response globals of node
 const PROJECT_SAMPLES = {
-  core: ['src/core/a.test.ts', 'src/core/domain/b.test.ts', 'test/core/c.test.ts'],
+  core: [
+    'src/core/a.test.ts',
+    'src/core/domain/b.test.ts',
+    'test/core/c.test.ts',
+    'supabase/functions/delete-account/handler.test.ts',
+  ],
   'core-dom': ['src/core/i18n/A.test.tsx', 'src/core/hooks/use-b.test.tsx', 'test/core/c.test.tsx'],
   mobile: [
     'src/features/search/a.test.tsx',
@@ -82,6 +88,34 @@ describe('testMatch', () => {
       }
     });
   }
+});
+
+// the guard of jest.config.mjs fails the whole run on a test file that no project or several
+// projects run, in every root listed here
+describe('every test in one project guard', () => {
+  it('checks the supabase folder, where edge function tests live, next to app, src and test', () => {
+    for (const root of ['app', 'src', 'test', 'supabase']) {
+      assert.ok(TEST_ROOTS.includes(root), root);
+    }
+  });
+
+  it('accepts the sample test of each project', () => {
+    assert.deepEqual(testsOutsideOneProject(Object.values(PROJECT_SAMPLES).flat()), []);
+  });
+
+  it('reports a test of supabase outside the edge function tests, and ignores other files', () => {
+    const misplaced = [
+      'supabase/functions/delete-account/handler.test.tsx',
+      'supabase/a.test.ts',
+      'supabase/tests/b.test.ts',
+    ];
+    const ignored = [
+      'supabase/functions/delete-account/handler.ts',
+      'supabase/functions/delete-account/index.ts',
+      'supabase/tests/database/080-account-deletion.test.sql',
+    ];
+    assert.deepEqual(testsOutsideOneProject([...misplaced, ...ignored]), misplaced);
+  });
 });
 
 // a .tsx core test renders react in jsdom, without the msw/node server that does not load there
@@ -147,6 +181,7 @@ const COVERED = [
   'src/core/domain/progress.ts',
   'src/ui/components/Button.tsx',
   'src/platform/storage.ts',
+  'supabase/functions/delete-account/handler.ts',
 ];
 const NOT_COVERED = [
   'src/ui/theme/tailwind.config.ts',
@@ -160,16 +195,20 @@ const NOT_COVERED = [
   'src/core/__mocks__/a.ts',
   'test/core/fixed-clock.ts',
   'src/core/repositories/supabase/database.types.ts',
+  // the deno entry of an edge function, and its tests
+  'supabase/functions/delete-account/index.ts',
+  'supabase/functions/delete-account/handler.test.ts',
+  'supabase/migrations/20261007175234_schema_v1.sql',
 ];
 
 describe('collectCoverageFrom', () => {
-  it('covers app and src source files', () => {
+  it('covers app and src source files and edge function code', () => {
     for (const file of COVERED) {
       assert.equal(coveredByGlobs(file), true, file);
     }
   });
 
-  it('skips tests, fixtures, mocks, declarations, tool configs and files outside app and src', () => {
+  it('skips tests, fixtures, mocks, declarations, tool configs, edge function entries and others', () => {
     for (const file of NOT_COVERED) {
       assert.equal(coveredByGlobs(file), false, file);
     }
