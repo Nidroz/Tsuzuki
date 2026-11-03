@@ -27,6 +27,11 @@ const UNAVAILABLE = '{"error":"unavailable"}';
 const DELETION_FAILED = '{"error":"deletion-failed"}';
 
 const VERIFIED: VerifiedUser = { status: 'verified', userId: USER_ID };
+// what the auth server answers getUser for a signature-valid token whose user no longer exists
+const USER_NOT_FOUND = { status: 403, code: 'user_not_found' };
+// the verification of an auth error, as the deno entry wires it
+const authFails = (error: { status: number; code: string }) =>
+  toVerifiedUser({ data: { user: null }, error });
 
 // fake ports recording their calls; an Error is thrown by the port
 const fakePorts = (
@@ -125,6 +130,22 @@ describe('createDeleteAccountHandler', () => {
     expect([verifyCalls, deleteCalls]).toStrictEqual([[TOKEN], []]);
   });
 
+  it('answers 200 deleted to a token whose user is gone, without a deletion', async () => {
+    const { ports, verifyCalls, deleteCalls } = fakePorts(authFails(USER_NOT_FOUND));
+    const response = await createDeleteAccountHandler(ports)(post());
+
+    expect(await read(response)).toStrictEqual(answer(200, DELETED));
+    expect([verifyCalls, deleteCalls]).toStrictEqual([[TOKEN], []]);
+  });
+
+  it('answers 401 to a token whose session is gone, never deleting', async () => {
+    const { ports, deleteCalls } = fakePorts(authFails({ status: 403, code: 'session_not_found' }));
+    const response = await createDeleteAccountHandler(ports)(post());
+
+    expect(await read(response)).toStrictEqual(answer(401, UNAUTHORIZED));
+    expect(deleteCalls).toStrictEqual([]);
+  });
+
   it.each([
     ['answers unavailable', { status: 'unavailable' } as const],
     ['throws', new Error(`auth down, key ${SECRET}`)],
@@ -221,11 +242,21 @@ describe('toVerifiedUser', () => {
     });
   });
 
-  // bad or expired jwt, session or user gone
+  // bad or expired jwt, session gone
   it.each([400, 401, 403, 404])('refuses an auth error with status %p', (status) => {
     expect(toVerifiedUser({ data: { user: null }, error: { status } })).toStrictEqual({
       status: 'refused',
     });
+  });
+
+  // a key without a sub claim, a revoked session
+  it.each(['bad_jwt', 'session_not_found'])('refuses a 403 with code %p', (code) => {
+    expect(authFails({ status: 403, code })).toStrictEqual({ status: 'refused' });
+  });
+
+  // the code alone decides, whatever the status
+  it.each([403, 404, 500])('reads user_not_found with status %p as gone', (status) => {
+    expect(authFails({ ...USER_NOT_FOUND, status })).toStrictEqual({ status: 'gone' });
   });
 
   // no answer (0), an unknown error (no status), a server error, a timeout, a rate limit

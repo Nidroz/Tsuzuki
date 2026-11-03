@@ -3,13 +3,20 @@
 // security model (docs/adr/0018-sign-out-purge-and-account-deletion.md):
 // - the user id comes only from the user the auth server returns for the bearer token. the body
 //   and the query are never read, so a request cannot name another user
+// - a token whose user no longer exists (auth code user_not_found) answers deleted and deletes
+//   nothing, so a retry after a lost answer reaches the device purge. the gateway (verify_jwt) and
+//   the auth server checked its signature before loading the user, the answer only tells the
+//   token's own holder that its user is gone, and the anon or service keys, without a sub claim,
+//   are refused before any user is loaded
 // - every body is a fixed json from one table: no error text, id, token or key leaves the function
 // - no cors header: the caller is the mobile app, and a web page's preflight gets no cors answer
 // - no logging: the platform logs the status of each invocation, nothing personal
 
 export type VerifiedUser =
   | { readonly status: 'verified'; readonly userId: string }
-  | { readonly status: 'refused' } // an auth 4xx, or no user
+  // a signature-valid token whose user no longer exists (auth code user_not_found): already deleted
+  | { readonly status: 'gone' }
+  | { readonly status: 'refused' } // any other auth 4xx, or no user
   | { readonly status: 'unavailable' }; // the auth server unreachable, or a 5xx
 
 export type DeletionOutcome = 'deleted' | 'not-found' | 'failed';
@@ -64,7 +71,7 @@ const HTTP_CLIENT_ERROR_MIN = 400;
 const HTTP_SERVER_ERROR_MIN = 500;
 const HTTP_INTERNAL_SERVER_ERROR = 500;
 const HTTP_SERVICE_UNAVAILABLE = 503;
-// the auth error code of an unknown user id
+// the auth error code of an unknown user id: the token's user on getUser, the target on deleteUser
 const USER_NOT_FOUND_CODE = 'user_not_found';
 
 const RESPONSES = {
@@ -88,6 +95,7 @@ const FIXED_HEADERS = { 'Content-Type': 'application/json', 'Cache-Control': 'no
 
 const UNAVAILABLE: VerifiedUser = { status: 'unavailable' };
 const REFUSED: VerifiedUser = { status: 'refused' };
+const GONE: VerifiedUser = { status: 'gone' };
 
 const respond = (outcome: Outcome): Response => {
   const { status, body } = RESPONSES[outcome];
@@ -141,6 +149,10 @@ export const createDeleteAccountHandler =
     if (verified.status === 'refused') {
       return respond('unauthorized');
     }
+    // already deleted, its answer lost: the retry learns it, nothing is deleted
+    if (verified.status === 'gone') {
+      return respond('deleted');
+    }
     if (verified.status !== 'verified') {
       return respond('unavailable');
     }
@@ -165,8 +177,8 @@ export const readDeleteAccountEnv = (
   return present(url) && present(serviceRoleKey) ? { url, serviceRoleKey } : null;
 };
 
-// a client error refuses the token (bad, expired or revoked, its user or session gone); no answer,
-// a server error, a timeout or a rate limit leaves the token unjudged: the auth server is unavailable
+// a client error refuses the token (bad, expired or revoked, its session gone); no answer, a
+// server error, a timeout or a rate limit leaves the token unjudged: the auth server is unavailable
 const refusesToken = (status: number | undefined): boolean =>
   status !== undefined &&
   status >= HTTP_CLIENT_ERROR_MIN &&
@@ -176,6 +188,10 @@ const refusesToken = (status: number | undefined): boolean =>
 
 export const toVerifiedUser = ({ data, error }: AuthUserResult): VerifiedUser => {
   if (error !== null) {
+    // the code alone decides: the auth server sends it only after checking the signature
+    if (error.code === USER_NOT_FOUND_CODE) {
+      return GONE;
+    }
     return refusesToken(error.status) ? REFUSED : UNAVAILABLE;
   }
   return data.user === null ? REFUSED : { status: 'verified', userId: data.user.id };
