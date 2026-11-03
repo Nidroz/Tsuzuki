@@ -11,7 +11,7 @@ import {
   USER_A,
   USER_B,
   type RenderedSessionLibrary,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { AuthSession } from '../repositories/auth-repository';
 import { LibraryRemoteError } from '../errors/library-errors';
 

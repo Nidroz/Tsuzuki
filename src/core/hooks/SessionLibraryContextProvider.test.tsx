@@ -8,7 +8,7 @@ import {
   USER_A,
   USER_B,
   type RenderedSessionLibrary,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { LibraryEntry } from '../domain/library-entry';
 import { MISSING_GUEST_MERGE_PROVIDER_MESSAGE } from './guest-merge-context';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';

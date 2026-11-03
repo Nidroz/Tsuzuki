@@ -2,21 +2,17 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { act } from '@testing-library/react';
 
 import { createDeferred } from '../../../test/core/fake-library-repository';
-import { createSessionAccount, NOTHING_REPLAYED } from '../../../test/core/library-hooks-support';
 import {
   PROBE_QUERY_KEY,
   renderSessionEndHook,
   STORED_SEARCH,
   type SessionEndSetup,
 } from '../../../test/core/session-end-hooks-support';
+import { createSessionAccount, NOTHING_REPLAYED } from '../../../test/core/session-library-support';
 import { AuthError } from '../errors/auth-errors';
+import { SignOutSyncError } from '../errors/sign-out-errors';
 import type { LibraryReplayRun } from '../repositories/library-repository';
-import {
-  SIGN_OUT_SYNC_TIMEOUT_MS,
-  SignOutSyncError,
-  useSignOut,
-  type SignOutResult,
-} from './use-sign-out';
+import { SIGN_OUT_SYNC_TIMEOUT_MS, useSignOut, type SignOutResult } from './use-sign-out';
 
 const signOutResolves = { signOut: () => Promise.resolve() };
 

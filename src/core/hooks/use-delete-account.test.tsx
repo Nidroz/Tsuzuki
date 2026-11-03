@@ -2,7 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 import { onlineManager } from '@tanstack/react-query';
 import { act } from '@testing-library/react';
 
-import { createSessionAccount } from '../../../test/core/library-hooks-support';
+import { createSessionAccount } from '../../../test/core/session-library-support';
 import {
   PROBE_QUERY_KEY,
   renderSessionEndHook,
@@ -106,7 +106,8 @@ describe('useDeleteAccount', () => {
   });
 
   it.each([
-    ['an AuthError', new AuthError('network'), 'network'],
+    ['an AuthError network', new AuthError('network'), 'network'],
+    ['an AuthError rate-limited', new AuthError('rate-limited'), 'rate-limited'],
     ['another error', new Error('unexpected'), 'unknown'],
   ])(
     'reports a local sign out rejecting with %s after the deletion, and resolves',
@@ -126,4 +127,20 @@ describe('useDeleteAccount', () => {
       expect(rendered.result.current.generation).toBe(1);
     },
   );
+
+  it('leaves a local sign out rejecting with an AuthError unknown to the repository, which reports it', async () => {
+    const rendered = renderDelete({
+      auth: {
+        deleteAccount: () => Promise.resolve(),
+        signOut: () => Promise.reject(new AuthError('unknown')),
+      },
+    });
+
+    await deleteAccount(rendered);
+
+    expect(rendered.captureError).not.toHaveBeenCalled();
+    expect(rendered.sequence()).toContain('signOut');
+    expect(rendered.account?.purgeDeviceData).toHaveBeenCalledTimes(1);
+    expect(rendered.result.current.generation).toBe(1);
+  });
 });

@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 
 import type { ErrorReporter } from '../errors/error-reporter';
+import { SignOutSyncError, type SignOutSyncStep } from '../errors/sign-out-errors';
 import type { OfflineAccountLibraryRepository } from '../repositories/library-repository';
 import { keepsGuestLibrary } from './device-purge';
 import type { GuestMergeStatus } from './guest-merge-context';
@@ -21,28 +22,6 @@ import { useLibraryContext } from './use-library-context';
 export const SIGN_OUT_SYNC_TIMEOUT_MS = 10_000;
 
 const REPORT_SOURCE = 'sign-out';
-
-/** the sync steps of a sign out: the flush of the live writer, the replay of the queued writes */
-export type SignOutSyncStep = 'flush' | 'replay';
-
-const SIGN_OUT_SYNC_MESSAGES: Readonly<Record<SignOutSyncStep, string>> = {
-  flush: 'Sign out sync failed: flush',
-  replay: 'Sign out sync failed: replay',
-};
-
-/**
- * a sync step of a sign out that failed, as reported; it holds the step only. the message is fixed
- * and no cause is attached, since a storage error could quote stored content
- */
-export class SignOutSyncError extends Error {
-  readonly step: SignOutSyncStep;
-
-  constructor(step: SignOutSyncStep) {
-    super(SIGN_OUT_SYNC_MESSAGES[step]);
-    this.name = 'SignOutSyncError';
-    this.step = step;
-  }
-}
 
 export interface SignOutOptions {
   /** the user confirmed losing the writes still queued after the sync: they are purged */

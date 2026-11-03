@@ -13,7 +13,7 @@ import {
   settleSession,
   USER_A,
   type RenderedSessionLibrary,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { LibraryEntry } from '../domain/library-entry';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 

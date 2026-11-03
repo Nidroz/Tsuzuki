@@ -10,7 +10,7 @@ import type { ReactNode } from 'react';
 import { createSessionAuthRepository } from './fake-auth-repository';
 import { createFakeGuestLibraryRepository } from './fake-library-repository';
 import { createFakeRecentSearchesRepository } from './fake-recent-searches-repository';
-import { createSessionAccount, type FakeSessionAccount } from './library-hooks-support';
+import { createSessionAccount, type FakeSessionAccount } from './session-library-support';
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { DevicePurgeContextProvider } from '@core/hooks/DevicePurgeContextProvider';

@@ -5,7 +5,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { createFakeGuestLibraryRepository } from '../../../test/core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../../../test/core/fake-recent-searches-repository';
-import { createSessionAccount } from '../../../test/core/library-hooks-support';
+import { createSessionAccount } from '../../../test/core/session-library-support';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { createQueryClient } from '../query/query-client';
 import { MISSING_DEVICE_PURGE_PROVIDER_MESSAGE } from './device-purge-context';
