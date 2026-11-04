@@ -170,6 +170,10 @@ export const createInMemoryRemote = () => {
     refuseKey: (key: MediaKey): void => {
       refusedKeys.add(libraryEntryId(key));
     },
+    /** the replay calls holding a write of `key` are no longer refused. */
+    acceptKey: (key: MediaKey): void => {
+      refusedKeys.delete(libraryEntryId(key));
+    },
     seed: (...entries: readonly LibraryEntry[]): void => {
       for (const entry of entries) {
         rows.set(libraryEntryId(entry.key), entry);

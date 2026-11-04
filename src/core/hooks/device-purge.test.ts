@@ -3,6 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  createStuckWriteMocks,
 } from '../../../test/core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../../../test/core/fake-recent-searches-repository';
 import { DEVICE_PURGE_STEPS, DevicePurgeError } from '../errors/device-purge-errors';
@@ -20,6 +21,7 @@ const createPurgeInput = () => {
     replayQueuedWrites: jest.fn<OfflineAccountLibraryRepository['replayQueuedWrites']>(),
     subscribeToQueuedWrites: jest.fn<OfflineAccountLibraryRepository['subscribeToQueuedWrites']>(),
     queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(),
+    ...createStuckWriteMocks(),
     purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
   } satisfies OfflineAccountLibraryRepository;
   const queryClient = createQueryClient();

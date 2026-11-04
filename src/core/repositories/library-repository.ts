@@ -221,17 +221,22 @@ export interface LibraryReplayRun {
 export interface OfflineAccountLibraryRepository extends AccountLibraryRepository {
   /**
    * sends the queued writes this process may replay (none with a direct attempt of its key in
-   * flight, none the server refused in this process) by ascending queue order, in batches of
-   * LIBRARY_REPLAY_BATCH_SIZE, each taken from the queue as it stands when it is sent, until none
-   * is left. each confirmed write leaves the queue unless a newer write of its key replaced it
-   * meanwhile, and the device copy takes the state of each `written` one. one run per user at a
-   * time: a call while a run is in flight joins it (its result), unless that run was aborted,
-   * then a new run starts once it settled. `network` and `unknown` failures are retried after
-   * each of LIBRARY_REPLAY_RETRY_DELAYS_MS, then the run ends `failed`; a batch the database
-   * refuses is sent again one write per call, and a write refused alone stays queued but is not
-   * replayed again in this process. `options.signal` aborted: no further request, the wait for a
-   * retry cut, the run ends `aborted`. never rejects for a failure of the server or the network:
-   * the status tells it.
+   * flight, none refused unless `retryStuckWrites` released it) by ascending queue order, in
+   * batches of LIBRARY_REPLAY_BATCH_SIZE, each taken from the queue as it stands when it is sent,
+   * until none is left. each confirmed write leaves the queue unless a newer write of its key
+   * replaced it meanwhile; the device copy takes the state of each `written` one, and, after the
+   * batch, the key of each `kept` one is read again with the account store's `get` (unless the
+   * run was aborted or the purge closed it), an existing copy taking the answer; a failed read
+   * leaves the copy entry and the status as they were. one run per user at a time: a call while a
+   * run is in flight joins it (its result), unless that run was aborted, then a new run starts
+   * once it settled. `network` and `unknown` failures are retried after each of
+   * LIBRARY_REPLAY_RETRY_DELAYS_MS, then the run ends `failed`, and when its last failure was
+   * `unknown`, each write of the batch that failed, still queued under the same seq, counts one
+   * more failed run. a batch the database refuses is sent again one write per call, and a write
+   * refused alone stays queued, marked refused (persisted): no run sends it again, at this launch
+   * or a later one, until `retryStuckWrites` or a newer write of its key. `options.signal`
+   * aborted: no further request, the wait for a retry cut, the run ends `aborted`. never rejects
+   * for a failure of the server or the network: the status tells it.
    */
   replayQueuedWrites(options?: LibraryCallOptions): Promise<LibraryReplayRun>;
 
@@ -244,14 +249,49 @@ export interface OfflineAccountLibraryRepository extends AccountLibraryRepositor
 
   /**
    * the number of writes in this user's queue now (FR-25, ADR-0018): every write the server has
-   * not confirmed, whatever its state (waiting, sent by a replay run or a direct attempt, refused
-   * in this process), since `purgeDeviceData` would delete each of them. the sign out asks before
+   * not confirmed, whatever its state (waiting, sent by a replay run or a direct attempt, stuck),
+   * since `purgeDeviceData` would delete each of them. the sign out asks before
    * purging when it is above 0. no request: read from the device synchronously, like every
    * operation of the store over the synchronous app storage, so it counts a write queued by a call
    * made just before. a queue document that does not parse counts 0 (reported by the store, as on
    * every read). 0 on an instance closed by `purgeDeviceData`.
    */
   queuedWriteCount(): number;
+
+  /**
+   * the number of stuck writes in this user's queue now (ADR-0017 "Stuck writes"): refused by the
+   * database alone, or counted in LIBRARY_WRITE_FAILURE_LIMIT failed runs or more
+   * (isLibraryWriteStuck). a stuck write stays queued, shown over the server state and counted by
+   * `queuedWriteCount()`; one stuck on failed runs is still sent by every run. a newer write of
+   * its key replaces it, neither refused nor counted. synchronous, read from the device; 0 on an
+   * instance closed by `purgeDeviceData`.
+   */
+  stuckWriteCount(): number;
+
+  /**
+   * calls `listener` each time the stuck writes of this user may have changed, for every instance
+   * of this user: a run ended, a write marked refused, a retry, a discard that removed writes, a
+   * write replacing a stuck one. dropped once `purgeDeviceData` closed the instances. returns the
+   * unsubscribe function.
+   */
+  subscribeToSyncState(listener: () => void): () => void;
+
+  /**
+   * the user's Try again: releases, in this process, the writes refused now, then joins or starts
+   * a run (as `replayQueuedWrites`), which sends them with the rest of the queue; a run in flight
+   * sends them with its next batch. a released write the database refuses again stays refused,
+   * one confirmed leaves the queue; a write stuck on failed runs is sent like any other. resolves
+   * `{ status: 'signed-out', confirmed: 0 }` once closed by `purgeDeviceData`.
+   */
+  retryStuckWrites(options?: LibraryCallOptions): Promise<LibraryReplayRun>;
+
+  /**
+   * the user's Discard, once confirmed: removes the writes stuck now from the queue (a stuck write
+   * a newer change replaced is no longer stuck, and stays) and returns how many it removed. sends
+   * nothing and leaves the device copy as it is: the caller refetches the server state. 0 once
+   * closed by `purgeDeviceData`. a storage failure throws.
+   */
+  discardStuckWrites(): number;
 
   /**
    * deletes this user's library data from the device (FR-24, FR-25, ADR-0018): the device copy and
@@ -261,12 +301,14 @@ export interface OfflineAccountLibraryRepository extends AccountLibraryRepositor
    * the documents of other users are untouched.
    *
    * it first closes the coordination every instance of this user shares (the replay run, the keys
-   * in flight, the refused writes, the queue listeners), then deletes both documents. from then on
+   * in flight, the released refused writes, the queue and sync state listeners), then deletes both
+   * documents. from then on
    * no instance of this user created before the call, this one included, reads or writes either
    * document again or sends a request: `list`, `get`, `save`, `remove` and `mergeGuestEntries`
    * reject with a LibraryRemoteError `signed-out` (a late flush of a retired writer is refused,
-   * never queued); `replayQueuedWrites` resolves `{ status: 'signed-out', confirmed: 0 }`;
-   * `queuedWriteCount()` is 0; the listeners are dropped and never called again. a call in flight
+   * never queued); `replayQueuedWrites` and `retryStuckWrites` resolve `{ status: 'signed-out',
+   * confirmed: 0 }`; `queuedWriteCount()`, `stuckWriteCount()` and `discardStuckWrites()` are 0;
+   * the listeners are dropped and never called again. a call in flight
    * ends without touching the documents: a request already sent completes on the server (it cannot
    * be cut) but its outcome is not stored, and a replay run sends no further batch and ends
    * `signed-out`. an instance the factory creates afterwards for the same user id (the next sign

@@ -1,8 +1,9 @@
 // what every offline account library instance of one user shares (ADR-0017), owned by the factory
 // (account-libraries.ts), never a module global: the documents, the keys with a direct attempt in
-// flight or being sent by the replay run, the run in flight, the writes refused in this process,
-// the queue listeners, and the states confirmed while a read was in flight. the purge of the
-// device data closes it for good (ADR-0018). entries hold personal data: never logged
+// flight or being sent by the replay run, the run in flight, the refused writes released by a
+// retry, the queue and sync state listeners, and the states confirmed while a read was in flight.
+// the purge of the device data closes it for good (ADR-0018). entries hold personal data: never
+// logged
 import type { LibraryEntry } from '../../domain/library-entry';
 import { libraryQueuedWriteKey } from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
@@ -33,9 +34,15 @@ export interface UserCoordination {
   readonly directKeys: Map<string, number>;
   /** the keys of the replay batch in flight. */
   readonly sendingKeys: Set<string>;
-  /** the writes the server refused alone in this process: key to seq, until a newer write. */
-  readonly refused: Map<string, number>;
+  /**
+   * the refused writes the last retryStuckWrites released (key to seq): replayable until the
+   * database refuses them again. a newer write of the key, under another seq, is not refused.
+   */
+  readonly released: Map<string, number>;
+  /** told that a write stays queued. */
   readonly listeners: Set<() => void>;
+  /** told that the stuck writes may have changed. */
+  readonly syncListeners: Set<() => void>;
   run: ReplayRunState | null;
   activeReads: number;
   tick: number;
@@ -67,6 +74,9 @@ const guardStore = (store: AccountLibraryStore, closed: AbortSignal): AccountLib
     recordOf: (key) => open(() => store.recordOf(key)),
     enqueue: (write) => open(() => store.enqueue(write)),
     removeConfirmed: (sent) => open(() => store.removeConfirmed(sent)),
+    markRefused: (sent) => open(() => store.markRefused(sent)),
+    countFailedRun: (sent) => open(() => store.countFailedRun(sent)),
+    removeStuck: () => open(() => store.removeStuck()),
   };
 };
 
@@ -77,8 +87,9 @@ export const createUserCoordination = (store: AccountLibraryStore): UserCoordina
     closer,
     directKeys: new Map(),
     sendingKeys: new Set(),
-    refused: new Map(),
+    released: new Map(),
     listeners: new Set(),
+    syncListeners: new Set(),
     run: null,
     activeReads: 0,
     tick: 0,
@@ -101,9 +112,10 @@ export const closeCoordination = (coordination: UserCoordination): boolean => {
   }
   coordination.closer.abort();
   coordination.listeners.clear();
+  coordination.syncListeners.clear();
   coordination.directKeys.clear();
   coordination.sendingKeys.clear();
-  coordination.refused.clear();
+  coordination.released.clear();
   coordination.confirmed.clear();
   return true;
 };
@@ -162,6 +174,13 @@ export const notifyQueued = (coordination: UserCoordination): void => {
   }
 };
 
+/** tells every sync state listener of this user that the stuck writes may have changed. */
+export const notifySyncState = (coordination: UserCoordination): void => {
+  for (const listener of [...coordination.syncListeners]) {
+    listener();
+  }
+};
+
 /** adds (1) or removes (-1) a direct attempt of the key `id`. */
 export const countDirectAttempt = (
   coordination: UserCoordination,
@@ -178,12 +197,15 @@ export const countDirectAttempt = (
 
 /**
  * whether the replay may send `record`: no direct attempt of its key in flight, and not refused
- * alone in this process (a newer write of the key, under another seq, is replayable again).
+ * unless a retry released it in this process. a write stuck on failed runs is always sent.
  */
 export const isReplayable = (
   coordination: UserCoordination,
   record: QueuedWriteRecord,
 ): boolean => {
   const id = recordId(record);
-  return !coordination.directKeys.has(id) && coordination.refused.get(id) !== record.seq;
+  return (
+    !coordination.directKeys.has(id) &&
+    (record.refused !== true || coordination.released.get(id) === record.seq)
+  );
 };

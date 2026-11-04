@@ -17,6 +17,7 @@ import type {
   AccountLibraryRepository,
   GuestLibraryRepository,
   LibraryRepository,
+  OfflineAccountLibraryRepository,
   RemoteAccountLibraryRepository,
 } from '@core/repositories/library-repository';
 import { libraryEntrySchema, mediaKeySchema } from '@core/schemas/library-entry';
@@ -246,6 +247,21 @@ export const createFakeGuestLibraryRepository = (initial: readonly LibraryEntry[
 };
 
 export type FakeGuestLibraryRepository = ReturnType<typeof createFakeGuestLibraryRepository>;
+
+/**
+ * the stuck write members of an offline account library fake, as jest mocks: no stuck write, a
+ * subscription never called, a retry that found nothing to send, a discard that removed nothing
+ */
+export const createStuckWriteMocks = () => ({
+  stuckWriteCount: jest.fn<OfflineAccountLibraryRepository['stuckWriteCount']>(() => 0),
+  subscribeToSyncState: jest.fn<OfflineAccountLibraryRepository['subscribeToSyncState']>(
+    () => () => undefined,
+  ),
+  retryStuckWrites: jest.fn<OfflineAccountLibraryRepository['retryStuckWrites']>(() =>
+    Promise.resolve({ status: 'done', confirmed: 0 }),
+  ),
+  discardStuckWrites: jest.fn<OfflineAccountLibraryRepository['discardStuckWrites']>(() => 0),
+});
 
 /**
  * holds the next call of `method` on a fake repository until the returned deferred settles: it

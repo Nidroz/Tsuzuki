@@ -1,10 +1,13 @@
 import { describe, expect, it } from '@jest/globals';
+import { z } from 'zod';
 
 import { entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
 import type { LibraryQueuedWrite } from '../../domain/library-sync';
+import { libraryQueuedWriteSchema } from '../../schemas/library-sync';
 import { USER_A } from './__fixtures__/in-memory-remote';
 import {
   accountLibraryStorageKeys,
+  queuedWriteRecord,
   readAccountCopy,
   readAccountQueue,
   serializeAccountCopy,
@@ -142,5 +145,63 @@ describe('readAccountQueue', () => {
     ]);
 
     expect(readAccountQueue(stored).value.records).toStrictEqual([{ seq: 1, write: removal }]);
+  });
+});
+
+describe('the failure state of a queued write', () => {
+  // the record schema of the version 1 queue before the failure state
+  const previousRecordSchema = z.object({
+    seq: z.number().int().min(1),
+    write: libraryQueuedWriteSchema,
+  });
+
+  it('round trips, held only when set', () => {
+    const records = [
+      queuedWriteRecord(1, save(), { refused: true, failures: 2 }),
+      queuedWriteRecord(2, removal, { refused: false, failures: 0 }),
+    ];
+
+    const stored = serializeAccountQueue({ nextSeq: 3, records });
+
+    expect(JSON.parse(stored)).toStrictEqual({
+      version: 1,
+      nextSeq: 3,
+      writes: [
+        { seq: 1, write: save(), refused: true, failures: 2 },
+        { seq: 2, write: removal },
+      ],
+    });
+    expect(readAccountQueue(stored).value.records).toStrictEqual([
+      { seq: 1, write: save(), refused: true, failures: 2 },
+      { seq: 2, write: removal },
+    ]);
+  });
+
+  it('reads a record written before it as neither refused nor failed', () => {
+    const stored = queueDocument(2, [{ seq: 1, write: save() }]);
+
+    expect(readAccountQueue(stored).value.records).toStrictEqual([{ seq: 1, write: save() }]);
+  });
+
+  it('is stripped by the record schema of an older reader, the write read whole', () => {
+    const stored = serializeAccountQueue({
+      nextSeq: 2,
+      records: [queuedWriteRecord(1, save(), { refused: true, failures: 3 })],
+    });
+    const [record] = z.object({ writes: z.array(z.unknown()) }).parse(JSON.parse(stored)).writes;
+
+    expect(previousRecordSchema.parse(record)).toStrictEqual({ seq: 1, write: save() });
+  });
+
+  it.each([
+    { refused: 'yes', failures: -1 },
+    { refused: null, failures: 1.5 },
+  ])('reads a failure state that does not parse as absent, the write kept: %j', (state) => {
+    const { value, problems } = readAccountQueue(
+      queueDocument(2, [{ seq: 1, write: save(), ...state }]),
+    );
+
+    expect(value.records).toStrictEqual([{ seq: 1, write: save() }]);
+    expect(problems).toStrictEqual(new Set());
   });
 });

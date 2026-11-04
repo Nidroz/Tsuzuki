@@ -1,15 +1,17 @@
 // the replay run of the offline account library (ADR-0017): the queued writes of one user sent
 // with the time of their change, in batches taken from the queue as it stands, one run per user at
-// a time. a write leaves the queue only once the server confirmed it; the device purge (ADR-0018)
-// ends a run at its next step. writes hold personal data: never logged, never put in an error or a
-// report tag
+// a time. a write leaves the queue only once the server confirmed it; a write the database refused
+// alone, or one that keeps failing, is marked stuck in the queue (never dropped by a run); the
+// device purge (ADR-0018) ends a run at its next step. writes hold personal data: never logged,
+// never put in an error or a report tag
 import {
   LIBRARY_REPLAY_BATCH_SIZE,
   libraryQueuedWriteKey,
   type LibraryReplayOutcome,
 } from '../../domain/library-sync';
+import type { MediaKey } from '../../domain/media';
 import type { ErrorReporter } from '../../errors/error-reporter';
-import { LibraryRemoteError } from '../../errors/library-errors';
+import { LIBRARY_REPLAY_REPORT_SOURCE, LibraryRemoteError } from '../../errors/library-errors';
 import type {
   LibraryCallOptions,
   LibraryReplayRun,
@@ -20,10 +22,13 @@ import {
   confirmState,
   isClosed,
   isReplayable,
+  notifySyncState,
   recordId,
   type ReplayRunState,
   type UserCoordination,
 } from './account-library-coordination';
+import { refreshKeptKeys } from './account-library-refresh';
+import { waitUnlessAborted } from './account-library-wait';
 
 const FIRST_RETRY_DELAY_MS = 2_000;
 const SECOND_RETRY_DELAY_MS = 10_000;
@@ -39,9 +44,6 @@ export const LIBRARY_REPLAY_RETRY_DELAYS_MS: readonly number[] = [
   THIRD_RETRY_DELAY_MS,
 ];
 
-/** the source of the report of a run ended by an unexpected error. */
-export const LIBRARY_REPLAY_REPORT_SOURCE = 'library-replay';
-
 /** what a run needs: the user's coordination, the account store, the connectivity, a reporter. */
 export interface ReplayContext {
   readonly coordination: UserCoordination;
@@ -54,42 +56,14 @@ type RunStatus = LibraryReplayRun['status'];
 
 // what one call of the replay gave the run
 type BatchResult =
-  | { readonly type: 'confirmed'; readonly count: number }
-  | { readonly type: 'retry' }
+  | { readonly type: 'confirmed'; readonly count: number; readonly kept: readonly MediaKey[] }
+  | { readonly type: 'retry'; readonly reason: 'network' | 'unknown' }
   | { readonly type: 'split' }
   | { readonly type: 'refused' }
   | { readonly type: 'end'; readonly status: RunStatus };
 
 const FAILED: BatchResult = { type: 'end', status: 'failed' };
 const SIGNED_OUT: BatchResult = { type: 'end', status: 'signed-out' };
-
-// waits `delayMs` unless the run's `signal` or the coordination's `closed` aborts first: true when
-// the whole delay passed
-const wait = (
-  delayMs: number,
-  signal: AbortSignal | undefined,
-  closed: AbortSignal,
-): Promise<boolean> =>
-  new Promise((resolve) => {
-    const signals = signal === undefined ? [closed] : [signal, closed];
-    const release = (): void => {
-      for (const watched of signals) {
-        watched.removeEventListener('abort', onAbort);
-      }
-    };
-    const onAbort = (): void => {
-      clearTimeout(timer);
-      release();
-      resolve(false);
-    };
-    const timer = setTimeout(() => {
-      release();
-      resolve(true);
-    }, delayMs);
-    for (const watched of signals) {
-      watched.addEventListener('abort', onAbort, { once: true });
-    }
-  });
 
 // the next batch: a write of the keys a refused batch split, alone, else up to a batch of the
 // replayable writes by ascending seq, as the queue stands now
@@ -105,26 +79,26 @@ const pickBatch = (
 };
 
 // confirms the sent writes: each leaves the queue unless a newer write of its key replaced it,
-// and the copy takes the state of each `written` one (a `kept` one is refreshed by the refetch)
+// and the copy takes the state of each `written` one (the keys of the `kept` ones are read again)
 const applyOutcomes = (
   coordination: UserCoordination,
   batch: readonly QueuedWriteRecord[],
   outcomes: readonly LibraryReplayOutcome[],
-): number => {
+): BatchResult => {
   if (outcomes.length !== batch.length) {
     throw new RangeError('library replay answered another number of writes');
   }
-  const removed = coordination.store.removeConfirmed(batch);
+  const count = coordination.store.removeConfirmed(batch);
+  const kept: MediaKey[] = [];
   batch.forEach(({ write }, index) => {
+    const key = libraryQueuedWriteKey(write);
     if (outcomes[index] === 'written') {
-      confirmState(
-        coordination,
-        libraryQueuedWriteKey(write),
-        write.type === 'save' ? write.entry : null,
-      );
+      confirmState(coordination, key, write.type === 'save' ? write.entry : null);
+    } else {
+      kept.push(key);
     }
   });
-  return removed;
+  return { type: 'confirmed', count, kept };
 };
 
 const failureOf = (
@@ -135,7 +109,7 @@ const failureOf = (
   const reason = error instanceof LibraryRemoteError ? error.reason : null;
   // transient, a 408 or a 429 included (network): retried with backoff, never split nor refused
   if (reason === 'network' || reason === 'unknown') {
-    return { type: 'retry' };
+    return { type: 'retry', reason };
   }
   if (reason === 'signed-out') {
     return { type: 'end', status: 'signed-out' };
@@ -145,8 +119,12 @@ const failureOf = (
     if (batch.length > 1) {
       return { type: 'split' };
     }
-    // refused alone: kept in the queue, not sent again in this process until a newer write
-    coordination.refused.set(recordId(first), first.seq);
+    // refused alone: kept in the queue, marked refused, never sent again by a run until a retry
+    // releases it or a newer write of its key replaces it
+    coordination.released.delete(recordId(first));
+    if (coordination.store.markRefused(first)) {
+      notifySyncState(coordination);
+    }
     return { type: 'refused' };
   }
   // a bug: the queue holds valid writes only, and the replay never answers an unreadable row
@@ -169,7 +147,7 @@ const sendBatch = async (
     if (isClosed(coordination)) {
       return SIGNED_OUT;
     }
-    return { type: 'confirmed', count: applyOutcomes(coordination, batch, outcomes) };
+    return applyOutcomes(coordination, batch, outcomes);
   } catch (error) {
     // likewise for its failure: nothing is retried, refused or reported
     return isClosed(coordination) ? SIGNED_OUT : failureOf(context, batch, error);
@@ -214,10 +192,14 @@ const runReplay = async (
     if (result.type === 'retry') {
       const delay = LIBRARY_REPLAY_RETRY_DELAYS_MS[retries];
       if (delay === undefined) {
+        // a lasting server failure, never a lost connection: the writes sent count it
+        if (result.reason === 'unknown') {
+          coordination.store.countFailedRun(batch);
+        }
         return end('failed');
       }
       retries += 1;
-      if (!(await wait(delay, signal, coordination.closer.signal))) {
+      if (!(await waitUnlessAborted(delay, signal, coordination.closer.signal))) {
         return end(isClosed(coordination) ? 'signed-out' : 'aborted');
       }
     }
@@ -230,6 +212,11 @@ const runReplay = async (
     }
     if (result.type === 'confirmed') {
       confirmed += result.count;
+      await refreshKeptKeys(context, result.kept, () => state.aborted);
+      // purged during the refresh
+      if (isClosed(coordination)) {
+        return end('signed-out');
+      }
     }
   }
 };
@@ -259,6 +246,8 @@ const startRun = (context: ReplayContext, signal: AbortSignal | undefined) => {
     .then((run) => {
       signal?.removeEventListener('abort', onAbort);
       settle(run);
+      // a run ended: its writes may have been confirmed, counted or refused
+      notifySyncState(coordination);
     });
   return state.promise;
 };

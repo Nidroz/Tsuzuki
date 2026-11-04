@@ -181,7 +181,7 @@ describe('a batch the database refuses', () => {
     expect(remote.replayed.map((batch) => batch.length)).toStrictEqual([3, 1, 1, 1]);
     expect(queued().map(({ seq }) => seq)).toStrictEqual([2]);
 
-    // not sent again in this process
+    // marked refused: not sent again by a run
     await expect(library.replayQueuedWrites()).resolves.toStrictEqual({
       status: 'done',
       confirmed: 0,

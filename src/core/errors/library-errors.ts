@@ -37,6 +37,18 @@ export class LibrarySnapshotError extends RangeError {
 }
 
 /**
+ * the report source of the replay of the offline account library (ADR-0017): a run ended by an
+ * unexpected error (the local store), and a run that rejected (the replay driver of the hooks).
+ */
+export const LIBRARY_REPLAY_REPORT_SOURCE = 'library-replay';
+
+/**
+ * the report source of a direct attempt of an offline account library write that failed with an
+ * error the account store did not map (a bug), the write kept queued.
+ */
+export const LIBRARY_WRITE_REPORT_SOURCE = 'library-write';
+
+/**
  * why a call of the account store failed (docs/ARCHITECTURE.md §4 "Account store"): no response, a
  * gateway status, a 408 or a 429 (`network`, transient); the session is no longer the store's user, or the token was
  * refused (`signed-out`); the database refused the request (`rejected`, a bug or a schema drift); a

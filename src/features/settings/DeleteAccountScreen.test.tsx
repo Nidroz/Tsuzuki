@@ -18,6 +18,7 @@ import {
   createDeferred,
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  createStuckWriteMocks,
 } from '../../../test/core/fake-library-repository';
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { DeleteAccountScreen } from './DeleteAccountScreen';
@@ -52,6 +53,7 @@ const createAccount = () =>
       () => () => undefined,
     ),
     queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(() => 0),
+    ...createStuckWriteMocks(),
     purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
   }) satisfies OfflineAccountLibraryRepository;
 

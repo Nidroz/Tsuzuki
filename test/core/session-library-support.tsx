@@ -11,6 +11,7 @@ import { createSessionAuthRepository, createSessionSource } from './fake-auth-re
 import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  createStuckWriteMocks,
 } from './fake-library-repository';
 import { ENTRY_KEY } from './library-entry-fixtures';
 import type { MediaSummary } from '@core/catalog/catalog-provider';
@@ -45,7 +46,8 @@ export const NOTHING_REPLAYED: LibraryReplayRun = { status: 'done', confirmed: 0
 /**
  * the fake account repository as the offline account library the session library gets: its
  * `replayQueuedWrites` resolves NOTHING_REPLAYED by default (a jest mock a test sets up),
- * `queuedWriteCount` answers 0 and `purgeDeviceData` does nothing (jest mocks too), and
+ * `queuedWriteCount` answers 0, the stuck write members find none (createStuckWriteMocks) and
+ * `purgeDeviceData` does nothing (jest mocks too), and
  * `notifyQueued()` calls every listener of `subscribeToQueuedWrites`, as a write left in the queue
  * does
  */
@@ -68,6 +70,7 @@ export const createSessionAccount = (initial: readonly LibraryEntry[] = []) => {
       },
     ),
     queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(() => 0),
+    ...createStuckWriteMocks(),
     purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
     notifyQueued: (): void => {
       for (const listener of [...listeners]) {
