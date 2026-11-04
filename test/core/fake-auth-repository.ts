@@ -21,7 +21,7 @@ const throwUnexpected = (method: keyof AuthRepository) => (): never => {
 
 /**
  * a repository whose methods run the given `overrides`, every other method rejecting (or, for the
- * synchronous onAuthStateChange and setAutoRefresh, throwing) with an error naming it: a test
+ * synchronous onAuthStateChange, setAutoRefresh and onUserGone, throwing) with an error naming it: a test
  * states the calls it expects. the methods stay jest mocks
  */
 export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}) =>
@@ -49,6 +49,9 @@ export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}
     ),
     setAutoRefresh: jest.fn<AuthRepository['setAutoRefresh']>(
       overrides.setAutoRefresh ?? throwUnexpected('setAutoRefresh'),
+    ),
+    onUserGone: jest.fn<AuthRepository['onUserGone']>(
+      overrides.onUserGone ?? throwUnexpected('onUserGone'),
     ),
     // no provider unless the test gives some: the provider buttons stay hidden
     oauthProviders: overrides.oauthProviders ?? [],

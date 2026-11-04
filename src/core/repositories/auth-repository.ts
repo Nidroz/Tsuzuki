@@ -37,6 +37,9 @@ export type OAuthProvider = (typeof OAUTH_PROVIDERS)[number];
 /** called with the current session, null when signed out. */
 export type AuthSessionListener = (session: AuthSession | null) => void;
 
+/** called with the id of a user the auth server says no longer exists (onUserGone). */
+export type UserGoneListener = (userId: string) => void;
+
 /**
  * the account of the current user (FR-21). hooks depend on this interface only
  * (src/core/hooks/AuthContextProvider.tsx); the composition root creates the supabase
@@ -101,6 +104,11 @@ export interface AuthRepository {
    * signs out on this device only (local scope). resolves once the session is gone from the
    * device, even when the server could not revoke it (offline). an expired session that cannot
    * be refreshed (offline) stays, and the call rejects with `network`.
+   *
+   * a failure of reason `unknown` is reported by the implementation itself, as `deleteAccount`
+   * does, whether the call then rejects or resolves (the session gone after a server failure the
+   * implementation cannot classify): callers never report that reason again. the other reasons
+   * are not reported.
    */
   signOut(): Promise<void>;
 
@@ -137,6 +145,36 @@ export interface AuthRepository {
 
   /** token auto refresh, on only while the app is in the foreground (the composition root). */
   setAutoRefresh(active: boolean): void;
+
+  /**
+   * subscribes to the users the auth server says no longer exist (ADR-0018, update of
+   * 2026-11-04): an account deleted from another device, or a deletion whose answer was lost.
+   * returns the unsubscribe function.
+   *
+   * what triggers a check: only a token refresh the auth server refused (a 4xx other than 408 and
+   * 429), which alone is ambiguous (a revoked session answers the same). the check then reads the
+   * session on the device and, when its access token is not expired, asks the auth server for the
+   * user of that token. the only signal that reports a user gone is the auth server answering
+   * `user_not_found` for that token: the listener then gets the id of that session's user, never
+   * any other id. nothing is reported for a success, a revoked session (`session_not_found`, whose
+   * session the auth client then removes itself), an invalid or expired token, any other error
+   * code, a server error, a lost connection, no session, or an expired access token (no request
+   * sent). a refused refresh while the access token already expired is never checked. at most one
+   * check runs at a time: a refusal during a check starts none.
+   *
+   * delivery: every subscribed listener is called synchronously, in subscription order, with each
+   * detection; a listener must not throw (a throw is reported as `unknown` and the others are
+   * still called). a detection while no listener is subscribed is kept (the most recent ids, a few
+   * at most, each once) and delivered once, asynchronously, to the next listener that subscribes,
+   * then forgotten. a later refusal for a session still on the device may report the same id
+   * again: listeners treat a repeat as a no-op.
+   *
+   * it never signs out, purges or changes anything on the device by itself: the hooks decide
+   * (write the purge-pending marker, end the session, purge the device). nothing is reported to
+   * the error reporter for the expected outcomes; an unexpected throw of the check is reported as
+   * an AuthError `unknown`, under its operation only.
+   */
+  onUserGone(listener: UserGoneListener): () => void;
 }
 
 /** the auth calls a captcha protects (supabase captcha protection). */
