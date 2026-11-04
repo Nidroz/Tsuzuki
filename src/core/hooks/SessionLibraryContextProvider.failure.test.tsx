@@ -251,7 +251,6 @@ describe('SessionLibraryContextProvider failed guest merge (A-04)', () => {
   it.each([
     { step: 'the guest store read', repository: 'guest', method: 'list' },
     { step: 'the merge input check', repository: 'account', method: 'mergeGuestEntries' },
-    { step: 'the merged entries removal', repository: 'guest', method: 'removeUnchanged' },
   ] as const)(
     'reports a failure of $step with the guest-merge source only, and shows it',
     async ({ repository, method }) => {

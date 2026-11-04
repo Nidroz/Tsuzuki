@@ -31,6 +31,11 @@ export interface GuestMergeRun {
   readonly signal: AbortSignal;
   /** called once the guest entries are about to be sent to the account */
   readonly onMerging: () => void;
+  /**
+   * called with the error of a removal of the merged entries that failed, the run still ending
+   * `merged`. the error only: it holds no entry
+   */
+  readonly onCleanupFailed: (error: unknown) => void;
 }
 
 /**
@@ -38,8 +43,10 @@ export interface GuestMergeRun {
  * guest store, merges its entries into the account, then removes from the device exactly the
  * entries the account confirmed (removeUnchanged: an entry changed or added meanwhile stays).
  * checks the session between the steps: a run whose session ended removes nothing, and `signal`
- * stops its merge before the next batch. a rejection of any step rejects the run, and nothing is
- * removed after a failed merge
+ * stops its merge before the next batch. a rejection of a step up to the merge rejects the run,
+ * and nothing is removed after a failed merge. a failed removal ends the run `merged`, given to
+ * `onCleanupFailed`: the account holds every listed entry or a newer copy, and the next merge
+ * sends the entries left on the device again (kept, BR-08) and removes them
  */
 export const mergeGuestLibrary = async ({
   guest,
@@ -48,6 +55,7 @@ export const mergeGuestLibrary = async ({
   isCurrent,
   signal,
   onMerging,
+  onCleanupFailed,
 }: GuestMergeRun): Promise<GuestMergeOutcome> => {
   await settleWrites();
   if (!isCurrent()) {
@@ -69,6 +77,10 @@ export const mergeGuestLibrary = async ({
   if (!isCurrent()) {
     return 'stale';
   }
-  await guest.removeUnchanged(entries);
+  try {
+    await guest.removeUnchanged(entries);
+  } catch (error: unknown) {
+    onCleanupFailed(error);
+  }
   return 'merged';
 };

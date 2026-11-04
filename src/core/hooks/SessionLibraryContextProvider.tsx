@@ -37,8 +37,8 @@ export interface SessionLibraryContextProviderProps {
    */
   accountRepositoryFor: (userId: string) => OfflineAccountLibraryRepository;
   /**
-   * receives the merge failures that are not an account store failure (those report themselves)
-   * and the replay runs that rejected
+   * receives the merge failures that are not an account store failure (those report themselves),
+   * a failed removal of the merged guest entries, and the replay runs that rejected
    */
   reporter: ErrorReporter;
   /**
@@ -100,7 +100,8 @@ const noop = (): void => undefined;
  * previous merge of this provider and for the pending writes of the retired libraries first, so
  * two merges never overlap, and one whose session ended changes and removes nothing: each run's
  * signal is aborted once its account is no longer the committed one, which stops its next batch.
- * a failed merge is retried when the device reconnects, as by `retry()`. once the merge is done,
+ * a failed merge is retried when the device reconnects, as by `retry()`; a merge whose removal of
+ * the merged guest entries failed is done, the failure reported only. once the merge is done,
  * LibraryReplayDriver replays the account's queued writes (ADR-0017). useSessionLibrary() reads
  * the account instance (any merge phase) and the guest library, for the sign out and the account
  * deletion (ADR-0018). render it inside AuthContextProvider and the query client provider
@@ -191,6 +192,11 @@ export function SessionLibraryContextProvider({
         signal: controller.signal,
         onMerging: () => {
           conclude('merging');
+        },
+        // the merge is done: the account holds every listed entry or a newer copy. reported, never
+        // shown; the error of the guest store holds no entry, key or user id
+        onCleanupFailed: (error) => {
+          reporter.captureError(error, { source: REPORT_SOURCE });
         },
       });
       lastRunRef.current = started.then(noop, noop);
