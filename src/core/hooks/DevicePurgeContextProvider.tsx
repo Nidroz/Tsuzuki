@@ -13,8 +13,8 @@ export interface DevicePurgeContextProviderProps {
    */
   removePersistedCache: () => void | PromiseLike<void>;
   /**
-   * receives the purge steps that failed, the marker failures, and the sign out and account
-   * deletion failures
+   * receives the purge steps that failed, the marker failures, the sign out and account deletion
+   * failures, and the stuck write retries and discards that failed (useLibrarySyncIssues)
    */
   reporter: ErrorReporter;
   /**

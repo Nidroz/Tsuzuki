@@ -7,7 +7,10 @@ import type { DevicePurgeMarkers } from './device-purge-markers';
 export interface DevicePurgeValue {
   /** deletes the persisted query cache document: the persister's removeClient */
   readonly removePersistedCache: () => void | PromiseLike<void>;
-  /** receives the purge steps that failed, and the sign out and account deletion failures */
+  /**
+   * receives the purge steps that failed, the sign out and account deletion failures, and the
+   * stuck write retries and discards that failed (useLibrarySyncIssues)
+   */
   readonly reporter: ErrorReporter;
   /**
    * the purge-pending markers (ADR-0018, update of 2026-11-04), their failures reported to

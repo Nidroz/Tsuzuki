@@ -10,6 +10,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
 import { LibraryList } from './LibraryList';
+import { LibrarySyncNotice } from './LibrarySyncNotice';
 
 // under the navigator header and above the tab bar: only the sides need the safe area
 const EDGES: readonly ScreenEdge[] = ['left', 'right'];
@@ -33,8 +34,8 @@ export interface LibraryEntriesScreenProps {
   favoritesOnly: boolean;
   /**
    * the testID prefix: the screen is `<testID>-screen`, its states `-loading`, `-error`,
-   * `-empty`, the guest merge's `-merging` and `-merge-error`, its list `-list` and its filters
-   * `-filters`
+   * `-empty`, the guest merge's `-merging` and `-merge-error`, its list `-list`, its filters
+   * `-filters` and the notice of the changes that could not be synced `-sync` (LibrarySyncNotice)
    */
   testID: string;
   empty: LibraryEntriesEmptyTexts;
@@ -53,7 +54,9 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * entry unfavorited from the favorites included: the list is laid out again on an option change
  * or when the screen gains focus (a tab switch, back from the detail). while the guest library is
  * merged into the account (ADR-0016), a labelled spinner says so instead; after a failed merge, an
- * error with a retry: the library stays pending until a retry succeeded, so nothing is listed
+ * error with a retry: the library stays pending until a retry succeeded, so nothing is listed.
+ * above any of these, while changes of the account library could not be synced, a notice says
+ * how many, with Try again and Discard (LibrarySyncNotice)
  */
 export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
   const { t } = useTranslation();
@@ -154,7 +157,10 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
 
   return (
     <Screen edges={EDGES} testID={`${testID}-screen`}>
-      {content}
+      <Stack gap="md" flex>
+        <LibrarySyncNotice testID={`${testID}-sync`} />
+        {content}
+      </Stack>
     </Screen>
   );
 }

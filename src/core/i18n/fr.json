@@ -223,6 +223,26 @@
       "failedTitle": "Votre bibliothèque n'est pas encore prête",
       "failed": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte. Ils restent sur cet appareil : réessayez pour les ajouter et ouvrir votre bibliothèque.",
       "retry": "Réessayer"
+    },
+    "sync": {
+      "message_one": "{{count}} modification n'a pas pu être synchronisée avec votre compte.",
+      "message_many": "{{count}} modifications n'ont pas pu être synchronisées avec votre compte.",
+      "message_other": "{{count}} modifications n'ont pas pu être synchronisées avec votre compte.",
+      "retry": "Réessayer",
+      "retrying": "Nouvelle tentative de synchronisation de vos modifications",
+      "discard": "Abandonner",
+      "discardLabel": "Abandonner les modifications qui n'ont pas pu être synchronisées",
+      "discardSheet": {
+        "title": "Abandonner ces modifications ?",
+        "message_one": "{{count}} modification faite sur cet appareil n'a pas pu être synchronisée. Si vous l'abandonnez, elle sera remplacée par la version enregistrée dans votre compte.",
+        "message_many": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte.",
+        "message_other": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte.",
+        "close": "Fermer sans abandonner",
+        "cancel": "Annuler",
+        "confirm_one": "L'abandonner",
+        "confirm_many": "Les abandonner",
+        "confirm_other": "Les abandonner"
+      }
     }
   },
   "favorites": {
