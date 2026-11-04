@@ -79,7 +79,7 @@ const renderScreen = async (
     authRepository: repository,
     sessionLibrary: { account, guest: createFakeGuestLibraryRepository() },
   });
-  return { repository, account };
+  return { repository, account, source };
 };
 
 const deleteButton = () => screen.getByTestId(`${TEST_ID}-delete`);
@@ -90,6 +90,16 @@ const deleteAndConfirm = async () => {
   const user = userEvent.setup();
   await user.press(deleteButton());
   await user.press(screen.getByTestId(`${CONFIRM_TEST_ID}-confirm`));
+};
+
+// the signed-out state with the deletion's error inside, as an alert (InlineError announces it)
+const expectSignedOutError = async (message: string) => {
+  const signedOut = await screen.findByTestId(`${TEST_ID}-signed-out`);
+  const error = within(signedOut).getByTestId(`${TEST_ID}-error`);
+  expect(error).toHaveTextContent(message);
+  expect(error).toHaveProp('accessibilityRole', 'alert');
+  expect(within(signedOut).getByRole('button', { name: 'Sign in' })).toBeOnTheScreen();
+  expect(screen.queryByTestId(`${TEST_ID}-form`)).not.toBeOnTheScreen();
 };
 
 describe('DeleteAccountScreen', () => {
@@ -110,6 +120,7 @@ describe('DeleteAccountScreen', () => {
       screen.getByRole('header', { name: 'Sign in to delete your account' }),
     ).toBeOnTheScreen();
     expect(screen.queryByTestId(`${TEST_ID}-delete`)).not.toBeOnTheScreen();
+    expect(screen.queryByTestId(`${TEST_ID}-error`)).not.toBeOnTheScreen();
 
     await userEvent.setup().press(screen.getByRole('button', { name: 'Sign in' }));
 
@@ -246,5 +257,40 @@ describe('DeleteAccountScreen', () => {
     expect(account?.purgeDeviceData).not.toHaveBeenCalled();
     expect(screen.getByTestId(`${TEST_ID}-form`)).toBeOnTheScreen();
     expect(deleteButton()).toBeEnabled();
+  });
+
+  it('shows the error of a deletion that failed once the session ended in the signed-out state', async () => {
+    const answer = createDeferred();
+    const { source } = await renderScreen(SESSION, { deleteAccount: () => answer.promise });
+    await deleteAndConfirm();
+    // a lost answer, then a failed token refresh ends the session: the pending form stays
+    await act(() => {
+      source.emit(null);
+    });
+    expect(deleteButton()).toBeDisabled();
+
+    await act(async () => {
+      answer.reject(new AccountDeletionError('network'));
+      await answer.promise.catch(() => undefined);
+    });
+
+    await expectSignedOutError(
+      'The server could not be reached, so your account may not have been deleted. Check your connection, then try again.',
+    );
+  });
+
+  it('keeps the error of a failed deletion in the signed-out state once the session ends', async () => {
+    const { source } = await renderScreen(SESSION, {
+      deleteAccount: () => Promise.reject(new AccountDeletionError('unknown')),
+    });
+    await deleteAndConfirm();
+    expect(await screen.findByTestId(`${TEST_ID}-error`)).toBeOnTheScreen();
+
+    // the account deleted on another device: the next token refresh ends the session
+    await act(() => {
+      source.emit(null);
+    });
+
+    await expectSignedOutError('Your account could not be deleted. Try again later.');
   });
 });
