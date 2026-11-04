@@ -254,3 +254,39 @@ While `deletion.isError`, `DeleteAccountScreen` shows the failed deletion's tran
 ### `deno check`
 
 Not added to CI: the setup-deno GitHub Action is a third-party action, a new dependency the owner has not approved. Until then the owner runs `deno check supabase/functions/delete-account/index.ts` (Deno 2) before each deploy of the function, as a step of `ARCHITECTURE.md` §10, besides the `functions serve` check. Moving it to CI stays a backlog item.
+
+### Precisions from the implementation
+
+What the implementation decided where this Update left it open, and one deviation.
+
+Refusal signal:
+
+- `createTokenRefreshRefusalSignal()` (`src/core/repositories/supabase/token-refresh-refusals.ts`) links the two ends: the composition root creates one, passes its `notify` as `onTokenRefreshRefused` of `createSupabaseClient` and the signal itself as `refreshRefusals` of `createSupabaseAuthRepository`, so neither module knows the other. A refusal carries nothing; one told before the repository subscribed is lost.
+- The bounded fetch matches the exact refresh URL, built as supabase-js builds it (`tokenRefreshUrl`: `new URL('auth/v1', <url with a trailing slash>)`, then `/token?grant_type=refresh_token`, compared as a whole string) with the method `POST`, and calls the observer in a microtask; the response reaches auth-js unchanged. Without `onTokenRefreshRefused` nothing is observed; without `refreshRefusals`, `onUserGone` never reports.
+
+Detector (`src/core/repositories/supabase/user-gone-detector.ts`):
+
+- The session parts the check reads (`access_token`, `expires_at`, a UUID `user.id`) are parsed with Zod; a session without them is never checked.
+- It may report a user again on a later refusal while that session is still on the device (a `signOut()` that rejected). The driver queues nothing for a user whose purge is queued or running; a repeat after it purges again, harmlessly.
+- Buffering: while no listener is subscribed, up to `MAX_PENDING_GONE_USERS` (4) ids are kept, the most recent, each once; they are delivered once, in a microtask, to the next listener only, then forgotten.
+- A check that throws, or a listener that throws, is reported as an `AuthError('unknown')` with the operation `user-gone` only; the other listeners are still called.
+
+Markers:
+
+- `DevicePurgeMarkerRepository` (`src/core/repositories/device-purge-marker-repository.ts`) and `createLocalDevicePurgeMarkerRepository(storage, { reporter })` (`src/core/repositories/local/device-purge-marker-repository.ts`), report source `device-purge-marker`. Errors in `src/core/errors/device-purge-errors.ts`: `DevicePurgeMarkerError` for the problems of a damaged document (`invalid-json`, `invalid-envelope`, `invalid-markers`, `duplicate-users`), `DevicePurgeMarkerOperationError` for a call that failed (`list`, `add`, `remove`); each holds its problem or operation only.
+- "A damaged document reads as no marker" holds for invalid JSON and an invalid envelope (an unknown version included). An invalid element is dropped and the others are kept; a user named twice keeps the last marker, at the position of the first. Each problem is reported once per instance, and the next write replaces the document with what could be read. `add` and `remove` throw a `RangeError` without a value for a user id that is not a UUID, before any write.
+- `guardDevicePurgeMarkers(markers, reporter)` (`src/core/hooks/device-purge-markers.ts`) never throws: a failed call is reported, `list` then answering none. `settle(userId, failed)` removes the marker when the `account-library` step is not among the failed steps, else rewrites it with both flags false.
+
+Driver (`src/core/hooks/DevicePurgeDriver.tsx`), rendered by `DevicePurgeContextProvider`, which now takes `markers`:
+
+- Ready once the session state is known and the persisted query cache was restored (`useIsRestoring()`), so no purge runs before a restore that would put purged queries back. The launch step runs once per mount (the composition root mounts it once per app process). It subscribes to `onUserGone` only once ready; ids detected before are kept by the detector.
+- Purges are serialized; a user whose purge is queued or running is skipped. The user's account instance is created inside the `account-library` step, so a factory that throws is a failed step and the marker stays. A purge that rejects anyway (unexpected) is reported with `{ source: 'device-purge-driver' }`, and the next one still runs.
+- Deviation from "Device purge" and "Launch" above: the device-wide steps of a launch or gone purge run when no other user is signed in when the purge starts (no session, or the purged user's own), not "when no user is signed in". The case it changes: the session's user X reported gone whose `signOut()` rejected is still signed in, and still gets the guest library rule, the recent searches, the caches and the generation purged, since the account is gone and those data are X's. X's account instances are closed by the purge, so X's library calls end `signed-out` until the session ends at its next refresh.
+- `SessionLibraryValue` gains `userId` (the user of `account`, null exactly when it is; the sign out marks it) and `accountRepositoryFor` (the factory the driver creates a purged user's instance from). `PENDING_LIBRARY_REPOSITORY` moved to `src/core/hooks/pending-library.ts`.
+- `src/core/hooks/sign-out-failure.ts` (`reportSignOutFailure`) shares the report of a local sign out that rejected after a deletion (source `account-deletion`) or a gone report (source `device-purge-driver`), skipping the `unknown` the repository already reported.
+
+Residuals found while implementing:
+
+- Narrow race: auth-js removes whatever session is stored when `getUser(jwt)` answers `session_not_found`. An account switch between the check's session read and that answer could therefore end the new session. Nothing is lost: that session's queue is kept for its next sign in. Tracked with the security review (R-04).
+- Wording: the deletion screen now shows the failed deletion's error in its signed-out state, where the `sessionExpired` text ("Sign out, sign in again, then try again") reads oddly, the user being signed out already. Tracked in the backlog (R-03).
+- The driver tests do not cover ids buffered between the driver's mount and its readiness; the detector's tests cover the buffering itself. Tracked in R-04.

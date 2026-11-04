@@ -148,3 +148,9 @@ From the A-04 review, done in A-10. The text above and the Update of 2026-11-02 
   - an entry whose time was ahead of the server is written again by the next merge, capped at that call's later `now()` (the Update of 2026-11-02, "Idempotence, qualified"); within the clock skew it can then replace a change the user made to that entry meanwhile on this device ("Device clock skew"), which the pending library prevented before this Update;
   - an entry the user removed from the account library meanwhile is inserted again by the next merge (no tombstone, ADR-0017 "Database"); the user can remove it again.
 - "What the user sees" and "Safety" are otherwise unchanged: a failure before the merge succeeded (the guest store read, the merge itself) still keeps the pending library and shows `library.merge.failed` with Try again.
+
+### Precisions from the implementation
+
+- The run (`GuestMergeRun`, `src/core/hooks/guest-merge.ts`) gains `onCleanupFailed(error)`. `mergeGuestLibrary` calls it with the error of a `removeUnchanged` that rejected after a successful merge, then resolves `merged`; it is never called after a failed guest store read or a failed merge, which still reject the run.
+- `SessionLibraryContextProvider` passes an `onCleanupFailed` that reports the error with `{ source: 'guest-merge' }` and no tag, through the same reporter and source as the merge's other failures that are not a `LibraryRemoteError`. Nothing is shown: the status concludes `idle` and the account library is shown.
+- `docs/ARCHITECTURE.md` §4 "Library switch" and §8 "Guest merge" record it.

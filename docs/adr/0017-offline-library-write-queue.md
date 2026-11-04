@@ -265,3 +265,42 @@ Visible state:
 
 - A failure of the account store that is not a `LibraryRemoteError` during a direct attempt (a bug) is reported with its own source, `library-write`, no longer `library-replay`.
 - The replay source constant is defined once, in `src/core/errors/library-errors.ts`, a module the local store and the hooks may both import; `LibraryReplayDriver` uses it, and `LIBRARY_REPLAY_DRIVER_SOURCE` goes. The replay source stays `library-replay`.
+
+### Precisions from the implementation
+
+What the implementation decided where this Update left it open, and where it qualifies the text above.
+
+Library writer:
+
+- `createInspectableLibraryWriter(options)` (`src/core/hooks/library-writer.ts`) returns `{ writer, activeKeyCount }` for the writer tests; `createLibraryWriter` returns its `writer` only, so the app never sees the count. The hooks test "`activeKeyCount()` back to 0 once every call settled" now reads it there.
+- The per-key states moved to `library-writer-state.ts` (`createKeyStates`). Each key state records its last failed write (a new object per failure), which is how a write chained behind it, started before the failure, knows to reject with that error unsent.
+
+Failure state and the cap:
+
+- `LibraryWriteFailureState { refused?, failures? }`, `LIBRARY_WRITE_FAILURE_LIMIT` and `isLibraryWriteStuck` live in `src/core/domain/library-sync.ts`. A queue record holds `refused` only when true and `failures` only above 0. A malformed `refused` or `failures` (a wrong type, a negative or fractional count) reads as absent and the record is kept: a damaged field never drops a queued write.
+- The in-process map of refused writes is gone. `isReplayable` reads the persisted `refused`: a refused write is replayable only while the coordination's released set holds its key with that very seq.
+- `retryStuckWrites` rebuilds the released set from the writes refused at the call (the previous set cleared), tells the sync state listeners, then joins or starts a run. A released write stays released until it is refused again, confirmed, or replaced by a newer write (another seq). So a retry whose run ends `offline` lets the next automatic run of this process (reconnect, foreground, a queued write) send it; the next launch starts with an empty set and skips it again until the user retries. This qualifies "released once in this process" (`retryStuckWrites`, above).
+- A retry does not reset `failures`: a write stuck on failed runs stays stuck after Try again until a run confirms it, a newer write replaces it or the user discards it.
+- Notifications: the sync state listeners are told at the end of every run, whatever its status; when a write is newly marked refused; on each retry; on a discard only when it removed something; and synchronously, inside the `save` or `remove` call, when a write replaces a stuck one. A discard that removed nothing tells nobody, and the hook then refetches nothing.
+- A stuck write discarded while a run is sending it (one stuck on failed runs) leaves the queue, but its request completes on the server; a `written` answer then sets the device copy to the server's state, which holds the discarded change. Accepted: the window is one replay call, the copy matches the server, and the user can change the entry again.
+
+`kept` refresh (`src/core/repositories/local/account-library-refresh.ts`):
+
+- The keys are read one after another, after the batch. A `network` or `signed-out` failure stops the reads of the remaining keys (they would fail the same way); another `LibraryRemoteError` skips its key; an error that is not a `LibraryRemoteError` (an account store bug) is reported under `library-replay` and skips its key.
+- A state confirmed for the key while its read was in flight wins over the answer. A purge during the refresh stores no answer and ends the run `signed-out`.
+
+Modules: the stuck write members are in `account-library-stuck-writes.ts`, the refresh in `account-library-refresh.ts`, and the retry wait (cut by the run's signal or the purge) in `account-library-wait.ts`, next to `account-library-replay.ts`.
+
+Outage reports:
+
+- The deduplication key is the operation and the `status` tag, `none` for a failure without a response status. The set is reset only when a whole call wrapped in `run` succeeds (a store call: every page of a `list()`, a merge or a replay call), not by a single request. So "until a request of that store succeeds" (above) reads "until a call of that store succeeds".
+
+Report sources: `LIBRARY_REPLAY_REPORT_SOURCE` (`library-replay`) and `LIBRARY_WRITE_REPORT_SOURCE` (`library-write`) are both in `src/core/errors/library-errors.ts`.
+
+Visible state:
+
+- `useLibrarySyncIssues()` returns `{ stuckCount, retrying, retry, discard }`. It is active only while the live library of the nearest `LibraryContextProvider` is the session's account instance (`useSessionLibrary().account`): signed out, while the session loads or while the merge has not succeeded, the count is 0 and the actions do nothing. The count follows `stuckWriteCount()` and `subscribeToSyncState` (`useSyncExternalStore`).
+- One retry at a time per instance (a second tap while it runs is ignored), with no abort signal: a retry left running after its instance stopped being live ends with that instance's run (the purge ends it `signed-out`), is never shown pending on the next library and never refetches it. The live scope is invalidated after a retry run with `confirmed > 0` and after a discard that removed writes.
+- A retry that rejects, or a discard that throws, is reported with `{ source: 'library-sync-issues' }` through the reporter of `DevicePurgeContextProvider`; a throwing discard returns 0 and the notice stays with the count read from the device, with no visible error (a residual, tracked in R-03).
+- The ui primitive `Notice` (`src/ui/components/Notice.tsx`) holds a lasting state the user can act on: its message is one element of role `alert` named by its text, announced on mount and when it changes; its actions sit under it, outside the announced element, reachable on their own. `InlineError` stays the failure of an action.
+- `LibrarySyncNotice` (`src/features/library/LibrarySyncNotice.tsx`) is rendered by `LibraryEntriesScreen` above its content. Try again shows its pending label and disables Discard while it runs; the sheet shows the live count, its confirm is `danger`; the sheet state goes with the last stuck write, so a later one never reopens an unanswered question. The texts are `library.sync.*`, plural, in en and fr.
