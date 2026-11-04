@@ -1,6 +1,6 @@
 # ADR-0018: Sign out purge and account deletion
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-03
 
 ## Context
