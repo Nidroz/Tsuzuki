@@ -187,3 +187,70 @@ The decision above stands; the implementation made these points precise:
 - Performance: the purge is a few synchronous deletes plus the cache removal; sign out waits for the sync at most 10 s; a deletion is one request bounded at 20 s.
 - Product: new UI texts (sign out pending, unsynced confirmation, the deletion screen and its errors) in en and fr. A user with unsynced changes chooses knowingly.
 - Future web app: the hooks, the purge and the client call are in `src/core/` over the existing seams (`StorageAdapter`, the persister); only the route and the screen are mobile. The function serves any client once a web ADR settles CORS.
+
+## Update (2026-11-04)
+
+From the A-06 review, done in A-10. The text above is kept as accepted; where it differs, this section applies.
+
+### What the auth server answers
+
+Checked against the local Supabase stack (the supabase CLI's auth server):
+
+- After an admin delete, a token refresh with the user's refresh token answers 400 `refresh_token_not_found`, exactly as for a session revoked by a sign out.
+- `GET /auth/v1/user` with the user's still-valid access token answers 403 `user_not_found` for a deleted user and 403 `session_not_found` for a revoked session; an expired or invalid token answers 403 `bad_jwt`.
+- A refused refresh is therefore ambiguous and never purges by itself. The unambiguous signal is `user_not_found` answered for the session's own unexpired access token.
+- auth-js 2.117.3 keeps the session when a proactive refresh is refused while the access token is still valid, and removes it once the token expired. Its auto refresh ticks every 30 s while the app is in the foreground and asks once fewer than four ticks remain, so 90 to 120 s before the expiry: the token is normally still valid at that moment.
+
+### User gone detection (supabase layer)
+
+- The supabase client's bounded fetch (`create-supabase-client.ts`) observes the answer status of the token refresh request (`POST <url>/auth/v1/token?grant_type=refresh_token`): a 4xx other than 408 and 429 is a refusal, signalled to the auth repository without reading the body or touching a token.
+- On a refusal the auth repository reads the session (`getSession()`). With a session whose access token is unexpired, it asks `auth.getUser(accessToken)`; only an auth-js `AuthApiError` with the code `user_not_found` reports that session's user id gone. Anything else reports nothing: a success; `session_not_found` (auth-js then removes the revoked session itself, so it ends a little earlier, without a purge); `bad_jwt`; a 5xx; a network error; no session; an expired token. One probe at a time.
+- New `AuthRepository` member: `onUserGone(listener: (userId: string) => void): () => void`. An id detected while no listener is subscribed is delivered to the next listener; the implementation decides the exact buffering.
+- The `AuthRepository.signOut` contract now states that the implementation reports `unknown` itself, as `deleteAccount` does; `useDeleteAccount` relies on it to skip its own report of that reason.
+
+### Purge-pending marker
+
+- A document `device-purge-pending` in the app storage: `{ "version": 1, "users": [{ "userId": "<uuid>", "clearGuestLibrary": <boolean>, "deviceWide": <boolean> }] }`. It holds the user id, already part of the per-user storage keys, the guest-library decision and whether the device-wide steps are still owed; nothing else.
+- Parsed with Zod on every read, the user id checked as a UUID. A damaged document reads as no marker and is reported once, never thrown.
+- Interface `DevicePurgeMarkerRepository` (`src/core/repositories/`), synchronous like the storage; implementation in `src/core/repositories/local/`; the composition root wires it.
+- Sign out: after the unsynced check and the guest-library rule (steps 3 and 4), the user's marker is written before `signOut()` (step 5). `signOut()` rejects: the marker is removed and the call rejects (still signed in, nothing purged, as before). It resolves: the device purge, then the marker is removed when the purge's `account-library` step succeeded; otherwise it is kept, so the next launch tries again, rewritten with `clearGuestLibrary` and `deviceWide` false: the device-wide steps have run once, and a retry must not clear guest entries or recent searches added after the sign out.
+- Launch: once the auth state is known, once per app process. A marked user who is the session's user is unmarked: that sign out did not complete, and the user is still signed in. Every other marked user gets the device purge with the recorded `clearGuestLibrary` and `deviceWide` (the device-wide steps only when no user is signed in, "Device purge" below), then is unmarked when the `account-library` step succeeded, else rewritten with both flags false. This covers the app killed, or the `account-library` step failing, between `signOut()` and the purge.
+- Account deletion keeps its order (the purge before the local sign out) and writes no marker.
+
+### Purge of a gone user (hooks)
+
+For a user X reported gone:
+
+1. The marker of X is written, with `clearGuestLibrary` from the guest library rule (sign out step 4) when X is the session's user, else false, and `deviceWide` true.
+2. When X is the session's user, `signOut()` ends the local session; a rejection is reported and the flow goes on, since the account is gone.
+3. The device purge of X: X's documents through a new instance of X's offline account library from the factory, whose purge closes every instance of X.
+4. X is unmarked when the `account-library` step succeeded, else its marker is rewritten with both flags false, as for a sign out.
+
+Another user's documents are never touched: every per-user step takes X's id only.
+
+### Device purge
+
+- `purgeDeviceUserData` resolves the list of the steps that failed (it still never rejects) and takes `deviceWide: boolean`. False runs the `account-library` step only: no guest library, recent searches, caches or generation.
+- The launch and gone purges run the device-wide steps only when no user is signed in at that moment, so a user signed in meanwhile keeps their recent searches and caches. The sign out and the account deletion always run them.
+
+### Residuals
+
+This updates "Residuals (accepted)":
+
+- "A deleted user's other devices" and "A deletion whose answer is lost" are now covered whenever a refresh of that session is refused while its access token is valid (the app in the foreground before the expiry).
+- Still not covered: a session whose token expired while the app was closed or in the background before any refused refresh. The refresh is then the only check, and it cannot tell a deleted account from a revoked session: the session ends without a purge and the queue waits, as ADR-0017 requires.
+- Also: a sign out killed inside `signOut()`, after the server revoked the session and before supabase-js removed it locally, relaunches signed in, so its marker is cleared; the session then ends at its next refresh without a purge (rare).
+- "The app killed, or the `account-library` purge step failing, after `signOut()` removed the session and before the device purge ran" is closed by the marker.
+
+### Deletion screen
+
+While `deletion.isError`, `DeleteAccountScreen` shows the failed deletion's translated error inside its signed-out state (a lost answer followed by a failed token refresh, or the account deleted on another device), so the user is told the outcome is unknown.
+
+### Error codes and handler tests
+
+- The fixed error codes of the `delete-account` function (`RESPONSES` in `supabase/functions/delete-account/handler.ts`) and the client's copy (`FUNCTION_ERROR_CODES` in `src/core/repositories/supabase/account-deletion.ts`) are kept in sync by a test comparing them; the implementation decides where it lives under the lint layer rules.
+- The handler tests now feed the shapes auth-js produces: an `AuthSessionMissingError` (status 400, no code) for a revoked session, an `AuthApiError` 403 `user_not_found` for a deleted user.
+
+### `deno check`
+
+Not added to CI: the setup-deno GitHub Action is a third-party action, a new dependency the owner has not approved. Until then the owner runs `deno check supabase/functions/delete-account/index.ts` (Deno 2) before each deploy of the function, as a step of `ARCHITECTURE.md` §10, besides the `functions serve` check. Moving it to CI stays a backlog item.
