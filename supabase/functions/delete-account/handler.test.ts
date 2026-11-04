@@ -1,4 +1,10 @@
 import { describe, expect, it } from '@jest/globals';
+import {
+  AuthApiError,
+  AuthRetryableFetchError,
+  AuthSessionMissingError,
+  AuthUnknownError,
+} from '@supabase/supabase-js';
 
 import {
   createDeleteAccountHandler,
@@ -27,10 +33,17 @@ const UNAVAILABLE = '{"error":"unavailable"}';
 const DELETION_FAILED = '{"error":"deletion-failed"}';
 
 const VERIFIED: VerifiedUser = { status: 'verified', userId: USER_ID };
-// what the auth server answers getUser for a signature-valid token whose user no longer exists
-const USER_NOT_FOUND = { status: 403, code: 'user_not_found' };
+// the auth errors of auth-js 2.117.3 (the version of the deno entry), as auth.getUser(token) and
+// auth.admin.deleteUser(userId) return them; the server message is free text
+const SERVER_TEXT = 'server text';
+// a signature-valid token whose user no longer exists: 403 user_not_found
+const USER_NOT_FOUND = new AuthApiError(SERVER_TEXT, 403, 'user_not_found');
+// a revoked session: auth-js maps the 403 session_not_found to this error, status 400, no code
+const SESSION_MISSING = new AuthSessionMissingError();
+// an expired or invalid token
+const BAD_JWT = new AuthApiError(SERVER_TEXT, 403, 'bad_jwt');
 // the verification of an auth error, as the deno entry wires it
-const authFails = (error: { status: number; code: string }) =>
+const authFails = (error: AuthApiError | AuthSessionMissingError) =>
   toVerifiedUser({ data: { user: null }, error });
 
 // fake ports recording their calls; an Error is thrown by the port
@@ -139,7 +152,7 @@ describe('createDeleteAccountHandler', () => {
   });
 
   it('answers 401 to a token whose session is gone, never deleting', async () => {
-    const { ports, deleteCalls } = fakePorts(authFails({ status: 403, code: 'session_not_found' }));
+    const { ports, deleteCalls } = fakePorts(authFails(SESSION_MISSING));
     const response = await createDeleteAccountHandler(ports)(post());
 
     expect(await read(response)).toStrictEqual(answer(401, UNAUTHORIZED));
@@ -242,26 +255,46 @@ describe('toVerifiedUser', () => {
     });
   });
 
-  // bad or expired jwt, session gone
-  it.each([400, 401, 403, 404])('refuses an auth error with status %p', (status) => {
-    expect(toVerifiedUser({ data: { user: null }, error: { status } })).toStrictEqual({
+  // a client error without a code
+  it.each([400, 401, 403, 404])('refuses an auth api error with status %p', (status) => {
+    expect(authFails(new AuthApiError(SERVER_TEXT, status, undefined))).toStrictEqual({
       status: 'refused',
     });
   });
 
-  // a key without a sub claim, a revoked session
-  it.each(['bad_jwt', 'session_not_found'])('refuses a 403 with code %p', (code) => {
-    expect(authFails({ status: 403, code })).toStrictEqual({ status: 'refused' });
+  // a key without a sub claim, an expired or invalid token
+  it('refuses a 403 bad_jwt', () => {
+    expect(authFails(BAD_JWT)).toStrictEqual({ status: 'refused' });
   });
 
-  // the code alone decides, whatever the status
-  it.each([403, 404, 500])('reads user_not_found with status %p as gone', (status) => {
-    expect(authFails({ ...USER_NOT_FOUND, status })).toStrictEqual({ status: 'gone' });
+  it('refuses a revoked session: an AuthSessionMissingError, status 400, no code', () => {
+    expect(SESSION_MISSING).toMatchObject({ name: 'AuthSessionMissingError', status: 400 });
+    expect(SESSION_MISSING.code).toBeUndefined();
+    expect(authFails(SESSION_MISSING)).toStrictEqual({ status: 'refused' });
   });
 
-  // no answer (0), an unknown error (no status), a server error, a timeout, a rate limit
-  it.each([0, undefined, 408, 429, 500, 503])('is unavailable on status %p', (status) => {
-    expect(toVerifiedUser({ data: { user: null }, error: { status } })).toStrictEqual({
+  it('reads the 403 user_not_found of a deleted user as gone', () => {
+    expect(authFails(USER_NOT_FOUND)).toStrictEqual({ status: 'gone' });
+  });
+
+  // the code alone decides, whatever the client status
+  it.each([400, 404])('reads user_not_found with status %p as gone', (status) => {
+    expect(authFails(new AuthApiError(SERVER_TEXT, status, 'user_not_found'))).toStrictEqual({
+      status: 'gone',
+    });
+  });
+
+  // no answer (status 0), a server or gateway error, a timeout, a rate limit, an answer that is
+  // not json (no status)
+  it.each([
+    ['no answer', new AuthRetryableFetchError('Failed to fetch', 0)],
+    ['a 500', new AuthRetryableFetchError(SERVER_TEXT, 500)],
+    ['a 503', new AuthRetryableFetchError(SERVER_TEXT, 503)],
+    ['a 408', new AuthApiError(SERVER_TEXT, 408, undefined)],
+    ['a 429', new AuthApiError(SERVER_TEXT, 429, 'over_request_rate_limit')],
+    ['an unreadable answer', new AuthUnknownError(SERVER_TEXT, null)],
+  ])('is unavailable on %s', (_case, error) => {
+    expect(toVerifiedUser({ data: { user: null }, error })).toStrictEqual({
       status: 'unavailable',
     });
   });
@@ -272,17 +305,20 @@ describe('toDeletionOutcome', () => {
     expect(toDeletionOutcome({ error: null })).toBe('deleted');
   });
 
-  it.each([{ status: 404, code: 'user_not_found' }, { status: 404 }, { code: 'user_not_found' }])(
-    'reads %p as not found',
-    (error) => {
-      expect(toDeletionOutcome({ error })).toBe('not-found');
-    },
-  );
+  it.each([
+    ['a 404 user_not_found', new AuthApiError(SERVER_TEXT, 404, 'user_not_found')],
+    ['a 404 without a code', new AuthApiError(SERVER_TEXT, 404, undefined)],
+    ['user_not_found with another status', new AuthApiError(SERVER_TEXT, 400, 'user_not_found')],
+  ])('reads %s as not found', (_case, error) => {
+    expect(toDeletionOutcome({ error })).toBe('not-found');
+  });
 
-  it.each([{ status: 0 }, { status: 403, code: 'not_admin' }, { status: 500 }, {}])(
-    'reads %p as failed',
-    (error) => {
-      expect(toDeletionOutcome({ error })).toBe('failed');
-    },
-  );
+  it.each([
+    ['no answer', new AuthRetryableFetchError('Failed to fetch', 0)],
+    ['a 403 not_admin', new AuthApiError(SERVER_TEXT, 403, 'not_admin')],
+    ['a 500', new AuthRetryableFetchError(SERVER_TEXT, 500)],
+    ['an unreadable answer', new AuthUnknownError(SERVER_TEXT, null)],
+  ])('reads %s as failed', (_case, error) => {
+    expect(toDeletionOutcome({ error })).toBe('failed');
+  });
 });
