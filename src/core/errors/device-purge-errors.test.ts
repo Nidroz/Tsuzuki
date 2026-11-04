@@ -1,10 +1,12 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  DEVICE_PURGE_MARKER_OPERATIONS,
   DEVICE_PURGE_MARKER_PROBLEMS,
   DEVICE_PURGE_STEPS,
   DevicePurgeError,
   DevicePurgeMarkerError,
+  DevicePurgeMarkerOperationError,
 } from './device-purge-errors';
 
 describe('DevicePurgeError', () => {
@@ -55,5 +57,17 @@ describe('DevicePurgeMarkerError', () => {
     expect(error.message).toBe(`Device purge marker is damaged: ${problem}`);
     expect(error.cause).toBeUndefined();
     expect(Object.keys(error).sort()).toStrictEqual(['name', 'problem']);
+  });
+});
+
+describe('DevicePurgeMarkerOperationError', () => {
+  it.each(DEVICE_PURGE_MARKER_OPERATIONS)('holds the %s operation only', (operation) => {
+    const error = new DevicePurgeMarkerOperationError(operation);
+
+    expect(error).toBeInstanceOf(Error);
+    expect(error.name).toBe('DevicePurgeMarkerOperationError');
+    expect(error.operation).toBe(operation);
+    expect(error.message).toBe(`Device purge marker failed: ${operation}`);
+    expect(error.cause).toBeUndefined();
   });
 });

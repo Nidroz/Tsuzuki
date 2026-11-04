@@ -5,12 +5,14 @@ import { PROGRESS_WRITE_COALESCE_MS } from '@core/domain/library-progress';
 import { PERSIST_THROTTLE_MS } from '@core/query/persister';
 import type { LibraryEntry } from '@core/domain/library-entry';
 import type { LibraryQueuedWrite } from '@core/domain/library-sync';
+import type { DevicePurgeMarker } from '@core/repositories/device-purge-marker-repository';
 import {
   accountLibraryStorageKeys,
   readAccountQueue,
 } from '@core/repositories/local/account-library-documents';
+import { createLocalDevicePurgeMarkerRepository } from '@core/repositories/local/device-purge-marker-repository';
 import { jest } from '@jest/globals';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { createStorage, STORAGE_INSTANCE_ID } from '@platform/storage';
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, userEvent, within } from '@testing-library/react-native';
@@ -27,6 +29,8 @@ import type * as RecordingQueryClient from '../mobile/recording-query-client';
 // placeholder user ids
 export const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 export const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
+// a user no test signs in: their documents are stand-ins, never read
+export const USER_C = 'cccccccc-dddd-4eee-8fff-aaaaaaaaaaaa';
 
 // last changed before the test clock; no cover, so the rows need no image host
 const lastChanged = {
@@ -59,6 +63,28 @@ export const storedQueueOf = (userId: string): string | undefined =>
   appStorage.getString(accountLibraryStorageKeys(userId).queue);
 export const queuedWritesOf = (userId: string): readonly LibraryQueuedWrite[] =>
   readAccountQueue(storedQueueOf(userId)).value.records.map(({ write }) => write);
+
+/** the device copy and write queue of `userId`, as stored */
+export const documentsOf = (userId: string) => ({
+  copy: storedCopyOf(userId),
+  queue: storedQueueOf(userId),
+});
+
+/** stand-in documents of USER_C, whom no test signs in: a purge of another user keeps them */
+export const seedDocumentsOfC = (): void => {
+  const keys = accountLibraryStorageKeys(USER_C);
+  appStorage.set(keys.copy, 'device copy of C');
+  appStorage.set(keys.queue, 'write queue of C');
+};
+
+/** the purge-pending markers of the app storage, as a sign out or the next launch reads them */
+export const deviceMarkers = () =>
+  createLocalDevicePurgeMarkerRepository(createStorage(), {
+    reporter: { captureError: jest.fn() },
+  });
+
+/** the markers in the app storage now */
+export const storedMarkers = (): readonly DevicePurgeMarker[] => deviceMarkers().list();
 
 export const settle = async (ms = 0) => {
   await act(async () => {

@@ -25,8 +25,11 @@ import {
 } from './guest-merge-context';
 import { LibraryContextProvider, type RetiredLibrary } from './LibraryContextProvider';
 import { LibraryReplayDriver } from './LibraryReplayDriver';
+import { PENDING_LIBRARY_REPOSITORY } from './pending-library';
 import { SessionLibraryContext, type SessionLibraryValue } from './session-library-context';
 import { useAuthSession } from './use-auth-session';
+
+export { PENDING_LIBRARY_REPOSITORY } from './pending-library';
 
 export interface SessionLibraryContextProviderProps {
   /** the guest library, shown signed out and merged at sign in; pass a stable object (module level) */
@@ -49,21 +52,6 @@ export interface SessionLibraryContextProviderProps {
   subscribeToForeground?: ForegroundSubscription | undefined;
   children: ReactNode;
 }
-
-const neverSettles = <T,>(): Promise<T> => new Promise<T>(() => undefined);
-
-/**
- * the library while the session is not known yet, or until the guest library was merged into the
- * account (a merge running or failed): every call stays pending, so the library screens never show
- * the guest library to a signed-in user, an empty one, nor an account library lacking a guest
- * entry. no write reaches it: library actions wait for a loaded entry, which never comes
- */
-export const PENDING_LIBRARY_REPOSITORY: LibraryRepository = Object.freeze({
-  list: neverSettles,
-  get: neverSettles,
-  save: neverSettles,
-  remove: neverSettles,
-});
 
 // the merge of one account instance: the guest store read, its entries sent, a failure, or done
 type MergePhase = 'checking' | 'merging' | 'failed' | 'done';
@@ -103,8 +91,9 @@ const noop = (): void => undefined;
  * a failed merge is retried when the device reconnects, as by `retry()`; a merge whose removal of
  * the merged guest entries failed is done, the failure reported only. once the merge is done,
  * LibraryReplayDriver replays the account's queued writes (ADR-0017). useSessionLibrary() reads
- * the account instance (any merge phase) and the guest library, for the sign out and the account
- * deletion (ADR-0018). render it inside AuthContextProvider and the query client provider
+ * the account instance (any merge phase) and its user id, the guest library and the factory, for
+ * the sign out, the account deletion and the device purge (ADR-0018). render it inside
+ * AuthContextProvider and the query client provider
  */
 export function SessionLibraryContextProvider({
   guest,
@@ -267,7 +256,10 @@ export function SessionLibraryContextProvider({
     [mergeStatus, retry],
   );
 
-  const sessionValue = useMemo((): SessionLibraryValue => ({ account, guest }), [account, guest]);
+  const sessionValue = useMemo(
+    (): SessionLibraryValue => ({ account, userId, guest, accountRepositoryFor }),
+    [account, userId, guest, accountRepositoryFor],
+  );
 
   let repository: LibraryRepository;
   if (account === null) {

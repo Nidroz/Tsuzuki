@@ -63,3 +63,23 @@ export class DevicePurgeMarkerError extends Error {
     this.problem = problem;
   }
 }
+
+/** the calls of the purge-pending marker repository the hooks make. */
+export const DEVICE_PURGE_MARKER_OPERATIONS = ['list', 'add', 'remove'] as const;
+
+export type DevicePurgeMarkerOperation = (typeof DEVICE_PURGE_MARKER_OPERATIONS)[number];
+
+/**
+ * a call of the purge-pending marker repository failed (a storage error, a user id that is not a
+ * uuid); reported, never thrown by the hooks. it holds the operation only: never a user id or
+ * stored content, and no cause is attached.
+ */
+export class DevicePurgeMarkerOperationError extends Error {
+  readonly operation: DevicePurgeMarkerOperation;
+
+  constructor(operation: DevicePurgeMarkerOperation) {
+    super(`Device purge marker failed: ${operation}`);
+    this.name = 'DevicePurgeMarkerOperationError';
+    this.operation = operation;
+  }
+}

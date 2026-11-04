@@ -57,6 +57,8 @@ describe('useDeleteAccount', () => {
     expect(rendered.queryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(rendered.result.current.generation).toBe(1);
     expect(rendered.captureError).not.toHaveBeenCalled();
+    // the purge comes before the local sign out: no purge-pending marker
+    expect(rendered.markers.add).not.toHaveBeenCalled();
   });
 
   it('rejects session-expired without an account instance, sending nothing', async () => {

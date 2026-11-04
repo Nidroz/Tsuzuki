@@ -123,7 +123,9 @@ describe('SessionLibraryContextProvider (A-03)', () => {
     const first = rendered.result.current.sessionLibrary;
 
     expect(first.account).toBe(rendered.accountOf(0));
+    expect(first.userId).toBe(USER_A);
     expect(first.guest).toBe(rendered.guest);
+    expect(first.accountRepositoryFor).toBe(rendered.accountRepositoryFor);
 
     await settleSession();
 
@@ -135,7 +137,9 @@ describe('SessionLibraryContextProvider (A-03)', () => {
 
     expect(rendered.result.current.sessionLibrary).toStrictEqual({
       account: null,
+      userId: null,
       guest: rendered.guest,
+      accountRepositoryFor: rendered.accountRepositoryFor,
     });
   });
 
