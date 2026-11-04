@@ -4,7 +4,7 @@
 // rows hold personal data (notes, titles): nothing here logs them or puts them in an error or a tag
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { ErrorReporter } from '../../errors/error-reporter';
+import type { ErrorContext, ErrorReporter } from '../../errors/error-reporter';
 import { LibraryRemoteError } from '../../errors/library-errors';
 import type { Database } from './database.types';
 import {
@@ -57,9 +57,15 @@ export type PageQuery = (
 export interface LibraryRequestsOptions {
   /** the user id of the session the requests are made for (AuthSession.userId). */
   readonly userId: string;
-  /** receives `rejected` and `unknown` failures, and the first unreadable row. */
+  /**
+   * receives `rejected` failures, `unknown` failures once per operation and status per outage,
+   * and the first unreadable row.
+   */
   readonly reporter: ErrorReporter;
 }
+
+// the tag of an unknown failure without a status (no response, an error thrown by the client)
+const NO_STATUS = 'none';
 
 /** the failure of a response, for the error mapper. */
 export const responseFailure = ({ status, error }: PostgrestResult): LibraryFailure => ({
@@ -75,22 +81,41 @@ export const isRowArray = (value: unknown): value is readonly unknown[] => Array
  * the requests of the user `userId` over `client`. `send` checks before each request, under the
  * request timeout, that the client's session is still that user's, else it rejects with
  * `signed-out` and sends nothing; a session read that fails or does not answer in time rejects
- * with `network`, and nothing is sent either.
+ * with `network`, and nothing is sent either. an `unknown` failure is reported once per operation
+ * and status (its report tags) until a call of `run` succeeds: the first of each outage always,
+ * never each request of a lasting 5xx.
  */
 export const createLibraryRequests = (
   client: SupabaseClient<Database>,
   { userId, reporter }: LibraryRequestsOptions,
 ) => {
   let invalidRowReported = false;
+  // the operation and status of each unknown failure reported since the last call that succeeded
+  const outageReported = new Set<string>();
+
+  // whether an unknown failure of this operation and status is the first since the last success
+  const isFirstOfOutage = (operation: LibraryOperation, context: ErrorContext): boolean => {
+    const id = `${operation}:${context.tags?.status ?? NO_STATUS}`;
+    if (outageReported.has(id)) {
+      return false;
+    }
+    outageReported.add(id);
+    return true;
+  };
 
   // the error of a failure; network and signed-out are expected and never reported, an
-  // unreadable row once per instance
+  // unreadable row once per instance, an unknown failure once per operation and status per outage
   const fail = (operation: LibraryOperation, failure: LibraryFailure): LibraryRemoteError => {
     const error = toLibraryRemoteError(failure);
+    const context = libraryReportContext(operation, failure);
     const isFirstInvalidRow = error.reason === 'invalid-row' && !invalidRowReported;
-    if (error.reason === 'rejected' || error.reason === 'unknown' || isFirstInvalidRow) {
+    const isReported =
+      error.reason === 'rejected' ||
+      isFirstInvalidRow ||
+      (error.reason === 'unknown' && isFirstOfOutage(operation, context));
+    if (isReported) {
       invalidRowReported ||= isFirstInvalidRow;
-      reporter.captureError(error, libraryReportContext(operation, failure));
+      reporter.captureError(error, context);
     }
     return error;
   };
@@ -120,10 +145,13 @@ export const createLibraryRequests = (
       void readSession().then(resolve);
     });
 
-  // runs a call; anything thrown that is not already mapped is unknown
+  // runs a call; anything thrown that is not already mapped is unknown. a call that succeeds ends
+  // the outage: the next unknown failure is reported again
   const run = async <T>(operation: LibraryOperation, call: () => Promise<T>): Promise<T> => {
     try {
-      return await call();
+      const value = await call();
+      outageReported.clear();
+      return value;
     } catch (error) {
       throw error instanceof LibraryRemoteError
         ? error
