@@ -9,6 +9,7 @@ import LibraryRoute from '../../app/(tabs)/library';
 import SearchRoute from '../../app/(tabs)/search';
 import SettingsRoute from '../../app/(tabs)/settings';
 import RootLayout, { unstable_settings } from '../../app/_layout';
+import DeleteAccountRoute from '../../app/account/delete';
 import EmailCallbackRoute from '../../app/auth/callback';
 import ForgotPasswordRoute from '../../app/auth/forgot-password';
 import OAuthCallbackRoute from '../../app/auth/oauth-callback';
@@ -39,6 +40,7 @@ export const APP_ROUTES = {
   'auth/callback': EmailCallbackRoute,
   'auth/reset-password': ResetPasswordRoute,
   'auth/oauth-callback': OAuthCallbackRoute,
+  'account/delete': DeleteAccountRoute,
   '+not-found': NotFoundRoute,
   '+native-intent': NativeIntent,
 } as const;

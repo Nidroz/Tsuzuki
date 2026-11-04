@@ -1,5 +1,6 @@
-// case tables for layers.test.mjs on console use: production files of app/ and src/ never use
-// console, except the sentry adapter (src/platform/sentry.ts); test code is exempt (ADR-0012)
+// case tables for layers.test.mjs on console use: production files of app/, src/ and the edge
+// functions (supabase/functions) never use console, except the sentry adapter
+// (src/platform/sentry.ts); test code is exempt (ADR-0012)
 
 import { EXISTING, PROBES } from './layers-harness.mjs';
 import { allowed, rejected } from './layers-cases.mjs';
@@ -16,7 +17,15 @@ const CONSOLE_CALLS = [
 
 export const REJECTED = {
   console: rejected(
-    [EXISTING.layout, EXISTING.index, PROBES.features, PROBES.ui, PROBES.platform, PROBES.core],
+    [
+      EXISTING.layout,
+      EXISTING.index,
+      PROBES.features,
+      PROBES.ui,
+      PROBES.platform,
+      PROBES.core,
+      PROBES.edgeFunction,
+    ],
     NO_CONSOLE,
     CONSOLE_MESSAGE,
     CONSOLE_CALLS,
@@ -25,7 +34,14 @@ export const REJECTED = {
 
 export const ALLOWED = {
   console: allowed(
-    [EXISTING.sentry, PROBES.platformTest, PROBES.featuresTest, PROBES.uiTest, PROBES.hooksTest],
+    [
+      EXISTING.sentry,
+      PROBES.platformTest,
+      PROBES.featuresTest,
+      PROBES.uiTest,
+      PROBES.hooksTest,
+      PROBES.edgeFunctionTest,
+    ],
     CONSOLE_CALLS,
   ),
 };

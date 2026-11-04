@@ -234,7 +234,55 @@
       "signUp": "Create an account",
       "signedIn": "You are signed in.",
       "signOut": "Sign out",
-      "signingOut": "Signing out"
+      "signingOut": "Syncing and signing out",
+      "deleteAccount": "Delete account",
+      "unsynced": {
+        "title": "Changes not synced",
+        "message_one": "{{count}} change made on this device has not reached your account yet. Signing out deletes it from this device.",
+        "message_other": "{{count}} changes made on this device have not reached your account yet. Signing out deletes them from this device.",
+        "close": "Close and stay signed in",
+        "cancel": "Cancel",
+        "confirm_one": "Sign out and delete it",
+        "confirm_other": "Sign out and delete them"
+      }
+    },
+    "deleteAccount": {
+      "title": "Delete account",
+      "loading": "Loading your account",
+      "signedOut": {
+        "title": "Sign in to delete your account",
+        "message": "Only a signed-in account can be deleted. Sign in on this device first.",
+        "signIn": "Sign in"
+      },
+      "heading": "Delete your account",
+      "intro": "Deleting your account deletes:",
+      "items": {
+        "account": "Your account and its sign-in methods.",
+        "library": "Your library on every device: titles, progress, scores, notes and favorites.",
+        "history": "Your progress history.",
+        "device": "On this device: the copy of your library, the changes not synced yet, your recent searches and the cached data."
+      },
+      "irreversible": "This cannot be undone.",
+      "delete": "Delete account",
+      "deleting": "Deleting your account",
+      "confirm": {
+        "title": "Delete your account?",
+        "message": "Your account and your library will be deleted from every device. This cannot be undone.",
+        "close": "Close without deleting your account",
+        "cancel": "Cancel",
+        "confirm": "Delete my account"
+      },
+      "deleted": {
+        "title": "Your account was deleted",
+        "message": "Your account and its library were deleted, and this device is signed out.",
+        "back": "Back to Settings"
+      },
+      "errors": {
+        "offline": "You are offline. Connect to the internet to delete your account. Nothing was deleted.",
+        "network": "The server could not be reached, so your account may not have been deleted. Check your connection, then try again.",
+        "sessionExpired": "Your session has ended. Sign out, sign in again, then try again.",
+        "unknown": "Your account could not be deleted. Try again later."
+      }
     },
     "theme": {
       "title": "Theme",

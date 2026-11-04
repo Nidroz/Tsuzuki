@@ -7,13 +7,13 @@ import {
   type Deferred,
 } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY, entryOf, keyOf } from '../../../test/core/library-entry-fixtures';
+import { MEDIA } from '../../../test/core/library-hooks-support';
 import {
-  MEDIA,
   renderSessionLibrary,
   settleSession,
   USER_A,
   type RenderedSessionLibrary,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { LibraryEntry } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
 import { LibraryRemoteError } from '../errors/library-errors';

@@ -1,6 +1,7 @@
-// the auth repository (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015): email accounts (A-01) and
-// google and apple sign-in (A-02) on supabase auth (supabase/auth-repository.ts); account deletion
-// comes with A-06. types, the provider list and the disabled captcha only
+// the auth repository (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015, ADR-0018): email accounts
+// (A-01) and google and apple sign-in (A-02) on supabase auth (supabase/auth-repository.ts), and
+// account deletion through the delete-account edge function (A-06). types, the provider list and
+// the disabled captcha only
 
 /** the signed-in user as the app needs it: the id only. no email or token is kept in app state. */
 export interface AuthSession {
@@ -43,8 +44,10 @@ export type AuthSessionListener = (session: AuthSession | null) => void;
  *
  * every rejection is an AuthError (src/core/errors/auth-errors.ts) whose reason says what the
  * user can do; its message is fixed per reason and never holds an email, a password, a code, a
- * token or a server text. calls that send an email resolve the same way whether or not an account
- * exists for that email, so the app never tells which emails are registered.
+ * token or a server text. the one exception is `deleteAccount`, which rejects with an
+ * AccountDeletionError (src/core/errors/account-deletion-errors.ts) built the same way. calls
+ * that send an email resolve the same way whether or not an account exists for that email, so the
+ * app never tells which emails are registered.
  */
 export interface AuthRepository {
   /**
@@ -100,6 +103,29 @@ export interface AuthRepository {
    * be refreshed (offline) stays, and the call rejects with `network`.
    */
   signOut(): Promise<void>;
+
+  /**
+   * deletes the account of the signed-in user for good (FR-24, ADR-0018): one POST to the
+   * delete-account edge function, which checks the session's access token with the auth server and
+   * hard deletes that token's user; the database cascades remove the profile, the library entries
+   * and the progress events, for every device. a session on this device is required: without one
+   * the call rejects with `session-expired` and sends nothing. nothing else is sent: no body, no
+   * user id (the function takes the user from the verified token only). resolves once the function
+   * answered `{ "deleted": true }`, which it also answers for an account already gone. called only
+   * on the user's confirmed tap, never by a link.
+   *
+   * rejects with an AccountDeletionError, never an AuthError: `network` when no answer came (a
+   * fetch error, ACCOUNT_DELETION_TIMEOUT_MS, a 408, 429, 502, 503 or 504: the account may or may
+   * not be deleted), and for a session read error (nothing sent); `session-expired` for no session
+   * on the device (nothing sent) or a 401 (the token or its user refused); `unknown` for anything
+   * else (another status, a relay error, an answer that does not parse), the only reason reported.
+   * `offline` is never used here: the hook checks the connection before calling.
+   *
+   * it neither purges the device nor signs out, whatever the outcome: on success the caller
+   * (useDeleteAccount) purges the device data and ends the local session; on failure the user
+   * stays signed in and nothing on the device changes.
+   */
+  deleteAccount(): Promise<void>;
 
   /**
    * subscribes to the session: the listener is called with the current session right after

@@ -27,7 +27,8 @@ const needsFetch = (state: QueryState | undefined, staleTime: number): boolean =
 /**
  * fetches the page after `page` of `list` in the background once the page shown is settled: its
  * own data, not fetching, with a next page that has no fresh data. the page is written to the
- * cache only when nothing newer reached it meanwhile. not `prefetchQuery`: it would put the next
+ * cache only when nothing newer reached it meanwhile, the prefetch was not aborted and the query of
+ * the page shown is still cached (not removed by a purge). not `prefetchQuery`: it would put the next
  * query in a fetching state, so a page opened meanwhile would wait on the background request,
  * which tanstack query cannot promote; with a direct call, the opened page's own foreground
  * request joins the background one at the http client and promotes it. a prefetch is aborted when
@@ -82,9 +83,16 @@ export const usePrefetchNextPage = (
       return;
     }
     attemptRef.current = attempt;
+    const shownKey = list.pageKey(page);
     const startedAt = Date.now();
     list.fetchPage(nextPage, controller.signal, { priority: 'background' }).then(
       (fetched) => {
+        // an answer after its abort, or after the page shown left the cache (the purge of a sign
+        // out removes every query before the screen unmounts): never written, the cache was
+        // emptied for someone else
+        if (controller.signal.aborted || queryClient.getQueryState(shownKey) === undefined) {
+          return;
+        }
         const latest = queryClient.getQueryState(nextKey);
         if (latest?.data === undefined || latest.dataUpdatedAt < startedAt) {
           queryClient.setQueryData(nextKey, fetched);

@@ -1,7 +1,8 @@
 // the replay run of the offline account library (ADR-0017): the queued writes of one user sent
 // with the time of their change, in batches taken from the queue as it stands, one run per user at
-// a time. a write leaves the queue only once the server confirmed it. writes hold personal data:
-// never logged, never put in an error or a report tag
+// a time. a write leaves the queue only once the server confirmed it; the device purge (ADR-0018)
+// ends a run at its next step. writes hold personal data: never logged, never put in an error or a
+// report tag
 import {
   LIBRARY_REPLAY_BATCH_SIZE,
   libraryQueuedWriteKey,
@@ -17,6 +18,7 @@ import type {
 import type { QueuedWriteRecord } from './account-library-documents';
 import {
   confirmState,
+  isClosed,
   isReplayable,
   recordId,
   type ReplayRunState,
@@ -59,19 +61,34 @@ type BatchResult =
   | { readonly type: 'end'; readonly status: RunStatus };
 
 const FAILED: BatchResult = { type: 'end', status: 'failed' };
+const SIGNED_OUT: BatchResult = { type: 'end', status: 'signed-out' };
 
-// waits `delayMs` unless `signal` aborts first: true when the whole delay passed
-const wait = (delayMs: number, signal: AbortSignal | undefined): Promise<boolean> =>
+// waits `delayMs` unless the run's `signal` or the coordination's `closed` aborts first: true when
+// the whole delay passed
+const wait = (
+  delayMs: number,
+  signal: AbortSignal | undefined,
+  closed: AbortSignal,
+): Promise<boolean> =>
   new Promise((resolve) => {
+    const signals = signal === undefined ? [closed] : [signal, closed];
+    const release = (): void => {
+      for (const watched of signals) {
+        watched.removeEventListener('abort', onAbort);
+      }
+    };
     const onAbort = (): void => {
       clearTimeout(timer);
+      release();
       resolve(false);
     };
     const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort);
+      release();
       resolve(true);
     }, delayMs);
-    signal?.addEventListener('abort', onAbort, { once: true });
+    for (const watched of signals) {
+      watched.addEventListener('abort', onAbort, { once: true });
+    }
   });
 
 // the next batch: a write of the keys a refused batch split, alone, else up to a batch of the
@@ -148,9 +165,14 @@ const sendBatch = async (
   }
   try {
     const outcomes = await remote.replayWrites(batch.map(({ write }) => write));
+    // purged while the batch was in flight: its outcome is not stored
+    if (isClosed(coordination)) {
+      return SIGNED_OUT;
+    }
     return { type: 'confirmed', count: applyOutcomes(coordination, batch, outcomes) };
   } catch (error) {
-    return failureOf(context, batch, error);
+    // likewise for its failure: nothing is retried, refused or reported
+    return isClosed(coordination) ? SIGNED_OUT : failureOf(context, batch, error);
   } finally {
     for (const id of ids) {
       coordination.sendingKeys.delete(id);
@@ -195,8 +217,8 @@ const runReplay = async (
         return end('failed');
       }
       retries += 1;
-      if (!(await wait(delay, signal))) {
-        return end('aborted');
+      if (!(await wait(delay, signal, coordination.closer.signal))) {
+        return end(isClosed(coordination) ? 'signed-out' : 'aborted');
       }
     }
     for (const id of batch.map(recordId)) {
@@ -244,13 +266,17 @@ const startRun = (context: ReplayContext, signal: AbortSignal | undefined) => {
 /**
  * the OfflineAccountLibraryRepository `replayQueuedWrites` of the user of `context` (its contract is
  * in ../library-repository.ts): joins the run in flight, waits for an aborted one to settle and
- * then starts or joins the next, or starts one. a signal aborted at the call ends at once.
+ * then starts or joins the next, or starts one. a signal aborted at the call ends at once; once
+ * the device purge closed the coordination, nothing is sent.
  */
 export const replayQueuedWrites = (
   context: ReplayContext,
   options: LibraryCallOptions = {},
 ): Promise<LibraryReplayRun> => {
   const { signal } = options;
+  if (isClosed(context.coordination)) {
+    return Promise.resolve({ status: 'signed-out', confirmed: 0 });
+  }
   if (signal?.aborted === true) {
     return Promise.resolve({ status: 'aborted', confirmed: 0 });
   }

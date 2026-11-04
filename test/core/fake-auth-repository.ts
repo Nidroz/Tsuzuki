@@ -41,6 +41,9 @@ export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}
       overrides.updatePassword ?? rejectUnexpected('updatePassword'),
     ),
     signOut: jest.fn<AuthRepository['signOut']>(overrides.signOut ?? rejectUnexpected('signOut')),
+    deleteAccount: jest.fn<AuthRepository['deleteAccount']>(
+      overrides.deleteAccount ?? rejectUnexpected('deleteAccount'),
+    ),
     onAuthStateChange: jest.fn<AuthRepository['onAuthStateChange']>(
       overrides.onAuthStateChange ?? throwUnexpected('onAuthStateChange'),
     ),

@@ -1,7 +1,8 @@
 // the factory of the offline account libraries (A-05, ADR-0017), wired only by the composition
 // root: a new instance per signed-in user and call, over that user's account store, device copy
 // and write queue. what the instances of one user share (the run in flight, the keys in flight,
-// the refused writes, the listeners) lives in the factory, never in a module global
+// the refused writes, the listeners) lives in the factory, never in a module global, until the
+// device purge closes it and deletes the documents (ADR-0018)
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LibraryStorageError, type LibraryStorageReason } from '../../errors/library-errors';
 import type {
@@ -10,12 +11,16 @@ import type {
 } from '../library-repository';
 import type { StorageAdapter } from '../storage-adapter';
 import { createOfflineAccountLibrary } from './account-library';
-import { createUserCoordination, type UserCoordination } from './account-library-coordination';
+import {
+  closeCoordination,
+  createUserCoordination,
+  type UserCoordination,
+} from './account-library-coordination';
 import {
   accountLibraryStorageKeys,
   type AccountLibraryDocument,
 } from './account-library-documents';
-import { createAccountLibraryStore } from './account-library-store';
+import { createAccountLibraryStore, deleteAccountLibraryDocuments } from './account-library-store';
 
 /** the source of the reports of a damaged device copy or write queue. */
 const STORAGE_REPORT_SOURCE = 'library-storage';
@@ -38,7 +43,9 @@ export interface OfflineAccountLibrariesOptions {
  * a new instance per sign in) over `remoteFor(userId)` and the documents of that user id, checked
  * as a uuid first (a RangeError without a value). instances of one user share the documents and
  * the replay run; instances of different users share nothing, so one user's queued writes are
- * never read or sent by another user's instance. purging the documents at sign out is A-06's.
+ * never read or sent by another user's instance. `purgeDeviceData` of an instance closes what the
+ * instances of its user share, so none of them touches the documents again, and deletes them;
+ * the next instance of that user starts afresh.
  */
 export const createOfflineAccountLibraries = ({
   storage,
@@ -74,6 +81,17 @@ export const createOfflineAccountLibraries = ({
     return created;
   };
 
+  // closes the coordination of `userId` and deletes its documents; nothing when it was closed
+  // before, so a retired instance never deletes the documents of a later one
+  const purge = (userId: string, coordination: UserCoordination): void => {
+    if (!closeCoordination(coordination)) {
+      return;
+    }
+    // an open coordination is the one the map holds: the next instance gets a new one
+    coordinations.delete(userId);
+    deleteAccountLibraryDocuments(storage, accountLibraryStorageKeys(userId));
+  };
+
   return (userId) => {
     const coordination = coordinationOf(userId);
     return createOfflineAccountLibrary({
@@ -82,6 +100,9 @@ export const createOfflineAccountLibraries = ({
       isOnline,
       reporter,
       now,
+      purge: () => {
+        purge(userId, coordination);
+      },
     });
   };
 };

@@ -11,5 +11,17 @@
       "@platform/*": ["./src/platform/*"]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  // a local exclude replaces the one of expo/tsconfig.base: its entries are restated first
+  "exclude": [
+    "node_modules",
+    "babel.config.js",
+    "metro.config.js",
+    "jest.config.js",
+    "android",
+    "ios",
+    // the deno entry of each edge function uses the Deno global and npm: specifiers, which are
+    // outside this program; it only wires the platform, the logic lives in its tested handler.ts
+    "supabase/functions/*/index.ts"
+  ]
 }

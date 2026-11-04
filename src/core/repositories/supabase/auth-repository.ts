@@ -11,13 +11,15 @@ import type {
   OAuthBrowser,
   OAuthProvider,
 } from '../auth-repository';
+import { requestAccountDeletion } from './account-deletion';
 import { authReportContext, toAuthError, type AuthOperation } from './auth-error-mapper';
 import type { Database } from './database.types';
 
-// the AuthRepository over supabase auth (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015). the
-// client is created with pkce and appendPkceFlowIdToRedirects (create-supabase-client.ts), so every
-// email link and provider redirect carries its flow id back. nothing here reads `user.identities`
-// or any user field but the id, and no url, code or flow id is ever logged or reported
+// the AuthRepository over supabase auth (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015), and the
+// account deletion over its edge function (account-deletion.ts, ADR-0018). the client is created
+// with pkce and appendPkceFlowIdToRedirects (create-supabase-client.ts), so every email link and
+// provider redirect carries its flow id back. nothing here reads `user.identities` or any user
+// field but the id, and no url, code or flow id is ever logged or reported
 
 /** the provider sign in setup of a build (ADR-0015); without it no provider is offered. */
 export interface SupabaseOAuthOptions {
@@ -242,6 +244,8 @@ export const createSupabaseAuthRepository = (
         }
         fail('sign-out', error);
       }),
+
+    deleteAccount: () => requestAccountDeletion(client, reporter),
 
     onAuthStateChange: (listener) => {
       // synchronous: the callback only maps and forwards the session; async work belongs to the

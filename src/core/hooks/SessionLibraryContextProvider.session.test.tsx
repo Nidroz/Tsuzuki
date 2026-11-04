@@ -13,7 +13,7 @@ import {
   settleSession,
   USER_A,
   USER_B,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';

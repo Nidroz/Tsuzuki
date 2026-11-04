@@ -11,7 +11,7 @@ import {
   USER_A,
   USER_B,
   type FakeSessionAccount,
-} from '../../../test/core/library-hooks-support';
+} from '../../../test/core/session-library-support';
 import type { LibraryReplayRun } from '../repositories/library-repository';
 import { LIBRARY_REPLAY_DRIVER_SOURCE } from './LibraryReplayDriver';
 

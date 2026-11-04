@@ -1,8 +1,15 @@
 import type { CatalogProvider } from '@core/catalog/catalog-provider';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
+import type { ErrorContext, ErrorReporter } from '@core/errors/error-reporter';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { DevicePurgeContextProvider } from '@core/hooks/DevicePurgeContextProvider';
 import { GuestMergeContext, type GuestMergeValue } from '@core/hooks/guest-merge-context';
+import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
+import {
+  SessionLibraryContext,
+  type SessionLibraryValue,
+} from '@core/hooks/session-library-context';
 import {
   I18nProvider,
   type Language,
@@ -24,6 +31,7 @@ import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import { createStrictFakeCatalogProvider } from '../../src/core/catalog/__fixtures__/fake-catalog-provider';
 import { createSessionAuthRepository } from '../core/fake-auth-repository';
+import { createFakeGuestLibraryRepository } from '../core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 
 interface WrapperProps {
@@ -49,12 +57,24 @@ export interface ProvidersOptions {
   readonly showAdult?: boolean;
   /** the guest merge state the library screens read, IDLE_GUEST_MERGE by default */
   readonly guestMerge?: GuestMergeValue;
+  /**
+   * the libraries of the session the sign out and the account deletion read; by default no
+   * account instance and an empty fake guest library. the tree's library is `account ?? guest`
+   */
+  readonly sessionLibrary?: SessionLibraryValue;
+  /** the persisted cache removal of the device purge; by default it does nothing */
+  readonly removePersistedCache?: () => void | PromiseLike<void>;
+  /** the reporter of the device purge, sign out and account deletion; by default a report fails */
+  readonly reporter?: ErrorReporter;
 }
 
 interface AppProvidersProps extends WrapperProps {
   readonly language: Language;
   readonly showAdult: boolean;
   readonly guestMerge: GuestMergeValue;
+  readonly sessionLibrary: SessionLibraryValue;
+  readonly removePersistedCache: () => void | PromiseLike<void>;
+  readonly reporter: ErrorReporter;
   readonly authRepository: AuthRepository;
   readonly catalogProvider: CatalogProvider;
   readonly recentSearchesRepository: RecentSearchesRepository;
@@ -63,9 +83,19 @@ interface AppProvidersProps extends WrapperProps {
 
 const ignoreRetry = (): void => undefined;
 
+// no persisted cache in the tests
+const keepPersistedCache = (): void => undefined;
+
+// a report the test did not set up a reporter for fails it through fail-on-console (test/core)
+const failOnReport: ErrorReporter = Object.freeze({
+  captureError: (_error: unknown, context?: ErrorContext): void => {
+    console.error(`unexpected error report (${context?.source ?? 'no source'})`);
+  },
+});
+
 /**
  * no guest merge running or failed, as signed out or once merged: the default fixed state of
- * AppProviders, whose library is the test's own LibraryContextProvider, not the session library
+ * AppProviders, whose library is a fixed session library, not the session library switch
  */
 export const IDLE_GUEST_MERGE: GuestMergeValue = Object.freeze({
   status: 'idle',
@@ -119,14 +149,19 @@ export function TestPreferences({ showAdult, language = 'en', children }: TestPr
 /**
  * the providers the composition root (app/_layout.tsx) gives every route and feature, in its
  * order: the query cache (not persisted here), the auth (noCaptcha), the catalog provider, the
- * recent searches, the fixed guest merge state `guestMerge` (where the root has the session
- * library: a test gives its library itself), fixed preferences with `showAdult`, the real catalogs
- * in `language` with a missing key failing the test, and the light palette for predictable colors
+ * recent searches, a fixed session library where the root has the session library switch (the
+ * session libraries `sessionLibrary`, the guest merge state `guestMerge` and a library over
+ * `account ?? guest`; a test may nest its own LibraryContextProvider), the device purge, fixed
+ * preferences with `showAdult`, the real catalogs in `language` with a missing key failing the
+ * test, and the light palette for predictable colors
  */
 export function AppProviders({
   language,
   showAdult,
   guestMerge,
+  sessionLibrary,
+  removePersistedCache,
+  reporter,
   authRepository,
   catalogProvider,
   recentSearchesRepository,
@@ -138,13 +173,22 @@ export function AppProviders({
       <AuthContextProvider repository={authRepository} captcha={noCaptcha}>
         <CatalogContextProvider provider={catalogProvider}>
           <RecentSearchesContextProvider repository={recentSearchesRepository}>
-            <GuestMergeContext value={guestMerge}>
-              <TestPreferences showAdult={showAdult} language={language}>
-                <I18nProvider language={language} onMissingKey={failOnMissingKey}>
-                  <ThemeProvider preference="light">{children}</ThemeProvider>
-                </I18nProvider>
-              </TestPreferences>
-            </GuestMergeContext>
+            <SessionLibraryContext value={sessionLibrary}>
+              <GuestMergeContext value={guestMerge}>
+                <LibraryContextProvider repository={sessionLibrary.account ?? sessionLibrary.guest}>
+                  <DevicePurgeContextProvider
+                    removePersistedCache={removePersistedCache}
+                    reporter={reporter}
+                  >
+                    <TestPreferences showAdult={showAdult} language={language}>
+                      <I18nProvider language={language} onMissingKey={failOnMissingKey}>
+                        <ThemeProvider preference="light">{children}</ThemeProvider>
+                      </I18nProvider>
+                    </TestPreferences>
+                  </DevicePurgeContextProvider>
+                </LibraryContextProvider>
+              </GuestMergeContext>
+            </SessionLibraryContext>
           </RecentSearchesContextProvider>
         </CatalogContextProvider>
       </AuthContextProvider>
@@ -165,6 +209,9 @@ export const providersFor = ({
   queryClient = createQueryClient(),
   showAdult = false,
   guestMerge = IDLE_GUEST_MERGE,
+  sessionLibrary = { account: null, guest: createFakeGuestLibraryRepository() },
+  removePersistedCache = keepPersistedCache,
+  reporter = failOnReport,
 }: ProvidersOptions = {}): ComponentType<WrapperProps> =>
   function Providers({ children }: WrapperProps) {
     return (
@@ -172,6 +219,9 @@ export const providersFor = ({
         language={language}
         showAdult={showAdult}
         guestMerge={guestMerge}
+        sessionLibrary={sessionLibrary}
+        removePersistedCache={removePersistedCache}
+        reporter={reporter}
         authRepository={authRepository}
         catalogProvider={catalogProvider}
         recentSearchesRepository={recentSearchesRepository}

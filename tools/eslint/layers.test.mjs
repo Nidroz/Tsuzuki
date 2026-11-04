@@ -76,6 +76,29 @@ describe('layer rules: allowed (positive controls)', () => {
   }
 });
 
+// the deno entry of each edge function is ignored (outside the typescript program, see
+// tsconfig.json), and so is the database side of supabase/; the function modules are linted, which
+// the console cases on PROBES.edgeFunction prove (lint() rejects an ignored file)
+describe('edge functions', () => {
+  const isIgnored = (file) => layersEslint.isPathIgnored(path.join(ROOT, file));
+
+  it('ignores the deno entry of each function', async () => {
+    assert.equal(await isIgnored('supabase/functions/probe/index.ts'), true);
+  });
+
+  it('ignores typescript outside supabase/functions', async () => {
+    for (const file of ['supabase/probe.ts', 'supabase/tests/probe.ts']) {
+      assert.equal(await isIgnored(file), true, file);
+    }
+  });
+
+  it('lints the function modules and their tests', async () => {
+    for (const file of [PROBES.edgeFunction, PROBES.edgeFunctionTest]) {
+      assert.equal(await isIgnored(file), false, file);
+    }
+  });
+});
+
 describe('test harness', () => {
   it('names every case group once per table', () => {
     for (const table of ['REJECTED', 'ALLOWED']) {

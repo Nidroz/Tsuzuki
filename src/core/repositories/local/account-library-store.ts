@@ -1,8 +1,8 @@
-// the device copy and the write queue of one user (ADR-0017) over the synchronous StorageAdapter.
-// no in-memory cache: each operation reads, changes and writes its document synchronously inside
-// the call, as the guest store does, so two instances of one user never interleave. a damaged
-// document is reported through `report`, never thrown; a storage failure throws. entries and
-// writes hold personal data: never logged
+// the device copy and the write queue of one user (ADR-0017) over the synchronous StorageAdapter,
+// and their deletion by the device purge (ADR-0018). no in-memory cache: each operation reads,
+// changes and writes its document synchronously inside the call, as the guest store does, so two
+// instances of one user never interleave. a damaged document is reported through `report`, never
+// thrown; a storage failure throws. entries and writes hold personal data: never logged
 import type { LibraryEntry } from '../../domain/library-entry';
 import { libraryQueuedWriteKey, type LibraryQueuedWrite } from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
@@ -139,4 +139,25 @@ export const createAccountLibraryStore = ({
       return removed;
     },
   };
+};
+
+/**
+ * deletes the device copy and the write queue at `keys` (the device purge, ADR-0018). both
+ * deletions are tried; a storage failure throws once they were, the first failure.
+ */
+export const deleteAccountLibraryDocuments = (
+  storage: StorageAdapter,
+  keys: AccountLibraryStoreOptions['keys'],
+): void => {
+  const failures: unknown[] = [];
+  for (const key of [keys.copy, keys.queue]) {
+    try {
+      storage.delete(key);
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length > 0) {
+    throw failures[0];
+  }
 };

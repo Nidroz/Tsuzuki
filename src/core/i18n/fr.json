@@ -241,7 +241,57 @@
       "signUp": "Créer un compte",
       "signedIn": "Compte connecté.",
       "signOut": "Se déconnecter",
-      "signingOut": "Déconnexion en cours"
+      "signingOut": "Synchronisation et déconnexion en cours",
+      "deleteAccount": "Supprimer le compte",
+      "unsynced": {
+        "title": "Modifications non synchronisées",
+        "message_one": "{{count}} modification faite sur cet appareil n'est pas encore enregistrée dans votre compte. La déconnexion la supprimera de cet appareil.",
+        "message_many": "{{count}} modifications faites sur cet appareil ne sont pas encore enregistrées dans votre compte. La déconnexion les supprimera de cet appareil.",
+        "message_other": "{{count}} modifications faites sur cet appareil ne sont pas encore enregistrées dans votre compte. La déconnexion les supprimera de cet appareil.",
+        "close": "Fermer sans se déconnecter",
+        "cancel": "Annuler",
+        "confirm_one": "Se déconnecter et la supprimer",
+        "confirm_many": "Se déconnecter et les supprimer",
+        "confirm_other": "Se déconnecter et les supprimer"
+      }
+    },
+    "deleteAccount": {
+      "title": "Supprimer le compte",
+      "loading": "Chargement de votre compte",
+      "signedOut": {
+        "title": "Connectez-vous pour supprimer votre compte",
+        "message": "Seul un compte connecté peut être supprimé. Connectez-vous d'abord sur cet appareil.",
+        "signIn": "Se connecter"
+      },
+      "heading": "Supprimer votre compte",
+      "intro": "La suppression de votre compte efface :",
+      "items": {
+        "account": "Votre compte et ses méthodes de connexion.",
+        "library": "Votre bibliothèque sur tous vos appareils : titres, progression, notes sur 10, notes personnelles et favoris.",
+        "history": "L'historique de votre progression.",
+        "device": "Sur cet appareil : la copie de votre bibliothèque, les modifications pas encore synchronisées, vos recherches récentes et les données en cache."
+      },
+      "irreversible": "Cette action est irréversible.",
+      "delete": "Supprimer le compte",
+      "deleting": "Suppression de votre compte en cours",
+      "confirm": {
+        "title": "Supprimer votre compte ?",
+        "message": "Votre compte et votre bibliothèque seront supprimés de tous vos appareils. Cette action est irréversible.",
+        "close": "Fermer sans supprimer votre compte",
+        "cancel": "Annuler",
+        "confirm": "Supprimer mon compte"
+      },
+      "deleted": {
+        "title": "Votre compte a été supprimé",
+        "message": "Votre compte et sa bibliothèque ont été supprimés, et cet appareil est déconnecté.",
+        "back": "Retour aux réglages"
+      },
+      "errors": {
+        "offline": "Vous êtes hors ligne. Connectez-vous à Internet pour supprimer votre compte. Rien n'a été supprimé.",
+        "network": "Le serveur est injoignable : votre compte n'a peut-être pas été supprimé. Vérifiez votre connexion, puis réessayez.",
+        "sessionExpired": "Votre session a pris fin. Déconnectez-vous, reconnectez-vous, puis réessayez.",
+        "unknown": "Votre compte n'a pas pu être supprimé. Réessayez plus tard."
+      }
     },
     "theme": {
       "title": "Thème",
