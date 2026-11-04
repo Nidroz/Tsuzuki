@@ -29,7 +29,7 @@ const SERVER_TIME = '2026-03-01T08:00:01.000Z';
 
 describe('createLibraryWriter: optimistic writes', () => {
   it('shows the change at once, before the write resolves, then writes it', async () => {
-    const { repository, writer, load, cached } = setupWriter();
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
     const held = createDeferred();
     repository.beforeCall.mockReturnValueOnce(held.promise);
@@ -45,7 +45,7 @@ describe('createLibraryWriter: optimistic writes', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.stored(ENTRY_KEY)?.score).toBe(7);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('replaces the optimistic entry with the stored one the repository returns', async () => {
@@ -71,7 +71,7 @@ describe('createLibraryWriter: optimistic writes', () => {
   });
 
   it('writes nothing for a no-op change (BR-09)', async () => {
-    const { repository, writer, load, cached } = setupWriter([ENTRY]);
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter([ENTRY]);
     await load();
     await load(OTHER_KEY);
 
@@ -82,11 +82,11 @@ describe('createLibraryWriter: optimistic writes', () => {
     expect(repository.remove).not.toHaveBeenCalled();
     expect(cached()).toBe(ENTRY);
     expect(cached(OTHER_KEY)).toBeNull();
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('adds an entry missing from the library, and removes it with null', async () => {
-    const { repository, writer, load, cached } = setupWriter([]);
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter([]);
     await load(OTHER_KEY);
 
     await writer.apply(
@@ -101,13 +101,13 @@ describe('createLibraryWriter: optimistic writes', () => {
     expect(repository.remove).toHaveBeenCalledWith(OTHER_KEY);
     expect(repository.stored(OTHER_KEY)).toBeNull();
     expect(cached(OTHER_KEY)).toBeNull();
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 });
 
 describe('createLibraryWriter: coalesced `+1` taps (BR-09)', () => {
   it('writes taps of one window once, with the last entry, each tap restarting the window', async () => {
-    const { repository, writer, load, cached } = setupWriter();
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
 
     const taps = [writer.apply(ENTRY_KEY, increment, { coalesce: true })];
@@ -126,11 +126,11 @@ describe('createLibraryWriter: coalesced `+1` taps (BR-09)', () => {
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.save).toHaveBeenCalledWith(expect.objectContaining({ progress: 15 }));
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(15);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('writes a change made during the window at once, with the taps, in one save', async () => {
-    const { repository, writer, load } = setupWriter();
+    const { repository, writer, load, activeKeyCount } = setupWriter();
     await load();
 
     const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
@@ -140,13 +140,13 @@ describe('createLibraryWriter: coalesced `+1` taps (BR-09)', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(1);
     expect(repository.stored(ENTRY_KEY)).toMatchObject({ progress: 13, status: 'paused' });
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 });
 
 describe('createLibraryWriter: per-key order', () => {
   it('starts a write of a key once the previous one settled, other keys not waiting', async () => {
-    const { repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
+    const { repository, writer, load, activeKeyCount } = setupWriter([ENTRY, OTHER_ENTRY]);
     await load();
     await load(OTHER_KEY);
     const held = createDeferred();
@@ -167,11 +167,11 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(repository.save).toHaveBeenCalledTimes(3);
     expect(repository.stored(ENTRY_KEY)).toMatchObject({ score: 7, status: 'paused' });
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('keeps a newer optimistic entry when an older write settles, then shows the stored one', async () => {
-    const { repository, writer, load, cached } = setupWriter();
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
     const firstHeld = createDeferred();
     const secondHeld = createDeferred();
@@ -195,11 +195,11 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(cached()).toStrictEqual(repository.stored(ENTRY_KEY));
     expect(cached()?.score).toBe(5);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('cancels a refetch in flight, whose older result never replaces the change', async () => {
-    const { queryClient, repository, writer, load, cached } = setupWriter();
+    const { queryClient, repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
     const held = createDeferred();
     repository.beforeCall.mockReturnValueOnce(held.promise);
@@ -219,7 +219,7 @@ describe('createLibraryWriter: per-key order', () => {
 
     expect(repository.get).toHaveBeenCalledTimes(2);
     expect(cached()).toStrictEqual(repository.stored(ENTRY_KEY));
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('invalidates the list query alone, exactly, after a write', async () => {

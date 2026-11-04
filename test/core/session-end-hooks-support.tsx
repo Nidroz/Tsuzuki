@@ -45,7 +45,6 @@ export const createFakeWriter = () =>
     list: jest.fn<LibraryWriter['list']>(rejectUnexpected),
     apply: jest.fn<LibraryWriter['apply']>(rejectUnexpected),
     flushAll: jest.fn<LibraryWriter['flushAll']>(() => Promise.resolve()),
-    activeKeyCount: () => 0,
     pendingChangeCount: jest.fn<LibraryWriter['pendingChangeCount']>(() => 0),
   }) satisfies LibraryWriter;
 

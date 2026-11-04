@@ -14,7 +14,7 @@ import type { MediaKey } from '../domain/media';
 import { queryKeys, type LibraryScope } from '../query/keys';
 import type { LibraryRepository } from '../repositories/library-repository';
 import { mediaKeyId, setListEntry, withListEntry } from './library-list-data';
-import { createKeyState, type KeyState } from './library-writer-state';
+import { createKeyStates, type KeyState, type WriteFailure } from './library-writer-state';
 
 /**
  * a library rule applied to the cached entry of a key (null: not in the library). it returns the
@@ -44,16 +44,13 @@ export interface LibraryWriter {
   /**
    * applies a change to the loaded entry of a key: shown at once (optimistic), then written.
    * settles with the write that carries the change: rejects with its error, after which the
-   * entry refetches the stored truth. rejects without writing when the entry is not loaded.
+   * entry refetches the stored truth. a write of the key that fails first fails every change
+   * computed over it and not sent yet with the same error. rejects without writing when the entry
+   * is not loaded.
    */
   apply(key: MediaKey, change: LibraryChange, options?: LibraryApplyOptions): Promise<void>;
   /** writes every pending coalesced change now; resolves once every call settled, never rejects */
   flushAll(): Promise<void>;
-  /**
-   * for tests only: the number of keys whose state the writer keeps, 0 once every call settled
-   * (an idle key is pruned)
-   */
-  activeKeyCount(): number;
   /**
    * the number of keys with a change not confirmed yet: pending (in its coalescing window) or
    * being written. a pending read is not counted
@@ -77,55 +74,40 @@ const NOT_LOADED_MESSAGE = 'library change applied before the library entry was 
 
 const systemNow = (): Date => new Date();
 
-/** the library writes over a repository and the query cache of the library entries. */
-export const createLibraryWriter = ({
+/** a library writer and what the writer tests inspect, outside the LibraryWriter interface */
+export interface InspectableLibraryWriter {
+  readonly writer: LibraryWriter;
+  /** the number of keys whose state the writer keeps, 0 once every call settled (idle: pruned) */
+  readonly activeKeyCount: () => number;
+}
+
+/** createLibraryWriter with its key state count, for the writer tests: the app never uses it */
+export const createInspectableLibraryWriter = ({
   queryClient,
   repository,
   scope,
   now = systemNow,
-}: LibraryWriterOptions): LibraryWriter => {
+}: LibraryWriterOptions): InspectableLibraryWriter => {
   // the states of the keys in use: an idle one is pruned, a later use starts a fresh one
-  const states = new Map<string, KeyState>();
+  const { states, stateOf, release, enqueue } = createKeyStates();
   // every write settled so far, whatever its outcome: a list sees whether one settled meanwhile
   let settledWrites = 0;
 
-  const stateOf = (key: MediaKey): KeyState => {
-    const id = mediaKeyId(key);
-    const existing = states.get(id);
-    if (existing !== undefined) {
-      return existing;
-    }
-    const created = createKeyState(id, key);
-    states.set(id, created);
-    return created;
-  };
-
-  // an idle key keeps nothing the cache does not hold: its versions end with its last write
-  const release = (state: KeyState): void => {
-    state.busy -= 1;
-    if (
-      state.busy === 0 &&
-      state.writing === 0 &&
-      state.pending === null &&
-      state.timer === undefined
-    ) {
-      states.delete(state.id);
-    }
-  };
-
-  // runs `task` once every earlier call of the key settled, whatever its outcome
-  const enqueue = <T>(state: KeyState, task: () => Promise<T>): Promise<T> => {
-    state.busy += 1;
-    const run = state.queue.then(task);
-    const done = (): void => {
-      release(state);
-    };
-    state.queue = run.then(done, done);
-    return run;
-  };
-
-  const persist = (state: KeyState, value: LibraryEntry | null): Promise<LibraryEntry | null> =>
+  // `failureBefore`: the last failed write of the key when this write started. a write started
+  // before a failure settled was computed from the failed write's optimistic entry, so it carries
+  // the failed change: it fails with the same error, never sent. the failure handler of startWrite
+  // records a failure before the next call of the key runs: it is queued as the write settles,
+  // that call only once the queue tail settled after it
+  const persist = (
+    state: KeyState,
+    value: LibraryEntry | null,
+    failureBefore: WriteFailure | null,
+  ): Promise<LibraryEntry | null> =>
     enqueue(state, async () => {
+      const { failure } = state;
+      if (failure !== null && failure !== failureBefore) {
+        throw failure.error;
+      }
       if (value === null) {
         await repository.remove(state.key);
         return null;
@@ -154,7 +136,7 @@ export const createLibraryWriter = ({
       state.writing -= 1;
       release(state);
     };
-    return persist(state, pending.value).then(
+    return persist(state, pending.value, state.failure).then(
       (stored) => {
         if (state.version === version) {
           queryClient.setQueryData(entryKey, stored);
@@ -168,8 +150,10 @@ export const createLibraryWriter = ({
         }
       },
       (error: unknown) => {
-        // a newer pending change was computed from this write's optimistic entry, so it carries
-        // the failed change: it is dropped and fails with it, never written on its own
+        // the newer changes were computed from this write's optimistic entry, so they carry the
+        // failed change: the writes already chained fail with it (persist), never sent, and the
+        // pending change is dropped and fails with it, never written on its own
+        state.failure = { error };
         const dropped = state.pending;
         clearTimeout(state.timer);
         state.timer = undefined;
@@ -284,5 +268,12 @@ export const createLibraryWriter = ({
   const pendingChangeCount = (): number =>
     [...states.values()].filter((state) => state.pending !== null || state.writing > 0).length;
 
-  return { read, list, apply, flushAll, activeKeyCount: () => states.size, pendingChangeCount };
+  return {
+    writer: { read, list, apply, flushAll, pendingChangeCount },
+    activeKeyCount: () => states.size,
+  };
 };
+
+/** the library writes over a repository and the query cache of the library entries. */
+export const createLibraryWriter = (options: LibraryWriterOptions): LibraryWriter =>
+  createInspectableLibraryWriter(options).writer;
