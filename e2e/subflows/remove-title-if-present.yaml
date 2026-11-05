@@ -1,0 +1,31 @@
+# shared step: on the details of a title whose library section was read (open-title.yaml), remove
+# the title from the library after the confirmation when it is in it, and do nothing otherwise.
+# either way the section ends offering Add. makes a flow safe to re-run after a half-way failure
+appId: io.github.nidroz.tsuzuki.dev
+---
+# the section heading, so the panel's first row is on screen for the check below
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-favorite
+    direction: UP
+- runFlow:
+    when:
+      visible:
+        id: media-detail-library-status-edit
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: media-detail-library-remove
+          direction: DOWN
+      - tapOn:
+          id: media-detail-library-remove
+      - tapOn:
+          id: media-detail-library-remove-sheet-confirm
+      - scrollUntilVisible:
+          element:
+            id: media-detail-library-add
+          direction: UP
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-add
+    timeout: 10000

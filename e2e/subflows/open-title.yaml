@@ -1,0 +1,16 @@
+# shared step: open the details of a pinned catalog title with its deep link
+# tsuzuki://media/<namespace>/<kind>/<id>, MEDIA_PATH from the caller (for example mal/anime/5114).
+# the link only navigates, it never writes (MediaDetailScreen). the details come from the live
+# catalog; the heart of the library section shows once the entry was read and any guest merge
+# concluded, so the section then offers either Add or the entry's panel
+appId: io.github.nidroz.tsuzuki.dev
+---
+- openLink: tsuzuki://media/${MEDIA_PATH}
+- extendedWaitUntil:
+    visible:
+      id: media-detail-content
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-favorite
+    timeout: 30000

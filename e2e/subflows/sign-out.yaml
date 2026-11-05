@@ -1,0 +1,20 @@
+# shared step: sign out from the settings with no unsynced change. the sign out syncs the library
+# first (at most 10 s, SIGN_OUT_SYNC_TIMEOUT_MS), then purges the device: no confirmation shows,
+# and the account section offers to sign in again. an unsynced change would show the confirmation
+# instead, and the wait below fails
+appId: io.github.nidroz.tsuzuki.dev
+---
+- tapOn:
+    id: tab-settings
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-out
+    timeout: 10000
+- tapOn:
+    id: settings-account-sign-out
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-in
+    timeout: 30000
+- assertNotVisible:
+    id: settings-account-unsynced-confirm

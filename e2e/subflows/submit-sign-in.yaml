@@ -1,0 +1,31 @@
+# shared step: from any tab, open sign in from the settings, fill in EMAIL and PASSWORD (env of the
+# caller) and submit. the caller checks the outcome (sign-in.yaml waits for the signed-in state).
+# the labels keep the typed values out of the maestro output
+appId: io.github.nidroz.tsuzuki.dev
+---
+- tapOn:
+    id: tab-settings
+# the account section shows its buttons once the stored session was read
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-in
+    timeout: 10000
+- tapOn:
+    id: settings-account-sign-in
+- extendedWaitUntil:
+    visible:
+      id: auth-sign-in-screen
+    timeout: 10000
+- tapOn:
+    id: auth-sign-in-email
+- inputText:
+    text: ${EMAIL}
+    label: Type the email of the test account
+- tapOn:
+    id: auth-sign-in-password
+- inputText:
+    text: ${PASSWORD}
+    label: Type the password of the test account
+- hideKeyboard
+- tapOn:
+    id: auth-sign-in-submit

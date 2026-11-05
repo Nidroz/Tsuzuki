@@ -1,0 +1,101 @@
+# guest to account merge flow (A-04, BR-08, ADR-0016) against the staging project, with the shared
+# test account (E2E_EMAIL, E2E_PASSWORD). a pinned title, Fullmetal Alchemist: Brotherhood
+# (mal/anime/5114), opened by its deep link, used by no other flow. (a) pre-clean: sign in, remove
+# the title from the account library if a previous run left it, sign out (the merge is idle, so the
+# guest library is cleared, ADR-0018). (b) as a guest: add the title and set its note to this run's
+# marker e2e-<E2E_RUN_ID>. (c) sign in: the merge concludes (no merge error), the library tab lists
+# the title, and its details show the marker, so this run's guest entry was merged, not a leftover.
+# (d) cleanup: remove the title from the account, sign out: the account ends as it started. safe to
+# re-run after a half-way failure: clearState, then the pre-clean. runs in the development build
+# like the smoke flow (see its header and e2e/README.md); elements are found by id, and the note by
+# the marker it holds, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+---
+# (a) pre-clean
+- runFlow:
+    file: ../subflows/launch-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_EMAIL}
+      PASSWORD: ${E2E_PASSWORD}
+- runFlow:
+    file: ../subflows/open-title.yaml
+    env:
+      MEDIA_PATH: mal/anime/5114
+- runFlow:
+    file: ../subflows/remove-title-if-present.yaml
+- back
+- runFlow:
+    file: ../subflows/sign-out.yaml
+# (b) as a guest: add the title with this run's note
+- runFlow:
+    file: ../subflows/open-title.yaml
+    env:
+      MEDIA_PATH: mal/anime/5114
+- tapOn:
+    id: media-detail-library-add
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-status-edit
+    timeout: 10000
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-notes-edit
+    direction: DOWN
+- tapOn:
+    id: media-detail-library-notes-edit
+- tapOn:
+    id: media-detail-library-notes-input
+- inputText: e2e-${E2E_RUN_ID}
+# the sheet's buttons stay above the keyboard, and its body lets a tap through to them
+- tapOn:
+    id: media-detail-library-notes-sheet-confirm
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-notes
+      text: '.*e2e-${E2E_RUN_ID}.*'
+    timeout: 10000
+- back
+# (c) sign in: the guest entry is merged into the account
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_EMAIL}
+      PASSWORD: ${E2E_PASSWORD}
+- tapOn:
+    id: tab-library
+# the library lists nothing while the merge runs: the row shows once it concluded
+- extendedWaitUntil:
+    visible:
+      id: library-entry-mal-anime-5114
+    timeout: 30000
+- assertNotVisible:
+    id: library-merging
+- assertNotVisible:
+    id: library-merge-error
+- tapOn:
+    id: library-entry-mal-anime-5114
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-favorite
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: media-detail-library-notes
+    direction: DOWN
+- assertVisible:
+    id: media-detail-library-notes
+    text: '.*e2e-${E2E_RUN_ID}.*'
+# (d) cleanup: the account ends as it started
+- runFlow:
+    file: ../subflows/remove-title-if-present.yaml
+- back
+- runFlow:
+    file: ../subflows/sign-out.yaml
+- tapOn:
+    id: tab-library
+- extendedWaitUntil:
+    visible:
+      id: library-empty
+    timeout: 10000

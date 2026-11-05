@@ -1,0 +1,13 @@
+# shared step: sign in with EMAIL and PASSWORD (env of the caller) from the settings, then wait for
+# the signed-in state of the account section: a successful sign in returns to the settings tab
+appId: io.github.nidroz.tsuzuki.dev
+---
+- runFlow:
+    file: submit-sign-in.yaml
+    env:
+      EMAIL: ${EMAIL}
+      PASSWORD: ${PASSWORD}
+- extendedWaitUntil:
+    visible:
+      id: settings-account-signed-in
+    timeout: 30000
