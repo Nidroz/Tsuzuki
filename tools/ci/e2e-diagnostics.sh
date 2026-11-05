@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # what the emulator showed when the e2e flows failed (e2e.yml, after `maestro test`): the activity
-# on top, the app process, the elements on screen and the recent warnings and errors of the app.
+# on top, the app process, the elements on screen, the activity starts and the app's own log.
 # text output only: no screenshot or artifact leaves the runner, since one could show the test
 # account email; the test account values are github secrets, masked in any output. always exits 1,
 # so the step still fails
 set -uo pipefail
 
 APP_ID='io.github.nidroz.tsuzuki.dev'
-LOGCAT_LINES=400
+APP_LOG_LINES=300
+START_LINES=40
 UI_DUMP='/sdcard/e2e-ui.xml'
 
 echo '::group::activity on top'
@@ -15,7 +16,8 @@ adb shell dumpsys activity activities | grep -E 'topResumedActivity|mResumedActi
 echo '::endgroup::'
 
 echo '::group::app process'
-adb shell pidof "$APP_ID" || echo "${APP_ID} is not running"
+pid="$(adb shell pidof "$APP_ID" | tr -d '\r')"
+echo "${pid:-${APP_ID} is not running}"
 echo '::endgroup::'
 
 # the text, ids and descriptions of the elements on screen, one per line
@@ -27,10 +29,18 @@ else
 fi
 echo '::endgroup::'
 
-# javascript logs, react native and dev launcher messages, crashes, and every other error
+# whether the dev-client link reached the app: the activity starts and the app's crashes or anrs
+echo '::group::activity starts'
+adb logcat -d | grep -E "START u0|${APP_ID}" | grep -vE 'uiautomator' | tail -n "$START_LINES" || true
+echo '::endgroup::'
+
+# the app's own log (dev launcher, react native, javascript), else those tags from any process
 echo '::group::app log'
-adb logcat -d -t "$LOGCAT_LINES" \
-  'ReactNativeJS:V' 'ReactNative:V' 'DevLauncher:V' 'expo:V' 'AndroidRuntime:V' '*:E' || true
+if [[ -n "$pid" ]]; then
+  adb logcat -d -t "$APP_LOG_LINES" --pid="$pid" || true
+else
+  adb logcat -d -t "$APP_LOG_LINES" -s DevLauncher ReactNativeJS ReactNative AndroidRuntime || true
+fi
 echo '::endgroup::'
 
 exit 1

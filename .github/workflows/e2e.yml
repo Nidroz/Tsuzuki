@@ -171,7 +171,11 @@ jobs:
           disable-spellchecker: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
           emulator-boot-timeout: 600
+          # the slow software-rendered emulator often shows "Pixel Launcher isn't responding" over
+          # every app, so the flows never see the app: system error dialogs are hidden. a crash or
+          # an anr of the app still shows in the diagnostics (logcat)
           script: |
+            adb shell settings put global hide_error_dialogs 1
             adb reverse tcp:8081 tcp:8081
             adb install -r "$RUNNER_TEMP/app.apk"
             maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" -e E2E_RUN_ID="$E2E_RUN_ID" e2e/flows || bash tools/ci/e2e-diagnostics.sh
