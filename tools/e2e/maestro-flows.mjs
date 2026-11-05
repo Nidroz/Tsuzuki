@@ -192,7 +192,8 @@ export const analyzeFlow = (entry, { external, load = defaultLoad }) => {
 
 /**
  * the `maestro test` command of a workflow: the names passed with `-e NAME=value`, in order, and
- * the targets (the other arguments). throws unless the workflow has exactly one such line
+ * the targets (the other arguments), up to a `||` fallback command. throws unless the workflow has
+ * exactly one such line
  */
 export const readMaestroTestLine = (workflowText) => {
   const lines = workflowText
@@ -202,7 +203,9 @@ export const readMaestroTestLine = (workflowText) => {
   if (lines.length !== 1) {
     throw new Error(`expected one "maestro test" line, found ${String(lines.length)}`);
   }
-  const tokens = lines[0].split(/\s+/).slice(2);
+  const command = lines[0].split(/\s+/);
+  const fallback = command.indexOf('||');
+  const tokens = command.slice(2, fallback === -1 ? undefined : fallback);
   const names = [];
   const targets = [];
   for (let index = 0; index < tokens.length; index += 1) {
