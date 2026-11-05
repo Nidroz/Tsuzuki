@@ -1,0 +1,33 @@
+# gone purge, second half (A-10, ADR-0018 "User gone detection"), manual only: run on the device
+# gone-purge-prepare.yaml left signed in, after the owner deleted that throwaway account from
+# another client, at the time e2e/README.md gives. no clearState: the app keeps the session and the
+# library copy of the deleted user. in the foreground, auth-js refreshes the token 90 to 120 s
+# before its expiry; the server refuses it, the app then asks for the user with the still valid
+# token, learns the user is gone, signs out and purges that user's data from the device. the flow
+# waits for the signed-out state, then sees the library tab without the title. elements are found
+# by id only, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: false
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000
+- tapOn:
+    id: tab-settings
+# up to 10 min in the foreground: the refused refresh comes 90 to 120 s before the token expires
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-in
+    timeout: 600000
+- tapOn:
+    id: tab-library
+- extendedWaitUntil:
+    visible:
+      id: library-empty
+    timeout: 10000
+- assertNotVisible:
+    id: library-entry-mal-anime-1535
