@@ -300,7 +300,7 @@ Details:
 
 ## Phase 5 — Release
 
-- [ ] R-01 E2E suite complete (critical flows)
+- [x] R-01 E2E suite complete (critical flows): nine Maestro flows on an Android emulator for PRs to `main` (`e2e.yml`, environment `e2e`), the shared staging test account, manual account deletion and gone purge flows, static flow checks in `pnpm test:tooling`, owner device checks in the R-01 PR (ADR-0019)
 - [ ] R-02 Performance pass (cold start, list FPS, bundle size)
 - [ ] R-03 Accessibility pass
 - [ ] R-04 MASVS L1 security review
@@ -310,14 +310,14 @@ Details:
 Details:
 
 ### R-01 E2E suite complete
-- Library tab focus (L-04 review): the tabs stay mounted and the layout is laid out again by `useFocusEffect`, which runs after paint, so coming back after a `+1` on the detail may show the old order for a frame, then re-sort. Check it on a device; if visible, lay out again on blur (the effect cleanup) or do not keep the layout while unfocused.
-- Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04).
-- Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet).
-- Sign in E2E flow against the staging project with a dedicated test account passed as Maestro env values, never committed (A-01): `e2e/flows/auth.yaml` covers the auth screens without a backend only.
-- Guest → account merge E2E flow (CONTRIBUTING.md §6) against the same staging test account: add titles as a guest, sign in, check the merge state then the titles in the account library (A-04: covered by route tests and pgTAP without a backend).
-- Release PRs to `main` also run the E2E suite (moved from F-04). Until then, the owner runs `pnpm test:e2e` locally before merging a release PR.
-- Stuck writes and gone purge E2E flows against the staging project (A-10, moved here: they need the backend, which only the staging runs reach; covered by route tests without a backend): a write the database refuses shows the notice on the library tab, then Try again and Discard; a throwaway account deleted from another client while the app holds its session, then a foreground refresh refused, ends signed out with that user's library data gone from the device.
-- Sign out and account deletion E2E flows against the staging project, once the owner has deployed `delete-account` there (`ARCHITECTURE.md` §10 step 10): sign out of the staging test account, with an unsynced change (the confirmation) and without; delete a throwaway account prepared for the run, never the shared test account, and check it can no longer sign in (A-06: covered by route tests, handler tests and pgTAP without a backend).
+- Library tab focus (L-04 review): the tabs stay mounted and the layout is laid out again by `useFocusEffect`, which runs after paint, so coming back after a `+1` on the detail may show the old order for a frame, then re-sort. Check it on a device; if visible, lay out again on blur (the effect cleanup) or do not keep the layout while unfocused. Outcome: owner device checklist in the R-01 PR; a fix, if needed, in R-02.
+- Check the library title sort on Android and iOS devices: it relies on Hermes `Intl.Collator` (`compareLibraryEntries`, `src/core/domain/library-view.ts`, L-04). Outcome: owner device checklist in the R-01 PR; a fix, if needed, in R-02.
+- Run the Maestro suite in CI on a GitHub-hosted Android emulator against the development build (after F-09), starting with the F-03 smoke flow (never run yet). Outcome: CI, `e2e.yml` (ADR-0019).
+- Sign in E2E flow against the staging project with a dedicated test account passed as Maestro env values, never committed (A-01): `e2e/flows/auth.yaml` covers the auth screens without a backend only. Outcome: CI flow `sign-in.yaml`.
+- Guest → account merge E2E flow (CONTRIBUTING.md §6) against the same staging test account: add titles as a guest, sign in, check the merge state then the titles in the account library (A-04: covered by route tests and pgTAP without a backend). Outcome: CI flow `guest-merge.yaml`.
+- Release PRs to `main` also run the E2E suite (moved from F-04). Outcome: the `e2e` job on every PR to `main`, a required check for `main` only once it has passed (`ARCHITECTURE.md` §10).
+- Stuck writes and gone purge E2E flows against the staging project (A-10, moved here: they need the backend, which only the staging runs reach; covered by route tests without a backend): a write the database refuses shows the notice on the library tab, then Try again and Discard; a throwaway account deleted from another client while the app holds its session, then a foreground refresh refused, ends signed out with that user's library data gone from the device. Outcome: stuck writes not automatable (the client schemas reject every refused value before any request; route tests cover it); gone purge a manual flow pair (`e2e/flows-manual/`).
+- Sign out and account deletion E2E flows against the staging project, once the owner has deployed `delete-account` there (`ARCHITECTURE.md` §10 step 10): sign out of the staging test account, with an unsynced change (the confirmation) and without; delete a throwaway account prepared for the run, never the shared test account, and check it can no longer sign in (A-06: covered by route tests, handler tests and pgTAP without a backend). Outcome: CI flows `sign-out-unsynced.yaml` and `sign-in.yaml` (sign out without confirmation); account deletion a manual flow (`e2e/flows-manual/delete-account.yaml`).
 
 ### R-02 Performance pass
 - Three test headers start `// adR-0016` instead of a lowercase word before `ADR-0016` (`src/features/media-detail/LibrarySection.merge.test.tsx`, `src/features/library/LibraryScreen.merge.test.tsx`, `src/core/hooks/SessionLibraryContextProvider.session.test.tsx`; A-10 review, older than A-10): reword them with the next change to these files.
@@ -325,6 +325,10 @@ Details:
 - Offline account library cost (A-05): the device copy document (`account-library-copy.<userId>`) is parsed and rewritten whole for each confirmed write, and the queue document for each write, like the guest store. Measure with a large library and decide whether it needs another layout.
 - Split `src/core/repositories/library-repository.ts` (A-10, moved here: 325 lines of interface contracts, over the ~300-line rule, and this item is the next to change the offline account library contracts): for example the `OfflineAccountLibraryRepository` interface and `LibraryReplayRun` in their own file, the other interfaces unchanged, imports updated in the same change.
 - Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
+- If the owner's R-01 device check shows the library tab re-sorting a frame late after a `+1` on the detail, then lay out again on blur (the `useFocusEffect` cleanup), or drop the kept layout while unfocused, with a test.
+- If the owner's R-01 device check shows a wrong title order on Android or iOS (Hermes `Intl.Collator`), then make `compareLibraryEntries` (`src/core/domain/library-view.ts`) fall back to a locale-independent compare, e.g. `localeCompare` with explicit options or a normalized key, with a test.
+- E2E run time (R-01): cache the AVD (`actions/cache`) if the `e2e` job exceeds about 30 minutes.
+- `pnpm test:e2e` passes no `-e` values, while the signed-in flows need them (`e2e/README.md`): decide whether the script should read them from the environment.
 
 ### R-03 Accessibility pass
 - A failed guest merge is announced once per mounted view: `ErrorState` and `InlineError` announce on mount, so the library tab, the favorites tab and the detail's library section can read it up to three times (A-04 review). Announce it once.
@@ -408,6 +412,6 @@ Details:
   - `jest`, `@jest/globals` and `jest-environment-jsdom` below 30, on the major the Expo SDK test stack supports.
   - `test-renderer` below 1.3 until the Expo SDK ships React 19.3 or later (1.3 requires it).
   - Node major unchanged.
-- Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`.
+- Bump the pinned GitHub Action SHAs (with their version comments) in `.github/workflows/*.yml` and `.github/actions/setup/action.yml`, and the gitleaks version and sha256 in `.github/workflows/ci.yml`, and the Maestro CLI version and sha256 in `.github/workflows/e2e.yml` (with the version in `e2e/README.md`).
 - Respect pnpm's `minimumReleaseAge`.
 - `pnpm check` and `pnpm test:rls` green; code review approved (CONTRIBUTING.md section 8).
