@@ -137,13 +137,15 @@ describe('DevicePurgeDriver at launch', () => {
     const rendered = await renderDevicePurgeDriver({
       markers: [{ userId: USER_A, clearGuestLibrary: true, deviceWide: true }],
     });
+
+    expect(rendered.markers.list).toHaveBeenCalledTimes(1);
+
     // a marker written later (a sign out) waits for the next launch
     rendered.markers.add({ userId: USER_C, clearGuestLibrary: true, deviceWide: true });
     await rendered.emit({ userId: USER_B });
     await rendered.emit(null);
     await settleDriver();
 
-    expect(rendered.markers.list).toHaveBeenCalledTimes(1);
     expect(rendered.factoryCalls()).toStrictEqual([USER_A]);
     expect(rendered.markers.stored()).toStrictEqual([
       { userId: USER_C, clearGuestLibrary: true, deviceWide: true },

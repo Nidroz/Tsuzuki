@@ -80,7 +80,7 @@ function StuckWritesNotice({ issues, testID }: StuckWritesNoticeProps) {
  * the stuck writes of the account library (ADR-0017 "Stuck writes", useLibrarySyncIssues): while
  * some are left, how many could not be synced, announced, with Try again (pending while it runs,
  * Discard disabled meanwhile) and Discard. Discard asks first in a sheet that says, with the live
- * count, that the version saved in the account replaces those changes; its confirm is
+ * count, that the version saved in the account, if any, replaces those changes; its confirm is
  * destructive. renders nothing without a stuck write
  */
 export function LibrarySyncNotice({ testID }: LibrarySyncNoticeProps) {

@@ -10,7 +10,7 @@ import { FavoritesScreen } from '../favorites/FavoritesScreen';
 import { FRIEREN, LIBRARY } from './__fixtures__/library-entries';
 import { LibraryScreen } from './LibraryScreen';
 
-// adR-0017 "Stuck writes", visible state: the library and favorites tabs show the notice of the
+// per ADR-0017 "Stuck writes", visible state: the library and favorites tabs show the notice of the
 // changes of the account library that could not be synced above their list
 
 // the real module otherwise: the theme provider builds the navigation theme from it. no navigator

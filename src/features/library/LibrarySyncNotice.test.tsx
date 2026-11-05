@@ -11,8 +11,8 @@ import { createStuckAccount, type StuckAccount } from '../../../test/core/stuck-
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { LibrarySyncNotice } from './LibrarySyncNotice';
 
-// adR-0017 "Stuck writes", visible state: the notice of the changes that could not be synced, its
-// Try again and its Discard confirmation
+// per ADR-0017 "Stuck writes", visible state: the notice of the changes that could not be synced,
+// its Try again and its Discard confirmation
 
 const TEST_ID = 'library-sync';
 const SHEET_TEST_ID = `${TEST_ID}-discard-sheet`;
@@ -24,8 +24,8 @@ const noticeText = (count: number): string =>
 
 const sheetText = (count: number): string =>
   count === 1
-    ? '1 change made on this device could not be synced. Discarding it replaces it with the version saved in your account.'
-    : `${String(count)} changes made on this device could not be synced. Discarding them replaces them with the version saved in your account.`;
+    ? '1 change made on this device could not be synced. Discarding it replaces it with the version saved in your account, if there is one.'
+    : `${String(count)} changes made on this device could not be synced. Discarding them replaces them with the version saved in your account, if there is one.`;
 
 const DISCARD_LABEL = 'Discard the changes that could not be synced';
 const RETRYING_LABEL = 'Trying to sync your changes again';
@@ -75,18 +75,27 @@ describe('LibrarySyncNotice', () => {
   );
 
   it.each([
-    [1, "1 modification n'a pas pu être synchronisée avec votre compte."],
-    [2, "2 modifications n'ont pas pu être synchronisées avec votre compte."],
-  ])('says it in french (%i)', async (count, text) => {
-    await renderNotice(createStuckAccount(count), 'fr');
+    [
+      1,
+      "1 modification n'a pas pu être synchronisée avec votre compte.",
+      "1 modification faite sur cet appareil n'a pas pu être synchronisée. Si vous l'abandonnez, elle sera remplacée par la version enregistrée dans votre compte, s'il y en a une.",
+    ],
+    [
+      2,
+      "2 modifications n'ont pas pu être synchronisées avec votre compte.",
+      "2 modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte, s'il y en a une.",
+    ],
+  ])('says it in french (%i)', async (count, text, sheet) => {
+    const user = await renderNotice(createStuckAccount(count), 'fr');
 
     expect(screen.getByRole('alert', { name: text })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Réessayer' })).toBeOnTheScreen();
-    expect(
+    await user.press(
       screen.getByRole('button', {
         name: "Abandonner les modifications qui n'ont pas pu être synchronisées",
       }),
-    ).toBeOnTheScreen();
+    );
+    expect(within(screen.getByTestId(SHEET_TEST_ID)).getByText(sheet)).toBeOnTheScreen();
   });
 
   it('follows the stuck count, and goes once none is left', async () => {

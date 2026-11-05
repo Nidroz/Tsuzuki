@@ -16,6 +16,9 @@ export const DEVICE_PURGE_DRIVER_REPORT_SOURCE = 'device-purge-driver';
 // what a purge of a marked or gone user owes besides that user's documents
 type OwedPurge = Pick<DevicePurgeMarker, 'clearGuestLibrary' | 'deviceWide'>;
 
+// what started a purge: a marker read at launch, or a user reported gone
+type PurgeOrigin = 'launch' | 'gone';
+
 interface PurgeRuns {
   /** the last run queued, settled whatever its outcome: the next one starts after it */
   tail: Promise<void>;
@@ -33,6 +36,11 @@ interface PurgeRuns {
  * launch: once ready, once per mount (the composition root mounts it once per app process),
  * every marker is read: the session's user is unmarked (that sign out did not complete), every
  * other marked user gets the device purge with the recorded `clearGuestLibrary` and `deviceWide`.
+ * the same rule holds in the process afterwards: a marked user who becomes the session's user is
+ * unmarked (signed in again, their sign out did not stand), unless their purge is queued or
+ * running; that purge then checks the session as it starts and as it settles, and unmarks
+ * instead while that user is signed in. a launch without a session cannot tell a signed out user
+ * from a stored session not confirmed yet (refreshed offline): it purges.
  * gone: from the moment it is ready, each user AuthRepository.onUserGone reports is marked
  * (`clearGuestLibrary` from the guest library rule when that user is the session's, else false;
  * `deviceWide` true), signed out when it is the session's user (a rejection is reported and the
@@ -68,6 +76,8 @@ export function DevicePurgeDriver() {
   });
   const runsRef = useRef<PurgeRuns>({ tail: Promise.resolve(), queued: new Set() });
   const launchedRef = useRef(false);
+  // the session's user as last seen after the launch: a change to a marked user unmarks them
+  const seenUserRef = useRef<string | null>(null);
 
   const enqueue = useCallback(
     (userId: string, task: () => Promise<void>): void => {
@@ -93,8 +103,15 @@ export function DevicePurgeDriver() {
   );
 
   const purgeUser = useCallback(
-    async (userId: string, owed: OwedPurge): Promise<void> => {
+    async (userId: string, owed: OwedPurge, origin: PurgeOrigin): Promise<void> => {
       const current = latest.current;
+      // a marker of a user signed in again since the launch: their sign out did not stand
+      const signedInAgain = (): boolean =>
+        origin === 'launch' && latest.current.sessionUserId === userId;
+      if (signedInAgain()) {
+        current.markers.remove(userId);
+        return;
+      }
       const failed = await current.purge({
         // created inside the step: a factory that throws fails the `account-library` step
         account: {
@@ -107,7 +124,11 @@ export function DevicePurgeDriver() {
         deviceWide:
           owed.deviceWide && (current.sessionUserId === null || current.sessionUserId === userId),
       });
-      current.markers.settle(userId, failed);
+      if (signedInAgain()) {
+        current.markers.remove(userId);
+      } else {
+        current.markers.settle(userId, failed);
+      }
     },
     [latest],
   );
@@ -126,23 +147,39 @@ export function DevicePurgeDriver() {
           reportSignOutFailure(current.reporter, DEVICE_PURGE_DRIVER_REPORT_SOURCE, error);
         }
       }
-      await purgeUser(userId, { clearGuestLibrary, deviceWide: true });
+      await purgeUser(userId, { clearGuestLibrary, deviceWide: true }, 'gone');
     },
     [latest, purgeUser],
   );
 
   useEffect(() => {
-    if (!ready || launchedRef.current) {
+    if (!ready) {
       return;
     }
-    launchedRef.current = true;
-    for (const { userId, clearGuestLibrary, deviceWide } of markers.list()) {
-      if (userId === sessionUserId) {
-        // still signed in: that sign out did not complete, nothing is owed
-        markers.remove(userId);
-      } else {
-        enqueue(userId, () => purgeUser(userId, { clearGuestLibrary, deviceWide }));
+    if (!launchedRef.current) {
+      launchedRef.current = true;
+      seenUserRef.current = sessionUserId;
+      for (const { userId, clearGuestLibrary, deviceWide } of markers.list()) {
+        if (userId === sessionUserId) {
+          // still signed in: that sign out did not complete, nothing is owed
+          markers.remove(userId);
+        } else {
+          enqueue(userId, () => purgeUser(userId, { clearGuestLibrary, deviceWide }, 'launch'));
+        }
       }
+      return;
+    }
+    if (sessionUserId === seenUserRef.current) {
+      return;
+    }
+    seenUserRef.current = sessionUserId;
+    // a queued or running purge checks the session itself
+    if (sessionUserId === null || runsRef.current.queued.has(sessionUserId)) {
+      return;
+    }
+    if (markers.list().some(({ userId }) => userId === sessionUserId)) {
+      // signed in again: that sign out did not stand, nothing is owed
+      markers.remove(sessionUserId);
     }
   }, [ready, sessionUserId, markers, enqueue, purgeUser]);
 

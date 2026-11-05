@@ -226,8 +226,8 @@
       "discardLabel": "Discard the changes that could not be synced",
       "discardSheet": {
         "title": "Discard these changes?",
-        "message_one": "{{count}} change made on this device could not be synced. Discarding it replaces it with the version saved in your account.",
-        "message_other": "{{count}} changes made on this device could not be synced. Discarding them replaces them with the version saved in your account.",
+        "message_one": "{{count}} change made on this device could not be synced. Discarding it replaces it with the version saved in your account, if there is one.",
+        "message_other": "{{count}} changes made on this device could not be synced. Discarding them replaces them with the version saved in your account, if there is one.",
         "close": "Close without discarding",
         "cancel": "Cancel",
         "confirm_one": "Discard it",

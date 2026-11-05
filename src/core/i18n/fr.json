@@ -234,9 +234,9 @@
       "discardLabel": "Abandonner les modifications qui n'ont pas pu être synchronisées",
       "discardSheet": {
         "title": "Abandonner ces modifications ?",
-        "message_one": "{{count}} modification faite sur cet appareil n'a pas pu être synchronisée. Si vous l'abandonnez, elle sera remplacée par la version enregistrée dans votre compte.",
-        "message_many": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte.",
-        "message_other": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte.",
+        "message_one": "{{count}} modification faite sur cet appareil n'a pas pu être synchronisée. Si vous l'abandonnez, elle sera remplacée par la version enregistrée dans votre compte, s'il y en a une.",
+        "message_many": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte, s'il y en a une.",
+        "message_other": "{{count}} modifications faites sur cet appareil n'ont pas pu être synchronisées. Si vous les abandonnez, elles seront remplacées par la version enregistrée dans votre compte, s'il y en a une.",
         "close": "Fermer sans abandonner",
         "cancel": "Annuler",
         "confirm_one": "L'abandonner",

@@ -12,7 +12,7 @@ import type { LibraryReplayRun } from '../repositories/library-repository';
 import { PENDING_LIBRARY_REPOSITORY } from './pending-library';
 import { LIBRARY_SYNC_ISSUES_REPORT_SOURCE } from './use-library-sync-issues';
 
-// adR-0017 "Stuck writes" (update of 2026-11-04): the stuck writes of the live account library,
+// per ADR-0017 "Stuck writes" (update of 2026-11-04): the stuck writes of the live account library,
 // their retry and their discard
 
 const CONFIRMED_ONE: LibraryReplayRun = { status: 'done', confirmed: 1 };
