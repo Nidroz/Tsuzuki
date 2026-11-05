@@ -1,0 +1,33 @@
+# shared step: wait for the app after the dev-client link. the first bundle can take a while, and on
+# a fresh install the expo dev menu opens over the app once the bundle has loaded (fourth ci run):
+# back closes it whenever it shows, until Discover is visible (about 60 s at most). the menu can
+# also open just after Discover first renders, hence the last check
+appId: io.github.nidroz.tsuzuki.dev
+---
+- repeat:
+    while:
+      notVisible:
+        id: discover-screen
+    times: 30
+    commands:
+      - runFlow:
+          when:
+            visible: Toggle performance monitor
+          commands:
+            - back
+      - extendedWaitUntil:
+          visible:
+            id: discover-screen
+          timeout: 2000
+          optional: true
+- extendedWaitUntil:
+    visible: Toggle performance monitor
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      visible: Toggle performance monitor
+    commands:
+      - back
+- assertVisible:
+    id: discover-screen
