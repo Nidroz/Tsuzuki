@@ -145,9 +145,11 @@ jobs:
             echo '::error::metro did not start within 120 seconds'
             exit 1
           fi
-          # one android bundle up front: the flows' 60 s first-bundle wait is not spent compiling
+          # one android bundle up front, best effort: the flows' 60 s first-bundle wait is not spent
+          # compiling. a failed warm-up only warns: the flows still load the bundle themselves
           curl --max-time 600 --fail --silent --show-error --output /dev/null \
-            'http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false'
+            'http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false' \
+            || echo '::warning::the metro bundle warm-up failed'
       # the action runs each script line in its own sh -c (no shared shell state) and logs it before
       # expansion, so the variables show as $NAME, never their values. the secrets are masked by
       # github in any output; E2E_EMAIL is a secret of the e2e environment, not a variable, so it is
