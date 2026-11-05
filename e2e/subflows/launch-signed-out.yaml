@@ -1,0 +1,14 @@
+# shared step: launch the app signed out and empty. clearState wipes the app data (the session, the
+# guest and account library copies, the write queue, the caches), then the development build opens
+# the project with the dev-client deep link, metro on this machine by default (see flows/smoke.yaml
+# and e2e/README.md), and the flow waits for Discover
+appId: io.github.nidroz.tsuzuki.dev
+---
+- launchApp:
+    clearState: true
+- openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
+# the first bundle can take a while
+- extendedWaitUntil:
+    visible:
+      id: discover-screen
+    timeout: 60000

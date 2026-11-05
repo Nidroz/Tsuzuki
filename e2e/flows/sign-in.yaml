@@ -1,0 +1,23 @@
+# sign in flow (A-01, A-06, FR-21, FR-25) against the staging project: sign in from the settings
+# with the shared test account (E2E_EMAIL, E2E_PASSWORD, passed by the e2e workflow, never
+# committed), see the signed-in state, then sign out with no unsynced change: no confirmation, and
+# the settings offer to sign in again. it adds nothing to the account. runs in the development
+# build like the smoke flow (see its header and e2e/README.md), with clearState, so the app starts
+# signed out. elements are found by id only, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+---
+- runFlow:
+    file: ../subflows/launch-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_EMAIL}
+      PASSWORD: ${E2E_PASSWORD}
+- assertVisible:
+    id: settings-account-signed-in
+- assertNotVisible:
+    id: settings-account-sign-in
+- runFlow:
+    file: ../subflows/sign-out.yaml
+- assertNotVisible:
+    id: settings-account-signed-in

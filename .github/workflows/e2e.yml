@@ -1,0 +1,180 @@
+name: E2E
+
+on:
+  # release, hotfix and release-please pull requests: the flows run against the staging backend and
+  # the live catalog, so they gate what reaches production, not every pull request to dev
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions: {}
+
+# one run at a time for the whole workflow, never cancelled: the flows sign in with the shared staging
+# test account, and two runs using it at the same time would break each other's library and favorites
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  e2e:
+    name: e2e
+    # fork pull requests get no secrets anyway: skipped instead of failing on the secret check
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # holds only the e2e secrets and variables. not staging: staging deploys from dev only
+    # (ARCHITECTURE.md section 10), which the ref of a pull request does not match
+    environment: e2e
+    permissions:
+      contents: read
+    env:
+      MAESTRO_CLI_NO_ANALYTICS: '1'
+      MAESTRO_CLI_ANALYSIS_NOTIFICATION_DISABLED: 'true'
+      EXPO_NO_TELEMETRY: '1'
+    steps:
+      # the secrets are compared, never exposed to the shell
+      - name: Check the environment secrets and variables
+        env:
+          HAS_EXPO_TOKEN: ${{ secrets.EXPO_TOKEN != '' }}
+          HAS_E2E_EMAIL: ${{ secrets.E2E_EMAIL != '' }}
+          HAS_E2E_PASSWORD: ${{ secrets.E2E_PASSWORD != '' }}
+          HAS_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL != '' }}
+          HAS_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY != '' }}
+        run: |
+          missing=0
+          for entry in "EXPO_TOKEN:$HAS_EXPO_TOKEN" "E2E_EMAIL:$HAS_E2E_EMAIL" \
+            "E2E_PASSWORD:$HAS_E2E_PASSWORD" "EXPO_PUBLIC_SUPABASE_URL:$HAS_SUPABASE_URL" \
+            "EXPO_PUBLIC_SUPABASE_ANON_KEY:$HAS_SUPABASE_ANON_KEY"; do
+            if [[ "${entry#*:}" != 'true' ]]; then
+              echo "::error::${entry%%:*} is not set in the e2e environment"
+              missing=1
+            fi
+          done
+          exit "$missing"
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # eas-cli and expo are the dev dependencies locked by the lockfile
+      - name: Set up
+        uses: ./.github/actions/setup
+      # maestro runs on the jvm
+      - name: Set up Java
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Maestro
+        env:
+          MAESTRO_VERSION: 2.10.0
+          # sha256 of maestro.zip, from the release's checksums_sha256.txt and the github asset digest
+          MAESTRO_SHA256: 29b675e10cc12080e445e9bfb2e2b4e4dfb9c0f2e30d5884120d258b5e1cd991
+        run: |
+          archive="${RUNNER_TEMP}/maestro.zip"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --output "$archive" \
+            "https://github.com/mobile-dev-inc/Maestro/releases/download/cli-${MAESTRO_VERSION}/maestro.zip"
+          printf '%s  %s\n' "$MAESTRO_SHA256" "$archive" | sha256sum --check --strict
+          # the archive holds maestro/bin/maestro
+          unzip -q "$archive" -d "$RUNNER_TEMP"
+          echo "${RUNNER_TEMP}/maestro/bin" >> "$GITHUB_PATH"
+          "${RUNNER_TEMP}/maestro/bin/maestro" --version
+      # the latest finished development build, never a new one. it must include every native module
+      # of the current tree: a new native module needs a new development build first (e2e/README.md).
+      # only the build id, creation time and commit are printed, never the artifact url
+      - name: Download the development build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPECTED_APP_ID: io.github.nidroz.tsuzuki.dev
+        run: |
+          builds="${RUNNER_TEMP}/eas-builds.json"
+          pnpm exec eas build:list --platform android --build-profile development --status finished \
+            --limit 1 --json --non-interactive > "$builds"
+          if [[ "$(jq 'if type == "array" then length else 0 end' "$builds")" -eq 0 ]]; then
+            echo '::error::no finished android development build on eas'
+            exit 1
+          fi
+          if [[ "$(jq -r '.[0].appIdentifier // empty' "$builds")" != "$EXPECTED_APP_ID" ]]; then
+            echo "::error::the latest development build is not ${EXPECTED_APP_ID}"
+            exit 1
+          fi
+          build_url="$(jq -r '.[0].artifacts.buildUrl // empty' "$builds")"
+          if [[ "$build_url" != https://* ]]; then
+            echo '::error::the latest development build has no https artifact url'
+            exit 1
+          fi
+          jq -r '.[0] | "build \(.id), created \(.createdAt), commit \(.gitCommitHash // "unknown")"' \
+            "$builds"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --output "${RUNNER_TEMP}/app.apk" "$build_url"
+      # hardware acceleration for the emulator, as documented by reactivecircus/android-emulator-runner
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      # the staging app env, the same values as the development profile's eas environment. they are
+      # public app values (they ship in the app), hence variables, not secrets; app.config.ts validates
+      # them and passes them in extra.env. an empty EXPO_PUBLIC_JIKAN_BASE_URL is the default catalog
+      # instance; no SENTRY_DSN (sentry is off in development). no secret here: metro and the app
+      # bundle never see EXPO_TOKEN or the test account. CI keeps expo start non-interactive. metro
+      # keeps running in the background for the next steps of this job
+      - name: Start Metro
+        env:
+          APP_VARIANT: development
+          EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+          EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+          EXPO_PUBLIC_JIKAN_BASE_URL: ${{ vars.EXPO_PUBLIC_JIKAN_BASE_URL }}
+          CI: 'true'
+        run: |
+          nohup pnpm exec expo start --port 8081 > "${RUNNER_TEMP}/metro.log" 2>&1 &
+          ready=0
+          for _ in $(seq 1 60); do
+            if [[ "$(curl --silent --max-time 5 http://127.0.0.1:8081/status || true)" == 'packager-status:running' ]]; then
+              ready=1
+              break
+            fi
+            sleep 2
+          done
+          if [[ "$ready" != 1 ]]; then
+            echo '::error::metro did not start within 120 seconds'
+            exit 1
+          fi
+          # one android bundle up front, best effort: the flows' 60 s first-bundle wait is not spent
+          # compiling. a failed warm-up only warns: the flows still load the bundle themselves
+          curl --max-time 600 --fail --silent --show-error --output /dev/null \
+            'http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false' \
+            || echo '::warning::the metro bundle warm-up failed'
+      # the action runs each script line in its own sh -c (no shared shell state) and logs it before
+      # expansion, so the variables show as $NAME, never their values. the secrets are masked by
+      # github in any output; E2E_EMAIL is a secret of the e2e environment, not a variable, so it is
+      # masked too. the device keeps the emulator default locale (en-US): the flows select by id
+      - name: Run the flows
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        env:
+          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          disable-spellchecker: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot
+          emulator-boot-timeout: 600
+          script: |
+            adb reverse tcp:8081 tcp:8081
+            adb install -r "$RUNNER_TEMP/app.apk"
+            maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" -e E2E_RUN_ID="$E2E_RUN_ID" e2e/flows
+      # metro logs the bundling and the app's warnings, no env values (secrets would be masked
+      # anyway). no artifact upload: screenshots could show the test account email
+      - name: Print the Metro log
+        if: failure()
+        run: tail -n 200 "${RUNNER_TEMP}/metro.log" || true

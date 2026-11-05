@@ -1,0 +1,89 @@
+# sign out with an unsynced change (A-05, A-06, FR-25, ADR-0017, ADR-0018) against the staging
+# project, with the shared test account (E2E_EMAIL, E2E_PASSWORD). a pinned title, Steins;Gate
+# (mal/anime/9253), opened by its deep link, used by no other flow. sign in, remove the title if a
+# previous run left it, then cut the network with the airplane mode (android) and add it: the write
+# waits in the queue. signing out then asks first; confirming signs out and purges the device, the
+# queued write included: the library tab shows no entry. cleanup, online again: a fresh launch,
+# sign in, remove the title if a write reached the account before the cut, sign out. the hooks turn
+# the airplane mode off whatever happens, so a failure never leaves the emulator offline for the
+# next flows; the end hook first stops the app and clears its data, so a write still queued after a
+# failure can never reach the shared account once the network is back. the app reads the network
+# state from expo-network (src/platform/connectivity.ts), which reports the airplane mode as no
+# connection; metro is reached through adb reverse, which the airplane mode does not cut. elements
+# are found by id only, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+onFlowStart:
+  - setAirplaneMode: disabled
+onFlowComplete:
+  - stopApp
+  - clearState
+  - setAirplaneMode: disabled
+---
+- runFlow:
+    file: ../subflows/launch-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_EMAIL}
+      PASSWORD: ${E2E_PASSWORD}
+- runFlow:
+    file: ../subflows/open-title.yaml
+    env:
+      MEDIA_PATH: mal/anime/9253
+- runFlow:
+    file: ../subflows/remove-title-if-present.yaml
+# offline: the add is kept in the write queue, the panel shows it
+- setAirplaneMode: enabled
+- tapOn:
+    id: media-detail-library-add
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-status-edit
+    timeout: 10000
+- back
+- tapOn:
+    id: tab-settings
+- tapOn:
+    id: settings-account-sign-out
+# the sync cannot reach the account (at most 10 s): the confirmation shows, still signed in
+- extendedWaitUntil:
+    visible:
+      id: settings-account-unsynced-confirm
+    timeout: 30000
+- tapOn:
+    id: settings-account-unsynced-confirm
+# offline, the session is removed from the device anyway, then the device is purged
+- extendedWaitUntil:
+    visible:
+      id: settings-account-sign-in
+    timeout: 30000
+- tapOn:
+    id: tab-library
+- extendedWaitUntil:
+    visible:
+      id: library-empty
+    timeout: 10000
+- assertNotVisible:
+    id: library-entry-mal-anime-9253
+- setAirplaneMode: disabled
+# cleanup, from a fresh launch: the first catalog rows of Discover show once the network is back
+- runFlow:
+    file: ../subflows/launch-signed-out.yaml
+- extendedWaitUntil:
+    visible:
+      id: discover-result-mal-anime-.*
+    timeout: 60000
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_EMAIL}
+      PASSWORD: ${E2E_PASSWORD}
+- runFlow:
+    file: ../subflows/open-title.yaml
+    env:
+      MEDIA_PATH: mal/anime/9253
+- runFlow:
+    file: ../subflows/remove-title-if-present.yaml
+- back
+- runFlow:
+    file: ../subflows/sign-out.yaml

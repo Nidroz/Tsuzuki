@@ -1,0 +1,34 @@
+# gone purge, first half (A-10, ADR-0018 "User gone detection"), manual only: sign in with a
+# throwaway staging account (E2E_THROWAWAY_EMAIL, E2E_THROWAWAY_PASSWORD, never the shared test
+# account), add a pinned title, Death Note (mal/anime/1535), opened by its deep link, and see it in
+# the library tab. the app is left signed in, with its session. then the owner deletes the account
+# from another client and runs gone-purge-check.yaml on the same device, at the time e2e/README.md
+# gives. elements are found by id only, so the flow does not depend on the device language
+appId: io.github.nidroz.tsuzuki.dev
+---
+- runFlow:
+    file: ../subflows/launch-signed-out.yaml
+- runFlow:
+    file: ../subflows/sign-in.yaml
+    env:
+      EMAIL: ${E2E_THROWAWAY_EMAIL}
+      PASSWORD: ${E2E_THROWAWAY_PASSWORD}
+- runFlow:
+    file: ../subflows/open-title.yaml
+    env:
+      MEDIA_PATH: mal/anime/1535
+- runFlow:
+    file: ../subflows/remove-title-if-present.yaml
+- tapOn:
+    id: media-detail-library-add
+- extendedWaitUntil:
+    visible:
+      id: media-detail-library-status-edit
+    timeout: 10000
+- back
+- tapOn:
+    id: tab-library
+- extendedWaitUntil:
+    visible:
+      id: library-entry-mal-anime-1535
+    timeout: 30000
