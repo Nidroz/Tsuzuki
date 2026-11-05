@@ -26,7 +26,7 @@ on:
       - '!**/*.test.ts'
       - '!**/*.test.tsx'
       - '!**/*.test.mjs'
-  # a manual run applies the migrations and builds, whatever changed
+  # a manual run applies the migrations, deploys the edge functions and builds, whatever changed
   workflow_dispatch:
 
 permissions: {}
@@ -79,7 +79,7 @@ jobs:
       # a manual run, a new branch (zero sha) or a previous commit missing from the history builds.
       # only the builds are gated: a skipped build is harmless because the next app-path push builds
       # the whole current tree, while a pending run cancelled by the concurrency group can drop
-      # changes from the diff, which is why the migrations are never gated
+      # changes from the diff, which is why the migrations and the edge functions are never gated
       - name: Select the build steps
         id: scope
         env:
