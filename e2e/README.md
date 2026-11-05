@@ -53,7 +53,7 @@ Then:
 2. `adb reverse tcp:8081 tcp:8081`.
 3. `maestro test -e E2E_EMAIL=<email> -e E2E_PASSWORD=<password> -e E2E_RUN_ID=local-$(date +%s) e2e/flows` (`pnpm test:e2e` passes no value: the signed-in flows need them).
 
-The flows open the project with the dev-client deep link `tsuzuki://expo-development-client/?url=<url-encoded Metro URL>`, Metro at `http://127.0.0.1:8081` by default; a phone on the LAN adds `-e METRO_URL=http://<lan-ip>:8081`, but `sign-out-unsynced.yaml` then loses Metro in airplane mode: run it through `adb reverse`. Never commit credentials. The typed credentials are labelled, but Maestro keeps the logs of local runs under `~/.maestro/tests/`: delete them after a run with real credentials.
+The flows open the project with the dev-client deep link `tsuzuki://expo-development-client/?url=<url-encoded Metro URL>`, Metro at `http://127.0.0.1:8081` by default, once the dev launcher shows its home screen ("Development Build"): a link sent while the app is still starting is dropped; a phone on the LAN adds `-e METRO_URL=http://<lan-ip>:8081`, but `sign-out-unsynced.yaml` then loses Metro in airplane mode: run it through `adb reverse`. Never commit credentials. The typed credentials are labelled, but Maestro keeps the logs of local runs under `~/.maestro/tests/`: delete them after a run with real credentials.
 
 ## Manual flows
 
