@@ -6,6 +6,11 @@ appId: io.github.nidroz.tsuzuki.dev
 ---
 - launchApp:
     clearState: true
+# the dev launcher home first: a link sent while the app is still starting is dropped, and the
+# launcher then stays on its home screen (first ci runs)
+- extendedWaitUntil:
+    visible: Development Build
+    timeout: 30000
 - openLink: tsuzuki://expo-development-client/?url=${encodeURIComponent(METRO_URL || 'http://127.0.0.1:8081')}&disableOnboarding=1
 # the first bundle can take a while
 - extendedWaitUntil:
