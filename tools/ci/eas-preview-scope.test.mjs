@@ -7,6 +7,7 @@ import { describe, it } from 'node:test';
 
 import {
   BUILD_PATHS,
+  FUNCTION_PATHS,
   IGNORED_PATHS,
   MIGRATION_PATHS,
   classifyChanges,
@@ -65,6 +66,16 @@ describe('classifyChanges', () => {
     });
   });
 
+  it('does not build for an edge function change', () => {
+    assert.deepEqual(
+      classifyChanges([
+        'supabase/functions/delete-account/index.ts',
+        'supabase/functions/delete-account/handler.ts',
+      ]),
+      { build: false },
+    );
+  });
+
   it('does not build for ci-only changes', () => {
     assert.deepEqual(
       classifyChanges(['.github/workflows/eas-preview.yml', 'tools/ci/eas-preview-scope.mjs']),
@@ -110,6 +121,7 @@ describe('eas-preview workflow push paths', () => {
   it('repeat the scope lists in order, the ignored paths negated', () => {
     assert.deepEqual(workflowPushPaths(), [
       ...MIGRATION_PATHS,
+      ...FUNCTION_PATHS,
       ...BUILD_PATHS,
       ...IGNORED_PATHS.map((glob) => `!${glob}`),
     ]);

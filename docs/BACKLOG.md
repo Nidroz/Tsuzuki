@@ -401,7 +401,7 @@ Details:
 
 ### M-01 Dependency update
 - Next run: drop the braces ignore `GHSA-vfj7-8cjw-p6xm` from `auditConfig.ignoreGhsas` (`pnpm-workspace.yaml`) if `pnpm audit` still no longer reports it (dependency advisories review, 2026-10-31).
-- Typecheck the Deno entry of each edge function in CI (A-10, moved here: this item maintains the pinned workflow actions): once the owner approves the third-party setup-deno action, add a `deno check supabase/functions/*/index.ts` step (Deno 2) to `.github/workflows/ci.yml` with the action pinned by SHA, then drop the owner's manual step from `ARCHITECTURE.md` §10 step 10 and record it in ADR-0018. Until then the owner runs it before each deploy.
+- Typecheck the Deno entry of each edge function in CI (A-10, moved here: this item maintains the pinned workflow actions): once the owner approves the third-party setup-deno action, add a `deno check supabase/functions/*/index.ts` step (Deno 2) to `.github/workflows/ci.yml` with the action pinned by SHA, then drop the owner's manual step from `ARCHITECTURE.md` §10 step 10 and record it in ADR-0018. Until then the owner runs it before merging a change to a Deno entry, since the workflows deploy the functions on every staging run and release (ADR-0018 Update of 2026-11-05).
 - Done under the owner's identity on a `chore/deps-update-<date>` branch (single author: no update bot, Dependabot alerts only).
 - Respect the pins:
   - Expo-managed packages (`expo`, `expo-*`, `jest-expo`, `react`, `react-dom`, `react-native`, `react-native-*`, `@react-native/*`, `@types/react`, the `pnpm-workspace.yaml` overrides) only via `expo install --fix` on the current SDK line (patch only); SDK upgrades are their own item.

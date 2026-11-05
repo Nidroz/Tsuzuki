@@ -73,6 +73,14 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: pnpm exec supabase db push
+      # every function of supabase/functions, after the migrations it may rely on, to the linked
+      # project, bundled server side (no docker image to pull). supabase/config.toml applies each
+      # function's verify_jwt; the platform provides the function env (ADR-0018). functions removed
+      # from the repository are left in place: no --prune
+      - name: Deploy the edge functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: pnpm exec supabase functions deploy --use-api
       # eas-cli is the dev dependency locked by the lockfile. it evaluates app.config.ts with the
       # plain text variables of the profile's eas environment (production), which hold the app env.
       # the store submission (eas submit, scheduled by --auto-submit once the build is done) stays

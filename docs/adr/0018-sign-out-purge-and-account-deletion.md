@@ -292,3 +292,13 @@ Residuals found while implementing:
 - Narrow race: auth-js removes whatever session is stored when `getUser(jwt)` answers `session_not_found`. An account switch between the check's session read and that answer could therefore end the new session. Nothing is lost: that session's queue is kept for its next sign in. Tracked with the security review (R-04).
 - Wording: the deletion screen now shows the failed deletion's error in its signed-out state, where the `sessionExpired` text ("Sign out, sign in again, then try again") reads oddly, the user being signed out already. Tracked in the backlog (R-03).
 - The driver tests do not cover ids buffered between the driver's mount and its readiness; the detector's tests cover the buffering itself. Tracked in R-04.
+
+## Update (2026-11-05)
+
+The workflows deploy the edge functions; the owner no longer deploys by hand ("Deploy" above, and the Update of 2026-11-04 on `deno check`).
+
+- `eas-preview.yml` (staging, every run) and `release.yml` (production, each release tag) run `pnpm exec supabase functions deploy --use-api` right after `supabase db push`, on the project the workflow linked, with the environment's `SUPABASE_ACCESS_TOKEN`. No new secret or variable, no new action: the Supabase CLI is the locked dev dependency, and `--use-api` bundles on Supabase's side.
+- Every function of `supabase/functions/` is deployed, with `verify_jwt` from `supabase/config.toml`. A deleted function stays deployed (no `--prune`), so no workflow can remove a function by mistake.
+- `supabase/functions/**` joins the staging workflow's push paths (`FUNCTION_PATHS` in `tools/ci/eas-preview-scope.mjs`) and, like the migrations, selects no preview build.
+- Residual: the deploy bundles the Deno entry, so syntax and import errors fail the workflow, but the entry's types stay unchecked until `deno check` runs in CI (M-01). The owner runs it locally before merging a change to a Deno entry (`ARCHITECTURE.md` §10). The handler, where the logic lives, stays typechecked, linted and tested by `pnpm check`.
+- Manual deploy remains the recovery path (`ARCHITECTURE.md` §10).
