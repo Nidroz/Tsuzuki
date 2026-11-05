@@ -74,7 +74,9 @@ const HTTP_SERVICE_UNAVAILABLE = 503;
 // the auth error code of an unknown user id: the token's user on getUser, the target on deleteUser
 const USER_NOT_FOUND_CODE = 'user_not_found';
 
-const RESPONSES = {
+// exported for the test that keeps the client's copy of the error codes in sync
+// (client-error-codes.test.ts)
+export const RESPONSES = {
   deleted: { status: HTTP_OK, body: { deleted: true } },
   'method-not-allowed': {
     status: HTTP_METHOD_NOT_ALLOWED,

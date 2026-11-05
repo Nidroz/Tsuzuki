@@ -32,6 +32,8 @@ export { List } from './components/List';
 export type { ListProps } from './components/List';
 export { MediaListItem } from './components/MediaListItem';
 export type { MediaListItemProps } from './components/MediaListItem';
+export { Notice } from './components/Notice';
+export type { NoticeProps } from './components/Notice';
 export { Pagination } from './components/Pagination';
 export type { PaginationLabels, PaginationProps } from './components/Pagination';
 export {

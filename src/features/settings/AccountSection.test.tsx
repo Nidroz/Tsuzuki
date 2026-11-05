@@ -14,6 +14,7 @@ import {
 import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  createStuckWriteMocks,
 } from '../../../test/core/fake-library-repository';
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { AccountSection } from './AccountSection';
@@ -46,6 +47,7 @@ const createAccount = (queued: number) =>
       () => () => undefined,
     ),
     queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(() => queued),
+    ...createStuckWriteMocks(),
     purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
   }) satisfies OfflineAccountLibraryRepository;
 

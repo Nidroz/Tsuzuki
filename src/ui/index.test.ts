@@ -21,6 +21,7 @@ describe('src/ui public api', () => {
         'Input',
         'List',
         'MediaListItem',
+        'Notice',
         'Pagination',
         'RadioGroup',
         'Row',

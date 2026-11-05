@@ -13,6 +13,7 @@ import {
   SCOPE,
   scoreOf,
   setupWriter,
+  statusOf,
 } from '../../../test/core/library-writer-support';
 
 const STORAGE_FAILURE = new Error('storage is full');
@@ -21,15 +22,15 @@ const PROGRESS_ABOVE_TOTAL = 40;
 
 describe('createLibraryWriter: reads', () => {
   it('reads the stored entry, null for a media not in the library', async () => {
-    const { writer } = setupWriter();
+    const { writer, activeKeyCount } = setupWriter();
 
     await expect(writer.read(ENTRY_KEY)).resolves.toBe(ENTRY);
     await expect(writer.read(OTHER_KEY)).resolves.toBeNull();
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('writes a pending `+1` before reading, so a read never returns an older state', async () => {
-    const { repository, writer, load } = setupWriter();
+    const { repository, writer, load, activeKeyCount } = setupWriter();
     await load();
 
     const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
@@ -41,13 +42,13 @@ describe('createLibraryWriter: reads', () => {
     expect(repository.save.mock.invocationCallOrder[0]).toBeLessThan(
       repository.get.mock.invocationCallOrder.at(-1) ?? 0,
     );
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 });
 
 describe('createLibraryWriter: failures', () => {
   it('rejects a failed write, refetches the entry, and the next write still runs', async () => {
-    const { queryClient, repository, writer, load } = setupWriter();
+    const { queryClient, repository, writer, load, activeKeyCount } = setupWriter();
     await load();
     repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
 
@@ -62,7 +63,7 @@ describe('createLibraryWriter: failures', () => {
     await writer.apply(ENTRY_KEY, scoreOf(5));
 
     expect(repository.stored(ENTRY_KEY)?.score).toBe(5);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('invalidates the cached list too, exactly, after a failed write', async () => {
@@ -81,7 +82,7 @@ describe('createLibraryWriter: failures', () => {
   });
 
   it('rejects every tap of a failed coalesced write', async () => {
-    const { repository, writer, load } = setupWriter();
+    const { repository, writer, load, activeKeyCount } = setupWriter();
     await load();
     repository.beforeCall.mockRejectedValueOnce(STORAGE_FAILURE);
 
@@ -97,11 +98,11 @@ describe('createLibraryWriter: failures', () => {
       { status: 'rejected', reason: STORAGE_FAILURE },
     ]);
     expect(repository.stored(ENTRY_KEY)?.progress).toBe(12);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('drops a newer pending change of a key whose write failed: it fails with it, never written', async () => {
-    const { queryClient, repository, writer, load, cached } = setupWriter();
+    const { queryClient, repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
     const held = createDeferred();
     repository.beforeCall.mockReturnValueOnce(held.promise);
@@ -127,11 +128,64 @@ describe('createLibraryWriter: failures', () => {
       queryClient.getQueryState(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated,
     ).toBe(true);
     await expect(writer.read(ENTRY_KEY)).resolves.toStrictEqual(ENTRY);
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
+  });
+
+  it('never sends a write chained behind a failed one, started before it failed: it fails with it', async () => {
+    const { queryClient, repository, writer, load, activeKeyCount } = setupWriter();
+    await load();
+    const held = createDeferred();
+    repository.beforeCall.mockReturnValueOnce(held.promise);
+    const failed = writer.apply(ENTRY_KEY, scoreOf(7));
+    await flushMicrotasks();
+    // computed from the optimistic score 7, its write chained behind the held one
+    const chained = writer.apply(ENTRY_KEY, statusOf('paused'));
+    const outcomes = Promise.allSettled([failed, chained]);
+    await flushMicrotasks();
+
+    held.reject(STORAGE_FAILURE);
+
+    expect(await outcomes).toStrictEqual([
+      { status: 'rejected', reason: STORAGE_FAILURE },
+      { status: 'rejected', reason: STORAGE_FAILURE },
+    ]);
+    expect(repository.save).toHaveBeenCalledTimes(1);
+    expect(repository.stored(ENTRY_KEY)).toStrictEqual(ENTRY);
+    expect(
+      queryClient.getQueryState(queryKeys.library.entry(SCOPE, ENTRY_KEY))?.isInvalidated,
+    ).toBe(true);
+    await expect(writer.read(ENTRY_KEY)).resolves.toStrictEqual(ENTRY);
+    expect(activeKeyCount()).toBe(0);
+  });
+
+  it('sends a write started once a failed write of its key settled, the key still busy', async () => {
+    const { repository, writer, load, activeKeyCount } = setupWriter();
+    await load();
+    const heldSave = createDeferred();
+    const heldRead = createDeferred();
+    repository.beforeCall
+      .mockReturnValueOnce(heldSave.promise)
+      .mockReturnValueOnce(heldRead.promise);
+    const failed = writer.apply(ENTRY_KEY, scoreOf(7));
+    await flushMicrotasks();
+    const read = writer.read(ENTRY_KEY);
+    heldSave.reject(STORAGE_FAILURE);
+    await expect(failed).rejects.toBe(STORAGE_FAILURE);
+
+    // started after the failure, chained behind the read still held
+    const later = writer.apply(ENTRY_KEY, scoreOf(5));
+    await flushMicrotasks();
+    heldRead.resolve();
+
+    await expect(read).resolves.toStrictEqual(ENTRY);
+    await later;
+    expect(repository.save).toHaveBeenCalledTimes(2);
+    expect(repository.stored(ENTRY_KEY)?.score).toBe(5);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('rejects a change on an entry not loaded yet, writing nothing', async () => {
-    const { repository, writer, cached } = setupWriter();
+    const { repository, writer, cached, activeKeyCount } = setupWriter();
 
     await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toThrow(
       'library change applied before the library entry was loaded',
@@ -139,11 +193,11 @@ describe('createLibraryWriter: failures', () => {
 
     expect(repository.save).not.toHaveBeenCalled();
     expect(cached()).toBeUndefined();
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 
   it('rejects a change whose rule throws, leaving the entry as it was', async () => {
-    const { repository, writer, load, cached } = setupWriter();
+    const { repository, writer, load, cached, activeKeyCount } = setupWriter();
     await load();
 
     await expect(
@@ -154,105 +208,6 @@ describe('createLibraryWriter: failures', () => {
 
     expect(repository.save).not.toHaveBeenCalled();
     expect(cached()).toBe(ENTRY);
-    expect(writer.activeKeyCount()).toBe(0);
-  });
-});
-
-describe('createLibraryWriter: flushAll', () => {
-  it('writes every pending `+1` now, without waiting for the window', async () => {
-    const { repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
-    await load();
-    await load(OTHER_KEY);
-
-    const taps = [
-      writer.apply(ENTRY_KEY, increment, { coalesce: true }),
-      writer.apply(OTHER_KEY, increment, { coalesce: true }),
-    ];
-    await flushMicrotasks();
-    await writer.flushAll();
-    await Promise.all(taps);
-
-    expect(repository.save).toHaveBeenCalledTimes(2);
-    expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
-    expect(repository.stored(OTHER_KEY)?.progress).toBe(13);
-    expect(writer.activeKeyCount()).toBe(0);
-  });
-
-  it('writes a `+1` applied just before, still waiting for its cancel', async () => {
-    const { repository, writer, load } = setupWriter();
-    await load();
-
-    const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
-    await writer.flushAll();
-
-    expect(repository.save).toHaveBeenCalledTimes(1);
-    expect(repository.stored(ENTRY_KEY)?.progress).toBe(13);
-    await tap;
-  });
-
-  it('waits for the writes in flight, and resolves when one fails', async () => {
-    const { repository, writer, load } = setupWriter();
-    await load();
-    const held = createDeferred();
-    repository.beforeCall.mockReturnValueOnce(held.promise);
-    const failed = writer.apply(ENTRY_KEY, scoreOf(7)).catch((error: unknown) => error);
-    await flushMicrotasks();
-
-    let flushed = false;
-    const flushing = writer.flushAll().then(() => {
-      flushed = true;
-    });
-    await flushMicrotasks();
-
-    expect(flushed).toBe(false);
-
-    held.reject(STORAGE_FAILURE);
-    await flushing;
-
-    await expect(failed).resolves.toBe(STORAGE_FAILURE);
-    expect(writer.activeKeyCount()).toBe(0);
-  });
-
-  it('resolves at once with nothing pending', async () => {
-    const { repository, writer } = setupWriter();
-
-    await writer.flushAll();
-
-    expect(repository.save).not.toHaveBeenCalled();
-  });
-});
-
-describe('createLibraryWriter: pendingChangeCount (A-06)', () => {
-  it('counts the keys with a change pending or being written, never a read', async () => {
-    const { repository, writer, load } = setupWriter([ENTRY, OTHER_ENTRY]);
-    await load();
-    await load(OTHER_KEY);
-    expect(writer.pendingChangeCount()).toBe(0);
-
-    const tap = writer.apply(ENTRY_KEY, increment, { coalesce: true });
-    await flushMicrotasks();
-    expect(writer.pendingChangeCount()).toBe(1);
-
-    const heldSave = createDeferred();
-    const heldRead = createDeferred();
-    repository.beforeCall
-      .mockReturnValueOnce(heldSave.promise)
-      .mockReturnValueOnce(heldRead.promise);
-    const flushing = writer.flushAll();
-    await flushMicrotasks();
-    const read = writer.read(OTHER_KEY);
-    await flushMicrotasks();
-    expect(writer.pendingChangeCount()).toBe(1);
-    expect(writer.activeKeyCount()).toBe(2);
-
-    heldSave.resolve();
-    await flushing;
-    await tap;
-    expect(writer.pendingChangeCount()).toBe(0);
-    expect(writer.activeKeyCount()).toBe(1);
-
-    heldRead.resolve();
-    await read;
-    expect(writer.activeKeyCount()).toBe(0);
+    expect(activeKeyCount()).toBe(0);
   });
 });

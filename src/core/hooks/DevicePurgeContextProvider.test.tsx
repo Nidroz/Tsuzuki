@@ -3,13 +3,18 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { act, render, renderHook } from '@testing-library/react';
 import { useEffect, type ReactNode } from 'react';
 
+import { createSessionAuthRepository } from '../../../test/core/fake-auth-repository';
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import { createFakeGuestLibraryRepository } from '../../../test/core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../../../test/core/fake-recent-searches-repository';
-import { createSessionAccount } from '../../../test/core/session-library-support';
+import { createSessionAccount, USER_A } from '../../../test/core/session-library-support';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { createQueryClient } from '../query/query-client';
+import { noCaptcha } from '../repositories/auth-repository';
+import { AuthContextProvider } from './AuthContextProvider';
 import { MISSING_DEVICE_PURGE_PROVIDER_MESSAGE } from './device-purge-context';
 import { DevicePurgeContextProvider } from './DevicePurgeContextProvider';
+import { GuestMergeContext, type GuestMergeValue } from './guest-merge-context';
 import { MISSING_RECENT_SEARCHES_PROVIDER_MESSAGE } from './recent-searches-context';
 import { RecentSearchesContextProvider } from './RecentSearchesContextProvider';
 import {
@@ -22,6 +27,7 @@ import { useRecentSearches } from './use-recent-searches';
 
 const STORED_SEARCH = 'frieren';
 const QUERY_KEY = ['probe'] as const;
+const IDLE_MERGE: GuestMergeValue = { status: 'idle', retry: () => undefined };
 
 const setup = () => {
   const queryClient = createQueryClient();
@@ -31,19 +37,31 @@ const setup = () => {
   const guest = createFakeGuestLibraryRepository();
   const removePersistedCache = jest.fn<() => void>();
   const reporter = { captureError: jest.fn<ErrorReporter['captureError']>() };
-  const sessionLibrary = { account, guest };
+  const sessionLibrary = {
+    account,
+    userId: USER_A,
+    guest,
+    accountRepositoryFor: () => createSessionAccount(),
+  };
+  const auth = createSessionAuthRepository({ userId: USER_A });
+  const markers = createFakeDevicePurgeMarkers();
   const Providers = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <RecentSearchesContextProvider repository={recentSearches}>
-        <SessionLibraryContext value={sessionLibrary}>
-          <DevicePurgeContextProvider
-            removePersistedCache={removePersistedCache}
-            reporter={reporter}
-          >
-            {children}
-          </DevicePurgeContextProvider>
-        </SessionLibraryContext>
-      </RecentSearchesContextProvider>
+      <AuthContextProvider repository={auth} captcha={noCaptcha}>
+        <RecentSearchesContextProvider repository={recentSearches}>
+          <SessionLibraryContext value={sessionLibrary}>
+            <GuestMergeContext value={IDLE_MERGE}>
+              <DevicePurgeContextProvider
+                removePersistedCache={removePersistedCache}
+                reporter={reporter}
+                markers={markers}
+              >
+                {children}
+              </DevicePurgeContextProvider>
+            </GuestMergeContext>
+          </SessionLibraryContext>
+        </RecentSearchesContextProvider>
+      </AuthContextProvider>
     </QueryClientProvider>
   );
   return { queryClient, recentSearches, account, guest, removePersistedCache, reporter, Providers };
@@ -59,8 +77,16 @@ describe('DevicePurgeContextProvider', () => {
 
     expect(result.current.generation).toBe(0);
 
-    await act(() => result.current.purge({ account: deps.account, clearGuestLibrary: true }));
+    let failed: readonly string[] | undefined;
+    await act(async () => {
+      failed = await result.current.purge({
+        account: deps.account,
+        clearGuestLibrary: true,
+        deviceWide: true,
+      });
+    });
 
+    expect(failed).toStrictEqual([]);
     expect(deps.account.purgeDeviceData).toHaveBeenCalledTimes(1);
     expect(deps.guest.clear).toHaveBeenCalledTimes(1);
     expect(deps.recentSearches.stored()).toStrictEqual([]);
@@ -95,7 +121,7 @@ describe('DevicePurgeContextProvider', () => {
     }
     render(<KeyedProbe />, { wrapper: Providers });
 
-    await act(() => purgeRef.current?.({ account, clearGuestLibrary: false }));
+    await act(() => purgeRef.current?.({ account, clearGuestLibrary: false, deviceWide: true }));
 
     expect(mounts).toBe(2);
     expect(seen).toStrictEqual([[STORED_SEARCH], []]);
@@ -106,7 +132,12 @@ describe('DevicePurgeContextProvider', () => {
     const queryOnly = ({ children }: { readonly children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     );
-    const sessionLibrary = { account: null, guest: createFakeGuestLibraryRepository() };
+    const sessionLibrary = {
+      account: null,
+      userId: null,
+      guest: createFakeGuestLibraryRepository(),
+      accountRepositoryFor: () => createSessionAccount(),
+    };
     const withoutPurge = ({ children }: { readonly children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>
         <RecentSearchesContextProvider repository={recentSearches}>

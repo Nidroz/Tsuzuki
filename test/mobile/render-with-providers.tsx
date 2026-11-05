@@ -23,6 +23,8 @@ import {
 } from '@core/preferences/index';
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha, type AuthRepository } from '@core/repositories/auth-repository';
+import type { DevicePurgeMarkerRepository } from '@core/repositories/device-purge-marker-repository';
+import type { OfflineAccountLibraryRepository } from '@core/repositories/library-repository';
 import type { RecentSearchesRepository } from '@core/repositories/recent-searches-repository';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';
@@ -31,12 +33,35 @@ import type { ComponentType, ReactElement, ReactNode } from 'react';
 
 import { createStrictFakeCatalogProvider } from '../../src/core/catalog/__fixtures__/fake-catalog-provider';
 import { createSessionAuthRepository } from '../core/fake-auth-repository';
+import { createFakeDevicePurgeMarkers } from '../core/fake-device-purge-markers';
 import { createFakeGuestLibraryRepository } from '../core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../core/fake-recent-searches-repository';
 
 interface WrapperProps {
   readonly children: ReactNode;
 }
+
+/**
+ * the session libraries a test gives: the account instance and the guest library; the user id
+ * defaults to SESSION_LIBRARY_USER_ID with an account instance, and the account library factory to
+ * one that throws (no marker or gone user in these trees calls it)
+ */
+export type SessionLibraryOption = Pick<SessionLibraryValue, 'account' | 'guest'> &
+  Partial<Pick<SessionLibraryValue, 'userId' | 'accountRepositoryFor'>>;
+
+/** the user id of a given account instance, unless the test gives another one */
+export const SESSION_LIBRARY_USER_ID = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
+
+const noAccountLibraryFactory = (): OfflineAccountLibraryRepository => {
+  throw new Error('unexpected call to the account library factory of the test providers');
+};
+
+const toSessionLibrary = ({
+  account,
+  guest,
+  userId = account === null ? null : SESSION_LIBRARY_USER_ID,
+  accountRepositoryFor = noAccountLibraryFactory,
+}: SessionLibraryOption): SessionLibraryValue => ({ account, userId, guest, accountRepositoryFor });
 
 /** what a test may set; every option has a fresh default per providersFor call */
 export interface ProvidersOptions {
@@ -61,7 +86,9 @@ export interface ProvidersOptions {
    * the libraries of the session the sign out and the account deletion read; by default no
    * account instance and an empty fake guest library. the tree's library is `account ?? guest`
    */
-  readonly sessionLibrary?: SessionLibraryValue;
+  readonly sessionLibrary?: SessionLibraryOption;
+  /** the purge-pending markers of the device purge; by default none, in memory */
+  readonly markers?: DevicePurgeMarkerRepository;
   /** the persisted cache removal of the device purge; by default it does nothing */
   readonly removePersistedCache?: () => void | PromiseLike<void>;
   /** the reporter of the device purge, sign out and account deletion; by default a report fails */
@@ -73,6 +100,7 @@ interface AppProvidersProps extends WrapperProps {
   readonly showAdult: boolean;
   readonly guestMerge: GuestMergeValue;
   readonly sessionLibrary: SessionLibraryValue;
+  readonly markers: DevicePurgeMarkerRepository;
   readonly removePersistedCache: () => void | PromiseLike<void>;
   readonly reporter: ErrorReporter;
   readonly authRepository: AuthRepository;
@@ -160,6 +188,7 @@ export function AppProviders({
   showAdult,
   guestMerge,
   sessionLibrary,
+  markers,
   removePersistedCache,
   reporter,
   authRepository,
@@ -179,6 +208,7 @@ export function AppProviders({
                   <DevicePurgeContextProvider
                     removePersistedCache={removePersistedCache}
                     reporter={reporter}
+                    markers={markers}
                   >
                     <TestPreferences showAdult={showAdult} language={language}>
                       <I18nProvider language={language} onMissingKey={failOnMissingKey}>
@@ -209,17 +239,23 @@ export const providersFor = ({
   queryClient = createQueryClient(),
   showAdult = false,
   guestMerge = IDLE_GUEST_MERGE,
-  sessionLibrary = { account: null, guest: createFakeGuestLibraryRepository() },
+  sessionLibrary: sessionLibraryOption = {
+    account: null,
+    guest: createFakeGuestLibraryRepository(),
+  },
+  markers = createFakeDevicePurgeMarkers(),
   removePersistedCache = keepPersistedCache,
   reporter = failOnReport,
-}: ProvidersOptions = {}): ComponentType<WrapperProps> =>
-  function Providers({ children }: WrapperProps) {
+}: ProvidersOptions = {}): ComponentType<WrapperProps> => {
+  const sessionLibrary = toSessionLibrary(sessionLibraryOption);
+  return function Providers({ children }: WrapperProps) {
     return (
       <AppProviders
         language={language}
         showAdult={showAdult}
         guestMerge={guestMerge}
         sessionLibrary={sessionLibrary}
+        markers={markers}
         removePersistedCache={removePersistedCache}
         reporter={reporter}
         authRepository={authRepository}
@@ -231,6 +267,7 @@ export const providersFor = ({
       </AppProviders>
     );
   };
+};
 
 /** renders a route or feature component inside AppProviders with `options`, english by default */
 export const renderWithProviders = (element: ReactElement, options?: ProvidersOptions) =>

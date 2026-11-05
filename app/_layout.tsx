@@ -30,11 +30,13 @@ import { createPersistOptions, createQueryPersister } from '@core/query/persiste
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha } from '@core/repositories/auth-repository';
 import { createOfflineAccountLibraries } from '@core/repositories/local/account-libraries';
+import { createLocalDevicePurgeMarkerRepository } from '@core/repositories/local/device-purge-marker-repository';
 import { createLocalLibraryRepository } from '@core/repositories/local/library-repository';
 import { createLocalRecentSearchesRepository } from '@core/repositories/local/recent-searches-repository';
 import { createSupabaseAuthRepository } from '@core/repositories/supabase/auth-repository';
 import { createSupabaseClient } from '@core/repositories/supabase/create-supabase-client';
 import { createSupabaseLibraryRepository } from '@core/repositories/supabase/library-repository';
+import { createTokenRefreshRefusalSignal } from '@core/repositories/supabase/token-refresh-refusals';
 import { appLinkUrl, AUTH_LINK_PATHS } from '@core/schemas/app-links';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
@@ -133,6 +135,11 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
 // merges it at sign in (BR-08, ADR-0016)
 const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 
+// the token refreshes the auth server refused, seen by the supabase client's fetch and told to the
+// auth repository, which then checks whether the session's user is gone (ADR-0018, update of
+// 2026-11-04): neither module knows the other
+const refreshRefusals = createTokenRefreshRefusalSignal();
+
 // the supabase client of the app: anon key only, its session in the secure store, never in the
 // app storage (§8). the auth repository sends the email links to the app's own routes (ADR-0014);
 // the account library repositories share the client
@@ -140,12 +147,14 @@ const supabase = createSupabaseClient({
   url: appEnv.supabaseUrl,
   anonKey: appEnv.supabaseAnonKey,
   sessionStorage: createSecureSessionStorage(reporter),
+  onTokenRefreshRefused: refreshRefusals.notify,
 });
 // TODO(A-09): pass the oauth option (the browser session and the per-build provider list)
 const authRepository = createSupabaseAuthRepository(supabase, {
   confirmationRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.confirmation),
   passwordResetRedirectUrl: appLinkUrl(AUTH_LINK_PATHS.passwordReset),
   reporter,
+  refreshRefusals,
 });
 
 // the account library of a signed-in user (FR-23), in supabase behind a device copy and a write
@@ -158,6 +167,11 @@ const accountLibraryFor = createOfflineAccountLibraries({
   isOnline: isDeviceOnline,
   reporter,
 });
+
+// the users whose device purge is owed (ADR-0018, update of 2026-11-04): a sign out marks its user
+// before the session ends, a user reported gone is marked before the purge, and the next launch
+// purges a marked user whose purge did not complete; a damaged document is reported, never thrown
+const devicePurgeMarkers = createLocalDevicePurgeMarkerRepository(storage, { reporter });
 
 // the token auto refresh runs only while the app is in the foreground (supabase-js on react
 // native): no timer in the background, and a token close to expiry is refreshed on return
@@ -206,7 +220,8 @@ function RootStack() {
 // catalog provider, the recent searches and the library of the session (the data dependencies,
 // next to the query client; the library writer keeps its optimistic entries in that cache, and
 // the library switch reads the session, inside the auth, and reports the guest merge failures),
-// the device purge of a sign out (inside all of them, whose data it deletes), then the
+// the device purge of a sign out, an account deletion, a user reported gone and the purges a
+// marker still owes at launch (inside all of them, whose data it deletes), then the
 // preferences, the translations and the theme. the stored preferences are read
 // synchronously on mount, so the first frame already uses them. expo-router's root already
 // provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
@@ -251,6 +266,7 @@ export default function RootLayout() {
               <DevicePurgeContextProvider
                 removePersistedCache={queryPersister.removeClient}
                 reporter={reporter}
+                markers={devicePurgeMarkers}
               >
                 <PreferencesProvider
                   theme={themePreference}

@@ -2,7 +2,8 @@
 // the device until the server confirmed it, and what the server answers when such a write is
 // replayed with the time of its change. types, constants and the pure rules of ADR-0017: the time
 // of a queued write, the key of a write, the replayed removal rule (the reference of the in-memory
-// fake) and the device copy overlaid with the queue. entries are personal data: never logged
+// fake), the device copy overlaid with the queue, and a stuck write. entries are personal data:
+// never logged
 import type { LibraryEntry } from './library-entry';
 import { compareLibraryEntries, libraryEntryId } from './library-view';
 import type { MediaKey } from './media';
@@ -34,6 +35,32 @@ export const LIBRARY_REPLAY_BATCH_SIZE = 100;
 export const LIBRARY_REPLAY_OUTCOMES = ['written', 'kept'] as const;
 
 export type LibraryReplayOutcome = (typeof LIBRARY_REPLAY_OUTCOMES)[number];
+
+/**
+ * the failed replay runs after which a write stuck on `unknown` failures is shown as not synced
+ * (ADR-0017 "Stuck writes"). it is still sent by every run: the count only makes it visible.
+ */
+export const LIBRARY_WRITE_FAILURE_LIMIT = 3;
+
+/**
+ * the failure state of a queued write: the database refused it alone (`refused`), and the replay
+ * runs that ended `failed` on an `unknown` failure while sending it (`failures`). absent, false
+ * and 0: a write queued or replaced since starts with neither.
+ */
+export interface LibraryWriteFailureState {
+  readonly refused?: boolean;
+  readonly failures?: number;
+}
+
+/**
+ * whether a queued write is stuck (ADR-0017 "Stuck writes"): refused, or its failed runs at
+ * LIBRARY_WRITE_FAILURE_LIMIT or above. a stuck write stays queued and shown until the server
+ * confirms it or the user discards it.
+ */
+export const isLibraryWriteStuck = ({
+  refused = false,
+  failures = 0,
+}: LibraryWriteFailureState): boolean => refused || failures >= LIBRARY_WRITE_FAILURE_LIMIT;
 
 // one millisecond: a change computed from a known state is timed at least this much after it
 const AFTER_KNOWN_STATE_MS = 1;

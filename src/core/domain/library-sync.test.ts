@@ -5,6 +5,8 @@ import { guestMergeDecision } from './guest-merge';
 import {
   LIBRARY_REPLAY_BATCH_SIZE,
   LIBRARY_REPLAY_OUTCOMES,
+  LIBRARY_WRITE_FAILURE_LIMIT,
+  isLibraryWriteStuck,
   libraryQueuedWriteKey,
   libraryQueuedWriteTime,
   overlayQueuedWrites,
@@ -21,6 +23,24 @@ describe('library sync constants', () => {
   it('sends at most 100 writes per replay call and answers written or kept', () => {
     expect(LIBRARY_REPLAY_BATCH_SIZE).toBe(100);
     expect(LIBRARY_REPLAY_OUTCOMES).toStrictEqual(['written', 'kept']);
+  });
+
+  it('shows a write as stuck after 3 failed runs', () => {
+    expect(LIBRARY_WRITE_FAILURE_LIMIT).toBe(3);
+  });
+});
+
+describe('isLibraryWriteStuck', () => {
+  it.each([
+    { label: 'no failure state', state: {}, stuck: false },
+    { label: 'neither refused nor failed', state: { refused: false, failures: 0 }, stuck: false },
+    { label: 'refused', state: { refused: true }, stuck: true },
+    { label: 'failed one run less than the limit', state: { failures: 2 }, stuck: false },
+    { label: 'failed as many runs as the limit', state: { failures: 3 }, stuck: true },
+    { label: 'failed more runs than the limit', state: { failures: 7 }, stuck: true },
+    { label: 'refused, a run failed', state: { refused: true, failures: 1 }, stuck: true },
+  ])('answers $stuck for a write $label', ({ state, stuck }) => {
+    expect(isLibraryWriteStuck(state)).toBe(stuck);
   });
 });
 

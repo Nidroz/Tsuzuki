@@ -120,6 +120,50 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
     ]);
   });
 
+  it('shows the merged account library when the merged guest entries could not be removed, reporting it once (A-10)', async () => {
+    const failure = new Error('storage failure');
+    const rendered = await renderSessionLibrary({
+      guestEntries: [GUEST_ENTRY, GUEST_OTHER],
+      accountEntries: ACCOUNT_ENTRIES,
+    });
+    const removal = holdNextCall(rendered.guest, 'removeUnchanged');
+    const from = rendered.frames.length;
+    await rendered.emit({ userId: USER_A });
+    expect(rendered.result.current.merge.status).toBe('merging');
+
+    await act(async () => {
+      removal.reject(failure);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    const account = rendered.accountOf(0);
+    await showsEntry(rendered, mergedCopyOf(GUEST_ENTRY, new Date().toISOString(), ENTRY_A));
+    expect(rendered.result.current.merge.status).toBe('idle');
+    expect(rendered.result.current.repository).toBe(account);
+    expect(rendered.shownSince(from)).toStrictEqual([
+      'checking pending',
+      'merging pending',
+      'idle account 0',
+    ]);
+    expect(rendered.captureError).toHaveBeenCalledTimes(1);
+    expect(rendered.captureError).toHaveBeenCalledWith(failure, { source: 'guest-merge' });
+    // left on the device: the next merge (the same user signed in again) sends them again, then
+    // removes them
+    expect(rendered.guest.stored(ENTRY_KEY)).toStrictEqual(GUEST_ENTRY);
+    await rendered.emit(null);
+    await rendered.emit({ userId: USER_A });
+    await settleSession();
+
+    expect(rendered.accountOf(1).mergeGuestEntries).toHaveBeenCalledWith(
+      [GUEST_ENTRY, GUEST_OTHER],
+      MERGE_OPTIONS,
+    );
+    expect(rendered.accountOf(1).stored(ENTRY_KEY)?.progress).toBe(GUEST_ENTRY.progress);
+    expect(rendered.guest.stored(ENTRY_KEY)).toBeNull();
+    expect(rendered.guest.stored(GUEST_OTHER.key)).toBeNull();
+    expect(rendered.captureError).toHaveBeenCalledTimes(1);
+  });
+
   it('writes a `+1` still in its coalescing window to the guest store first, then merges it', async () => {
     const rendered = await renderSessionLibrary({ guestEntries: [GUEST_ENTRY] });
     await showsEntry(rendered, GUEST_ENTRY);

@@ -3,6 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import {
   createFakeAccountLibraryRepository,
   createFakeGuestLibraryRepository,
+  createStuckWriteMocks,
 } from '../../../test/core/fake-library-repository';
 import { createFakeRecentSearchesRepository } from '../../../test/core/fake-recent-searches-repository';
 import { DEVICE_PURGE_STEPS, DevicePurgeError } from '../errors/device-purge-errors';
@@ -20,6 +21,7 @@ const createPurgeInput = () => {
     replayQueuedWrites: jest.fn<OfflineAccountLibraryRepository['replayQueuedWrites']>(),
     subscribeToQueuedWrites: jest.fn<OfflineAccountLibraryRepository['subscribeToQueuedWrites']>(),
     queuedWriteCount: jest.fn<OfflineAccountLibraryRepository['queuedWriteCount']>(),
+    ...createStuckWriteMocks(),
     purgeDeviceData: jest.fn<OfflineAccountLibraryRepository['purgeDeviceData']>(),
   } satisfies OfflineAccountLibraryRepository;
   const queryClient = createQueryClient();
@@ -31,6 +33,7 @@ const createPurgeInput = () => {
     account,
     guest: createFakeGuestLibraryRepository(),
     clearGuestLibrary: true,
+    deviceWide: true,
     recentSearches: createFakeRecentSearchesRepository(['frieren']),
     queryClient,
     removePersistedCache: jest.fn<() => void>(),
@@ -57,7 +60,7 @@ describe('purgeDeviceUserData', () => {
   it('runs every step in order, then advances the generation', async () => {
     const { input, order } = createPurgeInput();
 
-    await purgeDeviceUserData(input);
+    await expect(purgeDeviceUserData(input)).resolves.toStrictEqual([]);
 
     expect(order()).toStrictEqual([...DEVICE_PURGE_STEPS, 'generation']);
     expect(input.recentSearches.stored()).toStrictEqual([]);
@@ -100,7 +103,7 @@ describe('purgeDeviceUserData', () => {
         throw new Error('storage unavailable: frieren');
       });
 
-      await expect(purgeDeviceUserData(input)).resolves.toBeUndefined();
+      await expect(purgeDeviceUserData(input)).resolves.toStrictEqual([failing]);
 
       expect(order()).toStrictEqual([...DEVICE_PURGE_STEPS, 'generation']);
       expect(input.reporter.captureError).toHaveBeenCalledTimes(1);
@@ -115,12 +118,56 @@ describe('purgeDeviceUserData', () => {
     const { input } = createPurgeInput();
     input.guest.clear.mockRejectedValue(new Error('storage unavailable'));
 
-    await purgeDeviceUserData(input);
+    await expect(purgeDeviceUserData(input)).resolves.toStrictEqual(['guest-library']);
 
     expect(input.reporter.captureError).toHaveBeenCalledWith(
       new DevicePurgeError('guest-library'),
       { source: 'device-purge', tags: { step: 'guest-library' } },
     );
+    expect(input.advanceGeneration).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('purgeDeviceUserData without the device-wide steps', () => {
+  it('purges the account library only: no guest library, searches, caches or generation', async () => {
+    const { input, order } = createPurgeInput();
+
+    await expect(purgeDeviceUserData({ ...input, deviceWide: false })).resolves.toStrictEqual([]);
+
+    expect(order()).toStrictEqual(['account-library']);
+    expect(input.recentSearches.stored()).toStrictEqual(['frieren']);
+    expect(input.queryClient.getQueryData(QUERY_KEY)).toBe(1);
+  });
+
+  it('resolves the failed account-library step, reported, and runs nothing else', async () => {
+    const { input, steps, order } = createPurgeInput();
+    steps['account-library'].mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+
+    await expect(purgeDeviceUserData({ ...input, deviceWide: false })).resolves.toStrictEqual([
+      'account-library',
+    ]);
+
+    expect(order()).toStrictEqual(['account-library']);
+    expect(input.reporter.captureError).toHaveBeenCalledWith(
+      new DevicePurgeError('account-library'),
+      { source: 'device-purge', tags: { step: 'account-library' } },
+    );
+  });
+
+  it('lists every failed step in order', async () => {
+    const { input, steps } = createPurgeInput();
+    for (const step of ['account-library', 'query-cache'] as const) {
+      steps[step].mockImplementation(() => {
+        throw new Error('storage unavailable');
+      });
+    }
+
+    await expect(purgeDeviceUserData(input)).resolves.toStrictEqual([
+      'account-library',
+      'query-cache',
+    ]);
     expect(input.advanceGeneration).toHaveBeenCalledTimes(1);
   });
 });

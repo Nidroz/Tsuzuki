@@ -6,6 +6,7 @@ import type {
   AuthRepository,
   AuthSession,
   AuthSessionListener,
+  UserGoneListener,
 } from '@core/repositories/auth-repository';
 
 /** the rejection (or throw) of a fake method the test did not set up */
@@ -19,10 +20,14 @@ const throwUnexpected = (method: keyof AuthRepository) => (): never => {
   throw new Error(unexpectedAuthCallMessage(method));
 };
 
+// subscribed in every tree (DevicePurgeContextProvider), and passive: nothing is reported
+const neverReportsUserGone: AuthRepository['onUserGone'] = () => () => undefined;
+
 /**
  * a repository whose methods run the given `overrides`, every other method rejecting (or, for the
  * synchronous onAuthStateChange and setAutoRefresh, throwing) with an error naming it: a test
- * states the calls it expects. the methods stay jest mocks
+ * states the calls it expects. onUserGone subscribes and never reports unless overridden
+ * (createUserGoneSource). the methods stay jest mocks
  */
 export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}) =>
   ({
@@ -50,6 +55,7 @@ export const createFakeAuthRepository = (overrides: Partial<AuthRepository> = {}
     setAutoRefresh: jest.fn<AuthRepository['setAutoRefresh']>(
       overrides.setAutoRefresh ?? throwUnexpected('setAutoRefresh'),
     ),
+    onUserGone: jest.fn<AuthRepository['onUserGone']>(overrides.onUserGone ?? neverReportsUserGone),
     // no provider unless the test gives some: the provider buttons stay hidden
     oauthProviders: overrides.oauthProviders ?? [],
     signInWithProvider: jest.fn<AuthRepository['signInWithProvider']>(
@@ -89,6 +95,33 @@ export const createSessionSource = (initial: AuthSession | null) => {
 };
 
 export type SessionSource = ReturnType<typeof createSessionSource>;
+
+/**
+ * the users gone a test reports, for the onUserGone override: `report(userId)` calls every
+ * listener synchronously, in subscription order, as the real repository does
+ */
+export const createUserGoneSource = () => {
+  const listeners = new Set<UserGoneListener>();
+  return {
+    subscribe: (listener: UserGoneListener): (() => void) => {
+      const entry: UserGoneListener = (userId) => {
+        listener(userId);
+      };
+      listeners.add(entry);
+      return () => {
+        listeners.delete(entry);
+      };
+    },
+    report: (userId: string): void => {
+      for (const listener of [...listeners]) {
+        listener(userId);
+      }
+    },
+    listenerCount: (): number => listeners.size,
+  };
+};
+
+export type UserGoneSource = ReturnType<typeof createUserGoneSource>;
 
 const ignoreAutoRefresh: AuthRepository['setAutoRefresh'] = () => undefined;
 

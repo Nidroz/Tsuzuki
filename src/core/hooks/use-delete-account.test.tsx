@@ -2,13 +2,15 @@ import { describe, expect, it } from '@jest/globals';
 import { onlineManager } from '@tanstack/react-query';
 import { act } from '@testing-library/react';
 
-import { createSessionAccount } from '../../../test/core/session-library-support';
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import {
   PROBE_QUERY_KEY,
   renderSessionEndHook,
+  SESSION_USER_ID,
   STORED_SEARCH,
   type SessionEndSetup,
 } from '../../../test/core/session-end-hooks-support';
+import { createSessionAccount, USER_B } from '../../../test/core/session-library-support';
 import { AccountDeletionError } from '../errors/account-deletion-errors';
 import { AuthError } from '../errors/auth-errors';
 import { useDeleteAccount } from './use-delete-account';
@@ -51,12 +53,36 @@ describe('useDeleteAccount', () => {
       'clearGuest',
       'clearRecentSearches',
       'removePersistedCache',
+      'removeMarker',
       'signOut',
     ]);
     expect(account.queuedWriteCount).not.toHaveBeenCalled();
     expect(rendered.queryClient.getQueryCache().getAll()).toHaveLength(0);
     expect(rendered.result.current.generation).toBe(1);
     expect(rendered.captureError).not.toHaveBeenCalled();
+    // the purge comes before the local sign out, and it is clean: no purge-pending marker
+    expect(rendered.markers.add).not.toHaveBeenCalled();
+    expect(rendered.markers.stored()).toStrictEqual([]);
+  });
+
+  it('marks the user for the next launch when the account-library step fails, another marker kept', async () => {
+    const account = createSessionAccount();
+    account.purgeDeviceData.mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+    const other = { userId: USER_B, clearGuestLibrary: false, deviceWide: true };
+    const rendered = renderDelete({ account, markers: createFakeDevicePurgeMarkers([other]) });
+
+    await deleteAccount(rendered);
+
+    // the device-wide steps ran: the user's documents only are owed, before the local sign out
+    expect(rendered.markers.stored()).toStrictEqual([
+      other,
+      { userId: SESSION_USER_ID, clearGuestLibrary: false, deviceWide: false },
+    ]);
+    expect(rendered.sequence().slice(-2)).toStrictEqual(['addMarker', 'signOut']);
+    expect(rendered.guest.clear).toHaveBeenCalledTimes(1);
+    expect(rendered.recentSearches.stored()).toStrictEqual([]);
   });
 
   it('rejects session-expired without an account instance, sending nothing', async () => {

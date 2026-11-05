@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { use, useCallback } from 'react';
 
-import type { OfflineAccountLibraryRepository } from '../repositories/library-repository';
-import { purgeDeviceUserData } from './device-purge';
+import type { DevicePurgeStep } from '../errors/device-purge-errors';
+import { purgeDeviceUserData, type DevicePurgeTarget } from './device-purge';
 import {
   DevicePurgeContext,
   MISSING_DEVICE_PURGE_PROVIDER_MESSAGE,
@@ -15,14 +15,22 @@ import {
 import { useSessionLibrary } from './session-library-context';
 
 export interface DevicePurgeOptions {
-  /** the account instance of the session that ends, taken when the sign out or deletion started */
-  readonly account: OfflineAccountLibraryRepository;
+  /**
+   * an account instance of the user whose documents go: the session's, taken when the sign out
+   * or deletion started, or a new instance of a marked or gone user
+   */
+  readonly account: DevicePurgeTarget;
   /** false while the guest merge has not concluded (keepsGuestLibrary) */
   readonly clearGuestLibrary: boolean;
+  /** false runs the `account-library` step only (purgeDeviceUserData) */
+  readonly deviceWide: boolean;
 }
 
-/** purges the device for `options` (purgeDeviceUserData); never rejects */
-export type DevicePurge = (options: DevicePurgeOptions) => Promise<void>;
+/**
+ * purges the device for `options` (purgeDeviceUserData) and resolves the steps that failed; never
+ * rejects
+ */
+export type DevicePurge = (options: DevicePurgeOptions) => Promise<readonly DevicePurgeStep[]>;
 
 /** the value of the nearest DevicePurgeContextProvider; throws outside of it */
 export const useDevicePurgeContext = (): DevicePurgeValue => {
@@ -34,9 +42,9 @@ export const useDevicePurgeContext = (): DevicePurgeValue => {
 };
 
 /**
- * the device purge of a sign out or an account deletion (ADR-0018), bound to the query client, the
- * recent searches repository, the guest library of the session and the DevicePurgeContextProvider.
- * throws outside of any of them
+ * the device purge of a sign out, an account deletion, a marked or a gone user (ADR-0018), bound
+ * to the query client, the recent searches repository, the guest library of the session and the
+ * DevicePurgeContextProvider. throws outside of any of them
  */
 export const useDevicePurge = (): DevicePurge => {
   const queryClient = useQueryClient();
@@ -47,11 +55,12 @@ export const useDevicePurge = (): DevicePurge => {
   const { guest } = useSessionLibrary();
   const { removePersistedCache, reporter, advanceGeneration } = useDevicePurgeContext();
   return useCallback(
-    ({ account, clearGuestLibrary }: DevicePurgeOptions) =>
+    ({ account, clearGuestLibrary, deviceWide }: DevicePurgeOptions) =>
       purgeDeviceUserData({
         account,
         guest,
         clearGuestLibrary,
+        deviceWide,
         recentSearches,
         queryClient,
         removePersistedCache,

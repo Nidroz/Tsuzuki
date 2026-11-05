@@ -14,6 +14,8 @@ import type {
 import { requestAccountDeletion } from './account-deletion';
 import { authReportContext, toAuthError, type AuthOperation } from './auth-error-mapper';
 import type { Database } from './database.types';
+import type { TokenRefreshRefusals } from './token-refresh-refusals';
+import { createUserGoneDetector } from './user-gone-detector';
 
 // the AuthRepository over supabase auth (docs/ARCHITECTURE.md §4, §8, ADR-0014, ADR-0015), and the
 // account deletion over its edge function (account-deletion.ts, ADR-0018). the client is created
@@ -37,6 +39,14 @@ export interface SupabaseAuthRepositoryOptions {
   readonly passwordResetRedirectUrl: string;
   readonly reporter: ErrorReporter;
   readonly oauth?: SupabaseOAuthOptions;
+  /**
+   * the refused token refreshes of `client` (the TokenRefreshRefusalSignal whose `notify` is the
+   * client's onTokenRefreshRefused): each starts the user gone check of onUserGone. left out,
+   * onUserGone never reports.
+   */
+  readonly refreshRefusals?: TokenRefreshRefusals;
+  /** the wall clock in ms that tells an expired access token; default `Date.now`. */
+  readonly now?: () => number;
 }
 
 const OAUTH_OPERATION: AuthOperation = 'oauth-sign-in';
@@ -66,9 +76,12 @@ export const createSupabaseAuthRepository = (
     passwordResetRedirectUrl,
     reporter,
     oauth,
+    refreshRefusals,
+    now = Date.now,
   }: SupabaseAuthRepositoryOptions,
 ): AuthRepository => {
   const { auth } = client;
+  const userGone = createUserGoneDetector(auth, { refusals: refreshRefusals, reporter, now });
   const oauthProviders: readonly OAuthProvider[] = Object.freeze([...(oauth?.providers ?? [])]);
 
   // the AuthError of a failure; only `unknown` is reported, the other reasons are user errors
@@ -271,5 +284,7 @@ export const createSupabaseAuthRepository = (
         fail('auto-refresh', error);
       });
     },
+
+    onUserGone: (listener) => userGone.onUserGone(listener),
   };
 };

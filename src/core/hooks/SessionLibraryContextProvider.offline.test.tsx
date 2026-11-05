@@ -15,8 +15,8 @@ import {
 import type { AuthSession } from '../repositories/auth-repository';
 import { LibraryRemoteError } from '../errors/library-errors';
 
-// adR-0017 "Hooks": the guest merge retried on reconnect and aborted once its session ended, and
-// the live library writer flushed when the app goes to the background
+// per ADR-0017 "Hooks": the guest merge retried on reconnect and aborted once its session ended,
+// and the live library writer flushed when the app goes to the background
 
 const GUEST_ENTRY = entryOf({ progress: 1 });
 const GUEST_OTHER = entryOf({ key: keyOf('manga', 2), progress: 4 });

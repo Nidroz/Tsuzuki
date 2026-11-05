@@ -216,6 +216,23 @@
       "failedTitle": "Your library is not ready yet",
       "failed": "The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.",
       "retry": "Try again"
+    },
+    "sync": {
+      "message_one": "{{count}} change could not be synced to your account.",
+      "message_other": "{{count}} changes could not be synced to your account.",
+      "retry": "Try again",
+      "retrying": "Trying to sync your changes again",
+      "discard": "Discard",
+      "discardLabel": "Discard the changes that could not be synced",
+      "discardSheet": {
+        "title": "Discard these changes?",
+        "message_one": "{{count}} change made on this device could not be synced. Discarding it replaces it with the version saved in your account, if there is one.",
+        "message_other": "{{count}} changes made on this device could not be synced. Discarding them replaces them with the version saved in your account, if there is one.",
+        "close": "Close without discarding",
+        "cancel": "Cancel",
+        "confirm_one": "Discard it",
+        "confirm_other": "Discard them"
+      }
     }
   },
   "favorites": {

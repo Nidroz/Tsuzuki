@@ -2,6 +2,7 @@ import { onlineManager, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import type { ErrorReporter } from '../errors/error-reporter';
+import { LIBRARY_REPLAY_REPORT_SOURCE } from '../errors/library-errors';
 import { queryKeys } from '../query/keys';
 import type {
   LibraryReplayRun,
@@ -9,9 +10,6 @@ import type {
 } from '../repositories/library-repository';
 import type { ForegroundSubscription } from './foreground';
 import { useLibraryContext } from './use-library-context';
-
-/** the source of the report of a replay run that rejected */
-export const LIBRARY_REPLAY_DRIVER_SOURCE = 'library-replay';
 
 export interface LibraryReplayDriverProps {
   /**
@@ -79,7 +77,7 @@ export function LibraryReplayDriver({
         return;
       }
       live.replayQueuedWrites({ signal }).then(conclude, (error: unknown) => {
-        reporterRef.current.captureError(error, { source: LIBRARY_REPLAY_DRIVER_SOURCE });
+        reporterRef.current.captureError(error, { source: LIBRARY_REPLAY_REPORT_SOURCE });
       });
     };
 

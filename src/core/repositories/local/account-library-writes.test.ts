@@ -106,7 +106,7 @@ describe('a save', () => {
 
     expect(listener).toHaveBeenCalledTimes(1);
     expect(queued().records).toHaveLength(1);
-    expect(captureError).toHaveBeenCalledWith(bug, { source: 'library-replay' });
+    expect(captureError).toHaveBeenCalledWith(bug, { source: 'library-write' });
   });
 
   it('confirmed, leaves a newer write of its key queued meanwhile in the queue', async () => {

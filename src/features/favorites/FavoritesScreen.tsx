@@ -5,8 +5,8 @@ import { LibraryEntriesScreen } from '@features/library/LibraryEntriesScreen';
  * the favorites screen (FR-15): the library restricted to its favorites, with the same filters,
  * groups and rows as the library screen (LibraryEntriesScreen). testIDs: `favorites-screen`,
  * `favorites-loading`, `favorites-error`, `favorites-empty`, `favorites-merging`,
- * `favorites-merge-error`, `favorites-list`, `favorites-filters`. without a favorite, it says how
- * to add one
+ * `favorites-merge-error`, `favorites-list`, `favorites-filters`, `favorites-sync`. without a
+ * favorite, it says how to add one
  */
 export function FavoritesScreen() {
   const { t } = useTranslation();

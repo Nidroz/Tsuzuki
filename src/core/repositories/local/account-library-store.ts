@@ -4,12 +4,17 @@
 // instances of one user never interleave. a damaged document is reported through `report`, never
 // thrown; a storage failure throws. entries and writes hold personal data: never logged
 import type { LibraryEntry } from '../../domain/library-entry';
-import { libraryQueuedWriteKey, type LibraryQueuedWrite } from '../../domain/library-sync';
+import {
+  isLibraryWriteStuck,
+  libraryQueuedWriteKey,
+  type LibraryQueuedWrite,
+} from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
 import type { MediaKey } from '../../domain/media';
 import type { LibraryStorageReason } from '../../errors/library-errors';
 import type { StorageAdapter } from '../storage-adapter';
 import {
+  queuedWriteRecord,
   readAccountCopy,
   readAccountQueue,
   serializeAccountCopy,
@@ -54,10 +59,25 @@ export interface AccountLibraryStore {
    * returns how many were removed.
    */
   removeConfirmed(sent: readonly QueuedWriteRecord[]): number;
+  /**
+   * marks `sent` refused (the database refused it alone) when its key still holds that very seq;
+   * whether it was marked.
+   */
+  markRefused(sent: QueuedWriteRecord): boolean;
+  /**
+   * adds 1 to the failed runs of each of `sent` whose key still holds that very seq; returns how
+   * many were counted.
+   */
+  countFailedRun(sent: readonly QueuedWriteRecord[]): number;
+  /** removes every stuck write (isLibraryWriteStuck); returns how many were removed. */
+  removeStuck(): number;
 }
 
 const idOf = (record: QueuedWriteRecord): string =>
   libraryEntryId(libraryQueuedWriteKey(record.write));
+
+// a record's key and seq: the same write, unless a newer write of its key replaced it
+const writeIdOf = (record: QueuedWriteRecord): string => `${idOf(record)}#${String(record.seq)}`;
 
 export const createAccountLibraryStore = ({
   storage,
@@ -87,6 +107,38 @@ export const createAccountLibraryStore = ({
 
   const writeQueue = (queue: AccountLibraryQueue): void => {
     storage.set(keys.queue, serializeAccountQueue(queue));
+  };
+
+  // replaces each of `sent` still queued with `change` of it; returns how many were changed
+  const changeSent = (
+    sent: readonly QueuedWriteRecord[],
+    change: (record: QueuedWriteRecord) => QueuedWriteRecord,
+  ): number => {
+    const queue = readQueue();
+    const targets = new Set(sent.map(writeIdOf));
+    let changed = 0;
+    const records = queue.records.map((record) => {
+      if (!targets.has(writeIdOf(record))) {
+        return record;
+      }
+      changed += 1;
+      return change(record);
+    });
+    if (changed > 0) {
+      writeQueue({ nextSeq: queue.nextSeq, records });
+    }
+    return changed;
+  };
+
+  // keeps the records `keep` accepts; returns how many were removed
+  const removeRecords = (keep: (record: QueuedWriteRecord) => boolean): number => {
+    const queue = readQueue();
+    const records = queue.records.filter(keep);
+    const removed = queue.records.length - records.length;
+    if (removed > 0) {
+      writeQueue({ nextSeq: queue.nextSeq, records });
+    }
+    return removed;
   };
 
   return {
@@ -127,17 +179,24 @@ export const createAccountLibraryStore = ({
     },
 
     removeConfirmed: (sent) => {
-      const queue = readQueue();
-      const confirmed = new Set(sent.map((record) => `${idOf(record)}#${String(record.seq)}`));
-      const records = queue.records.filter(
-        (record) => !confirmed.has(`${idOf(record)}#${String(record.seq)}`),
-      );
-      const removed = queue.records.length - records.length;
-      if (removed > 0) {
-        writeQueue({ nextSeq: queue.nextSeq, records });
-      }
-      return removed;
+      const confirmed = new Set(sent.map(writeIdOf));
+      return removeRecords((record) => !confirmed.has(writeIdOf(record)));
     },
+
+    markRefused: (sent) =>
+      changeSent([sent], (record) =>
+        queuedWriteRecord(record.seq, record.write, { ...record, refused: true }),
+      ) > 0,
+
+    countFailedRun: (sent) =>
+      changeSent(sent, (record) =>
+        queuedWriteRecord(record.seq, record.write, {
+          ...record,
+          failures: (record.failures ?? 0) + 1,
+        }),
+      ),
+
+    removeStuck: () => removeRecords((record) => !isLibraryWriteStuck(record)),
   };
 };
 

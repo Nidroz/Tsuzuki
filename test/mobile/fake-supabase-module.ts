@@ -2,6 +2,7 @@ import { jest } from '@jest/globals';
 
 import type { LibraryEntry } from '@core/domain/library-entry';
 import type * as SupabaseAuth from '@core/repositories/supabase/auth-repository';
+import type * as SupabaseClient from '@core/repositories/supabase/create-supabase-client';
 import type { SupabaseAuthRepositoryOptions } from '@core/repositories/supabase/auth-repository';
 import type * as SupabaseLibrary from '@core/repositories/supabase/library-repository';
 import type { SupabaseLibraryRepositoryOptions } from '@core/repositories/supabase/library-repository';
@@ -9,6 +10,7 @@ import type { SupabaseLibraryRepositoryOptions } from '@core/repositories/supaba
 import {
   createSessionAuthRepository,
   createSessionSource,
+  createUserGoneSource,
   type FakeAuthRepository,
 } from '../core/fake-auth-repository';
 import {
@@ -28,28 +30,33 @@ export const FAKE_SUPABASE_CLIENT = Object.freeze({ fakeSupabaseClient: true });
 
 /** the client module, whose factory records its config and returns FAKE_SUPABASE_CLIENT */
 export const fakeSupabaseClientModule = () => ({
-  createSupabaseClient: jest.fn<(config: unknown) => typeof FAKE_SUPABASE_CLIENT>(
-    () => FAKE_SUPABASE_CLIENT,
-  ),
+  createSupabaseClient: jest.fn<
+    (
+      config: Parameters<typeof SupabaseClient.createSupabaseClient>[0],
+    ) => typeof FAKE_SUPABASE_CLIENT
+  >(() => FAKE_SUPABASE_CLIENT),
 });
 
 /**
  * the auth repository module, whose factory records its arguments and always returns one fake
  * repository reporting the session of `sessionSource` (signed out until a test emits another) and
- * accepting the auto refresh toggle; its other calls reject until a test sets them up
+ * the users gone of `userGoneSource` (none until a test reports one), and accepting the auto
+ * refresh toggle; its other calls reject until a test sets them up
  * (`createSupabaseAuthRepository.mock.results[0]`)
  */
 export const fakeSupabaseAuthModule = () => {
   const sessionSource = createSessionSource(null);
+  const userGoneSource = createUserGoneSource();
   const repository = createSessionAuthRepository(null, {
     onAuthStateChange: sessionSource.subscribe,
+    onUserGone: userGoneSource.subscribe,
   });
   const module = {
     createSupabaseAuthRepository: jest.fn<
       (client: unknown, options: SupabaseAuthRepositoryOptions) => FakeAuthRepository
     >(() => repository),
   } satisfies typeof SupabaseAuth;
-  return { ...module, sessionSource };
+  return { ...module, sessionSource, userGoneSource };
 };
 
 /** sets up an account repository the mocked library factory just created, before it is returned */

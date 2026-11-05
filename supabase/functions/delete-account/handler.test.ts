@@ -1,10 +1,15 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  SESSION_MISSING,
+  USER_ID,
+  USER_NOT_FOUND,
+  VERIFIED,
+  authFails,
+} from './__fixtures__/auth-answers';
+import {
   createDeleteAccountHandler,
   readDeleteAccountEnv,
-  toDeletionOutcome,
-  toVerifiedUser,
   type DeleteAccountPorts,
   type DeletionOutcome,
   type VerifiedUser,
@@ -12,7 +17,6 @@ import {
 
 const ENDPOINT = 'https://project.test/functions/v1/delete-account';
 const TOKEN = 'aaa.bbb.ccc';
-const USER_ID = '00000000-0000-4000-8000-000000000001';
 const OTHER_USER_ID = '00000000-0000-4000-8000-000000000002';
 const SECRET = 'test-service-role-placeholder';
 const MAX_TOKEN_LENGTH = 8192;
@@ -25,13 +29,6 @@ const SERVER_MISCONFIGURED = '{"error":"server-misconfigured"}';
 const UNAUTHORIZED = '{"error":"unauthorized"}';
 const UNAVAILABLE = '{"error":"unavailable"}';
 const DELETION_FAILED = '{"error":"deletion-failed"}';
-
-const VERIFIED: VerifiedUser = { status: 'verified', userId: USER_ID };
-// what the auth server answers getUser for a signature-valid token whose user no longer exists
-const USER_NOT_FOUND = { status: 403, code: 'user_not_found' };
-// the verification of an auth error, as the deno entry wires it
-const authFails = (error: { status: number; code: string }) =>
-  toVerifiedUser({ data: { user: null }, error });
 
 // fake ports recording their calls; an Error is thrown by the port
 const fakePorts = (
@@ -139,7 +136,7 @@ describe('createDeleteAccountHandler', () => {
   });
 
   it('answers 401 to a token whose session is gone, never deleting', async () => {
-    const { ports, deleteCalls } = fakePorts(authFails({ status: 403, code: 'session_not_found' }));
+    const { ports, deleteCalls } = fakePorts(authFails(SESSION_MISSING));
     const response = await createDeleteAccountHandler(ports)(post());
 
     expect(await read(response)).toStrictEqual(answer(401, UNAUTHORIZED));
@@ -227,62 +224,4 @@ describe('readDeleteAccountEnv', () => {
   ])('answers null with %s', (_case, values: Record<string, string>) => {
     expect(readDeleteAccountEnv((name) => values[name])).toBeNull();
   });
-});
-
-describe('toVerifiedUser', () => {
-  it('verifies the user the auth server returned', () => {
-    expect(toVerifiedUser({ data: { user: { id: USER_ID } }, error: null })).toStrictEqual(
-      VERIFIED,
-    );
-  });
-
-  it('refuses an answer without a user', () => {
-    expect(toVerifiedUser({ data: { user: null }, error: null })).toStrictEqual({
-      status: 'refused',
-    });
-  });
-
-  // bad or expired jwt, session gone
-  it.each([400, 401, 403, 404])('refuses an auth error with status %p', (status) => {
-    expect(toVerifiedUser({ data: { user: null }, error: { status } })).toStrictEqual({
-      status: 'refused',
-    });
-  });
-
-  // a key without a sub claim, a revoked session
-  it.each(['bad_jwt', 'session_not_found'])('refuses a 403 with code %p', (code) => {
-    expect(authFails({ status: 403, code })).toStrictEqual({ status: 'refused' });
-  });
-
-  // the code alone decides, whatever the status
-  it.each([403, 404, 500])('reads user_not_found with status %p as gone', (status) => {
-    expect(authFails({ ...USER_NOT_FOUND, status })).toStrictEqual({ status: 'gone' });
-  });
-
-  // no answer (0), an unknown error (no status), a server error, a timeout, a rate limit
-  it.each([0, undefined, 408, 429, 500, 503])('is unavailable on status %p', (status) => {
-    expect(toVerifiedUser({ data: { user: null }, error: { status } })).toStrictEqual({
-      status: 'unavailable',
-    });
-  });
-});
-
-describe('toDeletionOutcome', () => {
-  it('reads no error as deleted', () => {
-    expect(toDeletionOutcome({ error: null })).toBe('deleted');
-  });
-
-  it.each([{ status: 404, code: 'user_not_found' }, { status: 404 }, { code: 'user_not_found' }])(
-    'reads %p as not found',
-    (error) => {
-      expect(toDeletionOutcome({ error })).toBe('not-found');
-    },
-  );
-
-  it.each([{ status: 0 }, { status: 403, code: 'not_admin' }, { status: 500 }, {}])(
-    'reads %p as failed',
-    (error) => {
-      expect(toDeletionOutcome({ error })).toBe('failed');
-    },
-  );
 });

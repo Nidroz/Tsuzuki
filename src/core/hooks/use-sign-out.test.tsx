@@ -35,6 +35,8 @@ const signOut = async (rendered: Rendered, discardUnsynced?: boolean): Promise<S
 };
 
 const PURGE = ['purgeAccount', 'clearGuest', 'clearRecentSearches', 'removePersistedCache'];
+// the marker written before the session ends, removed once the purge succeeded
+const SIGN_OUT_AND_PURGE = ['addMarker', 'signOut', ...PURGE, 'removeMarker'];
 
 const expectNothingPurged = (rendered: Rendered): void => {
   expect(rendered.sequence()).not.toContain('purgeAccount');
@@ -56,8 +58,7 @@ describe('useSignOut', () => {
       'replay',
       'flush',
       'count',
-      'signOut',
-      ...PURGE,
+      ...SIGN_OUT_AND_PURGE,
     ]);
     expect(rendered.account?.replayQueuedWrites).toHaveBeenCalledWith({
       signal: expect.any(AbortSignal),
@@ -107,7 +108,7 @@ describe('useSignOut', () => {
 
     await expect(signOut(rendered, true)).resolves.toStrictEqual({ status: 'signed-out' });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'signOut', ...PURGE]);
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', ...SIGN_OUT_AND_PURGE]);
     expect(account.queuedWriteCount).not.toHaveBeenCalled();
     expect(rendered.writer.pendingChangeCount).not.toHaveBeenCalled();
   });
@@ -133,7 +134,7 @@ describe('useSignOut', () => {
 
     await expect(outcome).resolves.toStrictEqual({ status: 'signed-out' });
     expect(signal?.aborted).toBe(true);
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'count', 'signOut', ...PURGE]);
+    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'count', ...SIGN_OUT_AND_PURGE]);
   });
 
   it('starts no replay once a stuck flush used the budget', async () => {
@@ -190,7 +191,15 @@ describe('useSignOut', () => {
       });
     });
 
-    expect(rendered.sequence()).toStrictEqual(['flush', 'replay', 'flush', 'count', 'signOut']);
+    expect(rendered.sequence()).toStrictEqual([
+      'flush',
+      'replay',
+      'flush',
+      'count',
+      'addMarker',
+      'signOut',
+      'removeMarker',
+    ]);
     expectNothingPurged(rendered);
   });
 
@@ -205,10 +214,12 @@ describe('useSignOut', () => {
       expect(rendered.sequence()).toStrictEqual([
         'replay',
         'count',
+        'addMarker',
         'signOut',
         'purgeAccount',
         'clearRecentSearches',
         'removePersistedCache',
+        'removeMarker',
       ]);
     },
   );

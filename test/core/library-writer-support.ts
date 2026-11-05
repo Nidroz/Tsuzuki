@@ -10,7 +10,7 @@ import type { MediaKey } from '@core/domain/media';
 import { queryKeys, toLibraryScope } from '@core/query/keys';
 import { createQueryClient } from '@core/query/query-client';
 import {
-  createLibraryWriter,
+  createInspectableLibraryWriter,
   type LibraryChange,
   type LibraryWriter,
 } from '@core/hooks/library-writer';
@@ -54,6 +54,8 @@ export interface WriterSetup {
   readonly queryClient: QueryClient;
   readonly repository: FakeLibraryRepository;
   readonly writer: LibraryWriter;
+  /** the number of keys whose state the writer keeps, 0 once every call settled */
+  readonly activeKeyCount: () => number;
   /** loads the entry of a key into the cache through the writer, as the entry query does */
   readonly load: (key?: MediaKey) => Promise<LibraryEntry | null>;
   /** the cached entry of a key, undefined when not loaded */
@@ -67,7 +69,7 @@ export const setupWriter = (
 ): WriterSetup => {
   const queryClient = createQueryClient();
   const repository = createFakeLibraryRepository(initial);
-  const writer = createLibraryWriter(
+  const { writer, activeKeyCount } = createInspectableLibraryWriter(
     now === undefined
       ? { queryClient, repository, scope: SCOPE }
       : { queryClient, repository, scope: SCOPE, now },
@@ -76,6 +78,7 @@ export const setupWriter = (
     queryClient,
     repository,
     writer,
+    activeKeyCount,
     load: (key = ENTRY_KEY) =>
       queryClient.query({
         queryKey: queryKeys.library.entry(SCOPE, key),

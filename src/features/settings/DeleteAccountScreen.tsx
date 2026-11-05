@@ -47,8 +47,14 @@ function Message({ title, message }: MessageProps) {
   );
 }
 
-// signed out: nothing to delete, and a link never deletes anything by itself
-function SignInFirst() {
+interface SignInFirstProps {
+  /** the error of a deletion that failed as the session ended, null when none failed */
+  readonly error: unknown;
+}
+
+// signed out: nothing to delete, and a link never deletes anything by itself. a deletion that
+// failed as the session ended keeps its error here: the user learns its outcome may be unknown
+function SignInFirst({ error }: SignInFirstProps) {
   const { t } = useTranslation();
   const router = useRouter();
   return (
@@ -57,6 +63,9 @@ function SignInFirst() {
         title={t('settings.deleteAccount.signedOut.title')}
         message={t('settings.deleteAccount.signedOut.message')}
       />
+      {error === null ? null : (
+        <InlineError message={t(accountDeletionErrorKey(error))} testID={`${TEST_ID}-error`} />
+      )}
       <Button
         label={t('settings.deleteAccount.signedOut.signIn')}
         onPress={() => {
@@ -164,7 +173,8 @@ function DeletionForm({ pending, error, onDelete }: DeletionFormProps) {
  * is deleted and that it cannot be undone, and deletes after a destructive button and a
  * destructive confirmation. it reads no param: a link opens it at most. while the deletion runs,
  * the pending form shows even once its local sign out ended the session; a failure shows its
- * translated reason, still signed in; a success shows the deleted state, then back to settings
+ * translated reason, in the form while signed in, in the signed-out state once the session ended;
+ * a success shows the deleted state, then back to settings
  */
 export function DeleteAccountScreen() {
   const { t } = useTranslation();
@@ -188,7 +198,8 @@ export function DeleteAccountScreen() {
       );
     }
     if (status === 'signed-out') {
-      return <SignInFirst />;
+      // a lost answer then a failed token refresh, or the account deleted on another device
+      return <SignInFirst error={deletion.isError ? deletion.error : null} />;
     }
     return <Spinner accessibilityLabel={t('settings.deleteAccount.loading')} />;
   };

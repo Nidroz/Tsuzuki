@@ -43,8 +43,12 @@ const NO_ANSWER_STATUSES: ReadonlySet<number> = new Set([
   HTTP_GATEWAY_TIMEOUT,
 ]);
 
-// the fixed error codes of the function's bodies: a body holding anything else is never reported
-const FUNCTION_ERROR_CODES = [
+/**
+ * the fixed error codes of the function's bodies (RESPONSES in
+ * supabase/functions/delete-account/handler.ts, kept in sync by its client-error-codes test): a
+ * body holding anything else is never reported.
+ */
+export const FUNCTION_ERROR_CODES = [
   'method-not-allowed',
   'server-misconfigured',
   'unauthorized',

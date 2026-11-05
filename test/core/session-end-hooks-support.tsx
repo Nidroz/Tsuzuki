@@ -1,16 +1,20 @@
 // renders the sign out and account deletion hooks (src/core/hooks/) inside every context they read,
 // with fixed values a test drives: the auth, the session libraries, the guest merge status, the
-// live library writer, the recent searches and the real DevicePurgeContextProvider. the calls of
-// every fake are read back in order with `sequence()`
+// live library writer, the recent searches, the purge-pending markers and the real
+// DevicePurgeContextProvider. the calls of every fake are read back in order with `sequence()`
 import { jest } from '@jest/globals';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
+import {
+  createFakeDevicePurgeMarkers,
+  type FakeDevicePurgeMarkers,
+} from './fake-device-purge-markers';
 import { createSessionAuthRepository } from './fake-auth-repository';
 import { createFakeGuestLibraryRepository } from './fake-library-repository';
 import { createFakeRecentSearchesRepository } from './fake-recent-searches-repository';
-import { createSessionAccount, type FakeSessionAccount } from './session-library-support';
+import { createSessionAccount, USER_A, type FakeSessionAccount } from './session-library-support';
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { DevicePurgeContextProvider } from '@core/hooks/DevicePurgeContextProvider';
@@ -45,7 +49,6 @@ export const createFakeWriter = () =>
     list: jest.fn<LibraryWriter['list']>(rejectUnexpected),
     apply: jest.fn<LibraryWriter['apply']>(rejectUnexpected),
     flushAll: jest.fn<LibraryWriter['flushAll']>(() => Promise.resolve()),
-    activeKeyCount: () => 0,
     pendingChangeCount: jest.fn<LibraryWriter['pendingChangeCount']>(() => 0),
   }) satisfies LibraryWriter;
 
@@ -56,7 +59,17 @@ export interface SessionEndSetup {
   readonly mergeStatus?: GuestMergeStatus;
   /** the auth repository calls the test expects (signOut, deleteAccount) */
   readonly auth?: Partial<AuthRepository>;
+  /** the purge-pending markers, none by default */
+  readonly markers?: FakeDevicePurgeMarkers;
 }
+
+/** the user id of the session's account instance */
+export const SESSION_USER_ID = USER_A;
+
+// the session is never reported: it stays loading, so the DevicePurgeDriver the provider renders
+// stays idle (its tests: src/core/hooks/DevicePurgeDriver*.test.tsx). the hooks read the account
+// instance and its user id from the session libraries
+const neverReports = (): (() => void) => () => undefined;
 
 const ignoreRetry = (): void => undefined;
 
@@ -71,9 +84,10 @@ export const renderSessionEndHook = <T,>(
     account = createSessionAccount(),
     mergeStatus = 'idle',
     auth: overrides = {},
+    markers = createFakeDevicePurgeMarkers(),
   }: SessionEndSetup = {},
 ) => {
-  const auth = createSessionAuthRepository(null, overrides);
+  const auth = createSessionAuthRepository(null, { onAuthStateChange: neverReports, ...overrides });
   const guest = createFakeGuestLibraryRepository();
   const recentSearches = createFakeRecentSearchesRepository([STORED_SEARCH]);
   const writer = createFakeWriter();
@@ -82,7 +96,15 @@ export const renderSessionEndHook = <T,>(
   const reporter: ErrorReporter = { captureError };
   const queryClient = createQueryClient();
   queryClient.setQueryData(PROBE_QUERY_KEY, 1);
-  const sessionLibrary = { account, guest };
+  const accountRepositoryFor = jest.fn<(userId: string) => FakeSessionAccount>(() =>
+    createSessionAccount(),
+  );
+  const sessionLibrary = {
+    account,
+    userId: account === null ? null : SESSION_USER_ID,
+    guest,
+    accountRepositoryFor,
+  };
   const library = { repository: account ?? guest, writer, scope: SCOPE };
   // the guest merge value, replaced by setMergeStatus
   const current = { merge: { status: mergeStatus, retry: ignoreRetry } };
@@ -97,6 +119,7 @@ export const renderSessionEndHook = <T,>(
                 <DevicePurgeContextProvider
                   removePersistedCache={removePersistedCache}
                   reporter={reporter}
+                  markers={markers}
                 >
                   {children}
                 </DevicePurgeContextProvider>
@@ -126,6 +149,8 @@ export const renderSessionEndHook = <T,>(
     clearGuest: guest.clear,
     clearRecentSearches: recentSearches.clear,
     removePersistedCache,
+    addMarker: markers.add,
+    removeMarker: markers.remove,
     ...(account !== null && {
       replay: account.replayQueuedWrites,
       count: account.queuedWriteCount,
@@ -147,6 +172,8 @@ export const renderSessionEndHook = <T,>(
     recentSearches,
     writer,
     removePersistedCache,
+    markers,
+    accountRepositoryFor,
     captureError,
     queryClient,
     setMergeStatus,

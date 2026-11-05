@@ -5,7 +5,11 @@
 import { z } from 'zod';
 
 import type { LibraryEntry } from '../../domain/library-entry';
-import { libraryQueuedWriteKey, type LibraryQueuedWrite } from '../../domain/library-sync';
+import {
+  libraryQueuedWriteKey,
+  type LibraryQueuedWrite,
+  type LibraryWriteFailureState,
+} from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
 import type { LibraryStorageReason } from '../../errors/library-errors';
 import { libraryQueuedWriteSchema } from '../../schemas/library-sync';
@@ -45,8 +49,12 @@ export const accountLibraryStorageKeys = (
   };
 };
 
-/** a queued write and its position in the queue: a seq never reused for this user. */
-export interface QueuedWriteRecord {
+/**
+ * a queued write, its position in the queue (a seq never reused for this user), and its failure
+ * state (ADR-0017 "Stuck writes"), held only when set: `refused` true, `failures` above 0. a newer
+ * write of the key is a new record, without either.
+ */
+export interface QueuedWriteRecord extends LibraryWriteFailureState {
   readonly seq: number;
   readonly write: LibraryQueuedWrite;
 }
@@ -72,7 +80,26 @@ const queueEnvelopeSchema = z.object({
   writes: z.array(z.unknown()),
 });
 
-const queueRecordSchema = z.object({ seq: seqSchema, write: libraryQueuedWriteSchema });
+// the failure state is optional and stays in the version 1 envelope: an older reader strips it.
+// a value that does not parse reads as absent, so it never drops the write it belongs to
+const queueRecordSchema = z.object({
+  seq: seqSchema,
+  write: libraryQueuedWriteSchema,
+  refused: z.boolean().optional().catch(undefined),
+  failures: z.number().int().min(0).optional().catch(undefined),
+});
+
+/** a record of `seq` and `write` with the failure state of `state`, held only when set. */
+export const queuedWriteRecord = (
+  seq: number,
+  write: LibraryQueuedWrite,
+  { refused = false, failures = 0 }: LibraryWriteFailureState,
+): QueuedWriteRecord => ({
+  seq,
+  write,
+  ...(refused && { refused }),
+  ...(failures > 0 && { failures }),
+});
 
 const EMPTY_QUEUE: AccountLibraryQueue = { nextSeq: FIRST_SEQ, records: [] };
 
@@ -115,8 +142,8 @@ export const serializeAccountCopy = (entries: readonly LibraryEntry[]): string =
 /**
  * reads the write queue (`undefined` when nothing is stored), its records by ascending seq. invalid
  * json or an invalid envelope reads as an empty queue; a record whose seq or write fails its
- * schema is dropped; of two records of one key, the higher seq is kept. `nextSeq` is above every
- * seq read.
+ * schema is dropped, a failure state that does not parse reads as absent; of two records of one
+ * key, the higher seq is kept. `nextSeq` is above every seq read.
  */
 export const readAccountQueue = (stored: string | undefined): DocumentRead<AccountLibraryQueue> => {
   if (stored === undefined) {
@@ -138,13 +165,17 @@ export const readAccountQueue = (stored: string | undefined): DocumentRead<Accou
       problems.add('invalid-entries');
       continue;
     }
-    const id = libraryEntryId(libraryQueuedWriteKey(parsed.data.write));
+    const { seq, write, refused, failures } = parsed.data;
+    const id = libraryEntryId(libraryQueuedWriteKey(write));
     const previous = byKey.get(id);
     if (previous !== undefined) {
       problems.add('duplicate-keys');
     }
-    if (previous === undefined || parsed.data.seq > previous.seq) {
-      byKey.set(id, parsed.data);
+    if (previous === undefined || seq > previous.seq) {
+      byKey.set(
+        id,
+        queuedWriteRecord(seq, write, { refused: refused ?? false, failures: failures ?? 0 }),
+      );
     }
   }
   const records = [...byKey.values()].sort((a, b) => a.seq - b.seq);
@@ -155,10 +186,10 @@ export const readAccountQueue = (stored: string | undefined): DocumentRead<Accou
   };
 };
 
-/** the stored queue: the version 1 envelope, as json. */
+/** the stored queue: the version 1 envelope, as json, a failure state only when set. */
 export const serializeAccountQueue = ({ nextSeq, records }: AccountLibraryQueue): string =>
   JSON.stringify({
     version: QUEUE_ENVELOPE_VERSION,
     nextSeq,
-    writes: records.map(({ seq, write }) => ({ seq, write })),
+    writes: records.map(({ seq, write, ...state }) => queuedWriteRecord(seq, write, state)),
   });

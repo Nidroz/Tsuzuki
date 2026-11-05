@@ -1,8 +1,8 @@
 // the factory of the offline account libraries (A-05, ADR-0017), wired only by the composition
 // root: a new instance per signed-in user and call, over that user's account store, device copy
 // and write queue. what the instances of one user share (the run in flight, the keys in flight,
-// the refused writes, the listeners) lives in the factory, never in a module global, until the
-// device purge closes it and deletes the documents (ADR-0018)
+// the refused writes a retry released, the listeners) lives in the factory, never in a module
+// global, until the device purge closes it and deletes the documents (ADR-0018)
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LibraryStorageError, type LibraryStorageReason } from '../../errors/library-errors';
 import type {

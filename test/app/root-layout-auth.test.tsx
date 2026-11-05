@@ -16,9 +16,10 @@ import { appRoutesWithDiscover } from './app-routes';
 
 // the auth wiring (A-01): the composition root (app/_layout.tsx) creates the supabase client from
 // the app env over the secure session storage and the auth repository over it, once, when the
-// layout module loads, with the app's own email link urls; it gives that repository to the auth
-// hooks and binds its token auto refresh to the app foreground. both factories are fakes: no test
-// creates a real supabase client
+// layout module loads, with the app's own email link urls and the token refreshes the client sees
+// refused (the user gone check, A-10); it gives that repository to the auth hooks and binds its
+// token auto refresh to the app foreground. both factories are fakes: no test creates a real
+// supabase client
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -114,6 +115,7 @@ describe('root layout auth wiring (A-01)', () => {
         setItem: expect.any(Function),
         removeItem: expect.any(Function),
       }),
+      onTokenRefreshRefused: expect.any(Function),
     });
   });
 
@@ -123,7 +125,19 @@ describe('root layout auth wiring (A-01)', () => {
       confirmationRedirectUrl: 'tsuzuki://auth/callback',
       passwordResetRedirectUrl: 'tsuzuki://auth/reset-password',
       reporter: expect.objectContaining({ captureError: expect.any(Function) }),
+      refreshRefusals: expect.objectContaining({ subscribe: expect.any(Function) }),
     });
+  });
+
+  it('tells the auth repository each token refresh the client saw refused (the user gone check)', () => {
+    const refused = jest.fn();
+    const unsubscribe = createAuthRepository.mock.calls[0]?.[1].refreshRefusals?.subscribe(refused);
+
+    createClient.mock.calls[0]?.[0].onTokenRefreshRefused?.();
+    unsubscribe?.();
+    createClient.mock.calls[0]?.[0].onTokenRefreshRefused?.();
+
+    expect(refused).toHaveBeenCalledTimes(1);
   });
 
   it('gives the auth hooks that repository and its session', async () => {

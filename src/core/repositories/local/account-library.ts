@@ -2,12 +2,17 @@
 // device copy and the write queue shared by every instance of that user. a write is queued before
 // any request, tried at once when the device is online and its key is not being replayed, and
 // replayed later otherwise; reads show the queue over the server state, or over the device copy
-// offline. the device purge (ADR-0018) closes every instance of the user for good. entries hold
-// personal data: never logged, never in an error or a report tag
+// offline; stuck writes are counted, retried or discarded on the user's request. the device purge
+// (ADR-0018) closes every instance of the user for good. entries hold personal data: never logged,
+// never in an error or a report tag
 import type { LibraryEntry } from '../../domain/library-entry';
-import { overlayQueuedWrites } from '../../domain/library-sync';
+import {
+  isLibraryWriteStuck,
+  overlayQueuedWrites,
+  type LibraryQueuedWrite,
+} from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
-import { LibraryRemoteError } from '../../errors/library-errors';
+import { LIBRARY_WRITE_REPORT_SOURCE, LibraryRemoteError } from '../../errors/library-errors';
 import { libraryEntrySchema, mediaKeySchema } from '../../schemas/library-entry';
 import type { OfflineAccountLibraryRepository } from '../library-repository';
 import type { QueuedWriteRecord } from './account-library-documents';
@@ -18,14 +23,17 @@ import {
   endRead,
   isClosed,
   notifyQueued,
+  notifySyncState,
   recordId,
 } from './account-library-coordination';
 import { createDeviceReads, timeOfChange } from './account-library-device';
+import { replayQueuedWrites, type ReplayContext } from './account-library-replay';
 import {
-  LIBRARY_REPLAY_REPORT_SOURCE,
-  replayQueuedWrites,
-  type ReplayContext,
-} from './account-library-replay';
+  discardStuckWrites,
+  retryStuckWrites,
+  stuckWriteCount,
+  subscribeToSyncState,
+} from './account-library-stuck-writes';
 
 /** a replay context, the wall clock that times a removal, and the purge of the user's documents. */
 export interface OfflineAccountLibraryContext extends ReplayContext {
@@ -57,6 +65,18 @@ export const createOfflineAccountLibrary = (
     if (isClosed(coordination)) {
       throw new LibraryRemoteError('signed-out');
     }
+  };
+
+  // queues `write` in place of `previous`, the write of its key; a stuck one is no longer stuck
+  const enqueue = (
+    write: LibraryQueuedWrite,
+    previous: QueuedWriteRecord | undefined,
+  ): QueuedWriteRecord => {
+    const record = store.enqueue(write);
+    if (previous !== undefined && isLibraryWriteStuck(previous)) {
+      notifySyncState(coordination);
+    }
+    return record;
   };
 
   // the queued write stays for the replay: the call resolves with the queued state
@@ -92,7 +112,7 @@ export const createOfflineAccountLibrary = (
       }
       if (!(error instanceof LibraryRemoteError)) {
         // a bug of the account store, which maps its failures: read as unknown, never silent
-        reporter.captureError(error, { source: LIBRARY_REPLAY_REPORT_SOURCE });
+        reporter.captureError(error, { source: LIBRARY_WRITE_REPORT_SOURCE });
       }
       return keepQueued(queued);
     }
@@ -184,7 +204,7 @@ export const createOfflineAccountLibrary = (
       if (!timed.success) {
         throw new RangeError('library entry is outside the database limits');
       }
-      const record = store.enqueue({ type: 'save', entry: timed.data });
+      const record = enqueue({ type: 'save', entry: timed.data }, previous);
       return attemptDirect(
         record,
         () => remote.save(timed.data),
@@ -202,12 +222,9 @@ export const createOfflineAccountLibrary = (
       if (!parsed.success) {
         throw new RangeError('media key is outside the database limits');
       }
-      const removedAt = timeOfChange(
-        now().toISOString(),
-        store.recordOf(parsed.data),
-        copyEntryOf(parsed.data),
-      );
-      const record = store.enqueue({ type: 'remove', key: parsed.data, removedAt });
+      const previous = store.recordOf(parsed.data);
+      const removedAt = timeOfChange(now().toISOString(), previous, copyEntryOf(parsed.data));
+      const record = enqueue({ type: 'remove', key: parsed.data, removedAt }, previous);
       await attemptDirect(
         record,
         () => remote.remove(parsed.data),
@@ -240,6 +257,14 @@ export const createOfflineAccountLibrary = (
     },
 
     queuedWriteCount: () => (isClosed(coordination) ? 0 : store.readRecords().length),
+
+    stuckWriteCount: () => stuckWriteCount(context),
+
+    subscribeToSyncState: (listener) => subscribeToSyncState(context, listener),
+
+    retryStuckWrites: (options) => retryStuckWrites(context, options),
+
+    discardStuckWrites: () => discardStuckWrites(context),
 
     purgeDeviceData: purge,
   };

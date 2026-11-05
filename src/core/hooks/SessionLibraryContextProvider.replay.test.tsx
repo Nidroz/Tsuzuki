@@ -13,9 +13,9 @@ import {
   type FakeSessionAccount,
 } from '../../../test/core/session-library-support';
 import type { LibraryReplayRun } from '../repositories/library-repository';
-import { LIBRARY_REPLAY_DRIVER_SOURCE } from './LibraryReplayDriver';
+import { LIBRARY_REPLAY_REPORT_SOURCE } from '../errors/library-errors';
 
-// adR-0017 "Hooks": the replay driver of the account library whose guest merge is done. the
+// per ADR-0017 "Hooks": the replay driver of the account library whose guest merge is done. the
 // account fakes resolve every run with nothing replayed unless a test sets them up
 
 const ACCOUNT_ENTRIES = new Map([[USER_A, [entryOf()]]]);
@@ -220,6 +220,6 @@ describe('SessionLibraryContextProvider replay driver (A-05)', () => {
     });
     await settleSession();
 
-    expect(captureError).toHaveBeenCalledWith(failure, { source: LIBRARY_REPLAY_DRIVER_SOURCE });
+    expect(captureError).toHaveBeenCalledWith(failure, { source: LIBRARY_REPLAY_REPORT_SOURCE });
   });
 });
