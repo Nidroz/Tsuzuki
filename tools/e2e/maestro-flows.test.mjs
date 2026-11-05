@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
@@ -284,5 +284,19 @@ describe('the e2e workflow', () => {
     const { names, targets } = readMaestroTestLine(readFileSync(WORKFLOW, 'utf8'));
     assert.deepEqual([...names].sort(), [...CI_VARIABLES].sort());
     assert.deepEqual(targets, [CI_TARGET]);
+  });
+
+  it('stops reading the maestro command at a || fallback', () => {
+    const { names, targets } = readMaestroTestLine(
+      '    maestro test -e A="$A" e2e/flows || bash tools/ci/e2e-diagnostics.sh\n',
+    );
+    assert.deepEqual(names, ['A']);
+    assert.deepEqual(targets, ['e2e/flows']);
+  });
+
+  it('prints the device state when the ci flows fail', () => {
+    const workflow = readFileSync(WORKFLOW, 'utf8');
+    assert.match(workflow, /e2e\/flows \|\| bash tools\/ci\/e2e-diagnostics\.sh$/m);
+    assert.ok(existsSync(path.join(ROOT, 'tools', 'ci', 'e2e-diagnostics.sh')));
   });
 });
