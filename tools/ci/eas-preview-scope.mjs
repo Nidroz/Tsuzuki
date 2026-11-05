@@ -1,6 +1,7 @@
 // whether a push to dev runs the staging preview build (eas-preview.yml): only when a file of the
 // app bundle or its native config changed, because the eas build quota is limited (ADR-0012). the
-// migrations are never gated: supabase db push applies only the pending ones, so it runs on every
+// migrations and the edge functions are never gated: supabase db push applies only the pending
+// migrations and functions deploy replaces the functions with the same code, so both run on every
 // workflow run. these lists are the single source of truth of the workflow's push paths filter,
 // which repeats them in the same order
 
@@ -8,6 +9,10 @@
 // push paths filter includes them, so that a migration-only push still triggers the workflow and
 // applies the migration
 export const MIGRATION_PATHS = ['supabase/migrations/**'];
+
+// the edge functions (ADR-0018). like the migrations, they select no step: a function-only push
+// triggers the workflow, which deploys the functions without a preview build
+export const FUNCTION_PATHS = ['supabase/functions/**'];
 
 // the app bundle (routes, features, ui, core, platform, assets), the native config (app config,
 // eas profiles and the expo config hook), the dependencies and the bundler config (babel, metro,
