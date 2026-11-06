@@ -1,6 +1,6 @@
 # ADR-0019: E2E suite in CI
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-05
 
 ## Context
@@ -67,3 +67,17 @@ Once the `e2e` job has passed, the owner adds `e2e` as a required status check f
 - Performance: the slowest job of the repository (emulator boot, a cold bundle, nine flows), paid by release-level PRs only. Caching the AVD is a backlog item if it grows past about 30 minutes.
 - Future web app: unaffected; the flows drive the mobile app and `src/core/` does not change.
 - Left manual: the account deletion and gone purge flows, the device checks above, iOS.
+
+## Update (2026-11-06)
+
+The suite ran for the first time on the owner's draft release PR from `dev` to `main`. It needed five fixes before all nine CI flows passed (run of 2026-11-06, 12 min 49 s):
+
+- the device state is printed as text when the flows fail (`tools/ci/e2e-diagnostics.sh`), with no screenshot or artifact;
+- the system error dialogs are hidden on the emulator: "Pixel Launcher isn't responding" covered every app;
+- every launch waits for the dev launcher home before it opens the project link, since a link sent while the app is still starting is dropped;
+- a shared subflow (`e2e/subflows/wait-for-app.yaml`) closes the Expo dev menu, which opens over the app on a fresh install;
+- `guest-merge` hides the keyboard before it saves the notes, since the keyboard covered the sheet's buttons.
+
+GitHub dispatches a workflow only from the default branch. Until `e2e.yml` reaches `main` with the first release, a run is started by a pull request to `main` (a draft from `dev` will do), not by `workflow_dispatch`. The "re-run by dispatch" of "Consequences" applies from then on; before that, re-run the failed job of the pull request.
+
+The gate is a second ruleset targeting `main` only (`require-e2e-main`, required check `e2e`), set by the owner. `protect-main-dev` stays as it is.
