@@ -18,7 +18,7 @@ import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 
-// adR-0016 "Safety": a merge whose session ended (sign out, another user, unmount) changes no
+// see ADR-0016 "Safety": a merge whose session ended (sign out, another user, unmount) changes no
 // state and removes no guest entry; the next session's merge handles them, into its own library,
 // once the previous merge settled: two merges never overlap
 

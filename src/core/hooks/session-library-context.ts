@@ -1,9 +1,7 @@
 import { createContext, use } from 'react';
 
-import type {
-  GuestLibraryRepository,
-  OfflineAccountLibraryRepository,
-} from '../repositories/library-repository';
+import type { GuestLibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 
 /** the libraries of the session, given by SessionLibraryContextProvider (ADR-0018) */
 export interface SessionLibraryValue {

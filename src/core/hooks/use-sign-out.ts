@@ -2,7 +2,7 @@ import { useMutation } from '@tanstack/react-query';
 
 import type { ErrorReporter } from '../errors/error-reporter';
 import { SignOutSyncError, type SignOutSyncStep } from '../errors/sign-out-errors';
-import type { OfflineAccountLibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import { keepsGuestLibrary } from './device-purge';
 import type { GuestMergeStatus } from './guest-merge-context';
 import type { LibraryContextValue } from './library-context';

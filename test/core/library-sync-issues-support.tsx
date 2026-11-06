@@ -21,10 +21,8 @@ import {
 import { useLibrarySyncIssues } from '@core/hooks/use-library-sync-issues';
 import { queryKeys, toLibraryScope } from '@core/query/keys';
 import { createQueryClient } from '@core/query/query-client';
-import type {
-  LibraryRepository,
-  OfflineAccountLibraryRepository,
-} from '@core/repositories/library-repository';
+import type { LibraryRepository } from '@core/repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '@core/repositories/offline-account-library-repository';
 
 const SCOPE = toLibraryScope(7);
 

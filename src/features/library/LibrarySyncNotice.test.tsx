@@ -1,5 +1,5 @@
 import type { Language } from '@core/i18n/index';
-import type { LibraryReplayRun } from '@core/repositories/library-repository';
+import type { LibraryReplayRun } from '@core/repositories/offline-account-library-repository';
 import { describe, expect, it, jest } from '@jest/globals';
 import { act, screen, userEvent, within } from '@testing-library/react-native';
 

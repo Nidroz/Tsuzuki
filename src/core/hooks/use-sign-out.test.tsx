@@ -11,7 +11,7 @@ import {
 import { createSessionAccount, NOTHING_REPLAYED } from '../../../test/core/session-library-support';
 import { AuthError } from '../errors/auth-errors';
 import { SignOutSyncError } from '../errors/sign-out-errors';
-import type { LibraryReplayRun } from '../repositories/library-repository';
+import type { LibraryReplayRun } from '../repositories/offline-account-library-repository';
 import { SIGN_OUT_SYNC_TIMEOUT_MS, useSignOut, type SignOutResult } from './use-sign-out';
 
 const signOutResolves = { signOut: () => Promise.resolve() };

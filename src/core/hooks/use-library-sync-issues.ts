@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 
 import { queryKeys } from '../query/keys';
-import type { OfflineAccountLibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import { useSessionLibrary } from './session-library-context';
 import { useDevicePurgeContext } from './use-device-purge';
 import { useLatest } from './use-latest';

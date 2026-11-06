@@ -1,9 +1,18 @@
 import { describe, expect, it, jest } from '@jest/globals';
 
 import { entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
+import type * as guestMerge from '../../domain/guest-merge';
+import { isSameLibraryEntry } from '../../domain/guest-merge';
 import type { LibraryEntry } from '../../domain/library-entry';
 import { createMemoryStorage, createRecordingReporter } from './__fixtures__/memory-storage';
 import { GUEST_LIBRARY_STORAGE_KEY, createLocalLibraryRepository } from './library-repository';
+import { serializeGuestLibrary } from './library-store';
+
+// the real comparison, its calls counted by the cost test
+jest.mock('../../domain/guest-merge', () => {
+  const actual = jest.requireActual<typeof guestMerge>('../../domain/guest-merge');
+  return { ...actual, isSameLibraryEntry: jest.fn(actual.isSameLibraryEntry) };
+});
 
 // a guest repository over an in-memory storage
 const setup = () => {
@@ -16,6 +25,9 @@ const setup = () => {
 const FRIEREN = entryOf();
 const BERSERK = entryOf({ key: keyOf('manga', 2), updatedAt: '2026-02-01T00:00:00.000Z' });
 const MONSTER = entryOf({ key: keyOf('anime', 19), updatedAt: '2026-01-20T00:00:00.000Z' });
+
+// the stored and merged entry counts of the cost test: n x m comparisons before indexing
+const COST_ENTRY_COUNT = 1_000;
 
 // the store holding `entries`, and the entries a merge listed from it
 const listedStore = async (entries: readonly LibraryEntry[]) => {
@@ -111,4 +123,44 @@ describe('createLocalLibraryRepository removeUnchanged (BR-08)', () => {
       expect(storage.values.get(GUEST_LIBRARY_STORAGE_KEY)).toBe(before);
     },
   );
+
+  it('removes a stored entry equal to any merged entry of its key', async () => {
+    const { repository, listed } = await listedStore([FRIEREN, BERSERK]);
+    const changed = { ...FRIEREN, progress: 13 };
+
+    await repository.removeUnchanged([changed, ...listed, { ...BERSERK, progress: 2 }]);
+
+    await expect(repository.list()).resolves.toStrictEqual([]);
+  });
+
+  it('keeps a stored entry when every merged entry of its key differs', async () => {
+    const { repository, listed } = await listedStore([FRIEREN]);
+
+    await repository.removeUnchanged([
+      { ...FRIEREN, progress: 13 },
+      { ...FRIEREN, notes: 'another device' },
+    ]);
+
+    await expect(repository.list()).resolves.toStrictEqual(listed);
+  });
+
+  // the cost of the call (A-04 review): each stored entry is compared with the merged entries of
+  // its key only, never with the whole merged list
+  it('compares each stored entry with the merged entry of its key only', async () => {
+    const { storage, repository } = setup();
+    const storedOf = (externalId: number) => entryOf({ key: keyOf('anime', externalId) });
+    const stored = Array.from({ length: COST_ENTRY_COUNT }, (_, index) => storedOf(index + 1));
+    // half of the merged keys are stored ones, unchanged; the other half are not stored
+    const merged = Array.from({ length: COST_ENTRY_COUNT }, (_, index) =>
+      storedOf(index + 1 + COST_ENTRY_COUNT / 2),
+    );
+    storage.set(GUEST_LIBRARY_STORAGE_KEY, serializeGuestLibrary(stored));
+    const compare = jest.mocked(isSameLibraryEntry);
+    compare.mockClear();
+
+    await repository.removeUnchanged(merged);
+
+    expect(compare.mock.calls.length).toBeLessThanOrEqual(stored.length);
+    await expect(repository.list()).resolves.toHaveLength(COST_ENTRY_COUNT / 2);
+  });
 });

@@ -12,7 +12,7 @@ import { renderWithProviders } from '../../../test/mobile/render-with-providers'
 import { FRIEREN_DETAIL } from './__fixtures__/media-details';
 import { LibrarySection } from './LibrarySection';
 
-// adR-0016 "What the user sees": the detail's library section while the guest library is merged
+// see ADR-0016 "What the user sees": the detail's library section while the guest library is merged
 // into the account, and after a failed merge. the library stays pending until a merge succeeded
 // (SessionLibraryContextProvider): no Add, no favorite toggle, no endless spinner
 

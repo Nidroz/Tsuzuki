@@ -5,7 +5,7 @@ import type { LibraryEntry } from '../../domain/library-entry';
 import { LIBRARY_WRITE_FAILURE_LIMIT } from '../../domain/library-sync';
 import type { MediaKey } from '../../domain/media';
 import { LibraryRemoteError, type LibraryRemoteReason } from '../../errors/library-errors';
-import type { OfflineAccountLibraryRepository } from '../library-repository';
+import type { OfflineAccountLibraryRepository } from '../offline-account-library-repository';
 import {
   USER_A,
   flush,

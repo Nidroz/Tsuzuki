@@ -12,11 +12,8 @@ import {
 import type { MediaKey } from '../../domain/media';
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LIBRARY_REPLAY_REPORT_SOURCE, LibraryRemoteError } from '../../errors/library-errors';
-import type {
-  LibraryCallOptions,
-  LibraryReplayRun,
-  RemoteAccountLibraryRepository,
-} from '../library-repository';
+import type { LibraryCallOptions, RemoteAccountLibraryRepository } from '../library-repository';
+import type { LibraryReplayRun } from '../offline-account-library-repository';
 import type { QueuedWriteRecord } from './account-library-documents';
 import {
   confirmState,
@@ -253,10 +250,10 @@ const startRun = (context: ReplayContext, signal: AbortSignal | undefined) => {
 };
 
 /**
- * the OfflineAccountLibraryRepository `replayQueuedWrites` of the user of `context` (its contract is
- * in ../library-repository.ts): joins the run in flight, waits for an aborted one to settle and
- * then starts or joins the next, or starts one. a signal aborted at the call ends at once; once
- * the device purge closed the coordination, nothing is sent.
+ * the OfflineAccountLibraryRepository `replayQueuedWrites` of the user of `context` (its
+ * contract is in ../offline-account-library-repository.ts): joins the run in flight, waits for an
+ * aborted one to settle and then starts or joins the next, or starts one. a signal aborted at the
+ * call ends at once; once the device purge closed the coordination, nothing is sent.
  */
 export const replayQueuedWrites = (
   context: ReplayContext,

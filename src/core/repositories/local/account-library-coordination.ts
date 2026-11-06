@@ -9,7 +9,7 @@ import { libraryQueuedWriteKey } from '../../domain/library-sync';
 import { libraryEntryId } from '../../domain/library-view';
 import type { MediaKey } from '../../domain/media';
 import { LibraryRemoteError } from '../../errors/library-errors';
-import type { LibraryReplayRun } from '../library-repository';
+import type { LibraryReplayRun } from '../offline-account-library-repository';
 import type { QueuedWriteRecord } from './account-library-documents';
 import type { AccountLibraryStore } from './account-library-store';
 

@@ -5,7 +5,7 @@ import { entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
 import { server } from '../../../../test/core/msw-server';
 import type { LibraryEntry } from '../../domain/library-entry';
 import type { ErrorReporter } from '../../errors/error-reporter';
-import type { LibraryReplayRun } from '../library-repository';
+import type { LibraryReplayRun } from '../offline-account-library-repository';
 import { createMemoryStorage } from '../local/__fixtures__/memory-storage';
 import { createOfflineAccountLibraries } from '../local/account-libraries';
 import { readAccountQueue } from '../local/account-library-documents';

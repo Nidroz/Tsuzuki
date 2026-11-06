@@ -24,7 +24,7 @@ import {
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha, type AuthRepository } from '@core/repositories/auth-repository';
 import type { DevicePurgeMarkerRepository } from '@core/repositories/device-purge-marker-repository';
-import type { OfflineAccountLibraryRepository } from '@core/repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '@core/repositories/offline-account-library-repository';
 import type { RecentSearchesRepository } from '@core/repositories/recent-searches-repository';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { render } from '@testing-library/react-native';

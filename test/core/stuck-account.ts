@@ -7,7 +7,7 @@ import type { LibraryEntry } from '@core/domain/library-entry';
 import type {
   LibraryReplayRun,
   OfflineAccountLibraryRepository,
-} from '@core/repositories/library-repository';
+} from '@core/repositories/offline-account-library-repository';
 
 import {
   createFakeAccountLibraryRepository,

@@ -12,7 +12,7 @@ import {
   USER_B,
   type FakeSessionAccount,
 } from '../../../test/core/session-library-support';
-import type { LibraryReplayRun } from '../repositories/library-repository';
+import type { LibraryReplayRun } from '../repositories/offline-account-library-repository';
 import { LIBRARY_REPLAY_REPORT_SOURCE } from '../errors/library-errors';
 
 // per ADR-0017 "Hooks": the replay driver of the account library whose guest merge is done. the

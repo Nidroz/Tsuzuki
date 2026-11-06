@@ -11,11 +11,8 @@ import {
 
 import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
-import type {
-  GuestLibraryRepository,
-  LibraryRepository,
-  OfflineAccountLibraryRepository,
-} from '../repositories/library-repository';
+import type { GuestLibraryRepository, LibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import type { ForegroundSubscription } from './foreground';
 import { mergeGuestLibrary } from './guest-merge';
 import {
