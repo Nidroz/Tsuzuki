@@ -301,11 +301,13 @@ Details:
 ## Phase 5 — Release
 
 - [x] R-01 E2E suite complete (critical flows): nine Maestro flows on an Android emulator for PRs to `main` (`e2e.yml`, environment `e2e`), the shared staging test account, manual account deletion and gone purge flows, static flow checks in `pnpm test:tooling`, owner device checks in the R-01 PR (ADR-0019)
-- [ ] R-02 Performance pass (cold start, list FPS, bundle size)
+- [x] R-02 Performance pass (cold start, list FPS, bundle size): bundle and library store baseline in `ARCHITECTURE.md` §6 "Performance baseline", `removeUnchanged` indexed by id, Intl formatters cached, `offline-account-library-repository.ts` split out, list render tests, device checks moved to R-07 and follow-ups to R-08
 - [ ] R-03 Accessibility pass
 - [ ] R-04 MASVS L1 security review
 - [ ] R-05 Privacy policy, store listings, screenshots, age rating
 - [ ] R-06 Internal testing: TestFlight + Play internal track
+- [ ] R-07 Device performance checks (R-02)
+- [ ] R-08 Performance follow-ups (R-02)
 
 Details:
 
@@ -320,15 +322,16 @@ Details:
 - Sign out and account deletion E2E flows against the staging project, once the owner has deployed `delete-account` there (`ARCHITECTURE.md` §10 step 10): sign out of the staging test account, with an unsynced change (the confirmation) and without; delete a throwaway account prepared for the run, never the shared test account, and check it can no longer sign in (A-06: covered by route tests, handler tests and pgTAP without a backend). Outcome: CI flows `sign-out-unsynced.yaml` and `sign-in.yaml` (sign out without confirmation); account deletion a manual flow (`e2e/flows-manual/delete-account.yaml`).
 
 ### R-02 Performance pass
-- Three test headers start `// adR-0016` instead of a lowercase word before `ADR-0016` (`src/features/media-detail/LibrarySection.merge.test.tsx`, `src/features/library/LibraryScreen.merge.test.tsx`, `src/core/hooks/SessionLibraryContextProvider.session.test.tsx`; A-10 review, older than A-10): reword them with the next change to these files.
-- Guest merge cost (A-04 review): `removeUnchanged` (`src/core/repositories/local/library-repository.ts`) compares every stored entry with every merged one (n×m `isSameLibraryEntry` on the JS thread, about a million at 1,000 entries): index the merged entries by `libraryEntryId` first.
-- Offline account library cost (A-05): the device copy document (`account-library-copy.<userId>`) is parsed and rewritten whole for each confirmed write, and the queue document for each write, like the guest store. Measure with a large library and decide whether it needs another layout.
-- Split `src/core/repositories/library-repository.ts` (A-10, moved here: 325 lines of interface contracts, over the ~300-line rule, and this item is the next to change the offline account library contracts): for example the `OfflineAccountLibraryRepository` interface and `LibraryReplayRun` in their own file, the other interfaces unchanged, imports updated in the same change.
-- Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows.
-- If the owner's R-01 device check shows the library tab re-sorting a frame late after a `+1` on the detail, then lay out again on blur (the `useFocusEffect` cleanup), or drop the kept layout while unfocused, with a test.
-- If the owner's R-01 device check shows a wrong title order on Android or iOS (Hermes `Intl.Collator`), then make `compareLibraryEntries` (`src/core/domain/library-view.ts`) fall back to a locale-independent compare, e.g. `localeCompare` with explicit options or a normalized key, with a test.
-- E2E run time (R-01): cache the AVD (`actions/cache`) if the `e2e` job exceeds about 30 minutes.
-- `pnpm test:e2e` passes no `-e` values, while the signed-in flows need them (`e2e/README.md`): decide whether the script should read them from the environment.
+- Three test headers start `// adR-0016` instead of a lowercase word before `ADR-0016` (`src/features/media-detail/LibrarySection.merge.test.tsx`, `src/features/library/LibraryScreen.merge.test.tsx`, `src/core/hooks/SessionLibraryContextProvider.session.test.tsx`; A-10 review, older than A-10): reword them with the next change to these files. Outcome: reworded to `// see ADR-0016 ...`; the same fault in `test/app/root-layout-catalog.test.tsx` (`aDR-0013`) reworded too.
+- Guest merge cost (A-04 review): `removeUnchanged` (`src/core/repositories/local/library-repository.ts`) compares every stored entry with every merged one (n×m `isSameLibraryEntry` on the JS thread, about a million at 1,000 entries): index the merged entries by `libraryEntryId` first. Outcome: indexed, each stored entry compared only with the merged entries of its id (`ARCHITECTURE.md` §4 "Guest store"); timings before and after in §6 "Performance baseline"; a call-count test (at most the stored count) in `library-repository-remove-unchanged.test.ts`.
+- Offline account library cost (A-05): the device copy document (`account-library-copy.<userId>`) is parsed and rewritten whole for each confirmed write, and the queue document for each write, like the guest store. Measure with a large library and decide whether it needs another layout. Outcome: measured at 1,000 and 2,000 entries (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse is the cost, not the layout); the layout is kept; the parse cache proposal moved to R-08, pending the owner's decision.
+- Split `src/core/repositories/library-repository.ts` (A-10, moved here: 325 lines of interface contracts, over the ~300-line rule, and this item is the next to change the offline account library contracts): for example the `OfflineAccountLibraryRepository` interface and `LibraryReplayRun` in their own file, the other interfaces unchanged, imports updated in the same change. Outcome: done, `src/core/repositories/offline-account-library-repository.ts`, moved verbatim, no re-export.
+- Cache the `Intl.NumberFormat` / `Intl.DateTimeFormat` instances of `src/core/i18n/format.ts` per language and options (created on every call since F-06), or earlier if a list screen formats values in its rows. Outcome: done, one capped cache per kind keyed by value (`format.ts`, `format.test.ts`; `ARCHITECTURE.md` §2).
+- If the owner's R-01 device check shows the library tab re-sorting a frame late after a `+1` on the detail, then lay out again on blur (the `useFocusEffect` cleanup), or drop the kept layout while unfocused, with a test. Outcome: moved to R-07, still waiting for the owner's device check.
+- If the owner's R-01 device check shows a wrong title order on Android or iOS (Hermes `Intl.Collator`), then make `compareLibraryEntries` (`src/core/domain/library-view.ts`) fall back to a locale-independent compare, e.g. `localeCompare` with explicit options or a normalized key, with a test. Outcome: moved to R-07, still waiting for the owner's device check.
+- E2E run time (R-01): cache the AVD (`actions/cache`) if the `e2e` job exceeds about 30 minutes. Outcome: not needed, the job takes about 13 minutes.
+- `pnpm test:e2e` passes no `-e` values, while the signed-in flows need them (`e2e/README.md`): decide whether the script should read them from the environment. Outcome: no wrapper script; local runs call Maestro directly with the `-e` values before the flow folder, as CI does, and `pnpm test:e2e` stays without values (`e2e/README.md`, `ARCHITECTURE.md` §12).
+- Bundle size, list FPS and cold start (the item's title). Outcome: bundle baseline recorded (`ARCHITECTURE.md` §6 "Performance baseline"), no waste in the app's own code, the dependency follow-ups in R-08; list code reviewed, nothing wrong, render tests added (`LibraryScreen.renders.test.tsx`, `MediaPageList.renders.test.tsx`); device measurements in R-07.
 
 ### R-03 Accessibility pass
 - A failed guest merge is announced once per mounted view: `ErrorState` and `InlineError` announce on mount, so the library tab, the favorites tab and the detail's library section can read it up to three times (A-04 review). Announce it once.
@@ -374,6 +377,21 @@ Details:
 ### R-06 Internal testing
 - Prerequisite: A-08 (captcha on the auth endpoints) is done and enabled server side (owner decision, A-01).
 - Release blocker (owner decision, A-02): no iOS build offers Google sign-in without Sign in with Apple (App Store guideline 4.8, A-09).
+
+### R-07 Device performance checks (R-02)
+On a preview build (release, Hermes) on a mid-range Android device, and on iOS if available. Record the numbers in `ARCHITECTURE.md` §6 "Performance baseline".
+- Cold start: `adb shell am force-stop io.github.nidroz.tsuzuki.preview`, then `adb shell am start -W -n io.github.nidroz.tsuzuki.preview/.MainActivity`, 5 runs, the median `TotalTime`; plus the time until Discover shows its first covers (a stopwatch or a screen recording).
+- List FPS: `adb shell dumpsys gfxinfo io.github.nidroz.tsuzuki.preview reset`, fling the list 10 times, then `adb shell dumpsys gfxinfo io.github.nidroz.tsuzuki.preview`, and record "Janky frames" and the 90th and 95th percentiles, on Discover, the search results, the library with 100+ entries and the favorites. On the development build, the dev menu's Perf Monitor gives the JS and UI FPS while scrolling and during a `+1` on a library row.
+- Library tab focus (moved from R-01 through R-02): check whether the library tab re-sorts a frame late after a `+1` on the detail; if visible, lay out again on blur (the `useFocusEffect` cleanup), or drop the kept layout while unfocused, with a test.
+- Library title sort (moved from R-01 through R-02): on Android and iOS, compare the title order of accented, numbered and differently cased titles with the order the Jest tests give (Hermes `Intl.Collator`); if wrong, a locale-independent fallback in `compareLibraryEntries` (`src/core/domain/library-view.ts`), with a test.
+- A `+1` with the largest library available, to judge R-08 (the library store costs of `ARCHITECTURE.md` §6 "Performance baseline").
+
+### R-08 Performance follow-ups (R-02)
+- Offline account library and guest store parse cost (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse on every read). Proposal: a parsed-document cache reused only while `storage.getString` returns the exact string last read or written, and one copy read per save; the persisted format unchanged. Needs the owner's approval, since it reverses the "no in-memory cache" rule (`ARCHITECTURE.md` §4, ADR-0017); then a dated Update of ADR-0017, and tests.
+- The Material Symbols font on Android (`MaterialSymbols_400Regular.ttf`, about 70 % of the Android assets), pulled in by expo-router's native tabs code through `expo-symbols` / `@expo-google-fonts/material-symbols` and unused by the app's JS tabs: drop it if expo-router or `expo-symbols` offer a supported way (no resolver hack).
+- Sentry Session Replay, replay canvas and feedback modules (about 180 KB) bundled while disabled: check again with Expo tree shaking once it is stable.
+- Evaluate `zod/mini` (about 494 KB of zod v4 classic in the bundle): an API change across every schema.
+- A smaller Jikan cover (`small_image_url` or equivalent) for the list rows, owned by the catalog adapter (`src/core/catalog/jikan/`), with its fixtures.
 
 ## Catalog fallbacks (on demand, outside the phase order)
 
