@@ -14,7 +14,7 @@ import { renderRouterAsync } from '../mobile/render-router';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 
-// aDR-0013: the composition root (app/_layout.tsx) is the only place that picks the catalog
+// see ADR-0013: the composition root (app/_layout.tsx) is the only place that picks the catalog
 // provider and its instance. both factories keep their real behaviour and record their calls,
 // made once, when the layout module loads; nothing reaches the network (no search is typed)
 

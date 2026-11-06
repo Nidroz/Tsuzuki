@@ -6,7 +6,7 @@ import { AccessibilityInfo } from 'react-native';
 import type * as FakeFocusEffect from '../../../test/mobile/fake-focus-effect';
 import { renderLibraryScreen, settle } from '../../../test/mobile/render-library-screen';
 
-// adR-0016 "What the user sees": the library screen while the guest library is merged into the
+// see ADR-0016 "What the user sees": the library screen while the guest library is merged into the
 // account, and after a failed merge: the library stays pending until a retry succeeded, so the
 // failure replaces the whole list
 
