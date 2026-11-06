@@ -141,6 +141,25 @@ describe('formatter cache', () => {
     expect(constructor).toHaveBeenCalledTimes(3);
   });
 
+  it('builds a fresh date formatter when the options give no time zone', () => {
+    const format = loadFormat();
+    const constructor = jest.spyOn(Intl, 'DateTimeFormat');
+
+    expect(format.formatDate(PI_DAY, 'en', { year: 'numeric' })).toBe('2026');
+    expect(format.formatDate(PI_DAY, 'en', { year: 'numeric' })).toBe('2026');
+    expect(constructor).toHaveBeenCalledTimes(2);
+  });
+
+  it('caches no formatter whose options are refused', () => {
+    const format = loadFormat();
+    const constructor = jest.spyOn(Intl, 'NumberFormat');
+    const refused = { maximumFractionDigits: 101 };
+
+    expect(() => format.formatNumber(1, 'en', refused)).toThrow(RangeError);
+    expect(() => format.formatNumber(1, 'en', refused)).toThrow(RangeError);
+    expect(constructor).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps number and date formatters apart', () => {
     const format = loadFormat();
     const numberConstructor = jest.spyOn(Intl, 'NumberFormat');

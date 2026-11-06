@@ -4,9 +4,10 @@ import type { Language } from './languages';
 // give the same output everywhere
 
 // list rows format values on every render, and building an Intl formatter costs far more than
-// using one: each formatter is built once per language and options, then reused. the options the
-// code passes are a few module constants (e.g. YEAR_FORMAT) or none, so the caches stay small; the
-// cap only guards against a caller building options from data, by starting over when it is reached
+// using one: each formatter is built once per language and options, then reused (a date formatter
+// only with an explicit time zone, see formatDate). the options the code passes are a few module
+// constants (e.g. YEAR_FORMAT) or none, so the caches stay small; the cap only guards against a
+// caller building options from data, by starting over when it is reached
 const MAX_CACHED_FORMATTERS = 64;
 
 type FormatOptions = Intl.NumberFormatOptions | Intl.DateTimeFormatOptions;
@@ -55,9 +56,12 @@ export const formatDate = (
   value: Date,
   language: Language,
   options?: Intl.DateTimeFormatOptions,
-): string =>
-  cached(
-    dateFormats,
-    cacheKey(language, options),
-    () => new Intl.DateTimeFormat(language, options),
-  ).format(value);
+): string => {
+  const create = () => new Intl.DateTimeFormat(language, options);
+  // without a time zone, a formatter keeps the device zone it was built in: build a fresh one,
+  // so a zone change (travel) applies to the next call
+  if (options?.timeZone === undefined) {
+    return create().format(value);
+  }
+  return cached(dateFormats, cacheKey(language, options), create).format(value);
+};
