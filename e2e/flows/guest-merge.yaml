@@ -48,7 +48,8 @@ appId: io.github.nidroz.tsuzuki.dev
 - tapOn:
     id: media-detail-library-notes-input
 - inputText: e2e-${E2E_RUN_ID}
-# the sheet's buttons stay above the keyboard, and its body lets a tap through to them
+# the keyboard covers the sheet's buttons on the ci emulator (fifth run): hide it first
+- hideKeyboard
 - tapOn:
     id: media-detail-library-notes-sheet-confirm
 - extendedWaitUntil:
