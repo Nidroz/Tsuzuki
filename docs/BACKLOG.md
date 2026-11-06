@@ -392,6 +392,7 @@ On a preview build (release, Hermes) on a mid-range Android device, and on iOS i
 - Sentry Session Replay, replay canvas and feedback modules (about 180 KB) bundled while disabled: check again with Expo tree shaking once it is stable.
 - Evaluate `zod/mini` (about 494 KB of zod v4 classic in the bundle): an API change across every schema.
 - A smaller Jikan cover (`small_image_url` or equivalent) for the list rows, owned by the catalog adapter (`src/core/catalog/jikan/`), with its fixtures.
+- ADR pointers to the R-02 split (R-02 review): `docs/adr/0017-offline-library-write-queue.md` (the "Interfaces" heading and the list of new members) and `docs/adr/0018-sign-out-purge-and-account-deletion.md` still place the `OfflineAccountLibraryRepository` contracts in `src/core/repositories/library-repository.ts`; they now live in `offline-account-library-repository.ts` (`ARCHITECTURE.md` §2, §4). With the owner's approval, add a dated Update line to each ADR.
 
 ## Catalog fallbacks (on demand, outside the phase order)
 
