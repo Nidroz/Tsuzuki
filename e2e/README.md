@@ -51,7 +51,7 @@ Then:
 
 1. `pnpm start` with the staging app env (Metro on port 8081).
 2. `adb reverse tcp:8081 tcp:8081`.
-3. `maestro test -e E2E_EMAIL=<email> -e E2E_PASSWORD=<password> -e E2E_RUN_ID=local-$(date +%s) e2e/flows` (`pnpm test:e2e` passes no value: the signed-in flows need them).
+3. `maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" -e E2E_RUN_ID=local-$(date +%s) e2e/flows`, the credentials read from shell variables so the command line itself holds none. Call Maestro directly, the options before the flow folder as in CI: `pnpm test:e2e` runs `maestro test e2e/flows` with no value, and the signed-in flows need them.
 
 The flows open the project with the dev-client deep link `tsuzuki://expo-development-client/?url=<url-encoded Metro URL>`, Metro at `http://127.0.0.1:8081` by default, once the dev launcher shows its home screen ("Development Build"): a link sent while the app is still starting is dropped. Then `subflows/wait-for-app.yaml` waits for Discover and closes the Expo dev menu (back) when it opens over the app, as it does on a fresh install; a phone on the LAN adds `-e METRO_URL=http://<lan-ip>:8081`, but `sign-out-unsynced.yaml` then loses Metro in airplane mode: run it through `adb reverse`. Never commit credentials. The typed credentials are labelled, but Maestro keeps the logs of local runs under `~/.maestro/tests/`: delete them after a run with real credentials.
 
