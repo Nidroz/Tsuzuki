@@ -3,11 +3,15 @@
 // sent again on the user's retry, or removed once the user confirmed. a stuck write is never
 // dropped otherwise. writes hold personal data: never logged
 import { isLibraryWriteStuck } from '../../domain/library-sync';
-import type { LibraryCallOptions, LibraryReplayRun } from '../library-repository';
+import type { LibraryCallOptions } from '../library-repository';
+import type { LibraryReplayRun } from '../offline-account-library-repository';
 import { isClosed, notifySyncState, recordId } from './account-library-coordination';
 import { replayQueuedWrites, type ReplayContext } from './account-library-replay';
 
-/** the OfflineAccountLibraryRepository `stuckWriteCount` (contract in ../library-repository.ts). */
+/**
+ * the OfflineAccountLibraryRepository `stuckWriteCount` (contract in
+ * ../offline-account-library-repository.ts).
+ */
 export const stuckWriteCount = ({ coordination }: ReplayContext): number =>
   isClosed(coordination) ? 0 : coordination.store.readRecords().filter(isLibraryWriteStuck).length;
 

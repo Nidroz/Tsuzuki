@@ -4,7 +4,7 @@ import { entryOf, keyOf } from '../../../../test/core/library-entry-fixtures';
 import type { LibraryEntry } from '../../domain/library-entry';
 import { LIBRARY_REPLAY_BATCH_SIZE } from '../../domain/library-sync';
 import type { MediaKey } from '../../domain/media';
-import type { LibraryReplayRun } from '../library-repository';
+import type { LibraryReplayRun } from '../offline-account-library-repository';
 import { USER_A, flush, setupOfflineLibraries } from './__fixtures__/in-memory-remote';
 import { readAccountQueue } from './account-library-documents';
 import { LIBRARY_REPLAY_RETRY_DELAYS_MS } from './account-library-replay';

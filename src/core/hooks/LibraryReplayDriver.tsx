@@ -7,7 +7,7 @@ import { queryKeys } from '../query/keys';
 import type {
   LibraryReplayRun,
   OfflineAccountLibraryRepository,
-} from '../repositories/library-repository';
+} from '../repositories/offline-account-library-repository';
 import type { ForegroundSubscription } from './foreground';
 import { useLibraryContext } from './use-library-context';
 

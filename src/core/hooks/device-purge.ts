@@ -2,10 +2,8 @@ import type { QueryClient } from '@tanstack/react-query';
 
 import { DevicePurgeError, type DevicePurgeStep } from '../errors/device-purge-errors';
 import type { ErrorReporter } from '../errors/error-reporter';
-import type {
-  GuestLibraryRepository,
-  OfflineAccountLibraryRepository,
-} from '../repositories/library-repository';
+import type { GuestLibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import type { RecentSearchesRepository } from '../repositories/recent-searches-repository';
 import type { GuestMergeStatus } from './guest-merge-context';
 

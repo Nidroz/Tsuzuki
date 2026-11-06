@@ -5,10 +5,8 @@
 // global, until the device purge closes it and deletes the documents (ADR-0018)
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LibraryStorageError, type LibraryStorageReason } from '../../errors/library-errors';
-import type {
-  OfflineAccountLibraryRepository,
-  RemoteAccountLibraryRepository,
-} from '../library-repository';
+import type { RemoteAccountLibraryRepository } from '../library-repository';
+import type { OfflineAccountLibraryRepository } from '../offline-account-library-repository';
 import type { StorageAdapter } from '../storage-adapter';
 import { createOfflineAccountLibrary } from './account-library';
 import {

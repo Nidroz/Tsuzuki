@@ -19,11 +19,11 @@ import type { LibraryEntry } from '@core/domain/library-entry';
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { createQueryClient } from '@core/query/query-client';
 import { noCaptcha, type AuthSession } from '@core/repositories/auth-repository';
+import type { LibraryRepository } from '@core/repositories/library-repository';
 import type {
   LibraryReplayRun,
-  LibraryRepository,
   OfflineAccountLibraryRepository,
-} from '@core/repositories/library-repository';
+} from '@core/repositories/offline-account-library-repository';
 import type { ForegroundSubscription } from '@core/hooks/foreground';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import type { GuestMergeStatus } from '@core/hooks/guest-merge-context';

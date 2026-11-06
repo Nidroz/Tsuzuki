@@ -3,7 +3,7 @@ import type { AuthRepository, AuthSession } from '@core/repositories/auth-reposi
 import type {
   LibraryReplayRun,
   OfflineAccountLibraryRepository,
-} from '@core/repositories/library-repository';
+} from '@core/repositories/offline-account-library-repository';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, screen, userEvent, within } from '@testing-library/react-native';
 

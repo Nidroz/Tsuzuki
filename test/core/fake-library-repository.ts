@@ -17,9 +17,9 @@ import type {
   AccountLibraryRepository,
   GuestLibraryRepository,
   LibraryRepository,
-  OfflineAccountLibraryRepository,
   RemoteAccountLibraryRepository,
 } from '@core/repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '@core/repositories/offline-account-library-repository';
 import { libraryEntrySchema, mediaKeySchema } from '@core/schemas/library-entry';
 import { timestampSchema } from '@core/schemas/timestamp';
 

@@ -14,7 +14,7 @@ import {
 import { libraryEntryId } from '../../domain/library-view';
 import { LIBRARY_WRITE_REPORT_SOURCE, LibraryRemoteError } from '../../errors/library-errors';
 import { libraryEntrySchema, mediaKeySchema } from '../../schemas/library-entry';
-import type { OfflineAccountLibraryRepository } from '../library-repository';
+import type { OfflineAccountLibraryRepository } from '../offline-account-library-repository';
 import type { QueuedWriteRecord } from './account-library-documents';
 import {
   beginRead,

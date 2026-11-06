@@ -9,7 +9,7 @@ import { createFakeRecentSearchesRepository } from '../../../test/core/fake-rece
 import { DEVICE_PURGE_STEPS, DevicePurgeError } from '../errors/device-purge-errors';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { createQueryClient } from '../query/query-client';
-import type { OfflineAccountLibraryRepository } from '../repositories/library-repository';
+import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import { keepsGuestLibrary, purgeDeviceUserData } from './device-purge';
 import { GUEST_MERGE_STATUSES } from './guest-merge-context';
 
