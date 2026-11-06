@@ -4,6 +4,7 @@
 // personal data (notes, titles): never logged, never put in an error or a report tag
 import { isSameLibraryEntry } from '../../domain/guest-merge';
 import type { LibraryEntry } from '../../domain/library-entry';
+import { libraryEntryId } from '../../domain/library-view';
 import type { ErrorReporter } from '../../errors/error-reporter';
 import { LibraryStorageError, type LibraryStorageReason } from '../../errors/library-errors';
 import { libraryEntrySchema } from '../../schemas/library-entry';
@@ -26,6 +27,23 @@ export interface LocalLibraryRepositoryOptions {
   /** receives a LibraryStorageError when the stored document is damaged, once per reason. */
   readonly reporter: ErrorReporter;
 }
+
+// the merged entries by entry id, all of them kept per id: the caller's list may repeat a key
+const indexByEntryId = (
+  entries: readonly LibraryEntry[],
+): ReadonlyMap<string, readonly LibraryEntry[]> => {
+  const index = new Map<string, LibraryEntry[]>();
+  for (const entry of entries) {
+    const id = libraryEntryId(entry.key);
+    const same = index.get(id);
+    if (same === undefined) {
+      index.set(id, [entry]);
+    } else {
+      same.push(entry);
+    }
+  }
+  return index;
+};
 
 // runs `work` synchronously inside the call and settles with its result: a throw (a storage
 // failure, an invalid entry) rejects the promise instead of escaping the call
@@ -107,8 +125,14 @@ export const createLocalLibraryRepository = (
     removeUnchanged: (merged) =>
       settle(() => {
         const entries = read();
+        // a stored entry (enum key fields, parsed on read) is the same as a merged one only if
+        // both share their entry id, so only the merged entries of its id are compared
+        const mergedById = indexByEntryId(merged);
         const remaining = entries.filter(
-          (entry) => !merged.some((other) => isSameLibraryEntry(entry, other)),
+          (entry) =>
+            !(mergedById.get(libraryEntryId(entry.key)) ?? []).some((other) =>
+              isSameLibraryEntry(entry, other),
+            ),
         );
         if (remaining.length === entries.length) {
           return;
