@@ -387,7 +387,12 @@ On a preview build (release, Hermes) on a mid-range Android device, and on iOS i
 - A `+1` with the largest library available, to judge R-08 (the library store costs of `ARCHITECTURE.md` §6 "Performance baseline").
 
 ### R-08 Performance follow-ups (R-02)
-- Offline account library and guest store parse cost (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse on every read). Proposal: a parsed-document cache reused only while `storage.getString` returns the exact string last read or written, and one copy read per save; the persisted format unchanged. Needs the owner's approval, since it reverses the "no in-memory cache" rule (`ARCHITECTURE.md` §4, ADR-0017); then a dated Update of ADR-0017, and tests.
+- Offline account library and guest store parse cost (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse on every read). Proposal: a parsed-document cache reused only while `storage.getString` returns the exact string last read or written, and one copy read per save; the persisted format unchanged. It reverses the "no in-memory cache" rule (`ARCHITECTURE.md` §4, ADR-0017); approved by the owner on 2026-11-06, with these requirements:
+  - the cache key is the exact stored string, with one cached entry per storage key, so the cache cannot grow without bound;
+  - returned values are never shared mutable state: frozen, or copies, with a test proving that a consumer mutation cannot alter the next read;
+  - the cache is cleared by the sign-out and account deletion purge (A-06, ADR-0018), with a test;
+  - ADR-0017 gets a dated Update describing the exception: exact-string key, no staleness possible, purge on sign out;
+  - the PR reports before and after timings measured on a real device (preview build), not only on a PC.
 - The Material Symbols font on Android (`MaterialSymbols_400Regular.ttf`, about 70 % of the Android assets), pulled in by expo-router's native tabs code through `expo-symbols` / `@expo-google-fonts/material-symbols` and unused by the app's JS tabs: drop it if expo-router or `expo-symbols` offer a supported way (no resolver hack).
 - Sentry Session Replay, replay canvas and feedback modules (about 180 KB) bundled while disabled: check again with Expo tree shaking once it is stable.
 - Evaluate `zod/mini` (about 494 KB of zod v4 classic in the bundle): an API change across every schema.
