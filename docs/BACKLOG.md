@@ -399,6 +399,8 @@ On a preview build (release, Hermes) on a mid-range Android device, and on iOS i
 - Evaluate `zod/mini` (about 494 KB of zod v4 classic in the bundle): an API change across every schema.
 - A smaller Jikan cover (`small_image_url` or equivalent) for the list rows, owned by the catalog adapter (`src/core/catalog/jikan/`), with its fixtures.
 - ADR pointers to the R-02 split (R-02 review): `docs/adr/0017-offline-library-write-queue.md` (the "Interfaces" heading and the list of new members) and `docs/adr/0018-sign-out-purge-and-account-deletion.md` still place the `OfflineAccountLibraryRepository` contracts in `src/core/repositories/library-repository.ts`; they now live in `offline-account-library-repository.ts` (`ARCHITECTURE.md` §2, §4). With the owner's approval, add a dated Update line to each ADR.
+- Split `src/ui/components/Input.test.tsx` (R-03 review, 362 lines, over the ~300-line rule since before R-03): move the `on ios` / `on android` announcement tests into `Input.announce.test.tsx`, as `Chip.state.test.tsx` was split.
+- ADR pointers to R-03 (R-03 docs pass, owner approval needed to edit an ADR): ADR-0017 still gives `useLibrarySyncIssues` without `feedback` / `feedbackId` and calls the failed Discard a residual "tracked in R-03", and ADR-0018 still points the signed-out `sessionExpired` wording at R-03; both are done (`ARCHITECTURE.md` §2 "Accessibility conventions", §4 "Stuck writes notice"): add a dated Update line to each.
 
 ## Catalog fallbacks (on demand, outside the phase order)
 
