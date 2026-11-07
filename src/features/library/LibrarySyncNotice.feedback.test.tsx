@@ -108,6 +108,36 @@ describe('LibrarySyncNotice feedback', () => {
     expect(screen.getByTestId(`${TEST_ID}-message`)).toBeOnTheScreen();
   });
 
+  it('announces a second failed discard in a row again, though its message is the same', async () => {
+    const stuck = createStuckAccount(2);
+    stuck.account.discardStuckWrites
+      .mockImplementationOnce(failingDiscard)
+      .mockImplementationOnce(failingDiscard);
+    const { user } = await renderNotice(stuck);
+    const announce = spyOnAnnounce();
+
+    await discardConfirmed(user);
+    await discardConfirmed(user);
+
+    expect(screen.getByTestId(FEEDBACK_ID)).toHaveTextContent(DISCARD_FAILED);
+    expect(announce.mock.calls).toStrictEqual([[DISCARD_FAILED], [DISCARD_FAILED]]);
+  });
+
+  it('announces a second Try again in a row that found the device offline again', async () => {
+    const stuck = createStuckAccount(1);
+    stuck.account.retryStuckWrites.mockResolvedValue({ status: 'offline', confirmed: 0 });
+    const { user } = await renderNotice(stuck);
+    const announce = spyOnAnnounce();
+
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+    await settle();
+    await user.press(screen.getByRole('button', { name: 'Try again' }));
+    await settle();
+
+    expect(screen.getByTestId(FEEDBACK_ID)).toHaveTextContent(OFFLINE);
+    expect(announce.mock.calls).toStrictEqual([[OFFLINE], [OFFLINE]]);
+  });
+
   it('clears a failed discard when the next discard starts, and goes with the last stuck write', async () => {
     const stuck = createStuckAccount(2);
     stuck.account.discardStuckWrites.mockImplementationOnce(failingDiscard);

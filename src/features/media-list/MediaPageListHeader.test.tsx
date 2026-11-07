@@ -6,8 +6,8 @@ import { AccessibilityInfo } from 'react-native';
 import { renderWithProviders } from '../../../test/mobile/render-with-providers';
 import { MediaPageListHeader } from './MediaPageListHeader';
 
-// per R-03: the note of a list kept after a failed refetch is announced, once for the lists that
-// go stale together (the discover and search tabs stay mounted)
+// per R-03: the note of a list kept after a failed refetch is announced when it shows, by each
+// list (the discover and search tabs stay mounted together)
 
 const OFFLINE_NOTE = 'You are offline: this list could not be refreshed.';
 const GENERIC_NOTE = 'This list could not be refreshed.';
@@ -77,23 +77,30 @@ describe('MediaPageListHeader stale note', () => {
     expect(announce).not.toHaveBeenCalled();
   });
 
-  it('announces once for two lists going stale together, and again once both were fresh', async () => {
+  it('announces the note of each list, and once more for a list whose retry fails again', async () => {
     const announce = spyOnAnnounce();
-    const stale = (error: Error | null): HeaderSpec[] => [
-      { prefix: 'discover', staleError: error },
-      { prefix: 'search', staleError: error },
+    const lists = (searchError: Error | null): HeaderSpec[] => [
+      { prefix: 'discover', staleError: new CatalogNetworkError() },
+      { prefix: 'search', staleError: searchError },
     ];
     const { rerender } = await renderWithProviders(
-      <Headers headers={stale(new CatalogNetworkError())} />,
+      <Headers headers={lists(new CatalogNetworkError())} />,
     );
 
+    // each list's failed refetch is its own event, like its full-screen error
     expect(screen.getByTestId('discover-stale-note')).toBeOnTheScreen();
     expect(screen.getByTestId('search-stale-note')).toBeOnTheScreen();
-    expect(announce.mock.calls).toStrictEqual([[OFFLINE_NOTE]]);
+    expect(announce.mock.calls).toStrictEqual([[OFFLINE_NOTE], [OFFLINE_NOTE]]);
 
-    await rerender(<Headers headers={stale(null)} />);
-    await rerender(<Headers headers={stale(new CatalogNetworkError())} />);
-
+    // the search retry runs: its note goes, the discover one stays
+    await rerender(<Headers headers={lists(null)} />);
+    expect(screen.queryByTestId('search-stale-note')).not.toBeOnTheScreen();
+    expect(screen.getByTestId('discover-stale-note')).toBeOnTheScreen();
     expect(announce).toHaveBeenCalledTimes(2);
+
+    // it failed again: announced once more, though the discover note still shows
+    await rerender(<Headers headers={lists(new CatalogNetworkError())} />);
+    expect(screen.getByTestId('search-stale-note')).toBeOnTheScreen();
+    expect(announce.mock.calls).toStrictEqual([[OFFLINE_NOTE], [OFFLINE_NOTE], [OFFLINE_NOTE]]);
   });
 });

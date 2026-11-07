@@ -155,6 +155,40 @@ describe('useLibrarySyncIssues feedback', () => {
     expect(library.result.current.feedback).toBeNull();
   });
 
+  it('gives each feedback set a new id, the same feedback again included, shared by the hooks', async () => {
+    const { account } = createStuckAccount(2);
+    account.discardStuckWrites
+      .mockImplementationOnce(failingDiscard)
+      .mockImplementationOnce(failingDiscard);
+    account.retryStuckWrites.mockResolvedValue(OFFLINE);
+    const library = renderSyncIssues({ account });
+    const favorites = renderSyncIssues({ account });
+    expect(library.result.current.feedbackId).toBe(0);
+
+    act(() => {
+      library.result.current.discard();
+    });
+    const first = library.result.current.feedbackId;
+    act(() => {
+      favorites.result.current.discard();
+    });
+
+    // a second failed discard in a row: the same feedback, a new id
+    expect(library.result.current.feedback).toBe('discard-failed');
+    expect(library.result.current.feedbackId).toBe(first + 1);
+    expect(favorites.result.current.feedbackId).toBe(first + 1);
+
+    act(() => {
+      library.result.current.retry();
+    });
+    // cleared, the id kept until the next feedback
+    expect(library.result.current.feedback).toBeNull();
+    expect(library.result.current.feedbackId).toBe(first + 1);
+    await settle();
+    expect(favorites.result.current.feedback).toBe('offline');
+    expect(favorites.result.current.feedbackId).toBe(first + 2);
+  });
+
   it('clears an offline feedback when a discard starts, and a failed discard when a retry starts', async () => {
     const { account } = createStuckAccount(1);
     account.retryStuckWrites.mockResolvedValueOnce(OFFLINE);

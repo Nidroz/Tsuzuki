@@ -4,11 +4,12 @@ import * as ui from './index';
 
 // the public api of the design system: routes and features import from src/ui/index only
 describe('src/ui public api', () => {
-  it('exports the primitives, the pagination helpers, the announcement hook and the theme provider', () => {
+  it('exports the primitives, the pagination helpers, the announcement hook and helper, and the theme provider', () => {
     expect(Object.keys(ui).sort()).toStrictEqual(
       [
         'Box',
         'Button',
+        'announcementOf',
         'Card',
         'Chip',
         'CoverImage',

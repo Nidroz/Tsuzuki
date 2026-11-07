@@ -39,6 +39,12 @@ export interface LibrarySyncIssues {
    */
   readonly feedback: LibrarySyncFeedback | null;
   /**
+   * the identity of the feedback shown, shared by the hooks of the instance: it changes with each
+   * feedback set, the same one again included (a second failed discard in a row), so a view keyed
+   * by it shows each one as new. 0 when the live library is not an account library
+   */
+  readonly feedbackId: number;
+  /**
    * the user's Try again: sends the stuck writes again (`retryStuckWrites`). ignored while a retry
    * of the instance runs, from any hook, or when the live library is not an account library;
    * never throws
@@ -153,11 +159,11 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
     return removed;
   }, [live, latestReporter, queryClient, scope]);
 
-  const { retrying } = actions;
+  const { retrying, feedbackId } = actions;
   // a feedback stored before the count reached 0 is never shown while the effect clears it
   const feedback = stuckCount === 0 ? null : actions.feedback;
   return useMemo(
-    () => ({ stuckCount, retrying, feedback, retry, discard }),
-    [stuckCount, retrying, feedback, retry, discard],
+    () => ({ stuckCount, retrying, feedback, feedbackId, retry, discard }),
+    [stuckCount, retrying, feedback, feedbackId, retry, discard],
   );
 };

@@ -1,6 +1,6 @@
 import { View } from 'react-native';
 
-import { useAnnouncement } from './announcements';
+import { announcementOf, useAnnouncement } from './announcements';
 import { Button } from './Button';
 import type { StateAction } from './EmptyState';
 import { Text } from './Text';
@@ -16,9 +16,6 @@ export interface ErrorStateProps {
   testID?: string;
 }
 
-// voiceover pauses on a line break between the title and the message
-const ANNOUNCEMENT_SEPARATOR = '\n';
-
 /** centered error message with an optional retry, announced as an alert */
 export function ErrorState({ title, message, retry, announceKey, testID }: ErrorStateProps) {
   // the error is announced here on both platforms: an android live region stays silent when it
@@ -26,7 +23,7 @@ export function ErrorState({ title, message, retry, announceKey, testID }: Error
   // read it twice on android). the container stays non-accessible so screen readers still reach
   // the retry button
   useAnnouncement(
-    message === undefined ? title : [title, message].join(ANNOUNCEMENT_SEPARATOR),
+    announcementOf(title, message),
     announceKey === undefined ? {} : { key: announceKey },
   );
 

@@ -15,10 +15,24 @@ export interface LibrarySyncActionState {
   readonly retrying: boolean;
   /** cleared when the next retry or discard starts, or once no stuck write is left */
   readonly feedback: LibrarySyncFeedback | null;
+  /**
+   * bumped each time a feedback is set, the same one again included: each feedback is a new
+   * outcome, so a view keyed by it shows (and announces) it anew
+   */
+  readonly feedbackId: number;
 }
 
+/** the parts of the action state the actions set; feedbackId follows feedback */
+export type LibrarySyncActionChange = Partial<
+  Pick<LibrarySyncActionState, 'retrying' | 'feedback'>
+>;
+
 /** no retry running, no feedback */
-export const IDLE_SYNC_ACTIONS: LibrarySyncActionState = { retrying: false, feedback: null };
+export const IDLE_SYNC_ACTIONS: LibrarySyncActionState = {
+  retrying: false,
+  feedback: null,
+  feedbackId: 0,
+};
 
 interface SyncActionStore {
   state: LibrarySyncActionState;
@@ -59,14 +73,26 @@ export const subscribeToSyncActions = (
   };
 };
 
-/** sets part of the action state of `instance`, telling its listeners when it changed */
+/**
+ * sets part of the action state of `instance`, telling its listeners when it changed: a feedback
+ * set, even the one shown already, bumps feedbackId
+ */
 export const updateSyncActions = (
   instance: OfflineAccountLibraryRepository,
-  change: Partial<LibrarySyncActionState>,
+  change: LibrarySyncActionChange,
 ): void => {
   const store = storeOf(instance);
-  const next = { ...store.state, ...change };
-  if (next.retrying === store.state.retrying && next.feedback === store.state.feedback) {
+  const feedbackSet = change.feedback !== undefined && change.feedback !== null;
+  const next: LibrarySyncActionState = {
+    ...store.state,
+    ...change,
+    feedbackId: feedbackSet ? store.state.feedbackId + 1 : store.state.feedbackId,
+  };
+  if (
+    next.retrying === store.state.retrying &&
+    next.feedback === store.state.feedback &&
+    next.feedbackId === store.state.feedbackId
+  ) {
     return;
   }
   store.state = next;

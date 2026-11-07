@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
-import { AccessibilityInfo, Platform, TextInput, View, type TextInputProps } from 'react-native';
+import { Platform, TextInput, View, type TextInputProps } from 'react-native';
 
 import { useThemeColors } from '../theme/theme-context';
+import { useAnnouncement } from './announcements';
 import { cx } from './layout/layout-classes';
 import { Text } from './Text';
 
@@ -73,11 +73,7 @@ export function Input({
   const hasError = error !== undefined && error !== '';
 
   // android reads the error through its live region; ios has none, so it is announced here
-  useEffect(() => {
-    if (hasError && Platform.OS === 'ios') {
-      AccessibilityInfo.announceForAccessibility(error);
-    }
-  }, [hasError, error]);
+  useAnnouncement(hasError && Platform.OS === 'ios' ? error : null);
 
   return (
     <View className="gap-xs">

@@ -34,7 +34,7 @@ interface StuckWritesNoticeProps extends LibrarySyncNoticeProps {
 // later stuck write never reopens a question the user did not answer
 function StuckWritesNotice({ issues, testID }: StuckWritesNoticeProps) {
   const { t } = useTranslation();
-  const { stuckCount, retrying, feedback, retry, discard } = issues;
+  const { stuckCount, retrying, feedback, feedbackId, retry, discard } = issues;
   const [confirming, setConfirming] = useState(false);
 
   const askDiscard = useCallback(() => {
@@ -73,8 +73,11 @@ function StuckWritesNotice({ issues, testID }: StuckWritesNoticeProps) {
           testID={`${testID}-retry`}
         />
       </Notice>
+      {/* keyed by the feedback's identity: a second failed discard in a row, with the same
+          message, remounts the alert in every tab in one commit, so it is announced once more */}
       {feedback === null ? null : (
         <InlineError
+          key={feedbackId}
           message={t(FEEDBACK_KEYS[feedback])}
           announceKey={LIBRARY_SYNC_FEEDBACK_ANNOUNCE_KEY}
           testID={`${testID}-feedback`}

@@ -3,6 +3,7 @@ import { useDeleteAccount } from '@core/hooks/use-delete-account';
 import { useTranslation, type TranslationKey } from '@core/i18n/index';
 import { AUTH_PATHS, SETTINGS_PATH } from '@features/auth/auth-routes';
 import {
+  announcementOf,
   Button,
   InlineError,
   Screen,
@@ -24,9 +25,6 @@ import {
 
 const TEST_ID = 'delete-account';
 const CONFIRM_TEST_ID = `${TEST_ID}-confirm`;
-
-// voiceover pauses on a line break between the title and the message of an announcement
-const ANNOUNCEMENT_SEPARATOR = '\n';
 
 // under the root stack header, without a tab bar: the bottom and the sides need the safe area
 const EDGES: readonly ScreenEdge[] = ['bottom', 'left', 'right'];
@@ -95,7 +93,7 @@ function Deleted() {
   const router = useRouter();
   const title = t('settings.deleteAccount.deleted.title');
   const message = t('settings.deleteAccount.deleted.message');
-  useAnnouncement([title, message].join(ANNOUNCEMENT_SEPARATOR));
+  useAnnouncement(announcementOf(title, message));
   return (
     <Stack gap="lg" testID={`${TEST_ID}-deleted`}>
       <Message title={title} message={message} />

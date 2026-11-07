@@ -23,6 +23,16 @@ const registry = new Map<string, KeyedAnnouncement>();
 /** number of keys with a mounted holder, for the tests of the registry's cleanup */
 export const heldAnnouncementKeyCount = (): number => registry.size;
 
+// voiceover pauses on a line break between the title and the message of an announcement
+const ANNOUNCEMENT_SEPARATOR = '\n';
+
+/**
+ * the announcement of a state with a title and an optional message (an ErrorState, a screen
+ * replaced by its outcome): the title alone, or the title then the message after a pause
+ */
+export const announcementOf = (title: string, message?: string): string =>
+  message === undefined ? title : `${title}${ANNOUNCEMENT_SEPARATOR}${message}`;
+
 const announce = (message: string) => {
   AccessibilityInfo.announceForAccessibility(message);
 };

@@ -3,7 +3,7 @@ import { cleanup, render } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 import { renderWithTheme } from '../../../test/mobile/render-with-theme';
-import { heldAnnouncementKeyCount, useAnnouncement } from './announcements';
+import { announcementOf, heldAnnouncementKeyCount, useAnnouncement } from './announcements';
 import { ErrorState } from './ErrorState';
 import { InlineError } from './InlineError';
 import { Notice } from './Notice';
@@ -266,5 +266,12 @@ describe('useAnnouncement', () => {
       expect(announce).toHaveBeenCalledTimes(3);
       expect(heldAnnouncementKeyCount()).toBe(2);
     });
+  });
+});
+
+describe('announcementOf', () => {
+  it('is the title alone without a message, else the title and the message on two lines', () => {
+    expect(announcementOf('Something went wrong')).toBe('Something went wrong');
+    expect(announcementOf('Something went wrong', MESSAGE)).toBe(FULL_MESSAGE);
   });
 });

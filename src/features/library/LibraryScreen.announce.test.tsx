@@ -222,6 +222,36 @@ describe('library announcements across the mounted views (R-03)', () => {
     expect(announce).toHaveBeenCalledTimes(1);
   });
 
+  it('announces each failure of two in a row once for both tabs: discards, then offline retries', async () => {
+    const stuck = createStuckAccount(2);
+    stuck.account.discardStuckWrites.mockImplementation(() => {
+      throw new Error('storage failed');
+    });
+    stuck.account.retryStuckWrites.mockResolvedValue({ status: 'offline', confirmed: 0 });
+    const user = await renderBothNotices(stuck);
+    const announce = spyOnAnnounce();
+    // a failed discard from each tab, in a row
+    for (const tab of ['library-sync', 'favorites-sync']) {
+      await user.press(
+        within(screen.getByTestId(tab)).getByRole('button', { name: DISCARD_LABEL }),
+      );
+      await user.press(screen.getByTestId(`${tab}-discard-sheet-confirm`));
+    }
+    expect(announce.mock.calls).toStrictEqual([
+      [DISCARD_FAILED_FEEDBACK],
+      [DISCARD_FAILED_FEEDBACK],
+    ]);
+
+    announce.mockClear();
+    for (const tab of ['favorites-sync', 'library-sync']) {
+      await user.press(within(screen.getByTestId(tab)).getByRole('button', { name: 'Try again' }));
+      await settle();
+    }
+    expect(screen.getByTestId('library-sync-feedback')).toHaveTextContent(OFFLINE_FEEDBACK);
+    expect(screen.getByTestId('favorites-sync-feedback')).toHaveTextContent(OFFLINE_FEEDBACK);
+    expect(announce.mock.calls).toStrictEqual([[OFFLINE_FEEDBACK], [OFFLINE_FEEDBACK]]);
+  });
+
   it('shares the retry: one started on a tab disables Discard and starts no other on the other tab', async () => {
     const stuck = createStuckAccount(2);
     const run = createDeferred<LibraryReplayRun>();

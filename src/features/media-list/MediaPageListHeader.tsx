@@ -2,12 +2,6 @@ import { CatalogNetworkError } from '@core/errors/catalog-errors';
 import { useTranslation } from '@core/i18n/index';
 import { Button, Row, Spinner, Stack, Text, useAnnouncement } from '@ui/index';
 
-/**
- * the announcement key of the stale note: the discover and search lists stay mounted together,
- * so two lists going stale at once (offline) announce it once
- */
-export const STALE_NOTE_ANNOUNCE_KEY = 'media-list-stale-note';
-
 /** a network error is most likely the device being offline */
 export const isOffline = (error: Error): boolean => error instanceof CatalogNetworkError;
 
@@ -18,11 +12,13 @@ interface StaleNoteProps {
   testID: string;
 }
 
-// a component of its own: its text is announced while it shows only
+// a component of its own: its text is announced while it shows only. no announcement key: like
+// the list's full-screen ErrorState, each list's failed refetch is its own event, so a list whose
+// retry fails again announces its note again while another list's note still shows
 function StaleNote({ error, onRetry, testID }: StaleNoteProps) {
   const { t } = useTranslation();
   const note = isOffline(error) ? t('mediaList.stale.offline') : t('mediaList.stale.generic');
-  useAnnouncement(note, { key: STALE_NOTE_ANNOUNCE_KEY });
+  useAnnouncement(note);
   return (
     <Row gap="sm" wrap testID={testID}>
       <Text variant="caption" tone="muted">
