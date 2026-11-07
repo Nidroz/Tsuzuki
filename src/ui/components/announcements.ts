@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo } from 'react-native';
 
 export interface AnnouncementOptions {
@@ -27,13 +27,21 @@ const announce = (message: string) => {
   AccessibilityInfo.announceForAccessibility(message);
 };
 
-const hold = (key: string, holder: symbol, message: string | null) => {
+// a holder that starts showing a message (on mount, or after null) joins a state another view
+// may show already, maybe worded differently (an ErrorState's title and message, an InlineError's
+// message): it announces only when no other holder of the key shows one. a holder whose message
+// changes from one to another reports a change of the state: it announces unless another holder
+// announced the same message already, so views changing together announce it once
+const hold = (key: string, holder: symbol, message: string | null, wasShowing: boolean) => {
   const entry = registry.get(key) ?? { holders: new Map(), lastAnnounced: null };
   registry.set(key, entry);
+  const othersShowing = [...entry.holders.values()].some((shown) => shown !== null);
   entry.holders.set(holder, message);
-  // a holder joining or changing with the message already announced for the key stays silent:
-  // two views showing the same state, or changing together, announce it once
-  if (message !== null && message !== entry.lastAnnounced) {
+  if (message === null) {
+    return;
+  }
+  const news = wasShowing ? message !== entry.lastAnnounced : !othersShowing;
+  if (news) {
     entry.lastAnnounced = message;
     announce(message);
   }
@@ -48,11 +56,6 @@ const release = (key: string, holder: symbol) => {
   if (entry.holders.size === 0) {
     // forgotten: a later mount announces again
     registry.delete(key);
-    return;
-  }
-  // the state ended in every remaining view: showing the same message again is news
-  if ([...entry.holders.values()].every((message) => message === null)) {
-    entry.lastAnnounced = null;
   }
 };
 
@@ -65,18 +68,23 @@ export function useAnnouncement(message: string | null, options: AnnouncementOpt
   const { key } = options;
   // a stable identity of this holder among the holders of its key
   const [holder] = useState(() => Symbol('announcement holder'));
+  // the key this holder showed a message under at its last hold, null when it showed none: the
+  // cleanup releases the holder before its next hold, so the registry cannot tell
+  const shownUnderRef = useRef<string | null>(null);
 
   // the cleanup releases the previous message before the next one is held: react runs every
   // cleanup of a commit before its effects, so holders changing together see each other's new
   // message only, and the first of them announces it
   useEffect(() => {
     if (key === undefined) {
+      shownUnderRef.current = null;
       if (message !== null) {
         announce(message);
       }
       return undefined;
     }
-    hold(key, holder, message);
+    hold(key, holder, message, shownUnderRef.current === key);
+    shownUnderRef.current = message === null ? null : key;
     return () => {
       release(key, holder);
     };

@@ -6,6 +6,8 @@ import { heldAnnouncementKeyCount, useAnnouncement } from './announcements';
 
 const MESSAGE = 'Your guest titles could not be merged.';
 const OTHER_MESSAGE = '2 changes could not be synced.';
+const FULL_MESSAGE = `Something went wrong
+${MESSAGE}`;
 const KEY = 'guest-merge';
 const OTHER_KEY = 'sync-issues';
 
@@ -125,6 +127,25 @@ describe('useAnnouncement', () => {
       await rerender(
         <Holders holders={[first(MESSAGE), second(MESSAGE), { ...first(MESSAGE), id: 'third' }]} />,
       );
+
+      expect(announce).toHaveBeenCalledTimes(1);
+    });
+
+    it('stays silent for a holder mounting while another shows the state in other words', async () => {
+      const announce = spyOnAnnounce();
+      // e.g. an ErrorState's title and message in the tabs, an InlineError's message on the detail
+      const { rerender } = await render(<Holders holders={[first(FULL_MESSAGE)]} />);
+
+      expect(announce).toHaveBeenCalledTimes(1);
+      expect(announce).toHaveBeenLastCalledWith(FULL_MESSAGE);
+
+      await rerender(<Holders holders={[first(FULL_MESSAGE), second(MESSAGE)]} />);
+
+      expect(announce).toHaveBeenCalledTimes(1);
+
+      // a holder going from null to the state in other words stays silent too
+      await rerender(<Holders holders={[first(FULL_MESSAGE), second(null)]} />);
+      await rerender(<Holders holders={[first(FULL_MESSAGE), second(MESSAGE)]} />);
 
       expect(announce).toHaveBeenCalledTimes(1);
     });
