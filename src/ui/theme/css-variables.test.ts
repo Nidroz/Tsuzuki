@@ -10,6 +10,7 @@ describe('colorClassKey', () => {
     ['textMuted', 'text-muted'],
     ['onPrimary', 'on-primary'],
     ['onDanger', 'on-danger'],
+    ['scrim', 'scrim'],
   ])('turns %s into %s', (token, key) => {
     expect(colorClassKey(token)).toBe(key);
   });

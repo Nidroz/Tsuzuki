@@ -1,7 +1,11 @@
 // semantic color tokens, one palette per color scheme. contrast ratios (WCAG 2.1) were checked for
 // both palettes: text, textMuted, primary and danger reach AA (4.5:1) on background, surface and
 // surfaceMuted; onPrimary on primary and onDanger on danger reach AA; border and focus reach the
-// 3:1 of non-text UI components (input boundaries, focus ring) on every surface
+// 3:1 of non-text UI components (input boundaries, focus ring) on every surface.
+// scrim dims the screen behind a sheet, drawn at the scrim opacity (sizes.ts): the sheet's edge (a
+// surface panel with a border top edge) reaches 3:1 against any surface dimmed by it. light: the
+// white panel against the dimmed background, surface and surfaceMuted, 4.12, 3.98 and 4.28:1;
+// dark: the border against the same, 4.33, 4.12 and 3.86:1
 export const COLOR_TOKENS = [
   'background',
   'surface',
@@ -14,6 +18,7 @@ export const COLOR_TOKENS = [
   'danger',
   'onDanger',
   'focus',
+  'scrim',
 ] as const;
 
 export type ColorToken = (typeof COLOR_TOKENS)[number];
@@ -35,6 +40,7 @@ const light: Palette = {
   danger: '#B91C1C',
   onDanger: '#FFFFFF',
   focus: '#2563EB',
+  scrim: '#000000',
 };
 
 const dark: Palette = {
@@ -49,6 +55,7 @@ const dark: Palette = {
   danger: '#FCA5A5',
   onDanger: '#450A0A',
   focus: '#60A5FA',
+  scrim: '#000000',
 };
 
 export const palettes: Readonly<Record<ColorScheme, Palette>> = { light, dark };
