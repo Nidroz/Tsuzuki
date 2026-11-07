@@ -63,8 +63,9 @@ describe('FiltersSheet', () => {
 
     expect(screen.getByRole('header', { name: 'Filters' })).toBeOnTheScreen();
     expect(button('Close the filters without applying them')).toBeOnTheScreen();
+    // each section title is a heading screen readers jump between
     for (const title of ['Format', 'Genres', 'Status', 'Minimum score', 'Sort by']) {
-      expect(screen.getByText(title)).toBeOnTheScreen();
+      expect(screen.getByRole('header', { name: title })).toBeOnTheScreen();
     }
     expect(yearField()).toHaveAccessibleName('From year');
     expect(button('Reset')).toBeEnabled();
@@ -85,7 +86,23 @@ describe('FiltersSheet', () => {
     expect(radio('Movie')).toBeChecked();
     expect(radio('Score 8 or more')).toBeChecked();
     expect(radio('Relevance')).toBeChecked();
+    expect(screen.getByTestId('filters-format-none')).not.toBeChecked();
     expect(yearField()).toHaveProp('value', '2010');
+  });
+
+  it('clears an applied section with its Any chip, a tap on the checked chip keeping it', async () => {
+    const { onApply, user } = await renderSheet({ filters: APPLIED });
+
+    await user.press(radio('Score 8 or more'));
+    await user.press(screen.getByTestId('filters-format-none'));
+
+    expect(screen.getByTestId('filters-format-none')).toBeChecked();
+    expect(radio('Movie')).not.toBeChecked();
+    expect(radio('Score 8 or more')).toBeChecked();
+
+    await user.press(applyButton());
+
+    expect(onApply).toHaveBeenCalledWith({ ...APPLIED, format: null });
   });
 
   it('FR-03: applies every edited section at once, then closes', async () => {
@@ -147,6 +164,8 @@ describe('FiltersSheet', () => {
     await user.press(button('Reset'));
 
     expect(radio('Movie')).not.toBeChecked();
+    expect(screen.getByTestId('filters-format-none')).toBeChecked();
+    expect(screen.getByTestId('filters-min-score-none')).toBeChecked();
     expect(button('Action, not filtered')).toBeOnTheScreen();
     expect(radio('Relevance')).toBeChecked();
     expect(yearField()).toHaveProp('value', '');

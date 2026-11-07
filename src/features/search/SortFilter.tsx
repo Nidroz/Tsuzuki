@@ -40,7 +40,7 @@ export function SortFilter({ sort, onFieldChange, onDirectionChange }: SortFilte
     () => SORT_DIRECTIONS.map((value) => ({ value, label: t(DIRECTION_KEYS[value]) })),
     [t],
   );
-  // the direction chips are not deselectable: they never give null
+  // the direction section has no none chip: it never gives null
   const changeDirection = useCallback(
     (direction: SortDirection | null) => {
       if (direction !== null) {
@@ -57,7 +57,6 @@ export function SortFilter({ sort, onFieldChange, onDirectionChange }: SortFilte
         options={fields}
         value={sort?.field ?? null}
         onChange={onFieldChange}
-        deselectable={false}
         noneLabel={t('search.filters.sort.relevance')}
         testID="filters-sort"
       />
@@ -67,7 +66,6 @@ export function SortFilter({ sort, onFieldChange, onDirectionChange }: SortFilte
           options={directions}
           value={sort.direction}
           onChange={changeDirection}
-          deselectable={false}
           testID="filters-sort-direction"
         />
       )}

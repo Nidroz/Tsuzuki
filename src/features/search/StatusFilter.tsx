@@ -28,7 +28,7 @@ export function StatusFilter({ kind, status, onChange }: StatusFilterProps) {
       options={options}
       value={status}
       onChange={onChange}
-      deselectable
+      noneLabel={t('search.filters.any')}
       testID="filters-status"
     />
   );

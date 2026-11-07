@@ -62,20 +62,23 @@ describe('GenresFilter', () => {
     await renderGenres({ getGenres: () => new Promise(() => undefined) });
 
     expect(screen.getByRole('progressbar', { name: 'Loading genres' })).toBeOnTheScreen();
-    expect(screen.getByText('Genres')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Genres' })).toBeOnTheScreen();
   });
 
-  it('shows a chip per genre of the kind, each named with its state', async () => {
+  it('shows a chip per genre of the kind, each named with its state and no selected state', async () => {
     const { provider } = await renderGenres({
       filters: { ...EMPTY_SEARCH_FILTERS, genresIncluded: [1], genresExcluded: [2] },
     });
 
     expect(provider.getGenres).toHaveBeenCalledWith('anime', expect.any(AbortSignal));
-    expect(screen.getByRole('button', { name: 'Action, included' })).toBeSelected();
+    const included = screen.getByRole('button', { name: 'Action, included' });
     const excluded = screen.getByRole('button', { name: 'Adventure, excluded' });
-    expect(excluded).not.toBeSelected();
+    const neutral = screen.getByRole('button', { name: 'Comedy, not filtered' });
     expect(excluded).toHaveTextContent(/Adventure/);
-    expect(screen.getByRole('button', { name: 'Comedy, not filtered' })).not.toBeSelected();
+    // the label names the state: a selected state would announce it twice
+    for (const chip of [included, excluded, neutral]) {
+      expect(chip).toHaveProp('accessibilityState', { disabled: false });
+    }
   });
 
   it('cycles the pressed genre', async () => {
@@ -106,7 +109,7 @@ describe('GenresFilter', () => {
       },
     });
 
-    expect(screen.getByRole('button', { name: 'Hentai, included' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Hentai, included' })).toBeOnTheScreen();
     expect(screen.getByRole('button', { name: 'Erotica, excluded' })).toBeOnTheScreen();
   });
 

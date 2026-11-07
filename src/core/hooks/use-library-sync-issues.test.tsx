@@ -197,7 +197,10 @@ describe('useLibrarySyncIssues on the live account library', () => {
     });
     const { result, invalidate, captureError } = renderSyncIssues({ account });
 
-    expect(result.current.discard()).toBe(0);
+    // the failed discard sets the shared feedback: a state update
+    act(() => {
+      expect(result.current.discard()).toBe(0);
+    });
 
     expect(captureError.mock.calls).toStrictEqual([
       [failure, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE }],

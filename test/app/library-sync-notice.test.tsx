@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { act, userEvent, within } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
+import { AccessibilityInfo } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
 import { STORAGE_INSTANCE_ID } from '@platform/storage';
 
@@ -164,5 +165,26 @@ describe('root layout stuck writes notice (A-10)', () => {
       exact: false,
     });
     expect(firstAccount().replayWrites).not.toHaveBeenCalled();
+  });
+
+  it('announces the notice once for the library and favorites tabs, mounted together (R-03)', async () => {
+    // the react native jest preset mocks it: its calls survive restoreMocks
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    announce.mockClear();
+    await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
+    await reportSession(USER_A);
+    await settle();
+    await screen.findByTestId(ROW_TEST_ID);
+
+    expect(announce.mock.calls.filter(([message]) => message === NOTICE_TEXT)).toHaveLength(1);
+
+    const user = userEvent.setup();
+    await user.press(screen.getByTestId('tab-favorites'));
+    await settle();
+
+    expect(screen.getByTestId('favorites-sync')).toBeOnTheScreen();
+    // the library tab stays mounted, hidden from screen readers while unfocused
+    expect(screen.getByTestId('library-sync', { includeHiddenElements: true })).toBeOnTheScreen();
+    expect(announce.mock.calls.filter(([message]) => message === NOTICE_TEXT)).toHaveLength(1);
   });
 });

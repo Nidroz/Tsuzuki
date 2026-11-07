@@ -14,7 +14,7 @@ export interface FormatFilterProps {
   onChange: (format: SearchableMediaFormat | null) => void;
 }
 
-/** the format section of the filters sheet: one chip per searchable format of the kind */
+/** the format section of the filters sheet: "Any", then one chip per searchable format of the kind */
 export function FormatFilter({ kind, format, onChange }: FormatFilterProps) {
   const { t } = useTranslation();
   const options = useMemo<readonly FilterChoiceOption<SearchableMediaFormat>[]>(
@@ -29,7 +29,7 @@ export function FormatFilter({ kind, format, onChange }: FormatFilterProps) {
       options={options}
       value={format}
       onChange={onChange}
-      deselectable
+      noneLabel={t('search.filters.any')}
       testID="filters-format"
     />
   );

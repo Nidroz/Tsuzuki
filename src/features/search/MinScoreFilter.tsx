@@ -31,7 +31,7 @@ export function MinScoreFilter({ minScore, onChange }: MinScoreFilterProps) {
       options={options}
       value={minScore}
       onChange={onChange}
-      deselectable
+      noneLabel={t('search.filters.any')}
       testID="filters-min-score"
     />
   );

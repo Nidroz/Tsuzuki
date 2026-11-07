@@ -1,9 +1,15 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
 import { queryKeys } from '../query/keys';
-import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import { useSessionLibrary } from './session-library-context';
+import {
+  IDLE_SYNC_ACTIONS,
+  subscribeToSyncActions,
+  syncActionsOf,
+  updateSyncActions,
+  type LibrarySyncFeedback,
+} from './library-sync-actions';
 import { useDevicePurgeContext } from './use-device-purge';
 import { useLatest } from './use-latest';
 import { useLibraryContext } from './use-library-context';
@@ -14,21 +20,35 @@ import { useLibraryContext } from './use-library-context';
  */
 export const LIBRARY_SYNC_ISSUES_REPORT_SOURCE = 'library-sync-issues';
 
+export type { LibrarySyncFeedback } from './library-sync-actions';
+
 /** the stuck writes of the live account library and the user's ways out (ADR-0017 "Stuck writes") */
 export interface LibrarySyncIssues {
   /** the stuck writes of the live account library now; 0 when the live library is not one */
   readonly stuckCount: number;
-  /** true while a retry of the live account library runs */
+  /**
+   * true while a retry of the live account library runs, started by any hook of that instance
+   * (the library and favorites tabs share it)
+   */
   readonly retrying: boolean;
   /**
+   * what the last Try again or Discard on the instance could not do, shared by its hooks:
+   * `offline` after a retry run that ended offline, `discard-failed` after a discard whose
+   * storage failed. cleared when the next retry or discard starts, and with the last stuck write;
+   * null when the live library is not an account library
+   */
+  readonly feedback: LibrarySyncFeedback | null;
+  /**
    * the user's Try again: sends the stuck writes again (`retryStuckWrites`). ignored while a retry
-   * runs or when the live library is not an account library; never throws
+   * of the instance runs, from any hook, or when the live library is not an account library;
+   * never throws
    */
   readonly retry: () => void;
   /**
    * the user's Discard, once confirmed: removes the writes stuck now (`discardStuckWrites`) and
    * refetches the library, so the views show the server state. returns how many it removed: 0
-   * when the live library is not an account library, or when the storage failed (reported)
+   * when the live library is not an account library, or when the storage failed (reported, and
+   * the `discard-failed` feedback)
    */
   readonly discard: () => number;
 }
@@ -43,7 +63,9 @@ const noStuckWrite = (): number => 0;
  * no stuck write, the actions do nothing). the count is read with `stuckWriteCount()` and follows
  * `subscribeToSyncState`. after a retry run that confirmed writes, and after a discard that
  * removed some, the live library scope is invalidated (non-exact, as LibraryReplayDriver does), so
- * the list and the entries refetch. a retry that rejects, or a discard that throws, goes to the
+ * the list and the entries refetch. the running retry and the feedback of the last action are
+ * kept per instance (library-sync-actions), shared by every hook of it: the tabs mounted together
+ * show one retry and one feedback. a retry that rejects, or a discard that throws, goes to the
  * reporter of the DevicePurgeContextProvider with LIBRARY_SYNC_ISSUES_REPORT_SOURCE. throws
  * outside SessionLibraryContextProvider, LibraryContextProvider, DevicePurgeContextProvider or the
  * query client provider
@@ -68,33 +90,44 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
   );
   const stuckCount = useSyncExternalStore(subscribe, getSnapshot);
 
-  // the instance whose retry runs: a retry of another instance never shows as pending
-  const [retryingFor, setRetryingFor] = useState<OfflineAccountLibraryRepository | null>(null);
-  // set synchronously, so two taps of one frame start one retry
-  const inFlightRef = useRef<OfflineAccountLibraryRepository | null>(null);
+  const subscribeToActions = useCallback(
+    (listener: () => void) =>
+      live === null ? subscribeToNothing() : subscribeToSyncActions(live, listener),
+    [live],
+  );
+  const getActions = useCallback(
+    () => (live === null ? IDLE_SYNC_ACTIONS : syncActionsOf(live)),
+    [live],
+  );
+  const actions = useSyncExternalStore(subscribeToActions, getActions);
+
+  // the feedback of an action goes with the last stuck write: a later stuck write never shows it
+  useEffect(() => {
+    if (live !== null && stuckCount === 0) {
+      updateSyncActions(live, { feedback: null });
+    }
+  }, [live, stuckCount]);
 
   const retry = useCallback(() => {
-    if (live === null || inFlightRef.current === live) {
+    // the shared state is set synchronously, so two taps of one frame, or one per tab, start one
+    // retry
+    if (live === null || syncActionsOf(live).retrying) {
       return;
     }
-    inFlightRef.current = live;
-    setRetryingFor(live);
-    const settle = (): void => {
-      if (inFlightRef.current === live) {
-        inFlightRef.current = null;
-      }
-      setRetryingFor((current) => (current === live ? null : current));
-    };
+    updateSyncActions(live, { retrying: true, feedback: null });
     live.retryStuckWrites().then(
       (run) => {
-        settle();
+        updateSyncActions(live, {
+          retrying: false,
+          ...(run.status === 'offline' && { feedback: 'offline' }),
+        });
         // kept writes too: the server holds a newer copy the views have not read yet
         if (run.confirmed > 0 && latestLive.current === live) {
           void queryClient.invalidateQueries({ queryKey: queryKeys.library.all(scope) });
         }
       },
       (error: unknown) => {
-        settle();
+        updateSyncActions(live, { retrying: false });
         latestReporter.current.captureError(error, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE });
       },
     );
@@ -104,12 +137,14 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
     if (live === null) {
       return 0;
     }
+    updateSyncActions(live, { feedback: null });
     let removed: number;
     try {
       removed = live.discardStuckWrites();
     } catch (error) {
-      // the notice stays, with the count read from the device
+      // the notice stays, with the count read from the device, and says the discard failed
       latestReporter.current.captureError(error, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE });
+      updateSyncActions(live, { feedback: 'discard-failed' });
       return 0;
     }
     if (removed > 0) {
@@ -118,9 +153,11 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
     return removed;
   }, [live, latestReporter, queryClient, scope]);
 
-  const retrying = live !== null && retryingFor === live;
+  const { retrying } = actions;
+  // a feedback stored before the count reached 0 is never shown while the effect clears it
+  const feedback = stuckCount === 0 ? null : actions.feedback;
   return useMemo(
-    () => ({ stuckCount, retrying, retry, discard }),
-    [stuckCount, retrying, retry, discard],
+    () => ({ stuckCount, retrying, feedback, retry, discard }),
+    [stuckCount, retrying, feedback, retry, discard],
   );
 };

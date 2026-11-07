@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, Screen, Spinner, Stack, Text, type ScreenEdge }
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
+import { GUEST_MERGE_FAILED_ANNOUNCE_KEY } from './announce-keys';
 import { LibraryList } from './LibraryList';
 import { LibrarySyncNotice } from './LibrarySyncNotice';
 
@@ -107,12 +108,14 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
       </Stack>
     );
   } else if (merge.status === 'failed') {
-    // still the pending library: the account may lack a guest entry, so nothing to list or write
+    // still the pending library: the account may lack a guest entry, so nothing to list or write.
+    // announced once with the other tab and the detail, which show it too
     content = (
       <ErrorState
         title={t('library.merge.failedTitle')}
         message={t('library.merge.failed')}
         retry={{ label: t('library.merge.retry'), onPress: merge.retry }}
+        announceKey={GUEST_MERGE_FAILED_ANNOUNCE_KEY}
         testID={`${testID}-merge-error`}
       />
     );

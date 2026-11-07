@@ -69,12 +69,10 @@ function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
         accessibilityHint={t('mediaList.openHint')}
         trailing={
           <Row gap="xs">
+            {/* a two-state toggle: a fixed label, its state told by selected only */}
             <IconButton
               icon={entry.isFavorite ? 'favorite' : 'favorite-outline'}
-              accessibilityLabel={t(
-                entry.isFavorite ? 'library.list.favorite.remove' : 'library.list.favorite.add',
-                { title },
-              )}
+              accessibilityLabel={t('library.list.favorite', { title })}
               onPress={toggleFavorite}
               selected={entry.isFavorite}
               testID={`${testID}-favorite`}

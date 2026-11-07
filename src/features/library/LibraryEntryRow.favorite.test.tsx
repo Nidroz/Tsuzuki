@@ -25,8 +25,8 @@ jest.mock('expo-router', () => ({
 
 const WRITE_FAILURE = new Error('storage is full');
 const FRIEREN_HEART = `${libraryEntryTestID(FRIEREN.key)}-favorite`;
-const ADD_FAVORITE = 'Add Sousou no Frieren to favorites';
-const REMOVE_FAVORITE = 'Remove Sousou no Frieren from favorites';
+// a two-state toggle: a fixed label naming the title, its state told by selected only
+const FAVORITE = 'Favorite: Sousou no Frieren';
 const HEADERS_AND_TITLES =
   /^(?:(?:In progress|Planned|Completed) \(\d+\)|Sousou no Frieren|Berserk|Monster|Mushishi)$/u;
 
@@ -38,7 +38,7 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
     await settle();
     const shownFirst = textsInListOrder(HEADERS_AND_TITLES);
 
-    expect(heart()).toHaveAccessibleName(ADD_FAVORITE);
+    expect(heart()).toHaveAccessibleName(FAVORITE);
     expect(heart()).not.toBeSelected();
 
     await user.press(heart());
@@ -50,15 +50,16 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
       progress: FRIEREN.progress,
       media: FRIEREN.media,
     });
-    expect(heart()).toHaveAccessibleName(REMOVE_FAVORITE);
+    expect(heart()).toHaveAccessibleName(FAVORITE);
     expect(heart()).toBeSelected();
     expect(textsInListOrder(HEADERS_AND_TITLES)).toStrictEqual(shownFirst);
 
-    await user.press(screen.getByRole('button', { name: REMOVE_FAVORITE }));
+    await user.press(screen.getByRole('button', { name: FAVORITE }));
     await settle();
 
     expect(repository.stored(FRIEREN.key)).toMatchObject({ isFavorite: false });
-    expect(heart()).toHaveAccessibleName(ADD_FAVORITE);
+    expect(heart()).toHaveAccessibleName(FAVORITE);
+    expect(heart()).not.toBeSelected();
     expect(textsInListOrder(HEADERS_AND_TITLES)).toStrictEqual(shownFirst);
     expect(repository.save).toHaveBeenCalledTimes(2);
   });
@@ -69,7 +70,7 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
     });
     await settle();
 
-    expect(screen.getByRole('button', { name: 'Remove Monster from favorites' })).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Favorite: Monster' })).toBeSelected();
   });
 
   it('shows a failed toggle under its row, and the stored value again', async () => {
@@ -88,8 +89,9 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
       { exact: false },
     );
     await waitFor(() => {
-      expect(heart()).toHaveAccessibleName(ADD_FAVORITE);
+      expect(heart()).not.toBeSelected();
     });
+    expect(heart()).toHaveAccessibleName(FAVORITE);
   });
 
   it('names the heart in french', async () => {
@@ -99,6 +101,6 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
     });
     await settle();
 
-    expect(heart()).toHaveAccessibleName('Ajouter Sousou no Frieren aux favoris');
+    expect(heart()).toHaveAccessibleName('Favori : Sousou no Frieren');
   });
 });

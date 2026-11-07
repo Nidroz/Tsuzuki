@@ -12,8 +12,26 @@ export const ACCOUNT_DELETION_ERROR_KEYS = {
   unknown: 'settings.deleteAccount.errors.unknown',
 } as const satisfies Record<AccountDeletionErrorReason, TranslationKey>;
 
+/**
+ * the keys of the signed-out state, where the user is signed out already: an ended session says
+ * the deletion may not have happened and to sign in to check, instead of asking to sign out
+ */
+export const SIGNED_OUT_ACCOUNT_DELETION_ERROR_KEYS = {
+  ...ACCOUNT_DELETION_ERROR_KEYS,
+  'session-expired': 'settings.deleteAccount.signedOut.sessionExpired',
+} as const satisfies Record<AccountDeletionErrorReason, TranslationKey>;
+
+const reasonOf = (error: unknown): AccountDeletionErrorReason =>
+  isAccountDeletionError(error) ? error.reason : 'unknown';
+
 /** the translation key of a failed account deletion; anything else than an AccountDeletionError reads as `unknown` */
 export const accountDeletionErrorKey = (
   error: unknown,
 ): (typeof ACCOUNT_DELETION_ERROR_KEYS)[AccountDeletionErrorReason] =>
-  ACCOUNT_DELETION_ERROR_KEYS[isAccountDeletionError(error) ? error.reason : 'unknown'];
+  ACCOUNT_DELETION_ERROR_KEYS[reasonOf(error)];
+
+/** the translation key of a failed account deletion shown in the signed-out state */
+export const signedOutAccountDeletionErrorKey = (
+  error: unknown,
+): (typeof SIGNED_OUT_ACCOUNT_DELETION_ERROR_KEYS)[AccountDeletionErrorReason] =>
+  SIGNED_OUT_ACCOUNT_DELETION_ERROR_KEYS[reasonOf(error)];

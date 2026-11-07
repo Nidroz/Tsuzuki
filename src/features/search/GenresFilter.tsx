@@ -35,12 +35,15 @@ const GenreChip = memo(function GenreChip({ genre, state, onCycle }: GenreChipPr
     onCycle(genre.id);
   }, [onCycle, genre.id]);
 
+  // three states: the label names the state ("Action, included"), so the chip sets no selected
+  // state, which would announce it twice
   return (
     <Chip
       label={genre.name}
       accessibilityLabel={t(STATE_KEYS[state], { name: genre.name })}
       selected={state === 'included'}
       excluded={state === 'excluded'}
+      stateInLabel
       onPress={cycle}
       testID={`filters-genre-${String(genre.id)}`}
     />
@@ -151,7 +154,9 @@ export function GenresFilter({
 
   return (
     <Stack gap="sm" testID="filters-genres">
-      <Text variant="subtitle">{t('search.filters.genres.title')}</Text>
+      <Text variant="subtitle" heading>
+        {t('search.filters.genres.title')}
+      </Text>
       {content()}
     </Stack>
   );

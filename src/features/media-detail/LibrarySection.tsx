@@ -5,6 +5,7 @@ import { useGuestMerge } from '@core/hooks/use-guest-merge';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
 import { useTranslation } from '@core/i18n/index';
+import { GUEST_MERGE_FAILED_ANNOUNCE_KEY } from '@features/library/announce-keys';
 import { Button, IconButton, InlineError, Row, Spinner, Stack, Text } from '@ui/index';
 import { useCallback, type ReactNode } from 'react';
 
@@ -64,6 +65,7 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
       <InlineError
         message={t('library.merge.failed')}
         action={{ label: t('library.merge.retry'), onPress: merge.retry }}
+        announceKey={GUEST_MERGE_FAILED_ANNOUNCE_KEY}
         testID={`${TEST_ID}-merge-error`}
       />
     );
@@ -112,13 +114,10 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
           </Text>
         </Stack>
         {data === undefined || isMergeUnfinished ? null : (
+          // a two-state toggle: a fixed label, its state told by selected only
           <IconButton
             icon={isFavorite ? 'favorite' : 'favorite-outline'}
-            accessibilityLabel={t(
-              isFavorite
-                ? 'mediaDetail.library.favorite.remove'
-                : 'mediaDetail.library.favorite.add',
-            )}
+            accessibilityLabel={t('mediaDetail.library.favorite')}
             onPress={actions.toggleFavorite}
             selected={isFavorite}
             testID={`${TEST_ID}-favorite`}
