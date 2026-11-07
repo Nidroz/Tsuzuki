@@ -4,7 +4,7 @@ import * as ui from './index';
 
 // the public api of the design system: routes and features import from src/ui/index only
 describe('src/ui public api', () => {
-  it('exports the primitives, the pagination helpers and the theme provider', () => {
+  it('exports the primitives, the pagination helpers, the announcement hook and the theme provider', () => {
     expect(Object.keys(ui).sort()).toStrictEqual(
       [
         'Box',
@@ -38,6 +38,7 @@ describe('src/ui public api', () => {
         'clampPage',
         'pageWindow',
         'parsePageInput',
+        'useAnnouncement',
       ].sort(),
     );
   });
@@ -50,5 +51,6 @@ describe('src/ui public api', () => {
     expect(ui).not.toHaveProperty('TAB_GLYPHS');
     expect(ui).not.toHaveProperty('PADDING');
     expect(ui).not.toHaveProperty('coverSizes');
+    expect(ui).not.toHaveProperty('heldAnnouncementKeyCount');
   });
 });

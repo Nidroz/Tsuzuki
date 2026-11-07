@@ -1,5 +1,7 @@
 // public api of the design system: routes and features import from here only
 
+export { useAnnouncement } from './components/announcements';
+export type { AnnouncementOptions } from './components/announcements';
 export { Box } from './components/Box';
 export type { BoxProps } from './components/Box';
 export { Button } from './components/Button';

@@ -12,6 +12,7 @@ const MESSAGE = 'Check your connection';
 const OTHER_MESSAGE = 'Try again in a moment';
 const RETRY_LABEL = 'Try again';
 const TEST_ID = 'error-state';
+const ANNOUNCE_KEY = 'guest-merge-failed';
 
 // the react native jest preset already mocks announceForAccessibility: spyOn hands back that shared
 // mock, whose calls survive restoreMocks, so they are cleared here
@@ -139,5 +140,30 @@ describe('ErrorState', () => {
       expect(screen.getByTestId(TEST_ID)).not.toHaveProp('accessible', true);
       expect(screen.getByRole('button', { name: RETRY_LABEL })).toBeOnTheScreen();
     });
+  });
+
+  // the library tab, the favorites tab and the detail screen can show the same failure at once
+  it('announces once for the views sharing an announce key', async () => {
+    const announce = spyOnAnnounce();
+    const { rerender } = await renderWithTheme(
+      <>
+        <ErrorState title={TITLE} message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+        <ErrorState title={TITLE} message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
+
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenLastCalledWith(`${TITLE}
+${MESSAGE}`);
+
+    await rerender(
+      <>
+        <ErrorState title={OTHER_TITLE} announceKey={ANNOUNCE_KEY} />
+        <ErrorState title={OTHER_TITLE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
+
+    expect(announce).toHaveBeenCalledTimes(2);
+    expect(announce).toHaveBeenLastCalledWith(OTHER_TITLE);
   });
 });

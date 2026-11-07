@@ -46,9 +46,32 @@ export interface ChipProps {
    * selected (put the chips in a Row radio group). a toggle button by default
    */
   role?: 'radio';
+  /**
+   * the accessibility label already names the chip's state, e.g. "Action, included" for a chip of
+   * more than two states: a toggle chip's accessibility state then carries `disabled` only, and a
+   * static chip's none, so the state is not announced twice. a two-state toggle keeps a fixed
+   * label and its `selected` state; a radio always has a fixed label and its `checked` state, so
+   * this has no effect on it
+   */
+  stateInLabel?: boolean;
   disabled?: boolean;
   testID?: string;
 }
+
+// the state convention of the app's controls: a two-state control has a fixed label and states
+// its state through the accessibility state (checked for a radio, selected for a toggle); a
+// control with more states names its state in its label and sets no state
+const toggleState = (
+  role: ChipProps['role'],
+  selected: boolean,
+  stateInLabel: boolean,
+  disabled: boolean,
+) => {
+  if (role === 'radio') {
+    return { checked: selected, disabled };
+  }
+  return stateInLabel ? { disabled } : { selected, disabled };
+};
 
 // a component of its own: only an excluded chip needs the theme colors
 function ExcludedGlyph() {
@@ -72,6 +95,7 @@ export function Chip({
   accessibilityLabel = label,
   onPress,
   role,
+  stateInLabel = false,
   disabled = false,
   testID,
 }: ChipProps) {
@@ -94,7 +118,7 @@ export function Chip({
         className={className}
         accessible
         accessibilityLabel={accessibilityLabel}
-        accessibilityState={{ selected }}
+        {...(!stateInLabel && { accessibilityState: { selected } })}
         testID={testID}
       >
         {content}
@@ -109,9 +133,7 @@ export function Chip({
       disabled={disabled}
       accessibilityRole={role ?? 'button'}
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={
-        role === 'radio' ? { checked: selected, disabled } : { selected, disabled }
-      }
+      accessibilityState={toggleState(role, selected, stateInLabel, disabled)}
       testID={testID}
     >
       {content}

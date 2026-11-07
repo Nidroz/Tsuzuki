@@ -11,6 +11,7 @@ const MESSAGE = '2 changes could not be synced.';
 const OTHER_MESSAGE = '1 change could not be synced.';
 const ACTION_LABEL = 'Try again';
 const TEST_ID = 'notice';
+const ANNOUNCE_KEY = 'sync-issues';
 
 // the react native jest preset already mocks announceForAccessibility: spyOn hands back that shared
 // mock, whose calls survive restoreMocks, so they are cleared here
@@ -68,6 +69,30 @@ describe('Notice', () => {
     expect(announce).toHaveBeenCalledTimes(1);
 
     await rerender(<Notice message={OTHER_MESSAGE} />);
+
+    expect(announce).toHaveBeenCalledTimes(2);
+    expect(announce).toHaveBeenLastCalledWith(OTHER_MESSAGE);
+  });
+
+  // the library and favorites tabs stay mounted, both showing the stuck writes notice
+  it('announces once for the views sharing an announce key', async () => {
+    const announce = spyOnAnnounce();
+    const { rerender } = await renderWithTheme(
+      <>
+        <Notice message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+        <Notice message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
+
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenLastCalledWith(MESSAGE);
+
+    await rerender(
+      <>
+        <Notice message={OTHER_MESSAGE} announceKey={ANNOUNCE_KEY} />
+        <Notice message={OTHER_MESSAGE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
 
     expect(announce).toHaveBeenCalledTimes(2);
     expect(announce).toHaveBeenLastCalledWith(OTHER_MESSAGE);

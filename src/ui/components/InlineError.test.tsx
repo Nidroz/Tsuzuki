@@ -10,6 +10,7 @@ const MESSAGE = 'Your change could not be saved.';
 const OTHER_MESSAGE = 'Your library could not be read.';
 const ACTION_LABEL = 'Dismiss';
 const TEST_ID = 'inline-error';
+const ANNOUNCE_KEY = 'library-write-failed';
 
 // the react native jest preset already mocks announceForAccessibility: spyOn hands back that shared
 // mock, whose calls survive restoreMocks, so they are cleared here
@@ -62,6 +63,29 @@ describe('InlineError', () => {
     expect(announce).toHaveBeenCalledTimes(1);
 
     await rerender(<InlineError message={OTHER_MESSAGE} />);
+
+    expect(announce).toHaveBeenCalledTimes(2);
+    expect(announce).toHaveBeenLastCalledWith(OTHER_MESSAGE);
+  });
+
+  it('announces once for the views sharing an announce key', async () => {
+    const announce = spyOnAnnounce();
+    const { rerender } = await renderWithTheme(
+      <>
+        <InlineError message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+        <InlineError message={MESSAGE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
+
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenLastCalledWith(MESSAGE);
+
+    await rerender(
+      <>
+        <InlineError message={OTHER_MESSAGE} announceKey={ANNOUNCE_KEY} />
+        <InlineError message={OTHER_MESSAGE} announceKey={ANNOUNCE_KEY} />
+      </>,
+    );
 
     expect(announce).toHaveBeenCalledTimes(2);
     expect(announce).toHaveBeenLastCalledWith(OTHER_MESSAGE);
