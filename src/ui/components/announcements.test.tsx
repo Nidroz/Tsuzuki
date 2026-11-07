@@ -1,8 +1,12 @@
-import { describe, expect, it, jest } from '@jest/globals';
-import { render } from '@testing-library/react-native';
+import { afterEach, describe, expect, it, jest } from '@jest/globals';
+import { cleanup, render } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
+import { renderWithTheme } from '../../../test/mobile/render-with-theme';
 import { heldAnnouncementKeyCount, useAnnouncement } from './announcements';
+import { ErrorState } from './ErrorState';
+import { InlineError } from './InlineError';
+import { Notice } from './Notice';
 
 const MESSAGE = 'Your guest titles could not be merged.';
 const OTHER_MESSAGE = '2 changes could not be synced.';
@@ -54,6 +58,16 @@ const second = (message: string | null, announceKey = KEY): HolderSpec => ({
   id: 'second',
   message,
   announceKey,
+});
+
+// no key outlives its test: a held key would silence the next test's first announcement. the
+// explicit cleanup unmounts the tree before the check, whatever the order of the afterEach hooks
+afterEach(async () => {
+  await cleanup();
+  const held = heldAnnouncementKeyCount();
+  if (held !== 0) {
+    throw new Error(`${String(held)} announcement keys still held after the test unmounted`);
+  }
 });
 
 describe('useAnnouncement', () => {
@@ -211,6 +225,33 @@ describe('useAnnouncement', () => {
 
       expect(announce).toHaveBeenCalledTimes(2);
       expect(announce).toHaveBeenLastCalledWith(MESSAGE);
+    });
+
+    it('releases the keys of the components announcing through it once they unmount', async () => {
+      const announce = spyOnAnnounce();
+      // the errors of a failed merge in other words, and a notice under another key
+      const views = (errors: boolean, notice: boolean) => (
+        <>
+          {errors ? (
+            <ErrorState title="Something went wrong" message={MESSAGE} announceKey={KEY} />
+          ) : null}
+          {errors ? <InlineError message={MESSAGE} announceKey={KEY} /> : null}
+          {notice ? <Notice message={OTHER_MESSAGE} announceKey={OTHER_KEY} /> : null}
+        </>
+      );
+      const { rerender } = await renderWithTheme(views(true, true));
+
+      expect(announce.mock.calls).toStrictEqual([[FULL_MESSAGE], [OTHER_MESSAGE]]);
+      expect(heldAnnouncementKeyCount()).toBe(2);
+
+      await rerender(views(false, true));
+
+      expect(heldAnnouncementKeyCount()).toBe(1);
+
+      await rerender(views(false, false));
+
+      expect(heldAnnouncementKeyCount()).toBe(0);
+      expect(announce).toHaveBeenCalledTimes(2);
     });
 
     it('keeps keys apart', async () => {

@@ -1,4 +1,5 @@
-import type { GuestMergeValue } from '@core/hooks/guest-merge-context';
+import type { ErrorReporter } from '@core/errors/error-reporter';
+import { GuestMergeContext, type GuestMergeValue } from '@core/hooks/guest-merge-context';
 import { LibraryContextProvider } from '@core/hooks/LibraryContextProvider';
 import { PENDING_LIBRARY_REPOSITORY } from '@core/hooks/SessionLibraryContextProvider';
 import type { LibraryReplayRun } from '@core/repositories/offline-account-library-repository';
@@ -36,6 +37,7 @@ const FAILED_TITLE = 'Your library is not ready yet';
 const FAILED_TEXT =
   'The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.';
 const OFFLINE_FEEDBACK = 'You are offline. Connect to the internet, then try again.';
+const DISCARD_FAILED_FEEDBACK = 'The changes could not be discarded. Try again.';
 const DISCARD_LABEL = 'Discard the changes that could not be synced';
 const EMPTY: LibraryEntriesEmptyTexts = { title: 'Empty', message: 'Nothing here', action: 'Go' };
 
@@ -56,6 +58,11 @@ const settle = async () => {
 };
 
 const FAILED_MERGE: GuestMergeValue = { status: 'failed', retry: jest.fn<() => void>() };
+// the merge of the tests that step it through a retry: failed, then merging again
+const MERGE_IN: Readonly<Record<'failed' | 'merging', GuestMergeValue>> = {
+  failed: FAILED_MERGE,
+  merging: { status: 'merging', retry: FAILED_MERGE.retry },
+};
 
 // the library and favorites tabs, and the detail's library section when `withDetail`
 function MergeViews({ withDetail }: { readonly withDetail: boolean }) {
@@ -68,14 +75,27 @@ function MergeViews({ withDetail }: { readonly withDetail: boolean }) {
   );
 }
 
-// the stuck writes notice of both tabs, over `stuck`'s account as the live library
+// the tabs and the detail over a merge in `status`, nested: the test steps it through a retry
+function MergeStatusViews({ status }: { readonly status: keyof typeof MERGE_IN }) {
+  return (
+    <GuestMergeContext value={MERGE_IN[status]}>
+      <MergeViews withDetail />
+    </GuestMergeContext>
+  );
+}
+
+// the stuck writes notice of both tabs, over `stuck`'s account as the live library; a failed
+// discard is reported, so the reporter records it
 const renderBothNotices = async (stuck: StuckAccount) => {
   await renderWithProviders(
     <>
       <LibrarySyncNotice testID="library-sync" />
       <LibrarySyncNotice testID="favorites-sync" />
     </>,
-    { sessionLibrary: { account: stuck.account, guest: createFakeGuestLibraryRepository() } },
+    {
+      sessionLibrary: { account: stuck.account, guest: createFakeGuestLibraryRepository() },
+      reporter: { captureError: jest.fn<ErrorReporter['captureError']>() },
+    },
   );
   return userEvent.setup();
 };
@@ -113,6 +133,34 @@ describe('library announcements across the mounted views (R-03)', () => {
     expect(announce).toHaveBeenCalledTimes(1);
   });
 
+  it('announces a failed guest merge once more when its retry fails again, after the spinners', async () => {
+    const announce = spyOnAnnounce();
+    const failedAnnouncement = `${FAILED_TITLE}\n${FAILED_TEXT}`;
+    const { rerender } = await renderWithProviders(<MergeStatusViews status="failed" />);
+    await settle();
+
+    expect(announce.mock.calls).toStrictEqual([[failedAnnouncement]]);
+
+    // the retry runs: every view swaps its error for a spinner, which announces nothing itself
+    await rerender(<MergeStatusViews status="merging" />);
+    await settle();
+
+    expect(screen.getByTestId('library-merging')).toBeOnTheScreen();
+    expect(screen.getByTestId('favorites-merging')).toBeOnTheScreen();
+    expect(screen.getByTestId('media-detail-library-merging')).toBeOnTheScreen();
+    expect(screen.queryByTestId('library-merge-error')).not.toBeOnTheScreen();
+    expect(announce).toHaveBeenCalledTimes(1);
+
+    // it failed again: a new outcome, announced once for the three views
+    await rerender(<MergeStatusViews status="failed" />);
+    await settle();
+
+    for (const testID of ['library', 'favorites', 'media-detail-library']) {
+      expect(screen.getByTestId(`${testID}-merge-error`)).toBeOnTheScreen();
+    }
+    expect(announce.mock.calls).toStrictEqual([[failedAnnouncement], [failedAnnouncement]]);
+  });
+
   it('announces the stuck writes notice of both tabs once, then each count change and feedback once', async () => {
     const announce = spyOnAnnounce();
     const stuck = createStuckAccount(2);
@@ -140,6 +188,38 @@ describe('library announcements across the mounted views (R-03)', () => {
       [noticeText(3)],
       [OFFLINE_FEEDBACK],
     ]);
+  });
+
+  it('announces a failed discard once for both tabs, and clears it in both when the other tab retries', async () => {
+    const stuck = createStuckAccount(2);
+    stuck.account.discardStuckWrites.mockImplementationOnce(() => {
+      throw new Error('storage failed');
+    });
+    stuck.account.retryStuckWrites.mockReturnValueOnce(new Promise(() => undefined));
+    const user = await renderBothNotices(stuck);
+    const announce = spyOnAnnounce();
+
+    await user.press(
+      within(screen.getByTestId('library-sync')).getByRole('button', { name: DISCARD_LABEL }),
+    );
+    await user.press(screen.getByTestId('library-sync-discard-sheet-confirm'));
+
+    for (const testID of ['library-sync-feedback', 'favorites-sync-feedback']) {
+      expect(screen.getByTestId(testID)).toHaveProp('accessibilityRole', 'alert');
+      expect(screen.getByTestId(testID)).toHaveTextContent(DISCARD_FAILED_FEEDBACK);
+    }
+    expect(announce.mock.calls).toStrictEqual([[DISCARD_FAILED_FEEDBACK]]);
+
+    await user.press(
+      within(screen.getByTestId('favorites-sync')).getByRole('button', { name: 'Try again' }),
+    );
+
+    expect(screen.queryByTestId('library-sync-feedback')).not.toBeOnTheScreen();
+    expect(screen.queryByTestId('favorites-sync-feedback')).not.toBeOnTheScreen();
+    expect(
+      within(screen.getByTestId('library-sync')).getByRole('button', { name: DISCARD_LABEL }),
+    ).toBeDisabled();
+    expect(announce).toHaveBeenCalledTimes(1);
   });
 
   it('shares the retry: one started on a tab disables Discard and starts no other on the other tab', async () => {

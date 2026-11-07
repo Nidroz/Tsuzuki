@@ -42,10 +42,27 @@ describe('useLibrarySyncIssues shared by the hooks of one instance', () => {
     expect(favorites.result.current.retrying).toBe(false);
   });
 
+  it('starts one retry for two taps of one frame, before either hook rendered the first', async () => {
+    const { account } = createStuckAccount(1);
+    account.retryStuckWrites.mockResolvedValueOnce(FAILED);
+    const library = renderSyncIssues({ account });
+    const favorites = renderSyncIssues({ account });
+
+    act(() => {
+      library.result.current.retry();
+      favorites.result.current.retry();
+    });
+    await settle();
+
+    expect(account.retryStuckWrites).toHaveBeenCalledTimes(1);
+    expect(favorites.result.current.retrying).toBe(false);
+  });
+
   it('never shares the state of another instance', () => {
     const first = createStuckAccount(1).account;
     const second = createStuckAccount(1).account;
     first.retryStuckWrites.mockReturnValueOnce(new Promise<LibraryReplayRun>(() => undefined));
+    second.discardStuckWrites.mockImplementationOnce(failingDiscard);
     const firstHook = renderSyncIssues({ account: first });
     const secondHook = renderSyncIssues({ account: second });
 
@@ -55,6 +72,16 @@ describe('useLibrarySyncIssues shared by the hooks of one instance', () => {
 
     expect(firstHook.result.current.retrying).toBe(true);
     expect(secondHook.result.current.retrying).toBe(false);
+
+    // a retry running on the other instance never blocks this one's actions
+    act(() => {
+      secondHook.result.current.discard();
+    });
+
+    expect(secondHook.result.current.feedback).toBe('discard-failed');
+    expect(firstHook.result.current.feedback).toBeNull();
+    expect(firstHook.result.current.retrying).toBe(true);
+    expect(second.discardStuckWrites).toHaveBeenCalledTimes(1);
   });
 });
 

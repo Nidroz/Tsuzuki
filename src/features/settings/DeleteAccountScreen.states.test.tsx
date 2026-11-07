@@ -60,7 +60,7 @@ const renderScreen = async (deleteAccount: AuthRepository['deleteAccount'], lang
     },
     deleteAccount,
   });
-  await renderWithProviders(<DeleteAccountScreen />, {
+  const { rerender } = await renderWithProviders(<DeleteAccountScreen />, {
     authRepository: repository,
     language,
     sessionLibrary: {
@@ -68,7 +68,7 @@ const renderScreen = async (deleteAccount: AuthRepository['deleteAccount'], lang
       guest: createFakeGuestLibraryRepository(),
     },
   });
-  return { source };
+  return { source, rerender };
 };
 
 // the first tap opens the confirmation, the second one deletes
@@ -83,7 +83,7 @@ describe('DeleteAccountScreen states (R-03)', () => {
     'announces the deleted state once, its title a heading (%s)',
     async (language) => {
       const { title, message } = DELETED[language];
-      await renderScreen(() => Promise.resolve(), language);
+      const { source, rerender } = await renderScreen(() => Promise.resolve(), language);
       const announce = spyOnAnnounce();
 
       await deleteAndConfirm();
@@ -93,6 +93,15 @@ describe('DeleteAccountScreen states (R-03)', () => {
         exact: false,
       });
       expect(announce.mock.calls).toStrictEqual([[`${title}\n${message}`]]);
+
+      // a render of the same state, and a repeated signed-out report, announce nothing more
+      await rerender(<DeleteAccountScreen />);
+      await act(() => {
+        source.emit(null);
+      });
+
+      expect(screen.getByTestId(`${TEST_ID}-deleted`)).toBeOnTheScreen();
+      expect(announce).toHaveBeenCalledTimes(1);
     },
   );
 

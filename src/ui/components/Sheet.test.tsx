@@ -131,14 +131,14 @@ describe('Sheet', () => {
     ['ios', 'keyboardWillShow', 'keyboardWillHide'],
     ['android', 'keyboardDidShow', 'keyboardDidHide'],
   ])('on %s', (os, showEvent, hideEvent) => {
-    it('lifts its panel above the keyboard with a bottom padding, then drops it', async () => {
+    it('lifts its panel above the keyboard with a bottom padding, then drops it, the backdrop still closing it', async () => {
       jest.replaceProperty(Platform, 'OS', os);
       const listeners = new Map<KeyboardEventName, (event: KeyboardEvent) => void>();
       jest.spyOn(Keyboard, 'addListener').mockImplementation((eventType, listener) => {
         listeners.set(eventType, listener);
         return { remove: jest.fn() } as unknown as EmitterSubscription;
       });
-      await renderSheet();
+      const { onClose } = await renderSheet();
       const panel = screen.getByTestId(`${TEST_ID}-keyboard`);
 
       expect(panel).toHaveStyle({ paddingBottom: 0 });
@@ -153,6 +153,13 @@ describe('Sheet', () => {
       });
 
       expect(panel).toHaveStyle({ paddingBottom: KEYBOARD_OVERLAP });
+
+      // the lifted panel leaves the backdrop above it: a tap there still closes the sheet
+      await fireEvent.press(
+        screen.getByTestId(`${TEST_ID}-backdrop`, { includeHiddenElements: true }),
+      );
+
+      expect(onClose).toHaveBeenCalledTimes(1);
 
       await act(async () => {
         listeners.get(hideEvent)?.(KEYBOARD_HIDDEN);

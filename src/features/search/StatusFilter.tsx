@@ -14,7 +14,10 @@ export interface StatusFilterProps {
   onChange: (status: SearchableMediaStatus | null) => void;
 }
 
-/** the publication status section of the filters sheet, worded for the kind: airing or publishing */
+/**
+ * the publication status section of the filters sheet: "Any", then one chip per status, worded for
+ * the kind: airing or publishing
+ */
 export function StatusFilter({ kind, status, onChange }: StatusFilterProps) {
   const { t } = useTranslation();
   const options = useMemo<readonly FilterChoiceOption<SearchableMediaStatus>[]>(

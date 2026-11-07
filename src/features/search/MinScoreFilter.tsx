@@ -9,7 +9,10 @@ export interface MinScoreFilterProps {
   onChange: (minScore: number | null) => void;
 }
 
-/** the minimum score section of the filters sheet: one chip per offered score, "5+" to "9+" */
+/**
+ * the minimum score section of the filters sheet: "Any", then one chip per offered score, "5+" to
+ * "9+"
+ */
 export function MinScoreFilter({ minScore, onChange }: MinScoreFilterProps) {
   const { t, formatNumber } = useTranslation();
   const options = useMemo<readonly FilterChoiceOption<number>[]>(
