@@ -60,6 +60,7 @@ describe('tailwind config', () => {
     expect(config.theme.opacity).toStrictEqual({
       disabled: String(opacities.disabled),
       pressed: String(opacities.pressed),
+      scrim: String(opacities.scrim),
     });
     expect(config.theme.extend.minHeight).toStrictEqual({
       touch: px(TOUCH_TARGET),

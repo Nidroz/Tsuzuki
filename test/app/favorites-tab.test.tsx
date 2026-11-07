@@ -74,8 +74,8 @@ const PLAIN: LibraryEntry = entryOf({
 });
 const FAVORITE_ROW = 'library-entry-mal-anime-52991';
 const PLAIN_ROW = 'library-entry-mal-anime-19';
-const REMOVE_FAVORITE = 'Remove Sousou no Frieren from favorites';
-const ADD_FAVORITE = 'Add Sousou no Frieren to favorites';
+// a two-state toggle: a fixed label naming the title, its state told by selected only
+const FAVORITE_HEART = 'Favorite: Sousou no Frieren';
 
 // the guest library the layout created when it loaded, holding `entries` only
 const seedGuestLibrary = async (
@@ -109,7 +109,8 @@ describe('favorites tab (FR-15)', () => {
     expect(favoritesTab().queryByTestId(PLAIN_ROW)).not.toBeOnTheScreen();
     expect(favoritesTab().getByTestId(`${FAVORITE_ROW}-favorite`)).toBeSelected();
 
-    await user.press(favoritesTab().getByRole('button', { name: REMOVE_FAVORITE }));
+    expect(favoritesTab().getByRole('button', { name: FAVORITE_HEART })).toBeSelected();
+    await user.press(favoritesTab().getByRole('button', { name: FAVORITE_HEART }));
     await settle();
 
     // stored unfavorited, still in the library; the row stays, its heart off
@@ -119,7 +120,7 @@ describe('favorites tab (FR-15)', () => {
       progress: FAVORITE.progress,
     });
     expect(favoritesTab().getByTestId(FAVORITE_ROW)).toBeOnTheScreen();
-    expect(favoritesTab().getByRole('button', { name: ADD_FAVORITE })).not.toBeSelected();
+    expect(favoritesTab().getByRole('button', { name: FAVORITE_HEART })).not.toBeSelected();
     expect(favoritesTab().queryByTestId('favorites-empty')).not.toBeOnTheScreen();
 
     // the library tab still lists both entries

@@ -7,10 +7,12 @@ export const TEXT_AREA_MIN_HEIGHT = 120;
 // ionicons glyph size of IconButton and TabBarIcon
 export const ICON_SIZE = 24;
 
-// opacity of disabled controls and of pressables while pressed
+// opacity of disabled controls, of pressables while pressed, and of the scrim color behind a sheet
+// (its contrast is checked in colors.ts)
 export const opacities = {
   disabled: 0.5,
   pressed: 0.7,
+  scrim: 0.5,
 } as const;
 
 // cover frames in density-independent pixels: 2:3 (width:height), the shape of catalog posters.

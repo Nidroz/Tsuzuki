@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import { AccessibilityInfo, View } from 'react-native';
+import { View } from 'react-native';
 
+import { useAnnouncement } from './announcements';
 import { Button } from './Button';
 import type { StateAction } from './EmptyState';
 import { Text } from './Text';
@@ -10,6 +10,8 @@ export interface InlineErrorProps {
   message: string;
   /** a button under the message, e.g. { label: "Try again", onPress: refetch } */
   action?: StateAction;
+  /** views showing the same state pass the same key, so it is announced once */
+  announceKey?: string;
   /** the action button gets `${testID}-action` */
   testID?: string;
 }
@@ -19,12 +21,10 @@ export interface InlineErrorProps {
  * whole screen). announced as an alert, the message stacked above its action so a large font
  * size never squeezes either
  */
-export function InlineError({ message, action, testID }: InlineErrorProps) {
+export function InlineError({ message, action, announceKey, testID }: InlineErrorProps) {
   // announced here on both platforms, as ErrorState: an android live region stays silent when it
   // mounts with its content. the container stays non-accessible so the action stays reachable
-  useEffect(() => {
-    AccessibilityInfo.announceForAccessibility(message);
-  }, [message]);
+  useAnnouncement(message, announceKey === undefined ? {} : { key: announceKey });
 
   return (
     <View

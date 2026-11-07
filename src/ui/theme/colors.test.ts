@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import { COLOR_TOKENS, type ColorScheme, type ColorToken, palettes } from './colors';
+import { opacities } from './sizes';
 
 const SCHEMES = Object.keys(palettes) as ColorScheme[];
 const HEX_COLOR = /^#[0-9A-F]{6}$/u;
@@ -22,16 +23,31 @@ const channelLuminance = (channel: number): number => {
   return value <= 0.039_28 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 };
 
-const luminance = (hex: string): number => {
-  const [red = 0, green = 0, blue = 0] = [1, 3, 5].map((start) =>
-    channelLuminance(Number.parseInt(hex.slice(start, start + 2), 16)),
-  );
+// a color as its sRGB channels (0 to 255), a composited one possibly fractional
+type Channels = readonly number[];
+
+const channelsOf = (hex: string): Channels =>
+  [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16));
+
+const luminance = (channels: Channels): number => {
+  const [red = 0, green = 0, blue = 0] = channels.map(channelLuminance);
   return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
 };
 
-const contrast = (first: string, second: string): number => {
+const channelContrast = (first: Channels, second: Channels): number => {
   const [lighter, darker] = [luminance(first), luminance(second)].sort((a, b) => b - a);
   return ((lighter ?? 0) + 0.05) / ((darker ?? 0) + 0.05);
+};
+
+const contrast = (first: string, second: string): number =>
+  channelContrast(channelsOf(first), channelsOf(second));
+
+// a color drawn at an opacity over a background, blended channel by channel in sRGB
+const composite = (color: string, opacity: number, background: string): Channels => {
+  const backgroundChannels = channelsOf(background);
+  return channelsOf(color).map(
+    (channel, index) => channel * opacity + (backgroundChannels[index] ?? 0) * (1 - opacity),
+  );
 };
 
 const pairs = (foregrounds: ColorToken[], backgrounds: ColorToken[]) =>
@@ -46,6 +62,12 @@ describe('contrast helper', () => {
     expect(contrast('#000000', '#FFFFFF')).toBeCloseTo(21);
     expect(contrast('#FFFFFF', '#FFFFFF')).toBeCloseTo(1);
     expect(contrast('#777777', '#FFFFFF')).toBeCloseTo(4.48, 2);
+  });
+
+  it('composites a color at an opacity over a background', () => {
+    expect(composite('#000000', 0.5, '#FFFFFF')).toStrictEqual([127.5, 127.5, 127.5]);
+    expect(composite('#000000', 0, '#F8FAFC')).toStrictEqual(channelsOf('#F8FAFC'));
+    expect(composite('#000000', 1, '#F8FAFC')).toStrictEqual([0, 0, 0]);
   });
 });
 
@@ -101,6 +123,22 @@ describe('palettes', () => {
       expect(contrast(palette[foreground], palette[background])).toBeGreaterThanOrEqual(
         TEXT_CONTRAST,
       );
+    },
+  );
+
+  // a sheet is a surface panel with a border top edge over the scrim: either one stands out from
+  // the dimmed screen with the 3:1 of UI components
+  it.each(SCHEMES.flatMap((scheme) => SURFACES.map((surface) => [scheme, surface] as const)))(
+    '%s: the sheet edge reaches 3:1 against %s dimmed by the scrim',
+    (scheme, surface) => {
+      const palette = palettes[scheme];
+      const dimmed = composite(palette.scrim, opacities.scrim, palette[surface]);
+      const edge = Math.max(
+        channelContrast(channelsOf(palette.surface), dimmed),
+        channelContrast(channelsOf(palette.border), dimmed),
+      );
+
+      expect(edge).toBeGreaterThanOrEqual(UI_CONTRAST);
     },
   );
 });

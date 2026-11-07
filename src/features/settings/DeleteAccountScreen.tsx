@@ -3,6 +3,7 @@ import { useDeleteAccount } from '@core/hooks/use-delete-account';
 import { useTranslation, type TranslationKey } from '@core/i18n/index';
 import { AUTH_PATHS, SETTINGS_PATH } from '@features/auth/auth-routes';
 import {
+  announcementOf,
   Button,
   InlineError,
   Screen,
@@ -11,12 +12,16 @@ import {
   Spinner,
   Stack,
   Text,
+  useAnnouncement,
   type ScreenEdge,
 } from '@ui/index';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 
-import { accountDeletionErrorKey } from './account-deletion-error-keys';
+import {
+  accountDeletionErrorKey,
+  signedOutAccountDeletionErrorKey,
+} from './account-deletion-error-keys';
 
 const TEST_ID = 'delete-account';
 const CONFIRM_TEST_ID = `${TEST_ID}-confirm`;
@@ -53,7 +58,8 @@ interface SignInFirstProps {
 }
 
 // signed out: nothing to delete, and a link never deletes anything by itself. a deletion that
-// failed as the session ended keeps its error here: the user learns its outcome may be unknown
+// failed as the session ended keeps its error here, worded for a user signed out already: the
+// user learns its outcome may be unknown
 function SignInFirst({ error }: SignInFirstProps) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -64,7 +70,10 @@ function SignInFirst({ error }: SignInFirstProps) {
         message={t('settings.deleteAccount.signedOut.message')}
       />
       {error === null ? null : (
-        <InlineError message={t(accountDeletionErrorKey(error))} testID={`${TEST_ID}-error`} />
+        <InlineError
+          message={t(signedOutAccountDeletionErrorKey(error))}
+          testID={`${TEST_ID}-error`}
+        />
       )}
       <Button
         label={t('settings.deleteAccount.signedOut.signIn')}
@@ -77,16 +86,17 @@ function SignInFirst({ error }: SignInFirstProps) {
   );
 }
 
-// the account is gone and the device signed out: this state outlives the signed-out session
+// the account is gone and the device signed out: this state outlives the signed-out session. it
+// replaces the form the user acted on, so it is announced when it shows
 function Deleted() {
   const { t } = useTranslation();
   const router = useRouter();
+  const title = t('settings.deleteAccount.deleted.title');
+  const message = t('settings.deleteAccount.deleted.message');
+  useAnnouncement(announcementOf(title, message));
   return (
     <Stack gap="lg" testID={`${TEST_ID}-deleted`}>
-      <Message
-        title={t('settings.deleteAccount.deleted.title')}
-        message={t('settings.deleteAccount.deleted.message')}
-      />
+      <Message title={title} message={message} />
       <Button
         label={t('settings.deleteAccount.deleted.back')}
         onPress={() => {
@@ -173,8 +183,9 @@ function DeletionForm({ pending, error, onDelete }: DeletionFormProps) {
  * is deleted and that it cannot be undone, and deletes after a destructive button and a
  * destructive confirmation. it reads no param: a link opens it at most. while the deletion runs,
  * the pending form shows even once its local sign out ended the session; a failure shows its
- * translated reason, in the form while signed in, in the signed-out state once the session ended;
- * a success shows the deleted state, then back to settings
+ * translated reason, in the form while signed in, in the signed-out state once the session ended
+ * (an ended session worded for it); a success shows the deleted state, announced, then back to
+ * settings
  */
 export function DeleteAccountScreen() {
   const { t } = useTranslation();

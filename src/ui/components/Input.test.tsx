@@ -229,6 +229,22 @@ describe('Input', () => {
       expect(announce).toHaveBeenCalledTimes(2);
       expect(announce).toHaveBeenLastCalledWith(OTHER_ERROR);
     });
+
+    it('announces an error it mounts with, and the same error again once it cleared', async () => {
+      jest.replaceProperty(Platform, 'OS', 'ios');
+      const announce = spyOnAnnounce();
+      const { rerender } = await renderWithTheme(
+        <Input label={LABEL} value="" onChangeText={jest.fn()} error={ERROR} />,
+      );
+
+      expect(announce.mock.calls).toStrictEqual([[ERROR]]);
+
+      await rerender(<Input label={LABEL} value="" onChangeText={jest.fn()} error="" />);
+      expect(announce).toHaveBeenCalledTimes(1);
+
+      await rerender(<Input label={LABEL} value="" onChangeText={jest.fn()} error={ERROR} />);
+      expect(announce.mock.calls).toStrictEqual([[ERROR], [ERROR]]);
+    });
   });
 
   describe('on android', () => {

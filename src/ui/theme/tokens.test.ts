@@ -57,6 +57,10 @@ describe('sizes', () => {
     expect(opacities.pressed).toBeGreaterThan(opacities.disabled);
   });
 
+  it('lists the opacity tokens', () => {
+    expect(Object.keys(opacities)).toStrictEqual(['disabled', 'pressed', 'scrim']);
+  });
+
   it.each(Object.entries(coverSizes))(
     'cover %s is a 2:3 frame on the 4dp grid that fits the placeholder glyph',
     (_size, { width, height }) => {

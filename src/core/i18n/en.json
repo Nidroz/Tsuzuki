@@ -101,7 +101,8 @@
           "asc": "Ascending",
           "desc": "Descending"
         }
-      }
+      },
+      "any": "Any"
     }
   },
   "mediaList": {
@@ -204,12 +205,9 @@
       "group": "{{status}} ({{size}})",
       "score": "My score {{score}} / {{max}}",
       "increment": "{{action}}, {{title}}",
-      "favorite": {
-        "add": "Add {{title}} to favorites",
-        "remove": "Remove {{title}} from favorites"
-      },
       "writeError": "Your change could not be saved.",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "favorite": "Favorite: {{title}}"
     },
     "merge": {
       "inProgress": "Adding the titles saved on this device to your account…",
@@ -232,6 +230,10 @@
         "cancel": "Cancel",
         "confirm_one": "Discard it",
         "confirm_other": "Discard them"
+      },
+      "feedback": {
+        "offline": "You are offline. Connect to the internet, then try again.",
+        "discardFailed": "The changes could not be discarded. Try again."
       }
     }
   },
@@ -269,7 +271,8 @@
       "signedOut": {
         "title": "Sign in to delete your account",
         "message": "Only a signed-in account can be deleted. Sign in on this device first.",
-        "signIn": "Sign in"
+        "signIn": "Sign in",
+        "sessionExpired": "Your session ended before the deletion was confirmed, so your account may not have been deleted. Sign in to check, then try again if needed."
       },
       "heading": "Delete your account",
       "intro": "Deleting your account deletes:",
@@ -423,10 +426,6 @@
       "writeError": "Your change could not be saved.",
       "dismiss": "Dismiss",
       "add": "Add to library",
-      "favorite": {
-        "add": "Add to favorites",
-        "remove": "Remove from favorites"
-      },
       "edit": "Edit",
       "save": "Save",
       "cancel": "Cancel",
@@ -462,7 +461,8 @@
         "message": "Your status, progress, score and notes for this title will be deleted.",
         "confirm": "Remove",
         "close": "Close without removing"
-      }
+      },
+      "favorite": "Favorite"
     }
   },
   "auth": {

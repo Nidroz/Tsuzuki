@@ -16,34 +16,33 @@ export interface FilterChoiceProps<T extends string | number> {
   /** the chosen value, null when none is */
   value: T | null;
   onChange: (value: T | null) => void;
-  /** a tap on the chosen chip clears the choice (null) */
-  deselectable: boolean;
-  /** a first chip standing for no value (null), e.g. "Relevance"; none by default */
+  /**
+   * a first chip standing for no value (null), e.g. "Relevance" or "Any": the way to clear the
+   * choice, a tap on the chosen chip keeping it as a radio does. none by default
+   */
   noneLabel?: string;
   /** each chip gets `${testID}-${value}`, the none chip `${testID}-none`, the chips row `-group` */
   testID: string;
 }
 
 /**
- * a titled radio group of chips, one per option, named by the title: the chosen one is checked,
- * none while nothing is chosen. a section of the filters sheet (FR-03)
+ * a titled radio group of chips, one per option, named by the title, the title a heading screen
+ * readers jump between: the chosen one is checked, none while nothing is chosen. a section of the
+ * filters sheet (FR-03)
  */
 export function FilterChoice<T extends string | number>({
   title,
   options,
   value,
   onChange,
-  deselectable,
   noneLabel,
   testID,
 }: FilterChoiceProps<T>) {
-  const choose = (option: T) => {
-    onChange(deselectable && option === value ? null : option);
-  };
-
   return (
     <Stack gap="sm" testID={testID}>
-      <Text variant="subtitle">{title}</Text>
+      <Text variant="subtitle" heading>
+        {title}
+      </Text>
       <Row
         gap="sm"
         wrap
@@ -72,7 +71,7 @@ export function FilterChoice<T extends string | number>({
             role="radio"
             selected={option.value === value}
             onPress={() => {
-              choose(option.value);
+              onChange(option.value);
             }}
             testID={`${testID}-${String(option.value)}`}
           />

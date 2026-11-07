@@ -1,6 +1,7 @@
-import { useEffect, type ReactNode } from 'react';
-import { AccessibilityInfo, View } from 'react-native';
+import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
+import { useAnnouncement } from './announcements';
 import { Text } from './Text';
 
 export interface NoticeProps {
@@ -11,6 +12,8 @@ export interface NoticeProps {
   message: string;
   /** the actions under the message, e.g. buttons; laid out in a row that wraps, at its end */
   children?: ReactNode;
+  /** views showing the same state pass the same key, so it is announced once */
+  announceKey?: string;
   /** the message, announced as an alert, gets `${testID}-message` */
   testID?: string;
 }
@@ -21,12 +24,10 @@ export interface NoticeProps {
  * the message is one alert named by its text, announced when it mounts and when it changes; the
  * actions stay reachable by screen readers on their own
  */
-export function Notice({ message, children, testID }: NoticeProps) {
+export function Notice({ message, children, announceKey, testID }: NoticeProps) {
   // announced here on both platforms, as InlineError: an android live region stays silent when it
   // mounts with its content
-  useEffect(() => {
-    AccessibilityInfo.announceForAccessibility(message);
-  }, [message]);
+  useAnnouncement(message, announceKey === undefined ? {} : { key: announceKey });
 
   return (
     <View className="gap-sm rounded-md border border-border bg-surface p-md" testID={testID}>

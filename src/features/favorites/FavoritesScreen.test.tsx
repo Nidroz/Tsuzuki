@@ -79,18 +79,14 @@ describe('FavoritesScreen', () => {
       '1 adult title is hidden.',
     );
     expect(screen.getByTestId('favorites-filters-kind')).toBeOnTheScreen();
-    expect(
-      screen.getByRole('button', { name: 'Remove Sousou no Frieren from favorites' }),
-    ).toBeSelected();
+    expect(screen.getByRole('button', { name: 'Favorite: Sousou no Frieren' })).toBeSelected();
   });
 
   it('keeps an unfavorited row until the screen gains focus again', async () => {
     const { user, repository } = await renderFavorites();
     await settle();
 
-    await user.press(
-      screen.getByRole('button', { name: 'Remove Sousou no Frieren from favorites' }),
-    );
+    await user.press(screen.getByRole('button', { name: 'Favorite: Sousou no Frieren' }));
     await settle();
 
     expect(repository.stored(FRIEREN.key)).toMatchObject({ isFavorite: false, status: 'current' });
@@ -100,9 +96,7 @@ describe('FavoritesScreen', () => {
       'Planned (1)',
       'Monster',
     ]);
-    expect(
-      screen.getByRole('button', { name: 'Add Sousou no Frieren to favorites' }),
-    ).not.toBeSelected();
+    expect(screen.getByRole('button', { name: 'Favorite: Sousou no Frieren' })).not.toBeSelected();
 
     await refocusScreens();
 
@@ -115,9 +109,7 @@ describe('FavoritesScreen', () => {
     );
     await settle();
 
-    await user.press(
-      screen.getByRole('button', { name: 'Remove Sousou no Frieren from favorites' }),
-    );
+    await user.press(screen.getByRole('button', { name: 'Favorite: Sousou no Frieren' }));
     await settle();
 
     expect(repository.stored(FRIEREN.key)).toMatchObject({ isFavorite: false });

@@ -102,7 +102,8 @@
           "asc": "Croissant",
           "desc": "Décroissant"
         }
-      }
+      },
+      "any": "Indifférent"
     }
   },
   "mediaList": {
@@ -211,12 +212,9 @@
       "group": "{{status}} ({{size}})",
       "score": "Ma note {{score}} / {{max}}",
       "increment": "{{action}}, {{title}}",
-      "favorite": {
-        "add": "Ajouter {{title}} aux favoris",
-        "remove": "Retirer {{title}} des favoris"
-      },
       "writeError": "Votre modification n'a pas pu être enregistrée.",
-      "dismiss": "Fermer"
+      "dismiss": "Fermer",
+      "favorite": "Favori : {{title}}"
     },
     "merge": {
       "inProgress": "Ajout à votre compte des titres enregistrés sur cet appareil…",
@@ -242,6 +240,10 @@
         "confirm_one": "L'abandonner",
         "confirm_many": "Les abandonner",
         "confirm_other": "Les abandonner"
+      },
+      "feedback": {
+        "offline": "Vous êtes hors ligne. Connectez-vous à Internet, puis réessayez.",
+        "discardFailed": "Les modifications n'ont pas pu être abandonnées. Réessayez."
       }
     }
   },
@@ -281,7 +283,8 @@
       "signedOut": {
         "title": "Connectez-vous pour supprimer votre compte",
         "message": "Seul un compte connecté peut être supprimé. Connectez-vous d'abord sur cet appareil.",
-        "signIn": "Se connecter"
+        "signIn": "Se connecter",
+        "sessionExpired": "Votre session a pris fin avant que la suppression soit confirmée : votre compte n'a peut-être pas été supprimé. Connectez-vous pour le vérifier, puis réessayez si besoin."
       },
       "heading": "Supprimer votre compte",
       "intro": "La suppression de votre compte efface :",
@@ -435,10 +438,6 @@
       "writeError": "Votre modification n'a pas pu être enregistrée.",
       "dismiss": "Fermer",
       "add": "Ajouter à la bibliothèque",
-      "favorite": {
-        "add": "Ajouter aux favoris",
-        "remove": "Retirer des favoris"
-      },
       "edit": "Modifier",
       "save": "Enregistrer",
       "cancel": "Annuler",
@@ -474,7 +473,8 @@
         "message": "Votre statut, votre progression, votre note et vos notes personnelles pour ce titre seront supprimés.",
         "confirm": "Retirer",
         "close": "Fermer sans retirer"
-      }
+      },
+      "favorite": "Favori"
     }
   },
   "auth": {

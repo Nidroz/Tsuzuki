@@ -20,14 +20,19 @@ describe('FormatFilter', () => {
   it('offers the searchable anime formats, without unknown', async () => {
     await renderWithProviders(<FormatFilter kind="anime" format={null} onChange={jest.fn()} />);
 
-    expect(screen.getByText('Format')).toBeOnTheScreen();
-    expect(radioNames()).toStrictEqual(['TV', 'Movie', 'OVA', 'ONA', 'Special', 'Music']);
+    expect(screen.getByRole('header', { name: 'Format' })).toBeOnTheScreen();
+    expect(radioNames()).toStrictEqual(['Any', 'TV', 'Movie', 'OVA', 'ONA', 'Special', 'Music']);
+    expect(screen.getByRole('radio', { name: 'Any' })).toBe(
+      screen.getByTestId('filters-format-none'),
+    );
+    expect(screen.getByRole('radio', { name: 'Any' })).toBeChecked();
   });
 
   it('offers the searchable manga formats, without oel and unknown', async () => {
     await renderWithProviders(<FormatFilter kind="manga" format={null} onChange={jest.fn()} />);
 
     expect(radioNames()).toStrictEqual([
+      'Any',
       'Manga',
       'Manhwa',
       'Manhua',
@@ -38,17 +43,19 @@ describe('FormatFilter', () => {
     ]);
   });
 
-  it('selects the format, and clears it when its chip is pressed again', async () => {
+  it('selects the format, keeps it when its chip is pressed again, and clears it with Any', async () => {
     const user = userEvent.setup();
     const onChange = jest.fn<(format: SearchableMediaFormat | null) => void>();
     await renderWithProviders(<FormatFilter kind="anime" format="movie" onChange={onChange} />);
 
     expect(screen.getByRole('radio', { name: 'Movie' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Any' })).not.toBeChecked();
 
     await user.press(screen.getByRole('radio', { name: 'Movie' }));
     await user.press(screen.getByRole('radio', { name: 'TV' }));
+    await user.press(screen.getByRole('radio', { name: 'Any' }));
 
-    expect(onChange.mock.calls).toStrictEqual([[null], ['tv']]);
+    expect(onChange.mock.calls).toStrictEqual([['movie'], ['tv'], [null]]);
   });
 });
 
@@ -56,8 +63,11 @@ describe('StatusFilter', () => {
   it('words the statuses for anime', async () => {
     await renderWithProviders(<StatusFilter kind="anime" status={null} onChange={jest.fn()} />);
 
-    expect(screen.getByText('Status')).toBeOnTheScreen();
-    expect(radioNames()).toStrictEqual(['Airing', 'Finished', 'Upcoming']);
+    expect(screen.getByRole('header', { name: 'Status' })).toBeOnTheScreen();
+    expect(radioNames()).toStrictEqual(['Any', 'Airing', 'Finished', 'Upcoming']);
+    expect(screen.getByRole('radio', { name: 'Any' })).toBe(
+      screen.getByTestId('filters-status-none'),
+    );
   });
 
   it('words the statuses for manga, in french too', async () => {
@@ -65,19 +75,26 @@ describe('StatusFilter', () => {
       language: 'fr',
     });
 
-    expect(radioNames()).toStrictEqual(['En cours de publication', 'Terminé', 'À venir']);
+    expect(radioNames()).toStrictEqual([
+      'Indifférent',
+      'En cours de publication',
+      'Terminé',
+      'À venir',
+    ]);
+    expect(screen.getByRole('header', { name: 'Statut' })).toBeOnTheScreen();
     expect(screen.getByRole('radio', { name: 'En cours de publication' })).toBeChecked();
   });
 
-  it('selects a status, and clears it when its chip is pressed again', async () => {
+  it('selects a status, keeps it when its chip is pressed again, and clears it with Any', async () => {
     const user = userEvent.setup();
     const onChange = jest.fn<(status: SearchableMediaStatus | null) => void>();
     await renderWithProviders(<StatusFilter kind="manga" status="finished" onChange={onChange} />);
 
     await user.press(screen.getByRole('radio', { name: 'Finished' }));
     await user.press(screen.getByRole('radio', { name: 'Upcoming' }));
+    await user.press(screen.getByRole('radio', { name: 'Any' }));
 
-    expect(onChange.mock.calls).toStrictEqual([[null], ['upcoming']]);
+    expect(onChange.mock.calls).toStrictEqual([['finished'], ['upcoming'], [null]]);
   });
 });
 
@@ -85,8 +102,9 @@ describe('MinScoreFilter', () => {
   it('shows 5+ to 9+, each read as a score or more', async () => {
     await renderWithProviders(<MinScoreFilter minScore={7} onChange={jest.fn()} />);
 
-    expect(screen.getByText('Minimum score')).toBeOnTheScreen();
+    expect(screen.getByRole('header', { name: 'Minimum score' })).toBeOnTheScreen();
     expect(radioNames()).toStrictEqual([
+      'Any',
       'Score 5 or more',
       'Score 6 or more',
       'Score 7 or more',
@@ -95,17 +113,21 @@ describe('MinScoreFilter', () => {
     ]);
     expect(screen.getByTestId('filters-min-score-7')).toHaveTextContent('7+');
     expect(screen.getByRole('radio', { name: 'Score 7 or more' })).toBeChecked();
+    expect(screen.getByRole('radio', { name: 'Any' })).toBe(
+      screen.getByTestId('filters-min-score-none'),
+    );
   });
 
-  it('selects a score, and clears it when its chip is pressed again', async () => {
+  it('selects a score, keeps it when its chip is pressed again, and clears it with Any', async () => {
     const user = userEvent.setup();
     const onChange = jest.fn<(minScore: number | null) => void>();
     await renderWithProviders(<MinScoreFilter minScore={7} onChange={onChange} />);
 
     await user.press(screen.getByRole('radio', { name: 'Score 7 or more' }));
     await user.press(screen.getByRole('radio', { name: 'Score 9 or more' }));
+    await user.press(screen.getByRole('radio', { name: 'Any' }));
 
-    expect(onChange.mock.calls).toStrictEqual([[null], [9]]);
+    expect(onChange.mock.calls).toStrictEqual([[7], [9], [null]]);
   });
 });
 
@@ -127,6 +149,7 @@ describe('SortFilter', () => {
     await renderSort(null);
 
     expect(radioNames()).toStrictEqual(['Relevance', 'Score', 'Popularity', 'Title', 'Start date']);
+    expect(screen.getByRole('header', { name: 'Sort by' })).toBeOnTheScreen();
     expect(screen.getByRole('radio', { name: 'Relevance' })).toBeChecked();
     expect(screen.queryByText('Order')).not.toBeOnTheScreen();
   });

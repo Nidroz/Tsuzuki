@@ -18,6 +18,7 @@ import { LIBRARY_SYNC_ISSUES_REPORT_SOURCE } from './use-library-sync-issues';
 const CONFIRMED_ONE: LibraryReplayRun = { status: 'done', confirmed: 1 };
 const CONFIRMED_NONE: LibraryReplayRun = { status: 'failed', confirmed: 0 };
 const SIGNED_OUT: LibraryReplayRun = { status: 'signed-out', confirmed: 0 };
+const OFFLINE: LibraryReplayRun = { status: 'offline', confirmed: 0 };
 
 describe('useLibrarySyncIssues while the live library is not the account library', () => {
   it('counts nothing and does nothing signed out', async () => {
@@ -170,6 +171,27 @@ describe('useLibrarySyncIssues on the live account library', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
+  it("never shows the offline feedback of the previous account's retry on the next one", async () => {
+    const previous = createStuckAccount(1).account;
+    const next = createStuckAccount(2).account;
+    const run = createDeferred<LibraryReplayRun>();
+    previous.retryStuckWrites.mockReturnValueOnce(run.promise);
+    const { result, switchTo } = renderSyncIssues({ account: previous });
+    act(() => {
+      result.current.retry();
+    });
+
+    switchTo(next);
+    await act(async () => {
+      run.resolve(OFFLINE);
+      await jest.advanceTimersByTimeAsync(0);
+    });
+
+    expect(result.current.stuckCount).toBe(2);
+    expect(result.current.feedback).toBeNull();
+    expect(result.current.feedbackId).toBe(0);
+  });
+
   it('discards the stuck writes, returns how many went and refetches the library', () => {
     const { account } = createStuckAccount(2);
     account.discardStuckWrites.mockReturnValueOnce(2);
@@ -197,7 +219,10 @@ describe('useLibrarySyncIssues on the live account library', () => {
     });
     const { result, invalidate, captureError } = renderSyncIssues({ account });
 
-    expect(result.current.discard()).toBe(0);
+    // the failed discard sets the shared feedback: a state update
+    act(() => {
+      expect(result.current.discard()).toBe(0);
+    });
 
     expect(captureError.mock.calls).toStrictEqual([
       [failure, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE }],

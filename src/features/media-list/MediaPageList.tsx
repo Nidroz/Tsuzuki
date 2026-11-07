@@ -1,27 +1,21 @@
 import type { MediaSummary } from '@core/catalog/catalog-provider';
-import { CatalogNetworkError } from '@core/errors/catalog-errors';
 import type { FilteredPage } from '@core/hooks/filtered-page';
 import { useTranslation } from '@core/i18n/index';
 import {
-  Button,
   EmptyState,
   ErrorState,
   List,
   Pagination,
-  Row,
   Spinner,
   Stack,
-  Text,
   type PaginationLabels,
 } from '@ui/index';
 import { useCallback, useMemo, type ReactElement } from 'react';
 
+import { isOffline, MediaPageListHeader } from './MediaPageListHeader';
 import { MediaSummaryRow, mediaSummaryKey } from './MediaSummaryRow';
 
 const FIRST_PAGE = 1;
-
-// a network error is most likely the device being offline
-const isOffline = (error: Error): boolean => error instanceof CatalogNetworkError;
 
 export interface MediaPageListProps {
   /** the filtered page shown, undefined until a first page arrives */
@@ -194,53 +188,5 @@ export function MediaPageList({
       scrollToTopKey={scrollToTopKey}
       testID={`${testIDPrefix}-results`}
     />
-  );
-}
-
-interface MediaPageListHeaderProps {
-  /** a placeholder is shown, or the retry of a failed refetch runs */
-  updating: boolean;
-  /** the failed refetch of the page shown, null when it is fresh or its retry runs */
-  staleError: Error | null;
-  hiddenCount: number;
-  onRetry: () => void;
-  testIDPrefix: string;
-}
-
-// the notes above the rows: nothing when the page shown is fresh and complete
-function MediaPageListHeader({
-  updating,
-  staleError,
-  hiddenCount,
-  onRetry,
-  testIDPrefix,
-}: MediaPageListHeaderProps) {
-  const { t } = useTranslation();
-  if (!updating && staleError === null && hiddenCount === 0) {
-    return null;
-  }
-  return (
-    <Stack gap="xs" align="start">
-      {updating ? (
-        <Spinner
-          size="small"
-          accessibilityLabel={t('mediaList.updating')}
-          testID={`${testIDPrefix}-updating`}
-        />
-      ) : null}
-      {staleError === null ? null : (
-        <Row gap="sm" wrap testID={`${testIDPrefix}-stale-note`}>
-          <Text variant="caption" tone="muted">
-            {isOffline(staleError) ? t('mediaList.stale.offline') : t('mediaList.stale.generic')}
-          </Text>
-          <Button label={t('mediaList.error.retry')} onPress={onRetry} variant="ghost" />
-        </Row>
-      )}
-      {hiddenCount > 0 ? (
-        <Text variant="caption" tone="muted" testID={`${testIDPrefix}-hidden-note`}>
-          {t('mediaList.hidden', { count: hiddenCount })}
-        </Text>
-      ) : null}
-    </Stack>
   );
 }

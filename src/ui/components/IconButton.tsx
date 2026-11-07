@@ -14,7 +14,11 @@ export interface IconButtonProps {
   accessibilityLabel: string;
   onPress: () => void;
   disabled?: boolean;
-  /** toggle state (e.g. favorite): drawn in the primary color and announced as selected */
+  /**
+   * toggle state (e.g. favorite): drawn in the primary color and announced as selected. a toggle
+   * keeps a fixed label and states its state through `selected` only: a label naming the state
+   * ("Remove from favorites") would announce it twice
+   */
   selected?: boolean;
   accessibilityHint?: string;
   testID?: string;

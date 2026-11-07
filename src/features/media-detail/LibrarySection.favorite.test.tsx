@@ -19,8 +19,8 @@ import { LibrarySection } from './LibrarySection';
 const TEST_ID = 'media-detail-library';
 const FAVORITE_ID = `${TEST_ID}-favorite`;
 const ADD = 'Add to library';
-const ADD_FAVORITE = 'Add to favorites';
-const REMOVE_FAVORITE = 'Remove from favorites';
+// a two-state toggle: a fixed label, its state told by selected only
+const FAVORITE = 'Favorite';
 const UNSUPPORTED = 'This title cannot be saved to your library.';
 const READ_FAILURE = new Error('storage is unreadable');
 
@@ -56,7 +56,7 @@ describe('LibrarySection favorite (FR-15)', () => {
     const { repository, user } = await renderSection();
     await screen.findByRole('button', { name: ADD });
 
-    expect(favorite()).toHaveAccessibleName(ADD_FAVORITE);
+    expect(favorite()).toHaveAccessibleName(FAVORITE);
     expect(favorite()).not.toBeSelected();
 
     await user.press(favorite());
@@ -72,7 +72,7 @@ describe('LibrarySection favorite (FR-15)', () => {
     expect(screen.getByTestId(`${TEST_ID}-status`)).toHaveAccessibleName(
       'My status, Plan to watch',
     );
-    expect(favorite()).toHaveAccessibleName(REMOVE_FAVORITE);
+    expect(favorite()).toHaveAccessibleName(FAVORITE);
     expect(favorite()).toBeSelected();
   });
 
@@ -80,7 +80,7 @@ describe('LibrarySection favorite (FR-15)', () => {
     const { repository, user } = await renderSection([entryOf({ isFavorite: true })]);
     await screen.findByTestId(`${TEST_ID}-status`);
 
-    expect(screen.getByRole('button', { name: REMOVE_FAVORITE })).toBeSelected();
+    expect(screen.getByRole('button', { name: FAVORITE })).toBeSelected();
 
     await user.press(favorite());
     await settle();
@@ -90,7 +90,7 @@ describe('LibrarySection favorite (FR-15)', () => {
       status: ENTRY.status,
       progress: ENTRY.progress,
     });
-    expect(favorite()).toHaveAccessibleName(ADD_FAVORITE);
+    expect(favorite()).toHaveAccessibleName(FAVORITE);
     expect(favorite()).not.toBeSelected();
     expect(screen.getByTestId(`${TEST_ID}-status`)).toBeOnTheScreen();
   });
@@ -143,6 +143,6 @@ describe('LibrarySection favorite (FR-15)', () => {
       { language: 'fr' },
     );
 
-    expect(await screen.findByRole('button', { name: 'Retirer des favoris' })).toBeSelected();
+    expect(await screen.findByRole('button', { name: 'Favori' })).toBeSelected();
   });
 });
