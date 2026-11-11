@@ -2,6 +2,7 @@ import { describe, expect, it } from '@jest/globals';
 
 import { LibraryRemoteError } from '../../errors/library-errors';
 import {
+  LIBRARY_ENTRY_LIMIT_CODE,
   LIBRARY_REPORT_SOURCE,
   libraryRemoteReason,
   libraryReportContext,
@@ -43,6 +44,27 @@ describe('libraryRemoteReason', () => {
       expect(libraryRemoteReason(response(status, '23514'))).toBe('rejected');
     },
   );
+
+  // the per-user entry cap of the database (private.enforce_library_entry_cap)
+  it.each([400, 403, 409])('reads status %p with code TZ001 as library-full', (status) => {
+    expect(LIBRARY_ENTRY_LIMIT_CODE).toBe('TZ001');
+    expect(libraryRemoteReason(response(status, LIBRARY_ENTRY_LIMIT_CODE))).toBe('library-full');
+  });
+
+  it.each(['TZ002', 'tz001', ' TZ001', undefined])(
+    'reads a 400 with code %p as rejected',
+    (code) => {
+      expect(libraryRemoteReason(response(400, code))).toBe('rejected');
+    },
+  );
+
+  it.each([
+    { status: 401, reason: 'signed-out' },
+    { status: 429, reason: 'network' },
+    { status: 500, reason: 'unknown' },
+  ])('reads status $status with code TZ001 as $reason, by its status', ({ status, reason }) => {
+    expect(libraryRemoteReason(response(status, LIBRARY_ENTRY_LIMIT_CODE))).toBe(reason);
+  });
 
   it('reads a row the schema rejects as invalid-row', () => {
     expect(libraryRemoteReason({ type: 'invalid-row' })).toBe('invalid-row');

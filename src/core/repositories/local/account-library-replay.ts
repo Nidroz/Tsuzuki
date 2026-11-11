@@ -112,7 +112,9 @@ const failureOf = (
     return { type: 'end', status: 'signed-out' };
   }
   const [first] = batch;
-  if (reason === 'rejected' && first !== undefined) {
+  // refused for good: a bug, or a new entry past the user's cap (library-full), which the writes
+  // of stored keys and the removals of the batch do not need, so they are sent alone
+  if ((reason === 'rejected' || reason === 'library-full') && first !== undefined) {
     if (batch.length > 1) {
       return { type: 'split' };
     }

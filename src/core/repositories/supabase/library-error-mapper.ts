@@ -49,12 +49,26 @@ const RETRYABLE_STATUSES: ReadonlySet<number> = new Set([
   HTTP_GATEWAY_TIMEOUT,
 ]);
 
+/**
+ * the sqlstate of an insert of a new entry past LIBRARY_ENTRIES_PER_USER_MAX: the `TZ001` that
+ * private.enforce_library_entry_cap raises (supabase/migrations/*_per_user_library_caps.sql), which
+ * postgrest answers with 400 like every sqlstate it does not list.
+ */
+export const LIBRARY_ENTRY_LIMIT_CODE = 'TZ001';
+
 // a sqlstate such as 23514, or a postgrest code such as PGRST204: anything else could be text
 const REPORTABLE_CODE = /^(?:[0-9A-Z]{5}|PGRST[0-9]{3})$/;
 
 const errorCodeSchema = z.object({ code: z.string().regex(REPORTABLE_CODE) });
 
-const responseReason = (status: number): LibraryRemoteReason => {
+const entryLimitSchema = z.object({ code: z.literal(LIBRARY_ENTRY_LIMIT_CODE) });
+
+// a client error refused for good: the library full (a condition of the user), else a bug or a
+// schema drift
+const refusalReason = (error: unknown): LibraryRemoteReason =>
+  entryLimitSchema.safeParse(error).success ? 'library-full' : 'rejected';
+
+const responseReason = (status: number, error: unknown): LibraryRemoteReason => {
   if (status === NO_RESPONSE || RETRYABLE_STATUSES.has(status)) {
     return 'network';
   }
@@ -62,7 +76,7 @@ const responseReason = (status: number): LibraryRemoteReason => {
     return 'signed-out';
   }
   return status >= HTTP_CLIENT_ERROR_MIN && status <= HTTP_CLIENT_ERROR_MAX
-    ? 'rejected'
+    ? refusalReason(error)
     : 'unknown';
 };
 
@@ -70,7 +84,7 @@ const responseReason = (status: number): LibraryRemoteReason => {
 export const libraryRemoteReason = (failure: LibraryFailure): LibraryRemoteReason => {
   switch (failure.type) {
     case 'response':
-      return responseReason(failure.status);
+      return responseReason(failure.status, failure.error);
     case 'session':
       return 'signed-out';
     // transient (ADR-0017): the write stays queued for this user, the read falls back to the copy

@@ -128,15 +128,15 @@ export interface AccountLibraryRepository extends LibraryRepository {
    * entries are sent in batches, each written whole or not at all, and the merge resolves only
    * once every batch is confirmed: each entry written, or kept as not newer than the account copy.
    * rejects with a LibraryRemoteError on any failure (`network`, `signed-out`, `rejected`,
-   * `unknown`; `invalid-row` is not used), after which the batches before the failed one may be
-   * written. calling again with the same entries completes the merge: an entry written at its own
-   * `updatedAt` now carries that time and is kept. an entry whose `updatedAt` was ahead of the
-   * server was written at the first call's now, and the retry caps it again at its own, later
-   * now: it is written again, with the same values and that later time, and so replaces an
-   * account change made between the two calls (another device) at a time before that
-   * `updatedAt`, that is less than the clock skew after the first call. the session guard (A-03)
-   * applies before every request: with another user's session or none, it rejects with
-   * `signed-out` and that request is not sent.
+   * `library-full`: a new entry past the user's cap, `unknown`; `invalid-row` is not used), after
+   * which the batches before the failed one may be written. calling again with the same entries
+   * completes the merge: an entry written at its own `updatedAt` now carries that time and is
+   * kept. an entry whose `updatedAt` was ahead of the server was written at the first call's now,
+   * and the retry caps it again at its own, later now: it is written again, with the same values
+   * and that later time, and so replaces an account change made between the two calls (another
+   * device) at a time before that `updatedAt`, that is less than the clock skew after the first
+   * call. the session guard (A-03) applies before every request: with another user's session or
+   * none, it rejects with `signed-out` and that request is not sent.
    *
    * an entry libraryEntrySchema rejects, or two entries of the same key, reject with a RangeError
    * whose message holds no value, and nothing is sent. an empty list resolves without a request.
@@ -178,7 +178,8 @@ export interface RemoteAccountLibraryRepository extends AccountLibraryRepository
    * rejects with a LibraryRemoteError on any failure: `network` (no answer, the timeout, a gateway
    * status, a 408 or a 429, a session read error), `signed-out` (another user's session or none, a refused token,
    * or a row of another user in the answer), `rejected` (the database refused the call: nothing
-   * was written), `unknown` (an answer that does not parse or does not hold each key exactly once,
+   * was written), `library-full` (a save of a new entry past the user's cap: nothing was written,
+   * not reported), `unknown` (an answer that does not parse or does not hold each key exactly once,
    * reported); `invalid-row` is not used. writes hold personal data: never logged, never in an
    * error or a report tag.
    */

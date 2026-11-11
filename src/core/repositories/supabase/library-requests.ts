@@ -103,8 +103,9 @@ export const createLibraryRequests = (
     return true;
   };
 
-  // the error of a failure; network and signed-out are expected and never reported, an
-  // unreadable row once per instance, an unknown failure once per operation and status per outage
+  // the error of a failure; network, signed-out and library-full (a condition of the user, not a
+  // bug) are expected and never reported, an unreadable row once per instance, an unknown failure
+  // once per operation and status per outage
   const fail = (operation: LibraryOperation, failure: LibraryFailure): LibraryRemoteError => {
     const error = toLibraryRemoteError(failure);
     const context = libraryReportContext(operation, failure);

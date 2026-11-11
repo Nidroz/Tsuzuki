@@ -27,12 +27,13 @@ export interface LibraryReplayRun {
  * `save` and `remove` resolve as soon as the change is kept on the device: with the stored entry
  * when the server confirmed it at once, else with the queued state (a save's entry at its queued
  * time, its `createdAt` kept from the copy when known). they reject with the LibraryRemoteError of
- * a direct attempt the server definitely refused (`rejected`) or wrote (`invalid-row`): the write
- * leaves the queue, so the user sees the failure and the entry refetches. any other failure
- * (`network`, `signed-out`, `unknown`: the server may have committed it) keeps the write queued
- * for this user only, until a replay confirms it. `get` and `list` show every queued
- * write over the server state (read your writes); offline, or when the server is unreachable,
- * they read the device copy, and reject with `network` when this user has no copy yet.
+ * a direct attempt the server definitely refused (`rejected`, or `library-full`: a new entry past
+ * the user's cap) or wrote (`invalid-row`): the write leaves the queue, so the user sees the
+ * failure and the entry refetches. any other failure (`network`, `signed-out`, `unknown`: the
+ * server may have committed it) keeps the write queued for this user only, until a replay confirms
+ * it. `get` and `list` show every queued write over the server state (read your writes); offline,
+ * or when the server is unreachable, they read the device copy, and reject with `network` when
+ * this user has no copy yet.
  * `mergeGuestEntries` goes to the account store directly, never through the queue. the sign out
  * and the account deletion delete the copy and the queue with `purgeDeviceData` (ADR-0018).
  */
@@ -50,18 +51,18 @@ export interface OfflineAccountLibraryRepository extends AccountLibraryRepositor
    * once it settled. `network` and `unknown` failures are retried after each of
    * LIBRARY_REPLAY_RETRY_DELAYS_MS, then the run ends `failed`, and when its last failure was
    * `unknown`, each write of the batch that failed, still queued under the same seq, counts one
-   * more failed run. a batch the database refuses is sent again one write per call, and a write
-   * refused alone stays queued, marked refused (persisted): no run sends it again, at this launch
-   * or a later one, until `retryStuckWrites` or a newer write of its key. `options.signal`
-   * aborted: no further request, the wait for a retry cut, the run ends `aborted`. never rejects
-   * for a failure of the server or the network: the status tells it.
+   * more failed run. a batch the database refuses (`rejected`, `library-full`) is sent again one
+   * write per call, and a write refused alone stays queued, marked refused (persisted): no run
+   * sends it again, at this launch or a later one, until `retryStuckWrites` or a newer write of its
+   * key. `options.signal` aborted: no further request, the wait for a retry cut, the run ends
+   * `aborted`. never rejects for a failure of the server or the network: the status tells it.
    */
   replayQueuedWrites(options?: LibraryCallOptions): Promise<LibraryReplayRun>;
 
   /**
    * calls `listener` each time a write call leaves its write in the queue (offline, a replay run
-   * sending its key, or a direct attempt failing otherwise than `rejected` or `invalid-row`), for
-   * every instance of this user. returns the unsubscribe function.
+   * sending its key, or a direct attempt failing otherwise than `rejected`, `library-full` or
+   * `invalid-row`), for every instance of this user. returns the unsubscribe function.
    */
   subscribeToQueuedWrites(listener: () => void): () => void;
 
