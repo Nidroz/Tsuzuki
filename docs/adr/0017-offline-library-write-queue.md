@@ -304,3 +304,31 @@ Visible state:
 - A retry that rejects, or a discard that throws, is reported with `{ source: 'library-sync-issues' }` through the reporter of `DevicePurgeContextProvider`; a throwing discard returns 0 and the notice stays with the count read from the device, with no visible error (a residual, tracked in R-03).
 - The ui primitive `Notice` (`src/ui/components/Notice.tsx`) holds a lasting state the user can act on: its message is one element of role `alert` named by its text, announced on mount and when it changes; its actions sit under it, outside the announced element, reachable on their own. `InlineError` stays the failure of an action.
 - `LibrarySyncNotice` (`src/features/library/LibrarySyncNotice.tsx`) is rendered by `LibraryEntriesScreen` above its content. Try again shows its pending label and disables Discard while it runs; the sheet shows the live count, its confirm is `danger`; the sheet state goes with the last stuck write, so a later one never reopens an unanswered question. The texts are `library.sync.*`, plural, in en and fr.
+
+## Update (2026-11-11)
+
+From the security review (R-04, `docs/security-review.md`). The text above and the Update of 2026-11-04 are kept as accepted; where they differ, this section applies.
+
+### Error codes of a replay call
+
+Recorded with the merge codes (ADR-0016 Update of 2026-11-11), as one list for both functions. Besides the fixed `22023` and `42501`, a replay call can fail with a cast or constraint code the input checks let through, for example `22P02` (an uncastable key), `22003` (an integer out of range), `22007`, `22008` or `22009` (a pattern-valid but impossible time such as `2026-13-01T00:00:00Z`, or an offset `+25:00`), `23502` (a save with a null key column; a removal with one gets `22023`) and `23514` (a check constraint), each quoting only the caller's own value, back to the caller; and `TZ001` (the entry cap below, a fixed message). The client schema (`libraryQueuedWriteSchema`) rejects every value behind those codes before any request; the client keeps the code alone.
+
+### Input bounded by bytes
+
+Migration `supabase/migrations/20261111143207_library_input_byte_bounds.sql` replaces `public.replay_library_writes` with the same signature, owner, security mode, `search_path` and grants, and one more check, right after the count and before any per-element check or cast: `octet_length(writes::text)` at most 100 × (28,063 + 2) = 2,806,500 bytes, else `22023` with the fixed message `writes are too large`. 28,063 bytes is a queued save at its worst case in jsonb text (a guest entry's 28,049 plus `"op": "save"`; a removal is smaller). No valid batch of the client is refused (a maximal valid save is 27,851 bytes). The bound limits the validation, the casts and the writes of a call, not PostgREST's parse of the body. pgTAP `072-library-input-size`.
+
+### Writes at the entry cap
+
+`library_entries` holds at most 10,000 rows per user (migration `20261111143330_per_user_library_caps.sql`, `private.enforce_library_entry_cap`, `docs/ARCHITECTURE.md` §5 "Per-user caps"): the insert of a new key past it raises `TZ001`, on the regular PostgREST path and under `private.write_client_library_entry` alike; a write of a key the user holds, and every removal, still goes through. The account store maps it to `LibraryRemoteError('library-full')` on `save`, `mergeGuestEntries` and `replayWrites`, never reported (`LIBRARY_ENTRY_LIMIT_CODE`, `library-error-mapper.ts`). In the offline account library it is a definite refusal, like `rejected`:
+
+- a direct write of a new key at the cap leaves the queue and rejects with `library-full` (`LEAVING_REASONS`), so the user is told at once (`library.full`, with the cap, on the detail's library section and the library rows); a write of a stored key is written;
+- in a replay, a `library-full` batch of several writes is sent again one write per call, so the writes of stored keys and the removals of that batch go through; a new key refused alone is marked `refused` and becomes a stuck write (the notice, Try again, Discard, "Stuck writes" of the Update of 2026-11-04); Try again syncs it once the user removed entries, Discard drops it;
+- `library-full` joins `rejected` and `invalid-row` in the contracts of `OfflineAccountLibraryRepository` (`src/core/repositories/offline-account-library-repository.ts`).
+
+### Progress events trimmed
+
+`progress_events` keeps each user's 10,000 most recent events (`private.trim_progress_events`, `after insert`, in the order `(created_at desc, id desc)`, through the new index `progress_events_user_created_id_idx`, which replaces `progress_events_user_created_idx`). The trim never raises, so the event a replay logs when it replaces a progress never fails the call. "Consequences", Data ("A replay that replaces the progress logs one `progress_events` row") stands, the oldest event of the user going once the cap is reached.
+
+### Residual (R-09)
+
+Both cap triggers take a per-user transaction advisory lock. A replay call whose removal of a key comes before a save (the save's insert takes the lock) and another device's upsert of the removed key (the lock first, then a wait on the deleted row) can deadlock: Postgres aborts one with `40P01`, which the client reads as `unknown` and retries (a replay run's backoff, or a direct write kept queued); nothing is lost. Taking the per-user lock at the start of both definer functions would remove it (Low).
