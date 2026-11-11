@@ -196,6 +196,28 @@ describe('FavoritesScreen', () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
+  it('tells a merge refused by a full account library instead of the favorites, with a retry (R-04)', async () => {
+    const retry = jest.fn<() => void>();
+    const { user } = await renderFavorites(undefined, 'en', {
+      status: 'failed',
+      failure: 'library-full',
+      retry,
+    });
+    await settle();
+
+    const failure = screen.getByTestId('favorites-merge-error');
+    expect(within(failure).getByText('Your library is not ready yet')).toBeOnTheScreen();
+    expect(failure).toHaveTextContent(
+      'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.',
+      { exact: false },
+    );
+    expect(screen.queryByTestId('favorites-list')).not.toBeOnTheScreen();
+
+    await user.press(within(failure).getByRole('button', { name: 'Try again' }));
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
   it('shows nothing of the merge once it concluded (A-04)', async () => {
     await renderFavorites();
     await settle();

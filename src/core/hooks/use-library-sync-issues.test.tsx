@@ -8,6 +8,7 @@ import {
   settle,
 } from '../../../test/core/library-sync-issues-support';
 import { createStuckAccount } from '../../../test/core/stuck-account';
+import { LibraryCleanupError } from '../errors/library-report-errors';
 import type { LibraryReplayRun } from '../repositories/offline-account-library-repository';
 import { PENDING_LIBRARY_REPOSITORY } from './pending-library';
 import { LIBRARY_SYNC_ISSUES_REPORT_SOURCE } from './use-library-sync-issues';
@@ -211,9 +212,9 @@ describe('useLibrarySyncIssues on the live account library', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('reports a discard whose storage failed with a fixed source, and returns 0', () => {
+  it('reports a discard whose storage failed as a fixed error, never the storage error, and returns 0', () => {
     const { account } = createStuckAccount(1);
-    const failure = new Error('storage failed');
+    const failure = new Error('storage failed near "rewatch with my sister"');
     account.discardStuckWrites.mockImplementationOnce(() => {
       throw failure;
     });
@@ -225,8 +226,13 @@ describe('useLibrarySyncIssues on the live account library', () => {
     });
 
     expect(captureError.mock.calls).toStrictEqual([
-      [failure, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE }],
+      [
+        new LibraryCleanupError('stuck-writes-discard'),
+        { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE },
+      ],
     ]);
+    expect(captureError.mock.calls.flat()).not.toContain(failure);
+    expect(result.current.feedback).toBe('discard-failed');
     expect(invalidate).not.toHaveBeenCalled();
     expect(result.current.stuckCount).toBe(1);
   });

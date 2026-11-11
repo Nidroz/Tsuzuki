@@ -176,6 +176,7 @@
     "notes": {
       "none": "Pas de notes personnelles"
     },
+    "full": "Votre bibliothèque est pleine : elle contient {{max}} titres. Retirez des titres pour en ajouter de nouveaux.",
     "list": {
       "loading": "Chargement de votre bibliothèque",
       "error": {
@@ -220,6 +221,7 @@
       "inProgress": "Ajout à votre compte des titres enregistrés sur cet appareil…",
       "failedTitle": "Votre bibliothèque n'est pas encore prête",
       "failed": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte. Ils restent sur cet appareil : réessayez pour les ajouter et ouvrir votre bibliothèque.",
+      "full": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec {{max}} titres. Ils restent sur cet appareil. Retirez des titres de votre bibliothèque sur un autre appareil, puis réessayez, ou déconnectez-vous pour les utiliser ici.",
       "retry": "Réessayer"
     },
     "sync": {

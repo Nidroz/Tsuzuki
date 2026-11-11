@@ -8,8 +8,9 @@ export interface DevicePurgeValue {
   /** deletes the persisted query cache document: the persister's removeClient */
   readonly removePersistedCache: () => void | PromiseLike<void>;
   /**
-   * receives the purge steps that failed, the sign out and account deletion failures, and the
-   * stuck write retries and discards that failed (useLibrarySyncIssues)
+   * receives the purge steps that failed, the sign out and account deletion failures, the stuck
+   * write retries and discards that failed (useLibrarySyncIssues), and the programming errors of
+   * the library actions (useLibraryEntryActions)
    */
   readonly reporter: ErrorReporter;
   /**

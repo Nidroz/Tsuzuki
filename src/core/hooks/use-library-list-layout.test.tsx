@@ -5,7 +5,10 @@ import type { ReactNode } from 'react';
 
 import { createFakeLibraryRepository } from '../../../test/core/fake-library-repository';
 import { entryWithMedia, keyOf } from '../../../test/core/library-entry-fixtures';
-import { switchableLibraryWrapper } from '../../../test/core/library-hooks-support';
+import {
+  switchableLibraryWrapper,
+  TestReporterContext,
+} from '../../../test/core/library-hooks-support';
 import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
 import type { LibraryEntry } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
@@ -71,7 +74,9 @@ const render = (key: MediaKey, initialProps: ListProps, library = LIBRARY) => {
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={createFakeCatalogProvider()}>
-        <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+        <TestReporterContext>
+          <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+        </TestReporterContext>
       </CatalogContextProvider>
     </QueryClientProvider>
   );

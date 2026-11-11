@@ -45,7 +45,7 @@ const setUp = (guestEntries = [FRIEREN, BERSERK], currentChecks: readonly boolea
     onMerging: jest.fn(() => {
       log.push('onMerging');
     }),
-    onCleanupFailed: jest.fn<(error: unknown) => void>(),
+    onCleanupFailed: jest.fn<() => void>(),
   };
   return { guest, account, log, run, isCurrent };
 };
@@ -165,7 +165,7 @@ describe('mergeGuestLibrary (BR-08)', () => {
     expect(account.beforeCall).not.toHaveBeenCalled();
   });
 
-  it('ends merged when the merged entries could not be removed, giving the failure to onCleanupFailed', async () => {
+  it('ends merged when the merged entries could not be removed, telling onCleanupFailed without the error', async () => {
     const { guest, account, run } = setUp([FRIEREN]);
     const failure = new Error('storage failure');
     guest.removeUnchanged.mockRejectedValueOnce(failure);
@@ -173,7 +173,7 @@ describe('mergeGuestLibrary (BR-08)', () => {
     await expect(mergeGuestLibrary(run)).resolves.toBe('merged');
 
     expect(run.onCleanupFailed).toHaveBeenCalledTimes(1);
-    expect(run.onCleanupFailed).toHaveBeenCalledWith(failure);
+    expect(run.onCleanupFailed).toHaveBeenCalledWith();
     expect(account.stored(FRIEREN.key)).toStrictEqual(
       mergedCopyOf(FRIEREN, new Date().toISOString()),
     );

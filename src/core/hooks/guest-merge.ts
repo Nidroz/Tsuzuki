@@ -1,10 +1,16 @@
 // one run of the merge of the guest library into an account library (BR-08, FR-22, ADR-0016),
 // driven by SessionLibraryContextProvider. plain typescript over the repository interfaces.
 // entries are personal data: never logged, never put in an error or a report
+import { LibraryRemoteError } from '../errors/library-errors';
 import type {
   AccountLibraryRepository,
   GuestLibraryRepository,
 } from '../repositories/library-repository';
+import type { GuestMergeFailure } from './guest-merge-context';
+
+/** why a run rejected, as the screens tell it: the account library full, or anything else */
+export const guestMergeFailureOf = (error: unknown): GuestMergeFailure =>
+  error instanceof LibraryRemoteError && error.reason === 'library-full' ? 'library-full' : 'other';
 
 /**
  * how a run ended: the guest store held nothing (`empty`, no account call), its entries were
@@ -32,10 +38,10 @@ export interface GuestMergeRun {
   /** called once the guest entries are about to be sent to the account */
   readonly onMerging: () => void;
   /**
-   * called with the error of a removal of the merged entries that failed, the run still ending
-   * `merged`. the error only: it holds no entry
+   * called once a removal of the merged entries failed, the run still ending `merged`. without
+   * the storage error, which could quote stored content: the caller reports a fixed error
    */
-  readonly onCleanupFailed: (error: unknown) => void;
+  readonly onCleanupFailed: () => void;
 }
 
 /**
@@ -44,7 +50,7 @@ export interface GuestMergeRun {
  * entries the account confirmed (removeUnchanged: an entry changed or added meanwhile stays).
  * checks the session between the steps: a run whose session ended removes nothing, and `signal`
  * stops its merge before the next batch. a rejection of a step up to the merge rejects the run,
- * and nothing is removed after a failed merge. a failed removal ends the run `merged`, given to
+ * and nothing is removed after a failed merge. a failed removal ends the run `merged`, told to
  * `onCleanupFailed`: the account holds every listed entry or a newer copy, and the next merge
  * sends the entries left on the device again (kept, BR-08) and removes them
  */
@@ -79,8 +85,8 @@ export const mergeGuestLibrary = async ({
   }
   try {
     await guest.removeUnchanged(entries);
-  } catch (error: unknown) {
-    onCleanupFailed(error);
+  } catch {
+    onCleanupFailed();
   }
   return 'merged';
 };

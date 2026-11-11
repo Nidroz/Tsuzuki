@@ -14,6 +14,7 @@ import {
   createStuckWriteMocks,
 } from './fake-library-repository';
 import { ENTRY_KEY } from './library-entry-fixtures';
+import { TestReporterContext } from './library-hooks-support';
 import type { MediaSummary } from '@core/catalog/catalog-provider';
 import type { LibraryEntry } from '@core/domain/library-entry';
 import type { ErrorReporter } from '@core/errors/error-reporter';
@@ -175,7 +176,7 @@ export const renderSessionLibrary = async ({
           reporter={current.reporter}
           subscribeToForeground={subscribeToForeground}
         >
-          {children}
+          <TestReporterContext>{children}</TestReporterContext>
         </SessionLibraryContextProvider>
       </AuthContextProvider>
     </QueryClientProvider>

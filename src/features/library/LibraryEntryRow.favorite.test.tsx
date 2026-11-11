@@ -1,3 +1,4 @@
+import { LibraryRemoteError } from '@core/errors/library-errors';
 import { describe, expect, it, jest } from '@jest/globals';
 import { screen, waitFor } from '@testing-library/react-native';
 
@@ -92,6 +93,28 @@ describe('LibraryEntryRow favorite (FR-15)', () => {
       expect(heart()).not.toBeSelected();
     });
     expect(heart()).toHaveAccessibleName(FAVORITE);
+  });
+
+  it('says the library is full under its row when the write is refused for it (R-04)', async () => {
+    const repository = createFakeLibraryRepository([FRIEREN]);
+    // the entry removed on another device meanwhile: the toggle writes it again, a new entry
+    repository.beforeCall.mockImplementation((method) =>
+      method === 'save'
+        ? Promise.reject(new LibraryRemoteError('library-full'))
+        : Promise.resolve(),
+    );
+    const { user } = await renderLibraryScreen({ repository });
+    await settle();
+
+    await user.press(heart());
+    await settle();
+
+    const error = screen.getByTestId(`${libraryEntryTestID(FRIEREN.key)}-error`);
+    expect(error).toHaveTextContent(
+      'Your library is full: it holds 10,000 titles. Remove titles to add new ones.',
+      { exact: false },
+    );
+    expect(error).not.toHaveTextContent('Your change could not be saved.', { exact: false });
   });
 
   it('names the heart in french', async () => {

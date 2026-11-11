@@ -13,9 +13,16 @@ import {
 import { incrementProgress, setProgress, setStatus } from '../domain/library-progress';
 import { refreshMediaSnapshot } from '../domain/library-snapshot';
 import { compareMediaKeys, type MediaKey } from '../domain/media';
+import {
+  LIBRARY_ACTION_REPORT_SOURCE,
+  LibraryActionError,
+  type LibraryActionProblem,
+} from '../errors/library-report-errors';
 import type { LibraryScope } from '../query/keys';
 import { toLibraryMediaSnapshot } from '../schemas/library-entry';
 import type { LibraryApplyOptions, LibraryChange } from './library-writer';
+import { useDevicePurgeContext } from './use-device-purge';
+import { useLatest } from './use-latest';
 import { useLibraryContext } from './use-library-context';
 
 export interface UseLibraryEntryActionsOptions {
@@ -78,6 +85,16 @@ const removeEntry: LibraryChange = () => null;
 // the toggle reads the entry as shown, optimistic changes included
 const flipFavorite: EntryRule = (entry, ctx) => setFavorite(entry, !entry.isFavorite, ctx);
 
+// the programming error a failed apply tells, null for an expected failure (a write the repository
+// refused or could not make, which the repositories report themselves): an apply before the entry
+// was loaded, or a change a rule or the snapshot refused with a RangeError (`refused`)
+const actionProblemOf = (reason: unknown, refused: boolean): LibraryActionProblem | null => {
+  if (reason instanceof LibraryActionError) {
+    return reason.problem;
+  }
+  return refused ? 'invalid-change' : null;
+};
+
 /**
  * the actions on the library entry of the media `key`, for a screen showing useLibraryEntry
  * (actions need the entry loaded). the callbacks are stable while the key and `media` are.
@@ -85,13 +102,18 @@ const flipFavorite: EntryRule = (entry, ctx) => setFavorite(entry, !entry.isFavo
  * create one from `media`); with `media`, it first
  * refreshes the entry's snapshot (refreshMediaSnapshot): the snapshot is written with a user
  * action, never by viewing alone. the snapshot is built inside the change, so a media outside
- * the database limits fails the action, not the render
+ * the database limits fails the action, not the render. a programming error (an action applied
+ * before the entry was loaded, a RangeError of a rule or the snapshot) is also reported to the
+ * reporter of the DevicePurgeContextProvider as a fixed LibraryActionError, with
+ * LIBRARY_ACTION_REPORT_SOURCE only: never the caught error, a key or a value. throws outside
+ * LibraryContextProvider or DevicePurgeContextProvider
  */
 export const useLibraryEntryActions = (
   key: MediaKey,
   { media }: UseLibraryEntryActionsOptions,
 ): LibraryEntryActions => {
   const { writer, scope } = useLibraryContext();
+  const latestReporter = useLatest(useDevicePurgeContext().reporter);
   const { namespace, kind, externalId } = key;
   // the key's values, so a new key object with the same media keeps the callbacks stable
   const mediaKey = useMemo(() => ({ namespace, kind, externalId }), [namespace, kind, externalId]);
@@ -105,11 +127,28 @@ export const useLibraryEntryActions = (
   const run = useCallback(
     (change: LibraryChange, options?: LibraryApplyOptions) => {
       setFailure(null);
-      writer.apply(mediaKey, change, options).catch((reason: unknown) => {
+      // a RangeError of this change itself: a failure of an earlier write of the key may reject
+      // this apply too (library-writer), and the repositories may throw their own
+      let refused = false;
+      const guarded: LibraryChange = (entry, ctx) => {
+        try {
+          return change(entry, ctx);
+        } catch (thrown) {
+          refused = thrown instanceof RangeError;
+          throw thrown;
+        }
+      };
+      writer.apply(mediaKey, guarded, options).catch((reason: unknown) => {
+        const problem = actionProblemOf(reason, refused);
+        if (problem !== null) {
+          latestReporter.current.captureError(new LibraryActionError(problem), {
+            source: LIBRARY_ACTION_REPORT_SOURCE,
+          });
+        }
         setFailure({ key: mediaKey, scope, error: reason });
       });
     },
-    [writer, scope, mediaKey],
+    [writer, scope, mediaKey, latestReporter],
   );
 
   // a rule on an entry in the library, after the snapshot refresh when the media is known

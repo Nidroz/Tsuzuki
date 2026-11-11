@@ -6,11 +6,12 @@ import {
   type GuestMergeValue,
 } from './guest-merge-context';
 
-export type { GuestMergeStatus, GuestMergeValue } from './guest-merge-context';
+export type { GuestMergeFailure, GuestMergeStatus, GuestMergeValue } from './guest-merge-context';
 
 /**
- * the merge of the guest library into the account of the session (ADR-0016): its status and its
- * retry, from the nearest SessionLibraryContextProvider; throws outside of it
+ * the merge of the guest library into the account of the session (ADR-0016): its status, why it
+ * failed while `failed`, and its retry, from the nearest SessionLibraryContextProvider; throws
+ * outside of it
  */
 export const useGuestMerge = (): GuestMergeValue => {
   const value = use(GuestMergeContext);

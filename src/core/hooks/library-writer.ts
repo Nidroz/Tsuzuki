@@ -11,6 +11,7 @@ import {
 } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
 import type { MediaKey } from '../domain/media';
+import { LibraryActionError } from '../errors/library-report-errors';
 import { queryKeys, type LibraryScope } from '../query/keys';
 import type { LibraryRepository } from '../repositories/library-repository';
 import { mediaKeyId, setListEntry, withListEntry } from './library-list-data';
@@ -45,8 +46,8 @@ export interface LibraryWriter {
    * applies a change to the loaded entry of a key: shown at once (optimistic), then written.
    * settles with the write that carries the change: rejects with its error, after which the
    * entry refetches the stored truth. a write of the key that fails first fails every change
-   * computed over it and not sent yet with the same error. rejects without writing when the entry
-   * is not loaded.
+   * computed over it and not sent yet with the same error. rejects without writing, with a
+   * LibraryActionError `entry-not-loaded`, when the entry is not loaded.
    */
   apply(key: MediaKey, change: LibraryChange, options?: LibraryApplyOptions): Promise<void>;
   /** writes every pending coalesced change now; resolves once every call settled, never rejects */
@@ -68,9 +69,6 @@ export interface LibraryWriterOptions {
 }
 
 const noop = (): void => undefined;
-
-// a programming error: the ui enables library actions once the entry is loaded
-const NOT_LOADED_MESSAGE = 'library change applied before the library entry was loaded';
 
 const systemNow = (): Date => new Date();
 
@@ -223,7 +221,8 @@ export const createInspectableLibraryWriter = ({
 
       const current = queryClient.getQueryData<LibraryEntry | null>(entryKey);
       if (current === undefined) {
-        throw new Error(NOT_LOADED_MESSAGE);
+        // a programming error: the ui enables library actions once the entry is loaded
+        throw new LibraryActionError('entry-not-loaded');
       }
       const next = change(current, libraryWriteContextAt(now()));
       if (next === current) {

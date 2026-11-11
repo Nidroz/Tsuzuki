@@ -15,6 +15,7 @@ import {
   keyOf,
   SNAPSHOT,
 } from '../../../test/core/library-entry-fixtures';
+import { TestReporterContext } from '../../../test/core/library-hooks-support';
 import { createFakeCatalogProvider } from '../catalog/__fixtures__/fake-catalog-provider';
 import type { CatalogProvider } from '../catalog/catalog-provider';
 import type { LibraryEntry } from '../domain/library-entry';
@@ -68,7 +69,9 @@ const render = (
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={provider}>
-        <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+        <TestReporterContext>
+          <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+        </TestReporterContext>
       </CatalogContextProvider>
     </QueryClientProvider>
   );

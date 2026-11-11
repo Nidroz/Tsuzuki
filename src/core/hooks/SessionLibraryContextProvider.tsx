@@ -11,12 +11,14 @@ import {
 
 import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
+import { LibraryCleanupError } from '../errors/library-report-errors';
 import type { GuestLibraryRepository, LibraryRepository } from '../repositories/library-repository';
 import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import type { ForegroundSubscription } from './foreground';
-import { mergeGuestLibrary } from './guest-merge';
+import { guestMergeFailureOf, mergeGuestLibrary } from './guest-merge';
 import {
   GuestMergeContext,
+  type GuestMergeFailure,
   type GuestMergeStatus,
   type GuestMergeValue,
 } from './guest-merge-context';
@@ -59,6 +61,8 @@ interface MergeState {
   readonly phase: MergePhase;
   /** the run of that instance: 0 for the first, one more per retry */
   readonly attempt: number;
+  /** why that run failed, in the `failed` phase only */
+  readonly failure: GuestMergeFailure | null;
 }
 
 interface StartedRun {
@@ -66,7 +70,7 @@ interface StartedRun {
   readonly attempt: number;
 }
 
-const NO_MERGE: MergeState = { account: null, phase: 'done', attempt: 0 };
+const NO_MERGE: MergeState = { account: null, phase: 'done', attempt: 0, failure: null };
 
 const REPORT_SOURCE = 'guest-merge';
 
@@ -79,8 +83,8 @@ const noop = (): void => undefined;
  * pending library while the session loads. each new account instance first gets the guest
  * library merged into it (BR-08, FR-22): the pending library from the very first render of that
  * instance until its merge succeeded (the guest store read, its entries sent, or a failure until a
- * retry succeeds), then the account library, with the merge status and its retry given to
- * useGuestMerge(). so no library action ever computes a write on an account library lacking a
+ * retry succeeds), then the account library, with the merge status, why it failed (the account
+ * library full or not) and its retry given to useGuestMerge(). so no library action ever computes a write on an account library lacking a
  * guest entry, which a later merge would then keep over the guest copy. a merge waits for the
  * previous merge of this provider and for the pending writes of the retired libraries first, so
  * two merges never overlap, and one whose session ended changes and removes nothing: each run's
@@ -162,9 +166,9 @@ export function SessionLibraryContextProvider({
       const controller = new AbortController();
       controllers.set(runAccount, controller);
       const isCurrent = (): boolean => liveAccountRef.current === runAccount;
-      const conclude = (next: MergePhase): void => {
+      const conclude = (next: MergePhase, failure: GuestMergeFailure | null = null): void => {
         if (isCurrent()) {
-          setMerge({ account: runAccount, phase: next, attempt: runAttempt });
+          setMerge({ account: runAccount, phase: next, attempt: runAttempt, failure });
         }
       };
       const previous = lastRunRef.current;
@@ -180,9 +184,11 @@ export function SessionLibraryContextProvider({
           conclude('merging');
         },
         // the merge is done: the account holds every listed entry or a newer copy. reported, never
-        // shown; the error of the guest store holds no entry, key or user id
-        onCleanupFailed: (error) => {
-          reporter.captureError(error, { source: REPORT_SOURCE });
+        // shown, as a fixed error: the storage error could quote stored content
+        onCleanupFailed: () => {
+          reporter.captureError(new LibraryCleanupError('guest-merge-cleanup'), {
+            source: REPORT_SOURCE,
+          });
         },
       });
       lastRunRef.current = started.then(noop, noop);
@@ -199,11 +205,12 @@ export function SessionLibraryContextProvider({
         },
         (error: unknown) => {
           // reported even for a stale run, never swallowed; the account store reports its own
-          // failures. the errors of the repositories hold no entry, key or user id
+          // failures (a full account library is none). the errors of the repositories hold no
+          // entry, key or user id
           if (!(error instanceof LibraryRemoteError)) {
             reporter.captureError(error, { source: REPORT_SOURCE });
           }
-          conclude('failed');
+          conclude('failed', guestMergeFailureOf(error));
         },
       );
     },
@@ -230,7 +237,7 @@ export function SessionLibraryContextProvider({
   const retry = useCallback(() => {
     setMerge((current) =>
       current.phase === 'failed'
-        ? { account: current.account, phase: 'checking', attempt: current.attempt + 1 }
+        ? { ...current, phase: 'checking', attempt: current.attempt + 1, failure: null }
         : current,
     );
   }, []);
@@ -248,9 +255,12 @@ export function SessionLibraryContextProvider({
   }, [phase, retry]);
 
   const mergeStatus: GuestMergeStatus = phase === null || phase === 'done' ? 'idle' : phase;
+  // the failure of this instance's run only, as the phase
+  const failure = phase === 'failed' ? (merge.failure ?? 'other') : null;
   const mergeValue = useMemo(
-    (): GuestMergeValue => ({ status: mergeStatus, retry }),
-    [mergeStatus, retry],
+    (): GuestMergeValue =>
+      failure === null ? { status: mergeStatus, retry } : { status: mergeStatus, failure, retry },
+    [mergeStatus, failure, retry],
   );
 
   const sessionValue = useMemo(

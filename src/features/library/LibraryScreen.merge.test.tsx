@@ -1,4 +1,6 @@
+import { LIBRARY_ENTRIES_PER_USER_MAX } from '@core/domain/database-limits';
 import type { GuestMergeStatus, GuestMergeValue } from '@core/hooks/guest-merge-context';
+import { formatNumber } from '@core/i18n/index';
 import { describe, expect, it, jest } from '@jest/globals';
 import { screen, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
@@ -25,9 +27,19 @@ const FAILED_TITLE = 'Your library is not ready yet';
 const FAILED_TEXT =
   'The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.';
 
+const FULL_TEXT =
+  'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.';
+
 const mergeOf = (status: GuestMergeStatus) => {
   const retry = jest.fn<() => void>();
   const guestMerge: GuestMergeValue = { status, retry };
+  return { guestMerge, retry };
+};
+
+// a merge the account refused at its cap (R-04)
+const fullMerge = () => {
+  const retry = jest.fn<() => void>();
+  const guestMerge: GuestMergeValue = { status: 'failed', failure: 'library-full', retry };
   return { guestMerge, retry };
 };
 
@@ -70,6 +82,35 @@ describe('LibraryScreen guest merge (A-04)', () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
+  it('tells a merge refused by a full account library, announced, with a retry (R-04)', async () => {
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    announce.mockClear();
+    const { guestMerge, retry } = fullMerge();
+    const { user } = await renderLibraryScreen({ guestMerge });
+    await settle();
+
+    const failure = screen.getByTestId('library-merge-error');
+    expect(within(failure).getByText(FAILED_TITLE)).toBeOnTheScreen();
+    expect(within(failure).getByText(FULL_TEXT)).toBeOnTheScreen();
+    expect(within(failure).queryByText(FAILED_TEXT)).not.toBeOnTheScreen();
+    expect(announce).toHaveBeenCalledWith(`${FAILED_TITLE}\n${FULL_TEXT}`);
+    expect(screen.queryByTestId('library-list')).not.toBeOnTheScreen();
+
+    await user.press(within(failure).getByRole('button', { name: 'Try again' }));
+
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the generic text for a merge that failed otherwise', async () => {
+    const guestMerge: GuestMergeValue = { status: 'failed', failure: 'other', retry: jest.fn() };
+    await renderLibraryScreen({ guestMerge });
+    await settle();
+
+    expect(
+      within(screen.getByTestId('library-merge-error')).getByText(FAILED_TEXT),
+    ).toBeOnTheScreen();
+  });
+
   it.each<GuestMergeStatus>(['idle', 'checking'])(
     'shows nothing of the merge while %s',
     async (status) => {
@@ -96,5 +137,17 @@ describe('LibraryScreen guest merge (A-04)', () => {
       ),
     ).toBeOnTheScreen();
     expect(within(failure).getByRole('button', { name: 'Réessayer' })).toBeOnTheScreen();
+  });
+
+  it('tells a full account library in french', async () => {
+    await renderLibraryScreen({ guestMerge: fullMerge().guestMerge, language: 'fr' });
+    await settle();
+
+    const max = formatNumber(LIBRARY_ENTRIES_PER_USER_MAX, 'fr');
+    expect(
+      within(screen.getByTestId('library-merge-error')).getByText(
+        `Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec ${max} titres. Ils restent sur cet appareil. Retirez des titres de votre bibliothèque sur un autre appareil, puis réessayez, ou déconnectez-vous pour les utiliser ici.`,
+      ),
+    ).toBeOnTheScreen();
   });
 });
