@@ -1,5 +1,5 @@
 # account deletion flow (A-06, FR-24, ADR-0018), manual only: it deletes the account it signs in
-# with. never the shared test account: it reads E2E_THROWAWAY_EMAIL and E2E_THROWAWAY_PASSWORD, a
+# with. never the shared test account: it reads MAESTRO_E2E_THROWAWAY_EMAIL and _PASSWORD, a
 # throwaway staging account the owner creates for the run (e2e/README.md). sign in, open the
 # account deletion from the settings, delete after the confirmation, see the deleted state, then
 # try to sign in again with the same credentials: refused, the sign in error shows. runs in the
@@ -12,8 +12,8 @@ appId: io.github.nidroz.tsuzuki.dev
 - runFlow:
     file: ../subflows/sign-in.yaml
     env:
-      EMAIL: ${E2E_THROWAWAY_EMAIL}
-      PASSWORD: ${E2E_THROWAWAY_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_THROWAWAY_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_THROWAWAY_PASSWORD}
 - scrollUntilVisible:
     element:
       id: settings-account-delete-account
@@ -48,8 +48,8 @@ appId: io.github.nidroz.tsuzuki.dev
 - runFlow:
     file: ../subflows/submit-sign-in.yaml
     env:
-      EMAIL: ${E2E_THROWAWAY_EMAIL}
-      PASSWORD: ${E2E_THROWAWAY_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_THROWAWAY_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_THROWAWAY_PASSWORD}
 - extendedWaitUntil:
     visible:
       id: auth-sign-in-error

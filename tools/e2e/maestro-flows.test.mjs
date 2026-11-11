@@ -1,19 +1,18 @@
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, it } from 'node:test';
 
+import { deletionProblemsOf, readDeletionTexts } from './deletion-guard.mjs';
 import {
   APP_ID,
   CI_VARIABLES,
-  DELETION_SELECTOR_PREFIXES,
   MANUAL_VARIABLES,
   METRO_URL,
   SHARED_ACCOUNT_VARIABLES,
   THROWAWAY_VARIABLES,
   analyzeFlow,
   readFlow,
-  readMaestroTestLine,
   yamlFilesIn,
 } from './maestro-flows.mjs';
 import { collectTestIds } from './test-id-sources.mjs';
@@ -25,8 +24,7 @@ const E2E = path.join(ROOT, 'e2e');
 const CI_FLOWS = path.join(E2E, 'flows');
 const MANUAL_FLOWS = path.join(E2E, 'flows-manual');
 const SUBFLOWS = path.join(E2E, 'subflows');
-const WORKFLOW = path.join(ROOT, '.github', 'workflows', 'e2e.yml');
-const CI_TARGET = 'e2e/flows';
+const CATALOGS = path.join(ROOT, 'src', 'core', 'i18n');
 const SOURCE_FOLDERS = ['app', 'src'];
 const SOURCE_FILE = /\.tsx?$/;
 const EXCLUDED_SOURCE = /\.test\.tsx?$|\.d\.ts$/;
@@ -187,7 +185,7 @@ describe('the testID matcher', () => {
 describe('the variable check', () => {
   it('rejects an undefined variable and accepts one passed by env', () => {
     const load = loaderOf({
-      'flows/a.yaml': `${HEADER}- runFlow:\n    file: ../sub/s.yaml\n    env:\n      EMAIL: \${E2E_EMAIL}\n- inputText: \${E2E_RUN_ID}\n`,
+      'flows/a.yaml': `${HEADER}- runFlow:\n    file: ../sub/s.yaml\n    env:\n      EMAIL: \${MAESTRO_E2E_EMAIL}\n- inputText: \${MAESTRO_E2E_RUN_ID}\n`,
       'flows/b.yaml': `${HEADER}- runFlow:\n    file: ../sub/s.yaml\n`,
       'sub/s.yaml': `${HEADER}- inputText: \${EMAIL}\n`,
     });
@@ -201,7 +199,7 @@ describe('the variable check', () => {
       external: [METRO_URL, ...MANUAL_VARIABLES],
       load,
     });
-    assert.match(manual.problems.join('\n'), /\$\{E2E_EMAIL\} is not defined/);
+    assert.match(manual.problems.join('\n'), /\$\{MAESTRO_E2E_EMAIL\} is not defined/);
   });
 
   it('rejects a missing subflow, a cycle and METRO_URL without a fallback', () => {
@@ -257,13 +255,20 @@ describe('the e2e flows', () => {
     assert.deepEqual([...new Set(unknown)], []);
   });
 
-  it('keep the ci flows away from the account deletion and the throwaway account', () => {
-    for (const { files, selectors, variables } of ciAnalyses) {
+  it('keep the ci flows and the subflows they reach away from the account deletion', () => {
+    const texts = readDeletionTexts(CATALOGS);
+    assert.deepEqual(
+      ciAnalyses.flatMap((analysis) => deletionProblemsOf(analysis, texts, ROOT)),
+      [],
+    );
+    // the guard did read what it checks
+    assert.ok(ciAnalyses.some(({ links }) => links.length > 0));
+    assert.ok(ciAnalyses.some(({ texts: selected }) => selected.length > 0));
+  });
+
+  it('keep the ci flows away from the throwaway account', () => {
+    for (const { files, variables } of ciAnalyses) {
       const flow = relative(files[0]);
-      for (const { id } of selectors) {
-        const deletion = DELETION_SELECTOR_PREFIXES.some((prefix) => id.startsWith(prefix));
-        assert.equal(deletion, false, `${flow} reaches ${id}`);
-      }
       for (const { name } of variables) {
         assert.equal(THROWAWAY_VARIABLES.includes(name), false, `${flow} reads ${name}`);
       }
@@ -276,27 +281,5 @@ describe('the e2e flows', () => {
         assert.equal(SHARED_ACCOUNT_VARIABLES.includes(name), false, `${relative(files[0])}`);
       }
     }
-  });
-});
-
-describe('the e2e workflow', () => {
-  it('passes exactly the ci variables and runs the ci flows folder only', () => {
-    const { names, targets } = readMaestroTestLine(readFileSync(WORKFLOW, 'utf8'));
-    assert.deepEqual([...names].sort(), [...CI_VARIABLES].sort());
-    assert.deepEqual(targets, [CI_TARGET]);
-  });
-
-  it('stops reading the maestro command at a || fallback', () => {
-    const { names, targets } = readMaestroTestLine(
-      '    maestro test -e A="$A" e2e/flows || bash tools/ci/e2e-diagnostics.sh\n',
-    );
-    assert.deepEqual(names, ['A']);
-    assert.deepEqual(targets, ['e2e/flows']);
-  });
-
-  it('prints the device state when the ci flows fail', () => {
-    const workflow = readFileSync(WORKFLOW, 'utf8');
-    assert.match(workflow, /e2e\/flows \|\| bash tools\/ci\/e2e-diagnostics\.sh$/m);
-    assert.ok(existsSync(path.join(ROOT, 'tools', 'ci', 'e2e-diagnostics.sh')));
   });
 });

@@ -1,14 +1,14 @@
 # guest to account merge flow (A-04, BR-08, ADR-0016) against the staging project, with the shared
-# test account (E2E_EMAIL, E2E_PASSWORD). a pinned title, Fullmetal Alchemist: Brotherhood
-# (mal/anime/5114), opened by its deep link, used by no other flow. (a) pre-clean: sign in, remove
-# the title from the account library if a previous run left it, sign out (the merge is idle, so the
-# guest library is cleared, ADR-0018). (b) as a guest: add the title and set its note to this run's
-# marker e2e-<E2E_RUN_ID>. (c) sign in: the merge concludes (no merge error), the library tab lists
-# the title, and its details show the marker, so this run's guest entry was merged, not a leftover.
-# (d) cleanup: remove the title from the account, sign out: the account ends as it started. safe to
-# re-run after a half-way failure: clearState, then the pre-clean. runs in the development build
-# like the smoke flow (see its header and e2e/README.md); elements are found by id, and the note by
-# the marker it holds, so the flow does not depend on the device language
+# test account (MAESTRO_E2E_EMAIL, MAESTRO_E2E_PASSWORD). a pinned title, Fullmetal Alchemist:
+# Brotherhood (mal/anime/5114), opened by its deep link, used by no other flow. (a) pre-clean: sign
+# in, remove the title from the account library if a previous run left it, sign out (the merge is
+# idle, so the guest library is cleared, ADR-0018). (b) as a guest: add the title and set its note
+# to this run's marker e2e-<MAESTRO_E2E_RUN_ID>. (c) sign in: the merge concludes (no merge error),
+# the library tab lists the title, and its details show the marker, so this run's guest entry was
+# merged, not a leftover. (d) cleanup: remove the title from the account, sign out: the account ends
+# as it started. safe to re-run after a half-way failure: clearState, then the pre-clean. runs in
+# the development build like the smoke flow (see its header and e2e/README.md); elements are found
+# by id, and the note by the marker it holds, so the flow does not depend on the device language
 appId: io.github.nidroz.tsuzuki.dev
 ---
 # (a) pre-clean
@@ -17,8 +17,8 @@ appId: io.github.nidroz.tsuzuki.dev
 - runFlow:
     file: ../subflows/sign-in.yaml
     env:
-      EMAIL: ${E2E_EMAIL}
-      PASSWORD: ${E2E_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_PASSWORD}
 - runFlow:
     file: ../subflows/open-title.yaml
     env:
@@ -47,7 +47,7 @@ appId: io.github.nidroz.tsuzuki.dev
     id: media-detail-library-notes-edit
 - tapOn:
     id: media-detail-library-notes-input
-- inputText: e2e-${E2E_RUN_ID}
+- inputText: e2e-${MAESTRO_E2E_RUN_ID}
 # the keyboard covers the sheet's buttons on the ci emulator (fifth run): hide it first
 - hideKeyboard
 - tapOn:
@@ -55,15 +55,15 @@ appId: io.github.nidroz.tsuzuki.dev
 - extendedWaitUntil:
     visible:
       id: media-detail-library-notes
-      text: '.*e2e-${E2E_RUN_ID}.*'
+      text: '.*e2e-${MAESTRO_E2E_RUN_ID}.*'
     timeout: 10000
 - back
 # (c) sign in: the guest entry is merged into the account
 - runFlow:
     file: ../subflows/sign-in.yaml
     env:
-      EMAIL: ${E2E_EMAIL}
-      PASSWORD: ${E2E_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_PASSWORD}
 - tapOn:
     id: tab-library
 # the library lists nothing while the merge runs: the row shows once it concluded
@@ -87,7 +87,7 @@ appId: io.github.nidroz.tsuzuki.dev
     direction: DOWN
 - assertVisible:
     id: media-detail-library-notes
-    text: '.*e2e-${E2E_RUN_ID}.*'
+    text: '.*e2e-${MAESTRO_E2E_RUN_ID}.*'
 # (d) cleanup: the account ends as it started
 - runFlow:
     file: ../subflows/remove-title-if-present.yaml
