@@ -28,6 +28,16 @@ type Generation = (typeof GENERATIONS)[number];
 const HEADER = /^([01]):(\d{1,2})$/;
 const HEADER_SEPARATOR = ':';
 
+// the cleanup marker `<key>.pending`, set before a write or a removal touches a chunk or the
+// header, deleted once its cleanup succeeded: found on a key's first access in a process (a kill
+// or a failure since), it makes that access sweep the key first. persisted rather than a sweep at
+// every launch: one marker read per key per launch and two calls per write or removal, against up
+// to MAX_CHUNKS * 3 deletions per key per launch (both generations and the f-09 keys, all of them
+// for a key with no value, such as a signed-out session); a sweep runs only after a kill or a
+// failure
+const MARKER_SUFFIX = 'pending';
+const MARKER_VALUE = '1';
+
 // the source of the errors reported by this module
 const REPORT_SOURCE = 'secure-session';
 
@@ -84,6 +94,9 @@ const chunkKey = (key: string, generation: Generation, index: number): string =>
 
 // the chunk keys of the f-09 format, without generation: never read, only deleted
 const legacyChunkKey = (key: string, index: number): string => `${key}.${String(index)}`;
+
+// not a number, so it collides with no chunk key
+const markerKey = (key: string): string => `${key}.${MARKER_SUFFIX}`;
 
 const range = (start: number, end: number): number[] =>
   Array.from({ length: Math.max(end - start, 0) }, (_, offset) => start + offset);
@@ -145,23 +158,29 @@ const allStaleChunkKeys = (key: string, current: Header | undefined, legacy: boo
   ...(legacy ? range(0, MAX_CHUNKS).map((index) => legacyChunkKey(key, index)) : []),
 ];
 
-/**
- * deletes chunks no header points to and resolves whether every deletion succeeded. the value is
- * already whole (or already removed), so a failure is reported, not thrown: the next write or
- * removal sweeps every chunk key
- */
-const deleteStaleChunks = async (
-  keys: readonly string[],
+// resolves whether the call succeeded: a failure is reported, never thrown
+const succeeded = async (
+  call: () => Promise<unknown>,
   reporter: ErrorReporter,
 ): Promise<boolean> => {
   try {
-    await settleAll(keys.map((chunk) => deleteItemAsync(chunk, OPTIONS)));
+    await call();
     return true;
   } catch (error) {
     reporter.captureError(error, { source: REPORT_SOURCE });
     return false;
   }
 };
+
+const deleteAll = (keys: readonly string[]): Promise<void> =>
+  settleAll(keys.map((chunk) => deleteItemAsync(chunk, OPTIONS)));
+
+const setMarker = (key: string) => setItemAsync(markerKey(key), MARKER_VALUE, OPTIONS);
+
+// deletes chunks no header points to; the value is already whole (or removed), so a failure is
+// reported, not thrown: the next write or removal sweeps every chunk key
+const deleteStaleChunks = (keys: readonly string[], reporter: ErrorReporter): Promise<boolean> =>
+  succeeded(() => deleteAll(keys), reporter);
 
 /**
  * writes the value and resolves whether its cleanup succeeded. a clean key only deletes the chunks
@@ -181,6 +200,8 @@ const writeValue = async (
     );
   }
   const previous = await readStoredHeader(key);
+  // before the first chunk: a write that cannot set it fails with nothing written
+  await setMarker(key);
   // the chunks the stored header points to are never touched before the new header lands
   const generation = previous.header ? otherGeneration(previous.header.generation) : 0;
   await settleAll(
@@ -198,10 +219,27 @@ const writeValue = async (
 };
 
 const removeValue = async (key: string, reporter: ErrorReporter): Promise<boolean> => {
+  // a removal that cannot set the marker still goes on (reported): a session left on the device is
+  // worse than chunks left until the next write or removal
+  await succeeded(() => setMarker(key), reporter);
   // the header goes first: reads fail closed even if a chunk deletion fails
   await deleteItemAsync(key, OPTIONS);
   return deleteStaleChunks(allStaleChunkKeys(key, undefined, true), reporter);
 };
+
+/**
+ * the check of a key's first access in the process: when its marker is set, deletes every chunk
+ * key the stored header does not point to (all of them without a valid header), the f-09 ones
+ * included, then the marker. resolves whether the key is clean; a failure is reported, never
+ * thrown, and leaves the key dirty (the next write or removal sweeps it) and its marker set
+ */
+const sweepMarkedKey = (key: string, reporter: ErrorReporter): Promise<boolean> =>
+  succeeded(async () => {
+    if ((await getItemAsync(markerKey(key), OPTIONS)) === null) return;
+    const { header } = await readStoredHeader(key);
+    await deleteAll(allStaleChunkKeys(key, header, true));
+    await deleteItemAsync(markerKey(key), OPTIONS);
+  }, reporter);
 
 /**
  * runs the calls on one key one after another, calls on other keys independently: an overwrite
@@ -228,35 +266,45 @@ const createKeyQueue = () => {
  * header `<generation>:<count>` under `<key>`, last, then deletes the chunks of the previous value:
  * a read returns the whole old value or the whole new value, never a mix, and fails closed (null)
  * while the header is missing or invalid or a chunk is missing. every chunk key is swept only when
- * the stored header is missing or invalid, on removal, and on the first write after a failed write
- * or cleanup on the key. a failed chunk deletion is reported to the reporter, never thrown. calls
- * are queued per key. values are never logged
+ * the stored header is missing or invalid, on removal, on the first write after a failed write or
+ * cleanup on the key, and on the key's first access in a process while its cleanup marker is set.
+ * a failed chunk deletion is reported, never thrown. calls are queued per key. values are never
+ * logged
  */
 export const createSecureSessionStorage = (reporter: ErrorReporter): SessionStorage => {
   const enqueue = createKeyQueue();
-  // keys that may hold leftover chunks: a write or a cleanup on them failed since their last sweep
+  // keys that may hold leftover chunks: a call or a sweep on them failed since their last sweep
   const dirtyKeys = new Set<string>();
-  // runs a write or a removal; the key stays dirty unless the call and its cleanup succeed
+  // keys whose marker check this process queued: one check per key per process
+  const checkedKeys = new Set<string>();
+  // queues the task, behind the marker check on the key's first access in the process
+  const run = <T>(key: string, task: () => Promise<T>): Promise<T> => {
+    assertValidKey(key);
+    if (!checkedKeys.has(key)) {
+      checkedKeys.add(key);
+      // never rejects: its failures are reported
+      void enqueue(key, async () => {
+        if (!(await sweepMarkedKey(key, reporter))) dirtyKeys.add(key);
+      });
+    }
+    return enqueue(key, task);
+  };
+  // runs a write or a removal: the key stays dirty and marked unless the call and its cleanup succeed
   const tracked = async (
     key: string,
     call: (sweep: boolean) => Promise<boolean>,
   ): Promise<void> => {
     const sweep = dirtyKeys.has(key);
     dirtyKeys.add(key);
-    if (await call(sweep)) dirtyKeys.delete(key);
+    if (!(await call(sweep))) return;
+    dirtyKeys.delete(key);
+    // a marker left behind only costs one more sweep at the next launch
+    await succeeded(() => deleteItemAsync(markerKey(key), OPTIONS), reporter);
   };
   return {
-    getItem: async (key) => {
-      assertValidKey(key);
-      return enqueue(key, () => readValue(key));
-    },
-    setItem: async (key, value) => {
-      assertValidKey(key);
-      return enqueue(key, () => tracked(key, (sweep) => writeValue(key, value, reporter, sweep)));
-    },
-    removeItem: async (key) => {
-      assertValidKey(key);
-      return enqueue(key, () => tracked(key, () => removeValue(key, reporter)));
-    },
+    getItem: async (key) => run(key, () => readValue(key)),
+    setItem: async (key, value) =>
+      run(key, () => tracked(key, (sweep) => writeValue(key, value, reporter, sweep))),
+    removeItem: async (key) => run(key, () => tracked(key, () => removeValue(key, reporter))),
   };
 };
