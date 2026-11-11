@@ -79,6 +79,35 @@ describe('AuthContextProvider', () => {
     expect(result.current).toStrictEqual({ status: 'signed-out', session: null });
   });
 
+  it('reads each reported state at once, before the render that shows it, with a stable readState', async () => {
+    const source = createSessionSource({ userId: USER_ID });
+    const repository = createFakeAuthRepository({ onAuthStateChange: source.subscribe });
+    const { result } = renderHook(useAuthContext, { wrapper: authWrapper(repository) });
+    const { readState } = result.current;
+
+    expect(readState()).toStrictEqual({ status: 'loading', session: null });
+
+    await flushSessionReports();
+    const signedIn = readState();
+
+    expect(signedIn).toBe(result.current.state);
+    expect(signedIn).toStrictEqual({ status: 'signed-in', session: { userId: USER_ID } });
+
+    // read inside the act scope: the render showing the report has not run yet
+    const seen: unknown[] = [];
+    act(() => {
+      source.emit({ userId: USER_ID });
+      seen.push(readState());
+      source.emit(null);
+      seen.push(readState(), result.current.state);
+    });
+
+    expect(seen).toStrictEqual([signedIn, { status: 'signed-out', session: null }, signedIn]);
+    expect(seen[0]).toBe(signedIn);
+    expect(result.current.state).toBe(readState());
+    expect(result.current.readState).toBe(readState);
+  });
+
   it('unsubscribes on unmount', async () => {
     const { unmount, source } = renderSession();
     await flushSessionReports();

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import type {
   AuthRepository,
@@ -31,20 +31,28 @@ const nextState = (current: AuthSessionState, session: AuthSession | null): Auth
 
 /**
  * gives the tree the auth repository, the captcha provider and the session state the repository
- * reports (onAuthStateChange, subscribed in an effect, unsubscribed on unmount). the auth hooks
- * read them; render it inside the query client provider, which the auth mutations need
+ * reports (onAuthStateChange, subscribed in an effect, unsubscribed on unmount), as rendered
+ * (`state`) and as last reported (`readState()`). the auth hooks read them; render it inside the
+ * query client provider, which the auth mutations need
  */
 export function AuthContextProvider({ repository, captcha, children }: AuthContextProviderProps) {
   const [state, setState] = useState<AuthSessionState>(LOADING);
+  // the last reported state, set as the report comes: the render showing it may come later
+  const reportedRef = useRef<AuthSessionState>(LOADING);
 
   useEffect(
     () =>
       repository.onAuthStateChange((session) => {
-        setState((current) => nextState(current, session));
+        reportedRef.current = nextState(reportedRef.current, session);
+        setState(reportedRef.current);
       }),
     [repository],
   );
 
-  const value = useMemo(() => ({ repository, captcha, state }), [repository, captcha, state]);
+  const readState = useCallback((): AuthSessionState => reportedRef.current, []);
+  const value = useMemo(
+    () => ({ repository, captcha, state, readState }),
+    [repository, captcha, state, readState],
+  );
   return <AuthContext value={value}>{children}</AuthContext>;
 }
