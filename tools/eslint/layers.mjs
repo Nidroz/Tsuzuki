@@ -13,6 +13,7 @@ import {
   JEST_GUARDS,
   LAYERS_RULE,
   LITERAL_IMPORT_GUARD,
+  NATIVE_IMAGE_GUARDS,
   STYLE_GUARDS,
   jestModuleBans,
 } from './syntax-guards.mjs';
@@ -44,7 +45,8 @@ export const SRC_OUTSIDE_LAYERS = {
 
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax; bansStyles marks the
-// screen layers (routes and features), which compose src/ui primitives instead of styling, and
+// screen layers (routes and features), which compose src/ui primitives instead of styling,
+// bansNativeImages the same layers, which render covers through CoverImage only, and
 // bansLiteralText their production code, which shows text through t('key') only
 export const layerRules = ({
   banned: layerBanned,
@@ -52,6 +54,7 @@ export const layerRules = ({
   allowCatalogHosts = false,
   usesNativeWind = false,
   bansStyles = false,
+  bansNativeImages = false,
   bansLiteralText = false,
 }) => {
   const banned = [CANONICAL_PATHS, ...layerBanned];
@@ -87,6 +90,7 @@ export const layerRules = ({
       ...(allowCatalogHosts ? [] : CATALOG_HOST_GUARDS),
       ...(usesNativeWind ? [] : CLASS_NAME_GUARDS),
       ...(bansStyles ? STYLE_GUARDS : []),
+      ...(bansNativeImages ? NATIVE_IMAGE_GUARDS : []),
       ...(bansLiteralText ? TEXT_GUARDS : []),
     ],
   };
@@ -150,9 +154,10 @@ export const LAYERS = [
     ignores: SCREEN_TEST_CODE,
     banned: SCREEN_BANS,
     bansStyles: true,
+    bansNativeImages: true,
     bansLiteralText: true,
   },
-  { files: SCREEN_TEST_CODE, banned: SCREEN_BANS, bansStyles: true },
+  { files: SCREEN_TEST_CODE, banned: SCREEN_BANS, bansStyles: true, bansNativeImages: true },
 ];
 
 // production code logs nothing: errors go through the core ErrorReporter port (ADR-0012), and an
