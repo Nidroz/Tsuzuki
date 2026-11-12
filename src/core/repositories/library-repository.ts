@@ -176,8 +176,9 @@ export interface RemoteAccountLibraryRepository extends AccountLibraryRepository
    * request. the session guard applies (A-03), and the database refuses the call when the token's
    * user is not this store's user, so the writes of one user never reach another account.
    * rejects with a LibraryRemoteError on any failure: `network` (no answer, the timeout, a gateway
-   * status, a 408 or a 429, a session read error), `signed-out` (another user's session or none, a refused token,
-   * or a row of another user in the answer), `rejected` (the database refused the call: nothing
+   * status, a 408 or a 429, a session read error), `signed-out` (another user's session or none,
+   * a refused token, or a row of another user in the answer), `rejected` (the database refused
+   * the call: nothing
    * was written), `library-full` (a save of a new entry past the user's cap: nothing was written,
    * not reported), `unknown` (an answer that does not parse or does not hold each key exactly once,
    * reported); `invalid-row` is not used. writes hold personal data: never logged, never in an

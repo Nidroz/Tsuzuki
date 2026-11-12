@@ -289,7 +289,8 @@ export const createSecureSessionStorage = (reporter: ErrorReporter): SessionStor
     }
     return enqueue(key, task);
   };
-  // runs a write or a removal: the key stays dirty and marked unless the call and its cleanup succeed
+  // runs a write or a removal: the key stays dirty and marked unless the call and its cleanup
+  // succeed
   const tracked = async (
     key: string,
     call: (sweep: boolean) => Promise<boolean>,

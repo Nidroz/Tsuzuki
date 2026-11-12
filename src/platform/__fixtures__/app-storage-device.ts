@@ -6,7 +6,8 @@ import type { Configuration, MMKV } from 'react-native-mmkv';
  * an in-memory device for the app storage tests: mmkv files per instance id (each with the key
  * that wrote it) and the secure store, with failure injection. the tests mock react-native-mmkv
  * and expo-secure-store with the modules below, from a jest.mock factory:
- * `jest.mock('react-native-mmkv', () => jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeMmkvModule())`
+ * `jest.mock('react-native-mmkv', () =>
+ *   jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeMmkvModule())`
  * the files outlive the instances, so calling openAppStorage again is the next launch
  */
 

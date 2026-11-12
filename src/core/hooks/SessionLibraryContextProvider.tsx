@@ -84,8 +84,9 @@ const noop = (): void => undefined;
  * library merged into it (BR-08, FR-22): the pending library from the very first render of that
  * instance until its merge succeeded (the guest store read, its entries sent, or a failure until a
  * retry succeeds), then the account library, with the merge status, why it failed (the account
- * library full or not) and its retry given to useGuestMerge(). so no library action ever computes a write on an account library lacking a
- * guest entry, which a later merge would then keep over the guest copy. a merge waits for the
+ * library full or not) and its retry given to useGuestMerge(). so no library action ever
+ * computes a write on an account library lacking a guest entry, which a later merge would then
+ * keep over the guest copy. a merge waits for the
  * previous merge of this provider and for the pending writes of the retired libraries first, so
  * two merges never overlap, and one whose session ended changes and removes nothing: each run's
  * signal is aborted once its account is no longer the committed one, which stops its next batch.
