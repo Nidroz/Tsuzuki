@@ -7,7 +7,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(13);
+select plan(14);
 
 -- a guest entry as the client sends it: every writable column and updated_at
 create function pg_temp.guest_entry(external_id integer, updated_at text, progress integer)
@@ -95,6 +95,22 @@ select set_config(
   'request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-000000000001","role":"authenticated"}',
   true
+);
+
+-- one statement of two new keys at 9999 entries: the trigger of its second row sees the first row
+-- (a volatile function sees the rows its statement already inserted), so the statement is refused
+-- whole; the next case proves the first row was not kept (its key inserts again)
+select throws_ok(
+  $$
+    insert into public.library_entries (
+      id_namespace, media_kind, external_id, media_title, media_format, media_is_adult
+    ) values
+      ('mal', 'anime', 10000, 'Added title', 'tv', false),
+      ('mal', 'anime', 10001, 'Added title', 'tv', false)
+  $$,
+  'TZ001',
+  'library entry limit reached',
+  'a two-row insert crossing the cap is refused whole with TZ001'
 );
 
 select lives_ok(
