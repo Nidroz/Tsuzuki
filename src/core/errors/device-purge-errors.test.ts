@@ -3,6 +3,7 @@ import { describe, expect, it } from '@jest/globals';
 import {
   DEVICE_PURGE_MARKER_OPERATIONS,
   DEVICE_PURGE_MARKER_PROBLEMS,
+  DEVICE_PURGE_OWED_OPERATIONS,
   DEVICE_PURGE_STEPS,
   DevicePurgeError,
   DevicePurgeMarkerError,
@@ -61,13 +62,31 @@ describe('DevicePurgeMarkerError', () => {
 });
 
 describe('DevicePurgeMarkerOperationError', () => {
-  it.each(DEVICE_PURGE_MARKER_OPERATIONS)('holds the %s operation only', (operation) => {
-    const error = new DevicePurgeMarkerOperationError(operation);
+  it('lists the marker repository calls and the owed purge steps', () => {
+    expect(DEVICE_PURGE_MARKER_OPERATIONS).toStrictEqual(['list', 'add', 'remove']);
+    expect(DEVICE_PURGE_OWED_OPERATIONS).toStrictEqual(['owe', 'carry']);
+  });
 
-    expect(error).toBeInstanceOf(Error);
-    expect(error.name).toBe('DevicePurgeMarkerOperationError');
-    expect(error.operation).toBe(operation);
-    expect(error.message).toBe(`Device purge marker failed: ${operation}`);
-    expect(error.cause).toBeUndefined();
+  it.each([...DEVICE_PURGE_MARKER_OPERATIONS, ...DEVICE_PURGE_OWED_OPERATIONS])(
+    'holds the %s operation only',
+    (operation) => {
+      const error = new DevicePurgeMarkerOperationError(operation);
+
+      expect(error).toBeInstanceOf(Error);
+      expect(error.name).toBe('DevicePurgeMarkerOperationError');
+      expect(error.operation).toBe(operation);
+      expect(error.message).toBe(`Device purge marker failed: ${operation}`);
+      expect(error.cause).toBeUndefined();
+      expect(Object.keys(error).sort()).toStrictEqual(['name', 'operation']);
+    },
+  );
+
+  it('gives the owed purge steps their own fixed messages', () => {
+    expect(new DevicePurgeMarkerOperationError('owe').message).toBe(
+      'Device purge marker failed: owe',
+    );
+    expect(new DevicePurgeMarkerOperationError('carry').message).toBe(
+      'Device purge marker failed: carry',
+    );
   });
 });
