@@ -90,8 +90,18 @@ export const STYLE_GUARDS = [
 // or re-export, aliased or not and from any module (one re-exporting react-native included),
 // destructuring, a member read on any object (a namespace import, require(), import(), the
 // Animated.Image of react-native and reanimated) and a jsx member tag (<RN.Image />)
-const NATIVE_IMAGE_MESSAGE = `routes and features load no image themselves: covers render only through CoverImage from @ui/index, never the Image or ImageBackground of react-native (${LAYERS_RULE}, CONTRIBUTING.md section 7).`;
+export const NATIVE_IMAGE_MESSAGE = `routes and features load no image themselves: covers render only through CoverImage from @ui/index, never the Image or ImageBackground of react-native (${LAYERS_RULE}, CONTRIBUTING.md section 7).`;
 const NATIVE_IMAGE_PATTERN = oneOf(['Image', 'ImageBackground']);
+
+// the modules of those components inside react-native: a default or namespace import of one
+// (import Img from 'react-native/Libraries/Image/Image') gives them a name the guards below never
+// see. the image folder, and the module of Animated.Image. banned as paths by layerRules
+// (tools/eslint/layers.mjs) for the layers that ban the components, and in require() below
+export const NATIVE_IMAGE_MODULES = [
+  '^react-native/Libraries/Image($|/)',
+  '^react-native/Libraries/Animated/components/AnimatedImage($|[./])',
+];
+const REQUIRE_CALL = "CallExpression[callee.type='Identifier'][callee.name='require']";
 
 export const NATIVE_IMAGE_GUARDS = [
   {
@@ -113,6 +123,12 @@ export const NATIVE_IMAGE_GUARDS = [
     selector: `JSXMemberExpression[property.name=${NATIVE_IMAGE_PATTERN}]`,
     message: NATIVE_IMAGE_MESSAGE,
   },
+  // require() of one of their modules with a string literal: @typescript-eslint/no-require-imports
+  // already rejects every require() in typescript, this names the rule it would bypass
+  ...NATIVE_IMAGE_MODULES.map((regex) => ({
+    selector: `${REQUIRE_CALL}[arguments.0.value=${toSelectorRegex(regex)}]`,
+    message: NATIVE_IMAGE_MESSAGE,
+  })),
 ];
 
 // every jest function that loads or mocks a module by its specifier: its first argument follows the

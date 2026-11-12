@@ -46,8 +46,9 @@ export const SRC_OUTSIDE_LAYERS = {
 // flat config replaces (never merges) rule options for overlapping files, so each layer gets one
 // complete option set for no-restricted-imports and no-restricted-syntax; bansStyles marks the
 // screen layers (routes and features), which compose src/ui primitives instead of styling,
-// bansNativeImages the same layers, which render covers through CoverImage only, and
-// bansLiteralText their production code, which shows text through t('key') only
+// bansNativeImages the same layers, which render covers through CoverImage only (the image guards
+// and the image modules of react-native), and bansLiteralText their production code, which shows
+// text through t('key') only
 export const layerRules = ({
   banned: layerBanned,
   typeOnly,
@@ -57,7 +58,11 @@ export const layerRules = ({
   bansNativeImages = false,
   bansLiteralText = false,
 }) => {
-  const banned = [CANONICAL_PATHS, ...layerBanned];
+  const banned = [
+    CANONICAL_PATHS,
+    ...layerBanned,
+    ...(bansNativeImages ? [BANNED.nativeImageModules] : []),
+  ];
   return {
     'no-restricted-imports': 'off',
     '@typescript-eslint/no-restricted-imports': [
