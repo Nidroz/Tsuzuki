@@ -1,4 +1,8 @@
-// first: plural rules must exist before i18next builds its plural resolvers
+// first: crypto.getRandomValues and crypto.subtle.digest must exist before the supabase client
+// draws a pkce verifier (s256 from a secure source, never Math.random and plain) and before the
+// app storage key is drawn: hermes has neither
+import '@platform/web-crypto-polyfill';
+// then: plural rules must exist before i18next builds its plural resolvers
 import '@platform/intl-polyfills';
 
 import { monitorCatalogProvider } from '@core/catalog/catalog-failure-monitor';

@@ -15,6 +15,7 @@ import * as jestCases from './layers-jest-cases.mjs';
 import * as jestChainCases from './layers-jest-chain-cases.mjs';
 import * as nativeImageCases from './layers-native-image-cases.mjs';
 import * as networkCases from './layers-network-cases.mjs';
+import * as platformOnlyCases from './layers-platform-only-cases.mjs';
 import * as styleCases from './layers-style-cases.mjs';
 import * as testCodeCases from './layers-test-code-cases.mjs';
 import * as textCases from './layers-text-cases.mjs';
@@ -45,6 +46,7 @@ const TABLES = [
   nativeImageCases,
   uiBarrelCases,
   uiOnlyCases,
+  platformOnlyCases,
   i18nCases,
   i18nBarrelCases,
   textCases,

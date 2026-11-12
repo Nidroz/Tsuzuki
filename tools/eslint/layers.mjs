@@ -112,11 +112,13 @@ const {
   expoInternals,
   uiInternals,
   uiOnlyPackages,
+  platformOnlyPackages,
 } = BANNED;
 const SCREEN_LAYER_FOLDERS = ['src/features', 'app'];
 const SCREEN_BANS = [
   nativewind,
   uiOnlyPackages,
+  platformOnlyPackages,
   supabase,
   network,
   expoInternals,
@@ -147,7 +149,11 @@ export const LAYERS = [
     files: ['src/core/i18n/**'],
     banned: [reactNative, expo, nativewind, uiOnlyPackages, supabase],
   },
-  { files: ['src/ui/**'], banned: [supabase, network, expoInternals, i18n], usesNativeWind: true },
+  {
+    files: ['src/ui/**'],
+    banned: [supabase, network, expoInternals, i18n, platformOnlyPackages],
+    usesNativeWind: true,
+  },
   {
     files: ['src/platform/**'],
     // the i18n internals are banned as types too: the barrel is the only spelling
