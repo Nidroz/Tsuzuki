@@ -75,9 +75,6 @@ interface KeyedFailure {
   readonly error: unknown;
 }
 
-// a programming error: the ui enables add once the catalog data is loaded
-const ADD_WITHOUT_MEDIA_MESSAGE = 'library add needs the media summary';
-
 const COALESCED: LibraryApplyOptions = { coalesce: true };
 
 const removeEntry: LibraryChange = () => null;
@@ -87,7 +84,8 @@ const flipFavorite: EntryRule = (entry, ctx) => setFavorite(entry, !entry.isFavo
 
 // the programming error a failed apply tells, null for an expected failure (a write the repository
 // refused or could not make, which the repositories report themselves): an apply before the entry
-// was loaded, or a change a rule or the snapshot refused with a RangeError (`refused`)
+// was loaded, an add without the media, or a change a rule or the snapshot refused with a
+// RangeError (`refused`)
 const actionProblemOf = (reason: unknown, refused: boolean): LibraryActionProblem | null => {
   if (reason instanceof LibraryActionError) {
     return reason.problem;
@@ -103,9 +101,9 @@ const actionProblemOf = (reason: unknown, refused: boolean): LibraryActionProble
  * refreshes the entry's snapshot (refreshMediaSnapshot): the snapshot is written with a user
  * action, never by viewing alone. the snapshot is built inside the change, so a media outside
  * the database limits fails the action, not the render. a programming error (an action applied
- * before the entry was loaded, a RangeError of a rule or the snapshot) is also reported to the
- * reporter of the DevicePurgeContextProvider as a fixed LibraryActionError, with
- * LIBRARY_ACTION_REPORT_SOURCE only: never the caught error, a key or a value. throws outside
+ * before the entry was loaded, an add without `media`, a RangeError of a rule or the snapshot) is
+ * also reported to the reporter of the DevicePurgeContextProvider as a fixed LibraryActionError,
+ * with LIBRARY_ACTION_REPORT_SOURCE only: never the caught error, a key or a value. throws outside
  * LibraryContextProvider or DevicePurgeContextProvider
  */
 export const useLibraryEntryActions = (
@@ -171,7 +169,8 @@ export const useLibraryEntryActions = (
         return entry;
       }
       if (media === null) {
-        throw new Error(ADD_WITHOUT_MEDIA_MESSAGE);
+        // a programming error: the ui enables add once the catalog data is loaded
+        throw new LibraryActionError('media-missing');
       }
       return createLibraryEntry(mediaKey, toLibraryMediaSnapshot(media), ctx);
     });

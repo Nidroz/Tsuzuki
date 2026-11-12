@@ -3,6 +3,7 @@ import { act, waitFor } from '@testing-library/react';
 
 import { ENTRY_KEY, entryOf, entryWithMedia } from '../../../test/core/library-entry-fixtures';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
+import { LibraryActionError } from '../errors/library-report-errors';
 import {
   FRESH_MEDIA,
   FRESH_TOTAL,
@@ -66,7 +67,7 @@ describe('useLibraryEntryActions: add and remove (FR-10)', () => {
 
     await settleAction(result.current.actions.add);
 
-    expect(result.current.actions.error).toBeInstanceOf(Error);
+    expect(result.current.actions.error).toBeInstanceOf(LibraryActionError);
 
     rerender({ media: UNSTORABLE_MEDIA });
     await settleAction(result.current.actions.add);
