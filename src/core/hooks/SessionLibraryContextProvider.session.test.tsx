@@ -16,6 +16,7 @@ import {
 } from '../../../test/core/session-library-support';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
+import { LibraryFailureError } from '../errors/library-report-errors';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 
 // see ADR-0016 "Safety": a merge whose session ended (sign out, another user, unmount) changes no
@@ -191,8 +192,10 @@ describe('SessionLibraryContextProvider guest merge across sessions (A-04)', () 
       await jest.advanceTimersByTimeAsync(0);
     });
 
-    expect(rendered.captureError).toHaveBeenCalledTimes(1);
-    expect(rendered.captureError).toHaveBeenCalledWith(failure, { source: 'guest-merge' });
+    expect(rendered.captureError.mock.calls).toStrictEqual([
+      [new LibraryFailureError('guest-merge'), { source: 'guest-merge' }],
+    ]);
+    expect(rendered.captureError.mock.calls.flat()).not.toContain(failure);
     expect(rendered.result.current.merge.status).toBe('idle');
     expect(rendered.result.current.repository).toBe(rendered.guest);
   });

@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
-import { LibraryCleanupError } from '../errors/library-report-errors';
+import { LibraryCleanupError, LibraryFailureError } from '../errors/library-report-errors';
 import { queryKeys } from '../query/keys';
 import { useSessionLibrary } from './session-library-context';
 import {
@@ -72,9 +72,9 @@ const noStuckWrite = (): number => 0;
  * removed some, the live library scope is invalidated (non-exact, as LibraryReplayDriver does), so
  * the list and the entries refetch. the running retry and the feedback of the last action are
  * kept per instance (library-sync-actions), shared by every hook of it: the tabs mounted together
- * show one retry and one feedback. a retry that rejects, or a discard that throws (as a fixed
- * LibraryCleanupError, never its storage error), goes to the reporter of the
- * DevicePurgeContextProvider with LIBRARY_SYNC_ISSUES_REPORT_SOURCE. throws
+ * show one retry and one feedback. a retry that rejects (as a fixed LibraryFailureError), or a
+ * discard that throws (as a fixed LibraryCleanupError), never with the caught error, goes to the
+ * reporter of the DevicePurgeContextProvider with LIBRARY_SYNC_ISSUES_REPORT_SOURCE. throws
  * outside SessionLibraryContextProvider, LibraryContextProvider, DevicePurgeContextProvider or the
  * query client provider
  */
@@ -134,9 +134,12 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.library.all(scope) });
         }
       },
-      (error: unknown) => {
+      () => {
         updateSyncActions(live, { retrying: false });
-        latestReporter.current.captureError(error, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE });
+        // a fixed error: the rejection could quote stored content
+        latestReporter.current.captureError(new LibraryFailureError('stuck-writes-retry'), {
+          source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE,
+        });
       },
     );
   }, [live, latestLive, latestReporter, queryClient, scope]);

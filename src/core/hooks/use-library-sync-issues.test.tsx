@@ -8,7 +8,7 @@ import {
   settle,
 } from '../../../test/core/library-sync-issues-support';
 import { createStuckAccount } from '../../../test/core/stuck-account';
-import { LibraryCleanupError } from '../errors/library-report-errors';
+import { LibraryCleanupError, LibraryFailureError } from '../errors/library-report-errors';
 import type { LibraryReplayRun } from '../repositories/offline-account-library-repository';
 import { PENDING_LIBRARY_REPOSITORY } from './pending-library';
 import { LIBRARY_SYNC_ISSUES_REPORT_SOURCE } from './use-library-sync-issues';
@@ -123,9 +123,9 @@ describe('useLibrarySyncIssues on the live account library', () => {
     expect(invalidate).not.toHaveBeenCalled();
   });
 
-  it('reports a retry that rejects with a fixed source, never throwing, and ends the pending state', async () => {
+  it('reports a retry that rejects as a fixed error with a fixed source, never throwing, and ends the pending state', async () => {
     const { account } = createStuckAccount(1);
-    const failure = new Error('store bug');
+    const failure = new Error('store bug near "rewatch with my sister"');
     account.retryStuckWrites.mockRejectedValueOnce(failure);
     const { result, invalidate, captureError } = renderSyncIssues({ account });
 
@@ -135,8 +135,12 @@ describe('useLibrarySyncIssues on the live account library', () => {
     await settle();
 
     expect(captureError.mock.calls).toStrictEqual([
-      [failure, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE }],
+      [
+        new LibraryFailureError('stuck-writes-retry'),
+        { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE },
+      ],
     ]);
+    expect(captureError.mock.calls.flat()).not.toContain(failure);
     expect(result.current.retrying).toBe(false);
     expect(invalidate).not.toHaveBeenCalled();
   });
