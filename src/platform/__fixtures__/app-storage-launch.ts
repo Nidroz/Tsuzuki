@@ -1,7 +1,7 @@
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { jest } from '@jest/globals';
 
-import { openAppStorage } from '../app-storage';
+import { type AppStorage, openAppStorage } from '../app-storage';
 import {
   APP_STORAGE_INSTANCE_ID,
   KEY_CHECK_KEY,
@@ -59,7 +59,7 @@ export const resetLaunch = (): void => {
 };
 
 /** one launch of the app: the device files outlive it. it never uses Math.random. */
-export const launch = () =>
+export const launch = (): AppStorage =>
   withoutMathRandom(() => openAppStorage({ reporter: { captureError }, getRandomValues }));
 
 /** an encrypted instance as a previous launch left it (its key check included). */

@@ -9,7 +9,6 @@ import {
   mmkvStorageAdapter,
   type ReportAppStorageProblem,
 } from './app-storage-instance';
-import { createMemoryStorage } from './memory-storage';
 import { STORAGE_INSTANCE_ID } from './storage';
 
 // before the marker nothing but this copy writes the encrypted instance: what it holds besides its
@@ -65,12 +64,12 @@ const deleteLegacyInstance = (report: ReportAppStorageProblem): void => {
  * instance while it is not marked copied (the next launch copies it again, its newer content
  * replacing the partial copy), on the encrypted instance once it is or when there is none (the
  * next launch only writes the encrypted marker), and on memory when the unencrypted instance
- * cannot be opened or read
+ * cannot be opened or read. returns the storage of this process, or undefined for memory
  */
 export const migrateLegacyStorage = (
   encrypted: MMKV,
   report: ReportAppStorageProblem,
-): StorageAdapter => {
+): StorageAdapter | undefined => {
   const storage = mmkvStorageAdapter(encrypted);
   // the storage of this process when a step throws, moved on as the steps succeed; memory until
   // the unencrypted instance is read: writing the encrypted instance before the copy would let
@@ -100,7 +99,7 @@ export const migrateLegacyStorage = (
   } catch {
     // the caught error is dropped, not reported: it could quote a stored key or value
     report('migration-failed');
-    return fallback ?? createMemoryStorage();
+    return fallback;
   }
   // an instance opened in this process is never deleted in it: mmkv destroys an open instance on
   // deletion, while react-native-mmkv keeps calling it (its app state listeners trim every created

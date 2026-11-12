@@ -6,6 +6,7 @@ import {
   deleteAll,
   readStoredHeader,
   SECURE_SESSION_OPTIONS,
+  SECURE_SESSION_REPORT_SOURCE,
   succeeded,
 } from './secure-session-chunks';
 
@@ -41,3 +42,43 @@ export const sweepMarkedKey = (key: string, reporter: ErrorReporter): Promise<bo
     await deleteAll(allStaleChunkKeys(key, header, true));
     await deleteMarker(key);
   }, reporter);
+
+/** the fixed message of a discard that failed: the caught error could quote what the key holds. */
+export const DISCARD_FAILED_MESSAGE = 'Secure session stored value could not be discarded';
+
+/** the error a failed discard reports, and rejects a write or a removal with: no cause, no value. */
+export const discardFailedError = (): Error => {
+  const error = new Error(DISCARD_FAILED_MESSAGE);
+  error.name = 'SecureSessionDiscardError';
+  return error;
+};
+
+/**
+ * removes whatever the key holds, for a process that must never read what was stored before it
+ * (a reinstall): the header first, so every read fails closed from then on, whatever is left,
+ * then every chunk key of both generations and the f-09 ones, then the marker. a key with neither
+ * a header nor a marker holds nothing a read could reach (a write sets the marker before its first
+ * chunk and deletes it only once its cleanup succeeded): it costs these two reads and no deletion,
+ * unless `retry` (an earlier discard of the key failed, maybe after deleting the header alone).
+ * resolves whether the key holds nothing; a failure is reported with a fixed error, never the
+ * caught one, and never thrown
+ */
+export const discardStoredKey = async (
+  key: string,
+  retry: boolean,
+  reporter: ErrorReporter,
+): Promise<boolean> => {
+  try {
+    const marker = await getItemAsync(markerKey(key), SECURE_SESSION_OPTIONS);
+    const header = await getItemAsync(key, SECURE_SESSION_OPTIONS);
+    if (!retry && marker === null && header === null) return true;
+    if (header !== null) await deleteItemAsync(key, SECURE_SESSION_OPTIONS);
+    await deleteAll(allStaleChunkKeys(key, undefined, true));
+    if (marker !== null) await deleteMarker(key);
+    return true;
+  } catch {
+    // the caught error is dropped, not reported: it could quote the stored value
+    reporter.captureError(discardFailedError(), { source: SECURE_SESSION_REPORT_SOURCE });
+    return false;
+  }
+};

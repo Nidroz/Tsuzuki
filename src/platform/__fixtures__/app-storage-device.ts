@@ -34,6 +34,8 @@ export type FakeMmkv = Pick<MMKV, 'getString' | 'set' | 'remove' | 'getAllKeys' 
 interface Failures {
   secureRead: boolean;
   secureWrite: boolean;
+  // instance ids whose existsMMKV throws (mmkv cannot tell)
+  readonly exists: Set<string>;
   // instance ids whose createMMKV throws
   readonly create: Set<string>;
   // instance ids whose deleteMMKV throws or returns false, deleting nothing
@@ -55,6 +57,7 @@ const writtenSecureValues = new Set<string>();
 const failures: Failures = {
   secureRead: false,
   secureWrite: false,
+  exists: new Set(),
   create: new Set(),
   delete: new Map(),
   setLimit: undefined,
@@ -76,6 +79,7 @@ export const resetDevice = (): void => {
   writtenSecureValues.clear();
   failures.secureRead = false;
   failures.secureWrite = false;
+  failures.exists.clear();
   failures.create.clear();
   failures.delete.clear();
   failures.setLimit = undefined;
@@ -189,6 +193,7 @@ export const fakeMmkvModule = () => ({
   createMMKV: createInstance,
   existsMMKV: (id: string): boolean => {
     events.push(`mmkv.exists:${id}`);
+    if (failures.exists.has(id)) throw new Error(`cannot tell whether ${id} exists`);
     return files.has(id);
   },
   deleteMMKV: deleteInstance,

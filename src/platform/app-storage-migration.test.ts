@@ -55,7 +55,7 @@ describe('openAppStorage, the unencrypted instance of a previous version', () =>
   it('copies every value, marks the unencrypted instance copied, then writes the marker', () => {
     seedLegacy();
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(MIGRATED);
     expect(storage.getString(LIBRARY_KEY)).toBe(LIBRARY_VALUE);
@@ -103,7 +103,7 @@ describe('openAppStorage, a copy that fails', () => {
     // the key check and one value land, then the copy fails
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 2 };
 
-    const storage = launch();
+    const { storage } = launch();
     storage.set(THEME_KEY, NEWER_THEME_VALUE);
 
     expect(storage.getString(LIBRARY_KEY)).toBe(LIBRARY_VALUE);
@@ -119,11 +119,11 @@ describe('openAppStorage, a copy that fails', () => {
   it('completes at the next launch with no loss, the newer values overwriting the partial copy', () => {
     seedLegacy();
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 2 };
-    launch().set(THEME_KEY, NEWER_THEME_VALUE);
+    launch().storage.set(THEME_KEY, NEWER_THEME_VALUE);
     device.failures.setLimit = undefined;
     captureError.mockClear();
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({
       ...MIGRATED,
@@ -143,7 +143,7 @@ describe('openAppStorage, a copy that fails', () => {
       [CACHE_KEY]: CACHE_VALUE,
     });
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 2 };
-    const fallback = launch();
+    const { storage: fallback } = launch();
     expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[LIBRARY_KEY]).toBe(LIBRARY_VALUE);
     // the process on the unencrypted instance: the guest merge cleanup, a recent search
     fallback.delete(LIBRARY_KEY);
@@ -173,7 +173,7 @@ describe('openAppStorage, a copy that fails', () => {
     seedLegacy();
     device.failures.create.add(STORAGE_INSTANCE_ID);
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(storage.getString(LIBRARY_KEY)).toBeUndefined();
     expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
@@ -193,7 +193,7 @@ describe('openAppStorage, a copy marked done', () => {
     // killed after both markers, before the next launch deleted the unencrypted instance
     seedLegacy(COPIED_LEGACY);
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(storage.getString(THEME_KEY)).toBe(NEWER_THEME_VALUE);
     expect(device.events).not.toContain(`mmkv.create:${STORAGE_INSTANCE_ID}`);
@@ -209,7 +209,7 @@ describe('openAppStorage, a copy marked done', () => {
       launch();
       device.failures.delete.set(STORAGE_INSTANCE_ID, failure);
 
-      const storage = launch();
+      const { storage } = launch();
       storage.set(THEME_KEY, NEWER_THEME_VALUE);
 
       expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(NEWER_THEME_VALUE);

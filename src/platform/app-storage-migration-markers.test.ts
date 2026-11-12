@@ -68,7 +68,7 @@ describe('openAppStorage, the copied marker that cannot be written', () => {
     seedLegacy();
     device.failures.setLimit = { id: STORAGE_INSTANCE_ID, remaining: 0 };
 
-    const storage = launch();
+    const { storage } = launch();
     device.failures.setLimit = undefined;
     storage.set(THEME_KEY, NEWER_THEME_VALUE);
 
@@ -97,14 +97,14 @@ describe('openAppStorage, the copied marker that cannot be written', () => {
   it('never undoes a purge of that process when the key is lost before the next launch', () => {
     seedLegacy();
     device.failures.setLimit = { id: STORAGE_INSTANCE_ID, remaining: 0 };
-    const storage = launch();
+    const { storage } = launch();
     device.failures.setLimit = undefined;
     // a sign out purge on the unencrypted instance, then the key goes
     storage.delete(LIBRARY_KEY);
     device.secureItems.delete(APP_STORAGE_KEY_NAME);
     captureError.mockClear();
 
-    const next = launch();
+    const { storage: next } = launch();
 
     expect(next.getString(LIBRARY_KEY)).toBeUndefined();
     expect(next.getString(CACHE_KEY)).toBe(CACHE_VALUE);
@@ -117,7 +117,7 @@ describe('openAppStorage, the encrypted marker that cannot be written', () => {
     seedLegacy();
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: SETS_BEFORE_THE_MARKER };
 
-    const storage = launch();
+    const { storage } = launch();
     device.failures.setLimit = undefined;
     storage.set(THEME_KEY, NEWER_THEME_VALUE);
     storage.delete(LIBRARY_KEY);
@@ -184,7 +184,7 @@ describe('openAppStorage, no unencrypted instance', () => {
     // the key check lands, then the marker fails
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 1 };
 
-    const storage = launch();
+    const { storage } = launch();
     device.failures.setLimit = undefined;
     storage.set(LIBRARY_KEY, LIBRARY_VALUE);
 
@@ -205,7 +205,7 @@ describe('openAppStorage, no unencrypted instance', () => {
   });
 
   it('deletes a stray unencrypted instance unopened, removing nothing from the encrypted one', () => {
-    launch().set(LIBRARY_KEY, LIBRARY_VALUE);
+    launch().storage.set(LIBRARY_KEY, LIBRARY_VALUE);
     // against the precondition: an unencrypted instance created after the fresh install
     seedLegacy();
 

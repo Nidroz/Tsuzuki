@@ -47,7 +47,9 @@ describe('openAppStorage, first launch', () => {
 
     expect(getRandomValues).toHaveBeenCalledTimes(1);
     expect(device.secureItems.get(APP_STORAGE_KEY_NAME)).toBe(NEW_KEY);
-    expect(device.secureOptions).toStrictEqual([SESSION_OPTIONS, SESSION_OPTIONS]);
+    // without a file there is no key to read: only the write of the new one
+    expect(device.secureOptions).toStrictEqual([SESSION_OPTIONS]);
+    expect(device.events).not.toContain('secure.get');
     expect(device.events.indexOf('secure.set')).toBeLessThan(
       device.events.indexOf(`mmkv.create:${APP_STORAGE_INSTANCE_ID}`),
     );
@@ -67,7 +69,7 @@ describe('openAppStorage, first launch', () => {
   });
 
   it('stores what the app writes in the encrypted instance', () => {
-    const storage = launch();
+    const { storage } = launch();
 
     storage.set(THEME_KEY, THEME_VALUE);
     storage.set(LIBRARY_KEY, LIBRARY_VALUE);
@@ -86,7 +88,7 @@ describe('openAppStorage, a stored key', () => {
     seedSecureItem(APP_STORAGE_KEY_NAME, STORED_KEY);
     seedEncrypted(STORED_KEY, { [THEME_KEY]: THEME_VALUE });
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(storage.getString(THEME_KEY)).toBe(THEME_VALUE);
     expect(getRandomValues).not.toHaveBeenCalled();
@@ -96,20 +98,24 @@ describe('openAppStorage, a stored key', () => {
   });
 
   it('reads at the next launch what this one wrote', () => {
-    launch().set(LIBRARY_KEY, LIBRARY_VALUE);
+    launch().storage.set(LIBRARY_KEY, LIBRARY_VALUE);
 
-    const next = launch();
+    const { storage: next } = launch();
 
     expect(next.getString(LIBRARY_KEY)).toBe(LIBRARY_VALUE);
     expect(getRandomValues).toHaveBeenCalledTimes(1);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 
-  it('opens an instance missing its files (the keychain outlived a reinstall) as a new one', () => {
+  it('never uses a key stored without a file (the keychain outlived a reinstall): a new one', () => {
     seedSecureItem(APP_STORAGE_KEY_NAME, STORED_KEY);
 
     launch();
 
+    expect(device.secureItems.get(APP_STORAGE_KEY_NAME)).toBe(NEW_KEY);
+    expect(device.configurations).toStrictEqual([
+      { id: APP_STORAGE_INSTANCE_ID, encryptionKey: NEW_KEY, encryptionType: 'AES-256' },
+    ]);
     expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
@@ -123,7 +129,7 @@ describe('openAppStorage, a key that does not open the instance', () => {
       seedSecureItem(APP_STORAGE_KEY_NAME, STORED_KEY);
       seedEncrypted(OTHER_KEY, { [THEME_KEY]: THEME_VALUE });
 
-      const storage = launch();
+      const { storage } = launch();
 
       expect(storage.getString(THEME_KEY)).toBeUndefined();
       expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
@@ -136,10 +142,10 @@ describe('openAppStorage, a key that does not open the instance', () => {
     setWrongKeyRead('garbage');
     seedSecureItem(APP_STORAGE_KEY_NAME, STORED_KEY);
     seedEncrypted(OTHER_KEY, { [THEME_KEY]: THEME_VALUE });
-    launch().set(THEME_KEY, THEME_VALUE);
+    launch().storage.set(THEME_KEY, THEME_VALUE);
     captureError.mockClear();
 
-    expect(launch().getString(THEME_KEY)).toBe(THEME_VALUE);
+    expect(launch().storage.getString(THEME_KEY)).toBe(THEME_VALUE);
     expect(Object.values(fileValues(APP_STORAGE_INSTANCE_ID) ?? {})).not.toContain(GARBAGE_VALUE);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });

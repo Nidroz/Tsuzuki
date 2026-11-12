@@ -33,7 +33,7 @@ const HEADER = /^([01]):(\d{1,2})$/;
 const HEADER_SEPARATOR = ':';
 
 // the source of the errors reported by the secure session storage
-const REPORT_SOURCE = 'secure-session';
+export const SECURE_SESSION_REPORT_SOURCE = 'secure-session';
 
 // readable only while the device is unlocked, and never migrated to another device by a backup
 export const SECURE_SESSION_OPTIONS: SecureStoreOptions = {
@@ -162,7 +162,7 @@ export const succeeded = async (
     await call();
     return true;
   } catch (error) {
-    reporter.captureError(error, { source: REPORT_SOURCE });
+    reporter.captureError(error, { source: SECURE_SESSION_REPORT_SOURCE });
     return false;
   }
 };
