@@ -1,17 +1,21 @@
 // the fake of the database function replay_library_writes
-// (supabase/migrations/*_replay_library_writes.sql) for the postgrest fake (library-handlers.ts):
-// the user from the token only, expected_user_id a guard (a 403 with code 42501 when it is not the
-// token's user), the input checks in the function's order (each a 400 with code 22023), then per
-// write in input order, among the rows of that user: a save as in the guest merge
-// (merge-function.ts), a removal deleting the stored row only when its time is strictly earlier
-// than the removal's time capped at the server clock of the call (compared as instants), `written`
-// as well when the user has no row of the key. the call is applied whole or not at all. answers
-// one row per write: its key, the user id and `written` or `kept`
+// (supabase/migrations/*_replay_library_writes.sql, *_library_input_byte_bounds.sql) for the
+// postgrest fake (library-handlers.ts): the user from the token only, expected_user_id a guard (a
+// 403 with code 42501 when it is not the token's user), the input checks in the function's order
+// (each a 400 with code 22023: the size of the input's jsonb text right after the count, before
+// any per-element check), then per write in input order, among the rows of that user: a save as
+// in the guest merge (merge-function.ts, the entry cap included: a removal earlier in the call
+// frees a row), a removal deleting the stored row only when its time is strictly earlier than the
+// removal's time capped at the server clock of the call (compared as instants), `written` as well
+// when the user has no row of the key. the call is applied whole or not at all. answers one row
+// per write: its key, the user id and `written` or `kept`
 import { HttpResponse } from 'msw';
 
+import { jsonbTextBytes } from './jsonb-text';
 import {
   CLIENT_TIME_PATTERN,
   EARLIEST_TIME,
+  ELEMENT_PUNCTUATION_BYTES,
   ENTRY_KEYS,
   KEY_COLUMNS,
   invalid,
@@ -36,6 +40,14 @@ import {
 /** the writes one call takes at most: the function's max_writes. */
 export const REPLAY_MAX_WRITES = 100;
 
+// the jsonb text of one write at most, a save, the function's max_write_bytes: the worst case of
+// every column and its op (the table of supabase/migrations/*_library_input_byte_bounds.sql)
+const REPLAY_WRITE_BYTES_MAX = 28_063;
+
+/** the jsonb text of one call at most, the function's max_input_bytes: 2806500 bytes. */
+export const REPLAY_INPUT_BYTES_MAX =
+  REPLAY_MAX_WRITES * (REPLAY_WRITE_BYTES_MAX + ELEMENT_PUNCTUATION_BYTES);
+
 const OP = 'op';
 const OPS = ['save', 'remove'];
 // the arguments of the function, by name
@@ -54,13 +66,16 @@ const timeOf = (write: Entry): string =>
   typeof write.updated_at === 'string' ? write.updated_at : '';
 
 // the function's checks of `writes`, in its order: the writes, or the refusal of the first failing
-// check
-const validWrites = (writes: unknown): Entry[] | Response => {
+// check. octet_length(writes::text) over `maxInputBytes` is refused before any per-element check
+const validWrites = (writes: unknown, maxInputBytes: number): Entry[] | Response => {
   if (!Array.isArray(writes)) {
     return invalid('writes must be a json array');
   }
   if (writes.length > REPLAY_MAX_WRITES) {
     return invalid('too many writes');
+  }
+  if (jsonbTextBytes(writes) > maxInputBytes) {
+    return invalid('writes are too large');
   }
   if (!writes.every(isRecord)) {
     return invalid('a write is not a json object');
@@ -137,7 +152,7 @@ export const handleReplay = (store: RowStore, userId: string, body: unknown): Re
   if (body.expected_user_id !== userId) {
     return errorResponse(FORBIDDEN, '42501', 'not the expected user');
   }
-  const writes = validWrites(body.writes);
+  const writes = validWrites(body.writes, store.limits.replayInputBytes);
   if (writes instanceof Response) {
     return writes;
   }
