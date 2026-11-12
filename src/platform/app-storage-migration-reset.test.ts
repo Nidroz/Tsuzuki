@@ -25,13 +25,7 @@ import {
   seedLegacy,
 } from './__fixtures__/app-storage-legacy';
 import { reportedProblems } from './__fixtures__/app-storage-reports';
-import {
-  APP_STORAGE_INSTANCE_ID,
-  KEY_CHECK_KEY,
-  KEY_CHECK_VALUE,
-  MIGRATED_MARKER_KEY,
-  MIGRATED_MARKER_VALUE,
-} from './app-storage-instance';
+import { APP_STORAGE_INSTANCE_ID, KEY_CHECK_KEY, KEY_CHECK_VALUE } from './app-storage-instance';
 import { APP_STORAGE_KEY_NAME } from './app-storage-key';
 import { STORAGE_INSTANCE_ID } from './storage';
 
@@ -71,11 +65,8 @@ beforeEach(resetLaunch);
 describe('openAppStorage, a key reset while the copy never completed', () => {
   it.each([
     ['partial', { [THEME_KEY]: THEME_VALUE }],
-    // killed between the two markers: the unencrypted instance was never marked copied
-    [
-      'complete, its instance never marked copied',
-      { ...LEGACY_VALUES, [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE },
-    ],
+    // killed after the copy, before the unencrypted instance was marked copied
+    ['complete, its instance never marked copied', LEGACY_VALUES],
   ])('copies the unencrypted instance again after a lost key (copy %s)', (_, encrypted) => {
     seedEncrypted(OTHER_KEY, encrypted);
     seedLegacy();

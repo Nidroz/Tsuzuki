@@ -19,13 +19,14 @@ export const RESERVED_KEY_PREFIX = 'app-storage.';
 export const KEY_CHECK_KEY = `${RESERVED_KEY_PREFIX}check`;
 export const KEY_CHECK_VALUE = 'tsuzuki-app-storage-check';
 
-// written once every value of the unencrypted instance is copied into the encrypted one
+// written once the unencrypted instance is copied into the encrypted one and marked copied, or
+// when there is no unencrypted instance: from then on an unencrypted instance is only deleted
 export const MIGRATED_MARKER_KEY = `${RESERVED_KEY_PREFIX}migrated`;
 export const MIGRATED_MARKER_VALUE = 'copied';
 
-// written into the unencrypted instance right after the marker above, with the same value: its
-// values are copied, and a later launch that opens it again (the encrypted instance reset by a
-// lost or mismatched key) must not copy them again
+// written into the unencrypted instance right after its values are copied, before the marker
+// above, with the same value: a later launch that opens it again (killed between the two
+// markers, or the encrypted instance reset by a lost or mismatched key) must not copy them again
 export const LEGACY_COPIED_MARKER_KEY = `${RESERVED_KEY_PREFIX}copied`;
 
 export const isReservedKey = (key: string): boolean => key.startsWith(RESERVED_KEY_PREFIX);

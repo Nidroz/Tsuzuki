@@ -5,6 +5,7 @@ import { device, fileValues, seedSecureItem } from './__fixtures__/app-storage-d
 import {
   captureError,
   launch,
+  NEW_INSTANCE,
   NEW_KEY,
   OTHER_KEY,
   resetLaunch,
@@ -14,7 +15,11 @@ import {
   THEME_VALUE,
 } from './__fixtures__/app-storage-launch';
 import { reportedProblems } from './__fixtures__/app-storage-reports';
-import { APP_STORAGE_INSTANCE_ID, KEY_CHECK_KEY, KEY_CHECK_VALUE } from './app-storage-instance';
+import {
+  APP_STORAGE_INSTANCE_ID,
+  KEY_CHECK_KEY,
+  MIGRATED_MARKER_KEY,
+} from './app-storage-instance';
 import { APP_STORAGE_KEY_NAME } from './app-storage-key';
 import { STORAGE_INSTANCE_ID } from './storage';
 
@@ -36,7 +41,7 @@ describe('openAppStorage, a lost key', () => {
     const storage = launch();
 
     expect(storage.getString(THEME_KEY)).toBeUndefined();
-    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({ [KEY_CHECK_KEY]: KEY_CHECK_VALUE });
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
     expect(device.secureItems.get(APP_STORAGE_KEY_NAME)).toBe(NEW_KEY);
     expect(reportedProblems(captureError)).toStrictEqual(['key-lost']);
   });
@@ -55,6 +60,7 @@ describe('openAppStorage, a lost key', () => {
       `mmkv.create:${APP_STORAGE_INSTANCE_ID}`,
       `mmkv.set:${APP_STORAGE_INSTANCE_ID}:${KEY_CHECK_KEY}`,
       `mmkv.exists:${STORAGE_INSTANCE_ID}`,
+      `mmkv.set:${APP_STORAGE_INSTANCE_ID}:${MIGRATED_MARKER_KEY}`,
     ]);
   });
 
@@ -65,7 +71,7 @@ describe('openAppStorage, a lost key', () => {
     const storage = launch();
 
     expect(storage.getString(THEME_KEY)).toBeUndefined();
-    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({ [KEY_CHECK_KEY]: KEY_CHECK_VALUE });
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
     expect(reportedProblems(captureError)).toStrictEqual(['key-lost', 'key-mismatch']);
   });
 

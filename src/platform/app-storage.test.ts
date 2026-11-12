@@ -14,6 +14,7 @@ import {
   launch,
   LIBRARY_KEY,
   LIBRARY_VALUE,
+  NEW_INSTANCE,
   NEW_KEY,
   OTHER_KEY,
   resetLaunch,
@@ -24,7 +25,11 @@ import {
   THEME_VALUE,
 } from './__fixtures__/app-storage-launch';
 import { reportedProblems } from './__fixtures__/app-storage-reports';
-import { APP_STORAGE_INSTANCE_ID, KEY_CHECK_KEY, KEY_CHECK_VALUE } from './app-storage-instance';
+import {
+  APP_STORAGE_INSTANCE_ID,
+  KEY_CHECK_KEY,
+  MIGRATED_MARKER_KEY,
+} from './app-storage-instance';
 import { APP_STORAGE_KEY_NAME } from './app-storage-key';
 
 jest.mock('react-native-mmkv', () =>
@@ -49,7 +54,7 @@ describe('openAppStorage, first launch', () => {
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 
-  it('opens one aes-256 instance with the new key and writes the key check first', () => {
+  it('opens one aes-256 instance with the new key, writes the key check first, then the marker', () => {
     launch();
 
     expect(device.configurations).toStrictEqual([
@@ -57,6 +62,7 @@ describe('openAppStorage, first launch', () => {
     ]);
     expect(device.events.filter((event) => event.startsWith('mmkv.set:'))).toStrictEqual([
       `mmkv.set:${APP_STORAGE_INSTANCE_ID}:${KEY_CHECK_KEY}`,
+      `mmkv.set:${APP_STORAGE_INSTANCE_ID}:${MIGRATED_MARKER_KEY}`,
     ]);
   });
 
@@ -68,7 +74,7 @@ describe('openAppStorage, first launch', () => {
     storage.delete(LIBRARY_KEY);
 
     expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({
-      [KEY_CHECK_KEY]: KEY_CHECK_VALUE,
+      ...NEW_INSTANCE,
       [THEME_KEY]: THEME_VALUE,
     });
     expect(storage.getString(THEME_KEY)).toBe(THEME_VALUE);
@@ -104,7 +110,7 @@ describe('openAppStorage, a stored key', () => {
 
     launch();
 
-    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({ [KEY_CHECK_KEY]: KEY_CHECK_VALUE });
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 });
@@ -120,9 +126,7 @@ describe('openAppStorage, a key that does not open the instance', () => {
       const storage = launch();
 
       expect(storage.getString(THEME_KEY)).toBeUndefined();
-      expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({
-        [KEY_CHECK_KEY]: KEY_CHECK_VALUE,
-      });
+      expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(NEW_INSTANCE);
       expect(device.secureItems.get(APP_STORAGE_KEY_NAME)).toBe(STORED_KEY);
       expect(reportedProblems(captureError)).toStrictEqual(['key-mismatch']);
     },
