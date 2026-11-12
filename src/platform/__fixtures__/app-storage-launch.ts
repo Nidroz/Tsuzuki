@@ -20,8 +20,9 @@ import {
 // each byte & 63 picks a character: 0, 8, 16, ... 56 are A I Q Y g o w 4
 const NEW_KEY_BYTES = [0, 8, 16, 24, 32, 40, 48, 56];
 export const NEW_KEY = 'AIQYgow4'.repeat(4);
-export const STORED_KEY = 'Stored-key_0123456789abcdefghijk';
-export const OTHER_KEY = 'Other-key_0123456789abcdefghijkl';
+// low-entropy placeholders of the key length: secret scanners must not read them as keys
+export const STORED_KEY = 'S'.repeat(32);
+export const OTHER_KEY = 'O'.repeat(32);
 
 // stored keys and values that look like the app's; no report may quote one
 export const THEME_KEY = 'preferences.theme';
