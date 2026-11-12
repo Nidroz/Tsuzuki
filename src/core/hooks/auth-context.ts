@@ -21,7 +21,14 @@ export interface AuthContextValue {
   readonly repository: AuthRepository;
   /** asked for a token before each protected call (noCaptcha until A-08) */
   readonly captcha: CaptchaTokenProvider;
+  /** the session state as of the last render */
   readonly state: AuthSessionState;
+  /**
+   * the session state as the repository last reported it, ahead of the render that shows it in
+   * `state`: an async hook step reads it after an await (the sign out once `signOut()` settled),
+   * when the end or the start of a session may not be rendered yet. a stable function
+   */
+  readonly readState: () => AuthSessionState;
 }
 
 /** the auth repository, the captcha provider and the session state, set by AuthContextProvider */

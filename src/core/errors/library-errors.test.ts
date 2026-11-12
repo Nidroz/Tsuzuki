@@ -38,9 +38,17 @@ describe('library errors', () => {
       'network',
       'signed-out',
       'rejected',
+      'library-full',
       'invalid-row',
       'unknown',
     ]);
+  });
+
+  it('gives a full library a fixed message holding no count', () => {
+    const error = new LibraryRemoteError('library-full');
+
+    expect(error.message).toBe('Account library is full');
+    expect(error.message).not.toMatch(/\d/);
   });
 
   it.each(LIBRARY_REMOTE_REASONS)(

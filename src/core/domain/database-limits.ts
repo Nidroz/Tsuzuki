@@ -1,4 +1,5 @@
-// storage bounds of the database columns the domain validates against, docs/ARCHITECTURE.md §5
+// storage bounds of the database the domain validates against, docs/ARCHITECTURE.md §5: the
+// column limits and the per-user entry cap
 
 /**
  * the largest value of a postgres `integer` column (2^31 - 1): the bound of
@@ -11,6 +12,13 @@ export const MEDIA_TITLE_MAX_LENGTH = 500;
 
 /** the longest media image url, in code points (library_entries_media_image_url_check). */
 export const MEDIA_IMAGE_URL_MAX_LENGTH = 2048;
+
+/**
+ * the most library entries one user holds: the `max_entries_per_user` of
+ * private.enforce_library_entry_cap (supabase/migrations/*_per_user_library_caps.sql), which must
+ * stay equal to it. an insert of a new key past it is refused (LibraryRemoteError `library-full`).
+ */
+export const LIBRARY_ENTRIES_PER_USER_MAX = 10_000;
 
 const HIGH_SURROGATE_MIN = 0xd800;
 const HIGH_SURROGATE_MAX = 0xdbff;

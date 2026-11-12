@@ -50,14 +50,19 @@ export const LIBRARY_WRITE_REPORT_SOURCE = 'library-write';
 
 /**
  * why a call of the account store failed (docs/ARCHITECTURE.md §4 "Account store"): no response, a
- * gateway status, a 408 or a 429 (`network`, transient); the session is no longer the store's user, or the token was
- * refused (`signed-out`); the database refused the request (`rejected`, a bug or a schema drift); a
- * row this version cannot read (`invalid-row`); anything else (`unknown`).
+ * gateway status, a 408 or a 429 (`network`, transient); the session is no longer the store's
+ * user, or the token was refused (`signed-out`); the database refused the request (`rejected`, a
+ * bug or a schema drift);
+ * the database refused a new entry because the user's library holds LIBRARY_ENTRIES_PER_USER_MAX
+ * entries already (`library-full`, a condition of the user, not a bug: never reported, and like
+ * `rejected` the write is refused for good until the user removes entries); a row this version
+ * cannot read (`invalid-row`); anything else (`unknown`).
  */
 export const LIBRARY_REMOTE_REASONS = [
   'network',
   'signed-out',
   'rejected',
+  'library-full',
   'invalid-row',
   'unknown',
 ] as const;
@@ -68,6 +73,7 @@ const LIBRARY_REMOTE_MESSAGES: Readonly<Record<LibraryRemoteReason, string>> = {
   network: 'Account library unreachable',
   'signed-out': 'Account library session ended',
   rejected: 'Account library request rejected',
+  'library-full': 'Account library is full',
   'invalid-row': 'Account library row is unreadable',
   unknown: 'Account library request failed',
 };

@@ -3,3 +3,6 @@
 d3e4d508b8b451aee45c46592c32ffcf130944f5:src/core/repositories/supabase/auth-repository-email-link.test.ts:generic-api-key:22
 25be9f922dd06fc42505e1867bfb36ba4535cb4e:src/core/repositories/supabase/auth-repository-errors.test.ts:generic-api-key:20
 25be9f922dd06fc42505e1867bfb36ba4535cb4e:src/core/repositories/supabase/auth-repository.test.ts:generic-api-key:25
+# false positive: a fake storage key in a test fixture of the encrypted storage, in a commit of the
+# security review pull request; the fixture now uses a low-entropy placeholder
+6b3b3eda67a427dccfa5e8638d5b9471e2387e8a:src/platform/__fixtures__/app-storage-launch.ts:generic-api-key:24

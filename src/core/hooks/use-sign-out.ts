@@ -3,6 +3,7 @@ import { useMutation } from '@tanstack/react-query';
 import type { ErrorReporter } from '../errors/error-reporter';
 import { SignOutSyncError, type SignOutSyncStep } from '../errors/sign-out-errors';
 import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
+import type { AuthSessionState } from './auth-context';
 import { keepsGuestLibrary } from './device-purge';
 import type { GuestMergeStatus } from './guest-merge-context';
 import type { LibraryContextValue } from './library-context';
@@ -60,6 +61,25 @@ const accountWriterOf = (
 ): LibraryWriter | null =>
   status === 'idle' && library.repository === account ? library.writer : null;
 
+// the session state as the auth repository last reported it (readState), read once `signOut()`
+// settled: only a report changes what the sign out does. the device-wide data (recent searches,
+// caches, the guest library its merge reads) of another user's session is theirs: the purge then
+// takes this user's documents only, as the launch purges do (DevicePurgeDriver)
+const isOtherUserSignedIn = (state: AuthSessionState, userId: string): boolean =>
+  state.status === 'signed-in' && state.session.userId !== userId;
+
+// the session ended, or another user's started: not this user's any more
+const hasSessionEnded = (state: AuthSessionState, userId: string): boolean =>
+  state.status === 'signed-out' || isOtherUserSignedIn(state, userId);
+
+// a new report of `userId` signed in since `before` was read: a token refresh keeps the state
+// object, a sign out then a sign in replaces it
+const isSignedInAgain = (
+  state: AuthSessionState,
+  before: AuthSessionState,
+  userId: string,
+): boolean => state !== before && state.status === 'signed-in' && state.session.userId === userId;
+
 // runs `task` until it settles or `budgetMs` passed, whichever comes first; at the budget its
 // signal aborts and nothing waits for it any more
 const runWithin = async (
@@ -91,15 +111,20 @@ const runWithin = async (
  * (3) writes still queued or changes the live writer still holds, and no `discardUnsynced`:
  * `{ status: 'unsynced', count }` and nothing else; (4) whether the guest library is kept is read
  * from the latest merge status; (5) the user's purge-pending marker is written (ADR-0018, update of
- * 2026-11-04), then `signOut()`: a rejection (an AuthError, `network` when the session must stay)
- * removes the marker and rejects, nothing purged; (6) the device purge, the queue included, then
- * the marker is removed, or rewritten for a retry at the next launch when the `account-library`
- * step failed. a marker failure is reported, never blocks the sign out. read inside every provider
- * of the composition root. residual: a change made while the `signOut()` request itself is in
- * flight (after the count, or after the user's confirmation) is not sent: the purge drops it
+ * 2026-11-04), then `signOut()`. the session is then read as the auth repository last reported it
+ * (readState): a rejection (an AuthError, `network` when the session must stay) while the session
+ * is still this user's removes the marker and rejects, nothing purged; a rejection once the
+ * session ended (or another user's started) goes on as a success; (6) the device purge, the queue
+ * included, unless this user was reported signed in again meanwhile (the marker is then removed,
+ * nothing purged), its device-wide steps unless another user is signed in; then the marker is
+ * removed, or rewritten for a retry at the next launch when the `account-library` step failed,
+ * unless this user was reported signed in again during the purge (removed). a marker failure is
+ * reported, never blocks the sign out. read inside every provider of the composition root.
+ * residual: a change made while the `signOut()` request itself is in flight (after the count, or
+ * after the user's confirmation) is not sent: the purge drops it
  */
 export const useSignOut = () => {
-  const { repository } = useAuthContext();
+  const { repository, readState } = useAuthContext();
   // `userId` is the user of `account`: both come from the same session
   const { account, userId } = useSessionLibrary();
   const library = useLibraryContext();
@@ -144,15 +169,43 @@ export const useSignOut = () => {
       // a kill between the end of the session and the purge leaves the marker: the next launch
       // purges this user's documents
       markers.add({ userId: sessionUserId, clearGuestLibrary, deviceWide: true });
+      const before = readState();
       try {
         await repository.signOut();
       } catch (error) {
-        // still signed in: nothing is owed
-        markers.remove(sessionUserId);
-        throw error;
+        if (!hasSessionEnded(readState(), sessionUserId)) {
+          // still signed in: nothing is owed
+          markers.remove(sessionUserId);
+          throw error;
+        }
+        // the session is gone anyway (a failed session read after a server failure, once
+        // supabase-js removed it): the marker stays and the purge runs now, as after a success.
+        // it is what the user asked, and waiting for the next launch would leave this user's
+        // notes, queue, recent searches and caches on a device shown signed out meanwhile. the
+        // call resolves: the user is signed out, the repository reported an `unknown` failure
+        // itself, and any other reason is expected (the revocation failed offline)
       }
-      const failed = await purge({ account: sessionAccount, clearGuestLibrary, deviceWide: true });
-      markers.settle(sessionUserId, failed);
+      // signed in again before the purge (the session ended inside `signOut()`, then a sign in of
+      // the same user was reported): that sign out did not stand, and the purge would close the
+      // new session's account instances (every instance of the user) and delete its writes. the
+      // check and the account-library step run in one synchronous step, and that instance is
+      // created by the render that follows the report: none exists when the check passes
+      if (isSignedInAgain(readState(), before, sessionUserId)) {
+        markers.remove(sessionUserId);
+        return SIGNED_OUT;
+      }
+      const failed = await purge({
+        account: sessionAccount,
+        clearGuestLibrary,
+        deviceWide: !isOtherUserSignedIn(readState(), sessionUserId),
+      });
+      // signed in again while the purge ran: nothing is owed, and a marker kept would purge them
+      // at a launch that reads as signed out (DevicePurgeDriver)
+      if (isSignedInAgain(readState(), before, sessionUserId)) {
+        markers.remove(sessionUserId);
+      } else {
+        markers.settle(sessionUserId, failed);
+      }
       return SIGNED_OUT;
     },
   });

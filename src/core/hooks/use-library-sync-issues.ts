@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 
+import { LibraryCleanupError } from '../errors/library-report-errors';
 import { queryKeys } from '../query/keys';
 import { useSessionLibrary } from './session-library-context';
 import {
@@ -71,8 +72,9 @@ const noStuckWrite = (): number => 0;
  * removed some, the live library scope is invalidated (non-exact, as LibraryReplayDriver does), so
  * the list and the entries refetch. the running retry and the feedback of the last action are
  * kept per instance (library-sync-actions), shared by every hook of it: the tabs mounted together
- * show one retry and one feedback. a retry that rejects, or a discard that throws, goes to the
- * reporter of the DevicePurgeContextProvider with LIBRARY_SYNC_ISSUES_REPORT_SOURCE. throws
+ * show one retry and one feedback. a retry that rejects, or a discard that throws (as a fixed
+ * LibraryCleanupError, never its storage error), goes to the reporter of the
+ * DevicePurgeContextProvider with LIBRARY_SYNC_ISSUES_REPORT_SOURCE. throws
  * outside SessionLibraryContextProvider, LibraryContextProvider, DevicePurgeContextProvider or the
  * query client provider
  */
@@ -147,9 +149,12 @@ export const useLibrarySyncIssues = (): LibrarySyncIssues => {
     let removed: number;
     try {
       removed = live.discardStuckWrites();
-    } catch (error) {
-      // the notice stays, with the count read from the device, and says the discard failed
-      latestReporter.current.captureError(error, { source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE });
+    } catch {
+      // the notice stays, with the count read from the device, and says the discard failed. a
+      // fixed error is reported: the storage error could quote stored content
+      latestReporter.current.captureError(new LibraryCleanupError('stuck-writes-discard'), {
+        source: LIBRARY_SYNC_ISSUES_REPORT_SOURCE,
+      });
       updateSyncActions(live, { feedback: 'discard-failed' });
       return 0;
     }

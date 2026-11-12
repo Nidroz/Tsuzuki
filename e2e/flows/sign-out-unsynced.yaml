@@ -1,16 +1,16 @@
 # sign out with an unsynced change (A-05, A-06, FR-25, ADR-0017, ADR-0018) against the staging
-# project, with the shared test account (E2E_EMAIL, E2E_PASSWORD). a pinned title, Steins;Gate
-# (mal/anime/9253), opened by its deep link, used by no other flow. sign in, remove the title if a
-# previous run left it, then cut the network with the airplane mode (android) and add it: the write
-# waits in the queue. signing out then asks first; confirming signs out and purges the device, the
-# queued write included: the library tab shows no entry. cleanup, online again: a fresh launch,
-# sign in, remove the title if a write reached the account before the cut, sign out. the hooks turn
-# the airplane mode off whatever happens, so a failure never leaves the emulator offline for the
-# next flows; the end hook first stops the app and clears its data, so a write still queued after a
-# failure can never reach the shared account once the network is back. the app reads the network
-# state from expo-network (src/platform/connectivity.ts), which reports the airplane mode as no
-# connection; metro is reached through adb reverse, which the airplane mode does not cut. elements
-# are found by id only, so the flow does not depend on the device language
+# project, with the shared test account (MAESTRO_E2E_EMAIL, MAESTRO_E2E_PASSWORD). a pinned title,
+# Steins;Gate (mal/anime/9253), opened by its deep link, used by no other flow. sign in, remove the
+# title if a previous run left it, then cut the network with the airplane mode (android) and add it:
+# the write waits in the queue. signing out then asks first; confirming signs out and purges the
+# device, the queued write included: the library tab shows no entry. cleanup, online again: a fresh
+# launch, sign in, remove the title if a write reached the account before the cut, sign out. the
+# hooks turn the airplane mode off whatever happens, so a failure never leaves the emulator offline
+# for the next flows; the end hook first stops the app and clears its data, so a write still queued
+# after a failure can never reach the shared account once the network is back. the app reads the
+# network state from expo-network (src/platform/connectivity.ts), which reports the airplane mode as
+# no connection; metro is reached through adb reverse, which the airplane mode does not cut.
+# elements are found by id only, so the flow does not depend on the device language
 appId: io.github.nidroz.tsuzuki.dev
 onFlowStart:
   - setAirplaneMode: disabled
@@ -24,8 +24,8 @@ onFlowComplete:
 - runFlow:
     file: ../subflows/sign-in.yaml
     env:
-      EMAIL: ${E2E_EMAIL}
-      PASSWORD: ${E2E_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_PASSWORD}
 - runFlow:
     file: ../subflows/open-title.yaml
     env:
@@ -76,8 +76,8 @@ onFlowComplete:
 - runFlow:
     file: ../subflows/sign-in.yaml
     env:
-      EMAIL: ${E2E_EMAIL}
-      PASSWORD: ${E2E_PASSWORD}
+      EMAIL: ${MAESTRO_E2E_EMAIL}
+      PASSWORD: ${MAESTRO_E2E_PASSWORD}
 - runFlow:
     file: ../subflows/open-title.yaml
     env:

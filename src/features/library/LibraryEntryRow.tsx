@@ -9,6 +9,8 @@ import { FORMAT_KEYS, PROGRESS_LABEL_KEYS, useTranslation } from '@core/i18n/ind
 import { IconButton, InlineError, MediaListItem, Row, Stack, type StateAction } from '@ui/index';
 import { memo, useCallback, useMemo } from 'react';
 
+import { libraryWriteErrorText } from './library-failure-texts';
+
 // the list has no catalog data: an action never refreshes the snapshot from here (ADR-0009)
 const NO_MEDIA: UseLibraryEntryActionsOptions = { media: null };
 
@@ -24,7 +26,8 @@ export interface LibraryEntryRowProps {
 }
 
 function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
-  const { t, formatNumber } = useTranslation();
+  const translation = useTranslation();
+  const { t, formatNumber } = translation;
   // writes go through the actions, which read the stored entry: the shown one is for display only
   const { incrementProgress, toggleFavorite, error, dismissError } = useLibraryEntryActions(
     entry.key,
@@ -93,7 +96,7 @@ function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
       />
       {error === null ? null : (
         <InlineError
-          message={t('library.list.writeError')}
+          message={libraryWriteErrorText(translation, error, t('library.list.writeError'))}
           action={dismiss}
           testID={`${testID}-error`}
         />
@@ -106,7 +109,8 @@ function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
  * a library entry in the list (FR-14, FR-15): cover, title, format, progress and score; pressing
  * it opens the detail, its heart toggles the favorite (unfavoriting keeps the entry), its `+1`
  * button (disabled at the known total, BR-01) adds one episode or chapter, and a failed write
- * shows a message under the row until it is dismissed or the next tap. neither refreshes the
+ * shows a message under the row until it is dismissed or the next tap (a full account library
+ * says so). neither refreshes the
  * snapshot (no catalog data in the list, ADR-0009)
  */
 export const LibraryEntryRow = memo(LibraryEntryRowView);

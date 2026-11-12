@@ -302,3 +302,40 @@ The workflows deploy the edge functions; the owner no longer deploys by hand ("D
 - `supabase/functions/**` joins the staging workflow's push paths (`FUNCTION_PATHS` in `tools/ci/eas-preview-scope.mjs`) and, like the migrations, selects no preview build.
 - Residual: the deploy bundles the Deno entry, so syntax and import errors fail the workflow, but the entry's types stay unchecked until `deno check` runs in CI (M-01). The owner runs it locally before merging a change to a Deno entry (`ARCHITECTURE.md` §10). The handler, where the logic lives, stays typechecked, linted and tested by `pnpm check`.
 - Manual deploy remains the recovery path (`ARCHITECTURE.md` §10).
+
+## Update (2026-11-11)
+
+From the security review (R-04, `docs/security-review.md`). The text above and the earlier Updates are kept as accepted; where they differ, this section applies.
+
+### Sign out after `signOut()` settled
+
+Before, the sign out removed the purge-pending marker on any `signOut()` rejection, including the repository branch where `getSession()` failed after a server error while the session may already be gone, and it settled the marker without checking the session, so a user signed in again during the purge could be marked while signed in, and a purge still running could close the new session's account instances.
+
+- `AuthContextValue` gains `readState(): AuthSessionState` (`src/core/hooks/auth-context.ts`): the session state as the auth repository last reported it, set by `AuthContextProvider` as each report comes, ahead of the render that shows it in `state`. A stable function, read by an async hook step after an await.
+- `useSignOut` (`src/core/hooks/use-sign-out.ts`) reads it once before `signOut()` and again after each step that follows. This replaces sign out steps 5 and 6 of the Update of 2026-11-04 ("Purge-pending marker"):
+  - `signOut()` rejects while the session reported is still this user's: the marker is removed and the call rejects, nothing purged (as before);
+  - `signOut()` rejects once the session is gone (signed out, or another user's session reported): the marker stays and the purge runs as after a success; the call resolves `signed-out`. The user asked for it, and waiting for the next launch would leave their notes, queue, recent searches and caches on a device shown signed out. The repository reported an `unknown` failure itself; any other reason is expected (the revocation failed offline);
+  - this user reported signed in again before the purge (a new state object for the same user: a sign out then a sign in; a token refresh keeps the object): that sign out did not stand; nothing is purged, the marker is removed, the call resolves `signed-out`. The check and the `account-library` step run in one synchronous step, and the new session's account instance is created by the render after the report, so the purge never closes it or deletes its writes;
+  - this user reported signed in again while the purge runs: the marker is removed instead of settled, so no launch purges a signed-in user;
+  - otherwise the marker is settled as before.
+- A purge does not wait for a sign in: once it has started, its `account-library` step is already done.
+
+### Deviation: device-wide steps of a sign out
+
+"Device purge" of the Update of 2026-11-04 says "The sign out and the account deletion always run them". The sign out now runs the device-wide steps (the guest library rule, the recent searches, the caches, the generation) only when no other user's session is reported once `signOut()` settled (`deviceWide: !isOtherUserSignedIn(...)`): with another user signed in meanwhile, only this user's documents are purged, as the launch and gone purges already do ("Precisions from the implementation", driver), since that user's recent searches and caches, and the guest library their merge reads, are theirs. The account deletion still always runs them.
+
+### Residuals decided by R-04
+
+The three items the Update of 2026-11-04 left to R-04 are accepted, with these reasons:
+
+- A launch offline whose stored session has an expired access token reads as signed out, so a marked user is purged although the session may come back. Only a user whose sign out started, having confirmed any unsynced discard, is marked (or one whose purge step failed): purging them matches what they asked, and nothing unsynced is lost; the session coming back only refetches. The auth repository is not changed to tell a stored session not yet confirmed from a sign out.
+- Gone purge coverage: a session whose access token expired while the app was closed or in the background ends without a purge. Once the access token expired, no server answer tells a deleted account from a revoked session (both refuse the refresh with `refresh_token_not_found`, and `getUser` needs a valid token), so a check at launch cannot help; an Edge Function keeping the ids of deleted users to answer it would conflict with erasure.
+- The `session_not_found` race (`user-gone-detector.ts`): auth-js removes whatever session is stored when `getUser(jwt)` answers `session_not_found`, so an account switch between the check's session read and that answer could end the new session. Narrow, and nothing is lost (that session's queue is kept); a second auth client used for that check alone, with no storage, would add an auth surface for a rare case.
+
+### Driver tests
+
+The gap of the Update of 2026-11-04 ("Residuals found while implementing", the ids buffered between the driver's mount and its readiness) is covered: `src/core/hooks/DevicePurgeDriver.buffered.test.tsx` (users reported gone while the session loads or the cache restores, each purged once after both), over `test/core/buffered-auth-sources.ts`.
+
+### Reports of the stuck writes discard
+
+`useLibrarySyncIssues` reports a discard whose storage throws as a fixed `LibraryCleanupError('stuck-writes-discard')` (`src/core/errors/library-report-errors.ts`) through the reporter of `DevicePurgeContextProvider`, never the storage error; the same reporter receives the programming errors of the library actions as `LibraryActionError` (source `library-action`). A rejected retry is still reported with its error (value-free by construction today; R-09).

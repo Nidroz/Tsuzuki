@@ -55,6 +55,8 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 const KEY = 'sb-auth-token';
+// the cleanup marker: set while a write or a removal runs, kept after a failed cleanup
+const MARKER = `${KEY}.pending`;
 const utf8Bytes = (value: string): number => new TextEncoder().encode(value).length;
 
 const captureError = jest.fn<ErrorReporter['captureError']>();
@@ -62,6 +64,8 @@ const createStorage = () => createSecureSessionStorage({ captureError });
 
 // the keys of the store, sorted
 const storedKeys = (): string[] => [...mockStore.keys()].sort();
+// the deletions asked for, without the marker's
+const chunkDeletes = (): string[] => mockDeletes.filter((key) => key !== MARKER);
 
 // enough turns of the microtask queue for every unblocked storage call to settle
 const MICROTASK_TURNS = 50;
@@ -265,7 +269,7 @@ describe('createSecureSessionStorage', () => {
     await storage.removeItem(KEY);
 
     expect(await storage.getItem(KEY)).toBeNull();
-    expect(storedKeys()).toStrictEqual([`${KEY}.0.0`]);
+    expect(storedKeys()).toStrictEqual([`${KEY}.0.0`, MARKER]);
     expect(captureError).toHaveBeenCalledTimes(1);
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), { source: 'secure-session' });
   });
@@ -320,9 +324,9 @@ describe('createSecureSessionStorage crash safety', () => {
     const storage = createStorage();
     await storage.setItem(KEY, OLD_VALUE);
     // the first chunk write fails, the second lands
-    mockNextWriteFailure = new Error('keychain unavailable');
+    mockFailingKeys.add(`${KEY}.1.0`);
 
-    await expect(storage.setItem(KEY, NEW_VALUE)).rejects.toThrow('keychain unavailable');
+    await expect(storage.setItem(KEY, NEW_VALUE)).rejects.toThrow(`write to ${KEY}.1.0 failed`);
 
     expect(mockStore.get(`${KEY}.1.1`)).toBe('b');
     expect(await storage.getItem(KEY)).toBe(OLD_VALUE);
@@ -348,7 +352,7 @@ describe('createSecureSessionStorage crash safety', () => {
     await storage.setItem(KEY, NEW_VALUE);
 
     expect(await storage.getItem(KEY)).toBe(NEW_VALUE);
-    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.2`, `${KEY}.1.0`, `${KEY}.1.1`]);
+    expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.2`, `${KEY}.1.0`, `${KEY}.1.1`, MARKER]);
     expect(captureError).toHaveBeenCalledTimes(1);
     expect(captureError).toHaveBeenCalledWith(expect.any(Error), { source: 'secure-session' });
   });
@@ -373,7 +377,7 @@ describe('createSecureSessionStorage crash safety', () => {
   it('waits for every chunk write before rejecting a failed write', async () => {
     const storage = createStorage();
     await storage.setItem(KEY, OLD_VALUE);
-    mockNextWriteFailure = new Error('keychain unavailable');
+    mockFailingKeys.add(`${KEY}.1.0`);
     const gate = gateWritesTo(`${KEY}.1.1`);
 
     const write = track(storage.setItem(KEY, NEW_VALUE));
@@ -381,7 +385,7 @@ describe('createSecureSessionStorage crash safety', () => {
 
     expect(write.settled()).toBe(false);
     gate.release();
-    await expect(write.promise).rejects.toThrow('keychain unavailable');
+    await expect(write.promise).rejects.toThrow(`write to ${KEY}.1.0 failed`);
     expect(await storage.getItem(KEY)).toBe(OLD_VALUE);
   });
 });
@@ -401,7 +405,7 @@ describe('createSecureSessionStorage cleanup scope', () => {
 
     await storage.setItem(KEY, NEW_VALUE);
 
-    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, `${KEY}.0.1`, `${KEY}.0.2`]);
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, `${KEY}.0.1`, `${KEY}.0.2`, MARKER]);
     expect(storedKeys()).toStrictEqual([KEY, `${KEY}.1.0`, `${KEY}.1.1`, STRAY]);
     expect(await storage.getItem(KEY)).toBe(NEW_VALUE);
   });
@@ -412,7 +416,7 @@ describe('createSecureSessionStorage cleanup scope', () => {
     await createStorage().setItem(KEY, 'short');
 
     // the other generation whole, the written one past its single chunk; no f-09 key
-    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 2 - 1);
+    expect(chunkDeletes()).toHaveLength(MAX_CHUNKS * 2 - 1);
     expect(mockDeletes).not.toContain(LEGACY_STRAY);
     expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
   });
@@ -424,7 +428,7 @@ describe('createSecureSessionStorage cleanup scope', () => {
 
     await createStorage().setItem(KEY, 'short');
 
-    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 3 - 1);
+    expect(chunkDeletes()).toHaveLength(MAX_CHUNKS * 3 - 1);
     expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
   });
 
@@ -443,7 +447,7 @@ describe('createSecureSessionStorage cleanup scope', () => {
     mockDeletes.length = 0;
     await storage.setItem(KEY, 'second');
 
-    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, MARKER]);
     expect(await storage.getItem(KEY)).toBe('second');
   });
 
@@ -457,13 +461,13 @@ describe('createSecureSessionStorage cleanup scope', () => {
 
     await storage.setItem(KEY, 'swept');
 
-    expect(mockDeletes).toHaveLength(MAX_CHUNKS * 2 - 1);
+    expect(chunkDeletes()).toHaveLength(MAX_CHUNKS * 2 - 1);
     expect(storedKeys()).toStrictEqual([KEY, `${KEY}.0.0`]);
 
     mockDeletes.length = 0;
     await storage.setItem(KEY, 'clean');
 
-    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, MARKER]);
     expect(await storage.getItem(KEY)).toBe('clean');
   });
 
@@ -479,7 +483,7 @@ describe('createSecureSessionStorage cleanup scope', () => {
 
     await storage.setItem(KEY, 'changed');
 
-    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`]);
+    expect(mockDeletes).toStrictEqual([`${KEY}.0.0`, MARKER]);
   });
 });
 

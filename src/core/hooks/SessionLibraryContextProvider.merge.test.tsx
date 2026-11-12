@@ -15,6 +15,7 @@ import {
   type RenderedSessionLibrary,
 } from '../../../test/core/session-library-support';
 import type { LibraryEntry } from '../domain/library-entry';
+import { LibraryCleanupError } from '../errors/library-report-errors';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 
 // bR-08, FR-22, ADR-0016: the guest library merged into each account library as it becomes the
@@ -120,8 +121,8 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
     ]);
   });
 
-  it('shows the merged account library when the merged guest entries could not be removed, reporting it once (A-10)', async () => {
-    const failure = new Error('storage failure');
+  it('shows the merged account library when the merged guest entries could not be removed, reporting a fixed error once (A-10, R-04)', async () => {
+    const failure = new Error('storage failure near "rewatch with my sister"');
     const rendered = await renderSessionLibrary({
       guestEntries: [GUEST_ENTRY, GUEST_OTHER],
       accountEntries: ACCOUNT_ENTRIES,
@@ -145,8 +146,11 @@ describe('SessionLibraryContextProvider guest merge (A-04)', () => {
       'merging pending',
       'idle account 0',
     ]);
-    expect(rendered.captureError).toHaveBeenCalledTimes(1);
-    expect(rendered.captureError).toHaveBeenCalledWith(failure, { source: 'guest-merge' });
+    // the storage error could quote stored content: never reported itself
+    expect(rendered.captureError.mock.calls).toStrictEqual([
+      [new LibraryCleanupError('guest-merge-cleanup'), { source: 'guest-merge' }],
+    ]);
+    expect(rendered.captureError.mock.calls.flat()).not.toContain(failure);
     // left on the device: the next merge (the same user signed in again) sends them again, then
     // removes them
     expect(rendered.guest.stored(ENTRY_KEY)).toStrictEqual(GUEST_ENTRY);

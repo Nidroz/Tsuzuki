@@ -3,6 +3,9 @@ import type { Breadcrumb, ErrorEvent } from '@sentry/react-native';
 // personal data never leaves the device (CONTRIBUTING.md section 7, ADR-0012): these pure
 // functions run as sentry's beforeSend and beforeBreadcrumb on every event and breadcrumb
 
+// the user's notes: a key holding this word anywhere (notes, userNote, x-notes) holds one
+const NOTE_KEY_PART = 'note';
+
 // a key containing one of these words anywhere has its value dropped (compared lowercased, without
 // - and _): auth and cookie headers, api keys, tokens, passwords, contact fields and the user's
 // notes, e.g. userNotes, X-Refresh-Token, set-cookie
@@ -14,7 +17,7 @@ const SENSITIVE_KEY_PARTS = [
   'password',
   'secret',
   'email',
-  'note',
+  NOTE_KEY_PART,
 ];
 
 // keys dropped only as a whole: too short or too common to look for inside other keys
@@ -51,9 +54,25 @@ const INTERNATIONAL_PHONE = /\+(?:[ .()-]{0,2}\d){8,15}(?!\d)/g;
 // match too: an accepted, harmless over-scrub
 const NATIONAL_PHONE = /\b0\d(?:[ .-]\d{2}){4}\b|(?:\(\d{3}\) ?|\b\d{3}[ .-])\d{3}[ .-]\d{4}\b/g;
 
-// free-text notes in a form body or a log line, e.g. notes=rewatch with my sister or userNote=...,
-// up to the next & or the end of the line
-const NOTES_ASSIGNMENT = /\b([\w-]{0,40}?notes?=)[^&\r\n]*/gi;
+// the notes scan (scrubNotes) reads the text one run of key characters (word characters and -) at
+// a time, so a notes key is found whatever precedes it: a long prefix (a run is matched whole) or
+// an earlier value with a missing or misplaced quote (no other value is ever consumed)
+const KEY_RUN = /[\w-]+/g;
+// what may follow a notes key: its closing quote, escaped too (json inside a json string), form
+// array brackets (notes[0]=), then : or = between spaces. the spaces after it may cross a line
+// break, so a value on the next line is redacted, and an empty one takes the next line with it
+const NOTES_SEPARATOR = /(?:\\?["'])?(?:\[[\w-]*\])*\s*([:=])\s*/y;
+const ASSIGNMENT = '=';
+// where an unquoted value ends: at the end of the line, or at the next & after = (a form body
+// encodes its own &). a note is free text, so a colon value takes the rest of its line
+const ASSIGNMENT_VALUE_END = /[&\r\n]/g;
+const LINE_END = /[\r\n]/g;
+const QUOTES: ReadonlySet<string> = new Set(['"', "'"]);
+// a quote closes a quoted value only before one of these or the end of the text, so an unescaped
+// quote inside the note (l'episode) does not end it early
+const AFTER_CLOSING_QUOTE = /[\s,;}\])&]/;
+// a backslash and the character it escapes
+const ESCAPE_LENGTH = 2;
 
 // patterns replaced inside any string (messages, exception values, breadcrumb data). every
 // repetition is bounded or followed by a distinct character: no catastrophic backtracking
@@ -71,7 +90,6 @@ const TEXT_REPLACEMENTS: readonly (readonly [RegExp, string])[] = [
   // separated phone numbers, international first: the country code belongs to the number
   [INTERNATIONAL_PHONE, PHONE],
   [NATIONAL_PHONE, PHONE],
-  [NOTES_ASSIGNMENT, `$1${FILTERED}`],
   // secrets in query strings and fragments, e.g. ?apikey=... or #access_token=... (oauth)
   [
     /([?&#](?:apikey|api_key|access_token|refresh_token|id_token|provider_token|token|code|password|email)=)[^&#\s]*/gi,
@@ -103,15 +121,78 @@ const scrubMembers = (text: string): string =>
         : member,
   );
 
+// the index of the quote closing the quoted value opened at start, or undefined when it has none.
+// a plain loop: no regex backtracking on a long value
+const closingQuoteIndex = (text: string, start: number, quote: string): number | undefined => {
+  let index = start + 1;
+  while (index < text.length) {
+    const character = text[index];
+    if (character === quote) {
+      const next = text[index + 1];
+      if (next === undefined || AFTER_CLOSING_QUOTE.test(next)) return index;
+    }
+    index += character === '\\' ? ESCAPE_LENGTH : 1;
+  }
+  return undefined;
+};
+
+// the index where the first match of the pattern after start begins, or the end of the text
+const indexFrom = (text: string, start: number, pattern: RegExp): number => {
+  pattern.lastIndex = start;
+  return pattern.exec(text)?.index ?? text.length;
+};
+
+// the end of the value of a notes key starting at start, and what replaces it
+const notesValue = (
+  text: string,
+  start: number,
+  sign: string | undefined,
+): { end: number; replacement: string } => {
+  const quote = text[start];
+  if (quote !== undefined && QUOTES.has(quote)) {
+    const closing = closingQuoteIndex(text, start, quote);
+    // a value with no closing quote is redacted to the end of the text: an over-scrub, never a miss
+    return closing === undefined
+      ? { end: text.length, replacement: `${quote}${FILTERED}` }
+      : { end: closing + 1, replacement: `${quote}${FILTERED}${quote}` };
+  }
+  const valueEnd = sign === ASSIGNMENT ? ASSIGNMENT_VALUE_END : LINE_END;
+  return { end: indexFrom(text, start, valueEnd), replacement: FILTERED };
+};
+
 /**
- * replaces failing rows, sensitive quoted string members, emails, jwts, bearer and basic
- * credentials, supabase keys, separated phone numbers, notes=..., query string secrets and
- * key=value credentials in a text
+ * replaces the value of every key holding note: quoted or not, after : or =, whatever precedes it.
+ * every character is read a bounded number of times (each run once, each value once)
+ */
+const scrubNotes = (text: string): string => {
+  const parts: string[] = [];
+  // the text before this index is already in parts
+  let copied = 0;
+  for (const run of text.matchAll(KEY_RUN)) {
+    // a run inside a redacted value is gone with it
+    if (run.index < copied || !run[0].toLowerCase().includes(NOTE_KEY_PART)) continue;
+    NOTES_SEPARATOR.lastIndex = run.index + run[0].length;
+    const separator = NOTES_SEPARATOR.exec(text);
+    if (!separator) continue;
+    const start = NOTES_SEPARATOR.lastIndex;
+    const { end, replacement } = notesValue(text, start, separator[1]);
+    parts.push(text.slice(copied, start), replacement);
+    copied = end;
+  }
+  parts.push(text.slice(copied));
+  return parts.join('');
+};
+
+/**
+ * replaces failing rows, notes, sensitive quoted string members, emails, jwts, bearer and basic
+ * credentials, supabase keys, separated phone numbers, query string secrets and key=value
+ * credentials in a text
  */
 export const scrubText = (text: string): string =>
   TEXT_REPLACEMENTS.reduce(
     (result, [pattern, replacement]) => result.replace(pattern, replacement),
-    scrubMembers(text.replace(FAILING_ROW, `Failing row contains ${FILTERED}`)),
+    // notes first: a value redacted here is left whole by the member pass
+    scrubMembers(scrubNotes(text.replace(FAILING_ROW, `Failing row contains ${FILTERED}`))),
   );
 
 /** drops the query string and the fragment of a url */

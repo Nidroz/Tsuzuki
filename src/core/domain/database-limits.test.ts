@@ -1,6 +1,7 @@
 import { describe, expect, it } from '@jest/globals';
 
 import {
+  LIBRARY_ENTRIES_PER_USER_MAX,
   MEDIA_IMAGE_URL_MAX_LENGTH,
   MEDIA_TITLE_MAX_LENGTH,
   POSTGRES_INTEGER_MAX,
@@ -31,6 +32,12 @@ describe('media text limits', () => {
   it('mirror the library_entries checks', () => {
     expect(MEDIA_TITLE_MAX_LENGTH).toBe(500);
     expect(MEDIA_IMAGE_URL_MAX_LENGTH).toBe(2048);
+  });
+});
+
+describe('LIBRARY_ENTRIES_PER_USER_MAX', () => {
+  it('mirrors the max_entries_per_user of private.enforce_library_entry_cap', () => {
+    expect(LIBRARY_ENTRIES_PER_USER_MAX).toBe(10_000);
   });
 });
 

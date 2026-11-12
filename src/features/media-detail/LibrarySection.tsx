@@ -6,6 +6,10 @@ import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
 import { useTranslation } from '@core/i18n/index';
 import { GUEST_MERGE_FAILED_ANNOUNCE_KEY } from '@features/library/announce-keys';
+import {
+  guestMergeFailedText,
+  libraryWriteErrorText,
+} from '@features/library/library-failure-texts';
 import { Button, IconButton, InlineError, Row, Spinner, Stack, Text } from '@ui/index';
 import { useCallback, type ReactNode } from 'react';
 
@@ -27,12 +31,14 @@ export interface LibrarySectionProps {
  * library", an entry its panel. once the entry is read, the heading has the favorite toggle: on a
  * media outside the library it adds a planned favorite (BR-05). viewing only reads the library:
  * every write is a tap, and a failed write shows a translated message until it is dismissed or
- * the next action runs. while the guest library is merged into the account (ADR-0016), a spinner
- * labelled with the merge says so; after a failed merge, the failure with a retry. the library
- * stays pending until a merge succeeded: neither Add nor the favorite toggle shows meanwhile
+ * the next action runs (a full account library says so). while the guest library is merged into
+ * the account (ADR-0016), a spinner labelled with the merge says so; after a failed merge, the
+ * failure with a retry (a full account library says so). the library stays pending until a merge
+ * succeeded: neither Add nor the favorite toggle shows meanwhile
  */
 export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
-  const { t } = useTranslation();
+  const translation = useTranslation();
+  const { t } = translation;
   const merge = useGuestMerge();
   const { data, error, isFetching, refetch } = useLibraryEntry(mediaKey, { media });
   const actions = useLibraryEntryActions(mediaKey, { media });
@@ -63,7 +69,7 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
   } else if (merge.status === 'failed') {
     body = (
       <InlineError
-        message={t('library.merge.failed')}
+        message={guestMergeFailedText(translation, merge.failure)}
         action={{ label: t('library.merge.retry'), onPress: merge.retry }}
         announceKey={GUEST_MERGE_FAILED_ANNOUNCE_KEY}
         testID={`${TEST_ID}-merge-error`}
@@ -126,7 +132,11 @@ export function LibrarySection({ mediaKey, media }: LibrarySectionProps) {
       </Row>
       {actions.error === null ? null : (
         <InlineError
-          message={t('mediaDetail.library.writeError')}
+          message={libraryWriteErrorText(
+            translation,
+            actions.error,
+            t('mediaDetail.library.writeError'),
+          )}
           action={{ label: t('mediaDetail.library.dismiss'), onPress: actions.dismissError }}
           testID={`${TEST_ID}-write-error`}
         />

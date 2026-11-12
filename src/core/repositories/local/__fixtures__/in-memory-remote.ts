@@ -1,6 +1,7 @@
 // an in-memory account store (RemoteAccountLibraryRepository) for the offline account library
 // tests: the server rows of one user, the server time from the (fake) clock, the BR-08 replay rule
-// of the domain, and calls that can be held or failed one by one
+// of the domain, the per-user entry cap of the database (off unless set), and calls that can be
+// held or failed one by one
 import { jest } from '@jest/globals';
 
 import { guestMergeDecision } from '../../../domain/guest-merge';
@@ -57,6 +58,8 @@ export const createInMemoryRemote = () => {
   const refusedKeys = new Set<string>();
   // replay calls applied by the server whose answer never reaches the device
   const lostAnswers = { count: 0 };
+  // the rows the server holds at most: a new key past it is refused with library-full
+  const entryCap = { value: Number.POSITIVE_INFINITY };
   const mergeGuestEntries = jest.fn<RemoteAccountLibraryRepository['mergeGuestEntries']>(() =>
     Promise.resolve(),
   );
@@ -78,6 +81,13 @@ export const createInMemoryRemote = () => {
     steps.set(method, [...(steps.get(method) ?? []), step]);
   };
 
+  // a write of the key `id` refused by the cap: a key not stored yet, the rows at the cap
+  const refuseNewKeyAtCap = (id: string): void => {
+    if (!rows.has(id) && rows.size >= entryCap.value) {
+      throw new LibraryRemoteError('library-full');
+    }
+  };
+
   const applyReplay = (write: LibraryQueuedWrite): LibraryReplayOutcome => {
     const id = libraryEntryId(libraryQueuedWriteKey(write));
     const stored = rows.get(id);
@@ -93,6 +103,7 @@ export const createInMemoryRemote = () => {
     if (decision === 'keep') {
       return 'kept';
     }
+    refuseNewKeyAtCap(id);
     rows.set(id, {
       ...write.entry,
       createdAt: stored?.createdAt ?? serverNow(),
@@ -116,6 +127,7 @@ export const createInMemoryRemote = () => {
     save: async (entry) => {
       await before('save');
       const id = libraryEntryId(entry.key);
+      refuseNewKeyAtCap(id);
       const stored = {
         ...entry,
         createdAt: rows.get(id)?.createdAt ?? serverNow(),
@@ -135,7 +147,18 @@ export const createInMemoryRemote = () => {
       if (writes.some((write) => refusedKeys.has(libraryEntryId(libraryQueuedWriteKey(write))))) {
         throw new LibraryRemoteError('rejected');
       }
-      const outcomes = writes.map(applyReplay);
+      // one transaction: a write the cap refuses rolls the call back whole
+      const committed = new Map(rows);
+      let outcomes: LibraryReplayOutcome[];
+      try {
+        outcomes = writes.map(applyReplay);
+      } catch (error) {
+        rows.clear();
+        for (const [id, entry] of committed) {
+          rows.set(id, entry);
+        }
+        throw error;
+      }
       if (lostAnswers.count > 0) {
         lostAnswers.count -= 1;
         throw new LibraryRemoteError('network');
@@ -173,6 +196,13 @@ export const createInMemoryRemote = () => {
     /** the replay calls holding a write of `key` are no longer refused. */
     acceptKey: (key: MediaKey): void => {
       refusedKeys.delete(libraryEntryId(key));
+    },
+    /**
+     * the server holds at most `cap` rows, as the database's per-user cap: a save or a replay call
+     * writing a new key past it rejects with library-full, the call written whole or not at all.
+     */
+    setEntryCap: (cap: number): void => {
+      entryCap.value = cap;
     },
     seed: (...entries: readonly LibraryEntry[]): void => {
       for (const entry of entries) {

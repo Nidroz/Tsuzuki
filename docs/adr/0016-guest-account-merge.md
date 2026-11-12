@@ -154,3 +154,29 @@ From the A-04 review, done in A-10. The text above and the Update of 2026-11-02 
 - The run (`GuestMergeRun`, `src/core/hooks/guest-merge.ts`) gains `onCleanupFailed(error)`. `mergeGuestLibrary` calls it with the error of a `removeUnchanged` that rejected after a successful merge, then resolves `merged`; it is never called after a failed guest store read or a failed merge, which still reject the run.
 - `SessionLibraryContextProvider` passes an `onCleanupFailed` that reports the error with `{ source: 'guest-merge' }` and no tag, through the same reporter and source as the merge's other failures that are not a `LibraryRemoteError`. Nothing is shown: the status concludes `idle` and the account library is shown.
 - `docs/ARCHITECTURE.md` §4 "Library switch" and §8 "Guest merge" record it.
+
+## Update (2026-11-11)
+
+From the security review (R-04, `docs/security-review.md`). The text above and the earlier Updates are kept as accepted; where they differ, this section applies.
+
+### Error codes of a merge call
+
+"Consequences", Security lists the cast and constraint codes a merge call can return as `22P02`, `22007`, `22008`, `23502`, `23514`. The list is an example, not exhaustive: probes also give `22009` (an offset out of range) and `22003` (an integer out of range), and the entry cap below adds `TZ001`. The claim stands: besides the fixed `22023` and `42501`, a cast or constraint error the input checks let through quotes only the caller's own input, back to the caller; `TZ001` carries a fixed message; the client keeps the code alone (`library-error-mapper.ts`). The same list applies to the replay (ADR-0017 Update of 2026-11-11).
+
+### Input bounded by bytes
+
+The 100-entry bound did not bound the size of a call: the column limits apply only after the whole payload is parsed and cast. Migration `supabase/migrations/20261111143207_library_input_byte_bounds.sql` replaces `public.merge_guest_library_entries` with the same signature, owner, security mode, `search_path` and grants, and one more check, right after the count and before any per-element check or cast: `octet_length(entries::text)` at most `max_input_bytes`, 100 × (28,049 + 2) = 2,805,100 bytes, else `22023` with the fixed message `entries are too large`. 28,049 bytes is one entry at its worst case in jsonb text (every column at the largest value the constraints accept, each code point at its largest escaped form, an enum label at 63 bytes; the table is in the migration), 2 bytes the array punctuation per element. jsonb text is canonical, so the bound does not depend on how the client formatted its body, and no valid batch of the client is refused (a maximal valid entry is 27,837 bytes). PostgREST has already parsed the body when the function runs: the bound limits the validation, the casts and the writes, not that parse. pgTAP `072-library-input-size`.
+
+### Merge at the entry cap
+
+`library_entries` holds at most 10,000 rows per user since migration `20261111143330_per_user_library_caps.sql` (`private.enforce_library_entry_cap`, `docs/ARCHITECTURE.md` §5 "Per-user caps"). The insert of a new key past the cap raises `TZ001`, also under `private.write_client_library_entry`, so:
+
+- a merge batch holding a new key while the account holds 10,000 entries is refused whole (one transaction); the batches before it stay written; a batch of keys the account already holds still merges (pgTAP `090-library-entry-cap`);
+- the account store maps the `TZ001` answer (PostgREST answers it with 400) to `LibraryRemoteError('library-full')`, not reported;
+- the run fails; `SessionLibraryContextProvider` keeps the failure reason, and `useGuestMerge()` gives `{ status: 'failed', failure: 'library-full', retry }` (`GUEST_MERGE_FAILURES`: `library-full`, `other`; `guestMergeFailureOf`);
+- the guest entries stay on the device, as for any failure ("Safety"); the user is told why, in English and French (`library.merge.full`, with the cap: the titles stay on this device; remove titles from the library on another device then try again, or sign out to use them here), on the library and favorites tabs and in the detail's library section;
+- the library stays the pending library until a retry succeeds ("What the user sees"): every retry, reconnect, launch and sign in fails the same way while the account is full. The way out is to remove titles on another device, or to sign out: the merge being `failed`, the sign out keeps the guest library (ADR-0018), which shows again. A way out on the device itself is backlog item R-09.
+
+### Cleanup failure reported as a fixed error
+
+`GuestMergeRun.onCleanupFailed` takes no argument any more: `mergeGuestLibrary` calls `onCleanupFailed()` without the error of the failed `removeUnchanged`, since a storage error could quote stored content. `SessionLibraryContextProvider` reports a fixed `LibraryCleanupError('guest-merge-cleanup')` (`src/core/errors/library-report-errors.ts`, a fixed message, no cause) with `{ source: 'guest-merge' }`. This replaces "reports the error" of the Update of 2026-11-04 ("Precisions from the implementation"). The merge's other failures that are not a `LibraryRemoteError` are still reported with the caught error (a guest store failure or a `RangeError`, value-free by construction today; R-09).

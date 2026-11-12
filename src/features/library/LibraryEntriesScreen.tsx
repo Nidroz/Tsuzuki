@@ -10,6 +10,7 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState, type ReactElement } from 'react';
 
 import { GUEST_MERGE_FAILED_ANNOUNCE_KEY } from './announce-keys';
+import { guestMergeFailedText } from './library-failure-texts';
 import { LibraryList } from './LibraryList';
 import { LibrarySyncNotice } from './LibrarySyncNotice';
 
@@ -55,12 +56,14 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * entry unfavorited from the favorites included: the list is laid out again on an option change
  * or when the screen gains focus (a tab switch, back from the detail). while the guest library is
  * merged into the account (ADR-0016), a labelled spinner says so instead; after a failed merge, an
- * error with a retry: the library stays pending until a retry succeeded, so nothing is listed.
+ * error with a retry (a full account library says so, and how to go on): the library stays
+ * pending until a retry succeeded, so nothing is listed.
  * above any of these, while changes of the account library could not be synced, a notice says
  * how many, with Try again and Discard (LibrarySyncNotice)
  */
 export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
-  const { t } = useTranslation();
+  const translation = useTranslation();
+  const { t } = translation;
   const router = useRouter();
   const { showAdult } = usePreferences();
   const merge = useGuestMerge();
@@ -113,7 +116,7 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
     content = (
       <ErrorState
         title={t('library.merge.failedTitle')}
-        message={t('library.merge.failed')}
+        message={guestMergeFailedText(translation, merge.failure)}
         retry={{ label: t('library.merge.retry'), onPress: merge.retry }}
         announceKey={GUEST_MERGE_FAILED_ANNOUNCE_KEY}
         testID={`${testID}-merge-error`}

@@ -150,18 +150,18 @@ jobs:
           curl --max-time 600 --fail --silent --show-error --output /dev/null \
             'http://127.0.0.1:8081/node_modules/expo-router/entry.bundle?platform=android&dev=true&minify=false' \
             || echo '::warning::the metro bundle warm-up failed'
-      # the action runs each script line in its own sh -c (no shared shell state) and logs it before
-      # expansion, so the variables show as $NAME, never their values. the secrets are masked by
-      # github in any output; E2E_EMAIL is a secret of the e2e environment, not a variable, so it is
-      # masked too. the device keeps the emulator default locale (en-US): the flows select by id.
+      # maestro reads every MAESTRO_ variable of its environment, so the test account never goes on
+      # the command line or in the runner's process list. the secrets are masked by github in any
+      # output; E2E_EMAIL is a secret of the e2e environment, not a variable, so it is masked too.
+      # the device keeps the emulator default locale (en-US): the flows select by id.
       # when the flows fail, tools/ci/e2e-diagnostics.sh prints the device state as text while the
       # emulator still runs (activity on top, elements on screen, app log), then fails the step
       - name: Run the flows
         uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
         env:
-          E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
-          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
-          E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          MAESTRO_E2E_EMAIL: ${{ secrets.E2E_EMAIL }}
+          MAESTRO_E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          MAESTRO_E2E_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
         with:
           api-level: 34
           target: google_apis
@@ -178,7 +178,7 @@ jobs:
             adb shell settings put global hide_error_dialogs 1
             adb reverse tcp:8081 tcp:8081
             adb install -r "$RUNNER_TEMP/app.apk"
-            maestro test -e E2E_EMAIL="$E2E_EMAIL" -e E2E_PASSWORD="$E2E_PASSWORD" -e E2E_RUN_ID="$E2E_RUN_ID" e2e/flows || bash tools/ci/e2e-diagnostics.sh
+            maestro test e2e/flows || bash tools/ci/e2e-diagnostics.sh
       # metro logs the bundling and the app's warnings, no env values (secrets would be masked
       # anyway). no artifact upload: screenshots could show the test account email
       - name: Print the Metro log

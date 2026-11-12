@@ -170,6 +170,7 @@
     "notes": {
       "none": "No notes"
     },
+    "full": "Your library is full: it holds {{max}} titles. Remove titles to add new ones.",
     "list": {
       "loading": "Loading your library",
       "error": {
@@ -213,6 +214,7 @@
       "inProgress": "Adding the titles saved on this device to your account…",
       "failedTitle": "Your library is not ready yet",
       "failed": "The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.",
+      "full": "The titles saved on this device could not be added to your account: its library is full, with {{max}} titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.",
       "retry": "Try again"
     },
     "sync": {

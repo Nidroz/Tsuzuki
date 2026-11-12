@@ -1,7 +1,7 @@
 // no-restricted-syntax guards of the layer rules (tools/eslint/layers.mjs): literal import()
-// sources, the catalog provider hosts, className outside src/ui, direct styling in routes and
-// features, and the jest module calls, which load or mock a module by its specifier like an import,
-// called by name directly on jest (CONTRIBUTING.md section 4)
+// sources, the catalog provider hosts, className outside src/ui, direct styling and image
+// components in routes and features, and the jest module calls, which load or mock a module by its
+// specifier like an import, called by name directly on jest (CONTRIBUTING.md section 4)
 
 import { memberName, oneOf, propertyKey, toSelectorRegex } from './selectors.mjs';
 
@@ -82,6 +82,53 @@ export const STYLE_GUARDS = [
     selector: `:matches(${SPREAD_OBJECTS.join(', ')}) > ${propertyKey(STYLE_PROP_PATTERN)}`,
     message: STYLE_MESSAGE,
   },
+];
+
+// image components in routes and features: covers render only through the CoverImage primitive,
+// with a url that passed the provider cdn allowlist (C-04), so a screen never loads an image around
+// it. the react-native Image and ImageBackground, by any name a static check sees: a named import
+// or re-export, aliased or not and from any module (one re-exporting react-native included),
+// destructuring, a member read on any object (a namespace import, require(), import(), the
+// Animated.Image of react-native and reanimated) and a jsx member tag (<RN.Image />)
+export const NATIVE_IMAGE_MESSAGE = `routes and features load no image themselves: covers render only through CoverImage from @ui/index, never the Image or ImageBackground of react-native (${LAYERS_RULE}, CONTRIBUTING.md section 7).`;
+const NATIVE_IMAGE_PATTERN = oneOf(['Image', 'ImageBackground']);
+
+// the modules of those components inside react-native: a default or namespace import of one
+// (import Img from 'react-native/Libraries/Image/Image') gives them a name the guards below never
+// see. the image folder, and the module of Animated.Image. banned as paths by layerRules
+// (tools/eslint/layers.mjs) for the layers that ban the components, and in require() below
+export const NATIVE_IMAGE_MODULES = [
+  '^react-native/Libraries/Image($|/)',
+  '^react-native/Libraries/Animated/components/AnimatedImage($|[./])',
+];
+const REQUIRE_CALL = "CallExpression[callee.type='Identifier'][callee.name='require']";
+
+export const NATIVE_IMAGE_GUARDS = [
+  {
+    selector: `:matches(ImportSpecifier[imported.name=${NATIVE_IMAGE_PATTERN}], ImportSpecifier[imported.value=${NATIVE_IMAGE_PATTERN}], ExportSpecifier[local.name=${NATIVE_IMAGE_PATTERN}], ExportSpecifier[local.value=${NATIVE_IMAGE_PATTERN}])`,
+    message: NATIVE_IMAGE_MESSAGE,
+  },
+  // const { Image } = RN, const { ImageBackground: Background } = await import('react-native')
+  {
+    selector: `ObjectPattern > ${propertyKey(NATIVE_IMAGE_PATTERN)}`,
+    message: NATIVE_IMAGE_MESSAGE,
+  },
+  // a member read: RN.Image, RN['Image'], require('react-native').ImageBackground, Animated.Image
+  {
+    selector: `MemberExpression${memberName(NATIVE_IMAGE_PATTERN)}`,
+    message: NATIVE_IMAGE_MESSAGE,
+  },
+  // jsx member names are always plain identifiers
+  {
+    selector: `JSXMemberExpression[property.name=${NATIVE_IMAGE_PATTERN}]`,
+    message: NATIVE_IMAGE_MESSAGE,
+  },
+  // require() of one of their modules with a string literal: @typescript-eslint/no-require-imports
+  // already rejects every require() in typescript, this names the rule it would bypass
+  ...NATIVE_IMAGE_MODULES.map((regex) => ({
+    selector: `${REQUIRE_CALL}[arguments.0.value=${toSelectorRegex(regex)}]`,
+    message: NATIVE_IMAGE_MESSAGE,
+  })),
 ];
 
 // every jest function that loads or mocks a module by its specifier: its first argument follows the

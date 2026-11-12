@@ -45,10 +45,11 @@ export interface OfflineAccountLibraryContext extends ReplayContext {
 const isRemoteFailure = (error: unknown, reasons: readonly string[]): boolean =>
   error instanceof LibraryRemoteError && reasons.includes(error.reason);
 
-// a direct attempt failing so leaves the queue and rejects: the server refused the write, or wrote
-// it and answered a row that does not parse. any other failure (network, signed-out, unknown: the
-// server may have committed it) keeps the write queued for this user, until a replay confirms it
-const LEAVING_REASONS = ['rejected', 'invalid-row'] as const;
+// a direct attempt failing so leaves the queue and rejects: the server refused the write (a bug, or
+// a new entry past the user's cap: library-full, so the user is told), or wrote it and answered a
+// row that does not parse. any other failure (network, signed-out, unknown: the server may have
+// committed it) keeps the write queued for this user, until a replay confirms it
+const LEAVING_REASONS = ['rejected', 'library-full', 'invalid-row'] as const;
 // a read failing so falls back to the copy
 const UNREACHABLE_REASONS = ['network'] as const;
 
@@ -86,7 +87,7 @@ export const createOfflineAccountLibrary = (
   };
 
   // the regular request of a queued write: a success confirms it, a definite refusal (rejected,
-  // invalid-row) removes it and rejects, any other failure keeps it for the replay
+  // library-full, invalid-row) removes it and rejects, any other failure keeps it for the replay
   const attemptDirect = async <T, R>(
     record: QueuedWriteRecord,
     request: () => Promise<T>,

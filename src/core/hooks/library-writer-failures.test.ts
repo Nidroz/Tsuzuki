@@ -3,6 +3,7 @@ import { describe, expect, it, jest } from '@jest/globals';
 import { createDeferred } from '../../../test/core/fake-library-repository';
 import { ENTRY_KEY } from '../../../test/core/library-entry-fixtures';
 import { PROGRESS_WRITE_COALESCE_MS, setProgress } from '../domain/library-progress';
+import { LibraryActionError } from '../errors/library-report-errors';
 import { queryKeys } from '../query/keys';
 import {
   ENTRY,
@@ -184,11 +185,11 @@ describe('createLibraryWriter: failures', () => {
     expect(activeKeyCount()).toBe(0);
   });
 
-  it('rejects a change on an entry not loaded yet, writing nothing', async () => {
+  it('rejects a change on an entry not loaded yet with a fixed error, writing nothing', async () => {
     const { repository, writer, cached, activeKeyCount } = setupWriter();
 
-    await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toThrow(
-      'library change applied before the library entry was loaded',
+    await expect(writer.apply(ENTRY_KEY, scoreOf(7))).rejects.toStrictEqual(
+      new LibraryActionError('entry-not-loaded'),
     );
 
     expect(repository.save).not.toHaveBeenCalled();

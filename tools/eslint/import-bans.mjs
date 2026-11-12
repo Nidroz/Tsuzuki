@@ -2,7 +2,7 @@
 // banned package groups, canonical import paths, the type-only core imports of src/platform and
 // the network guards; layers.mjs assigns them to each layer
 
-import { LAYERS_RULE } from './syntax-guards.mjs';
+import { LAYERS_RULE, NATIVE_IMAGE_MESSAGE, NATIVE_IMAGE_MODULES } from './syntax-guards.mjs';
 
 const I18N_RULE = 'docs/adr/0011-internationalization-i18next.md';
 
@@ -45,6 +45,10 @@ export const BANNED = {
     regexes: ['^expo-image($|/)', '^@shopify/flash-list($|/)'],
     message: `expo-image and @shopify/flash-list are imported only in src/ui: other layers render lists and covers through the List and CoverImage primitives of @ui/index (${LAYERS_RULE}).`,
   },
+  // the react-native modules of Image and ImageBackground, in every import form (default, namespace
+  // and side-effect imports, re-exports, import(), jest module calls): layerRules bans them in the
+  // layers that ban the components (bansNativeImages), next to the guards of syntax-guards.mjs
+  nativeImageModules: { regexes: NATIVE_IMAGE_MODULES, message: NATIVE_IMAGE_MESSAGE },
   supabase: {
     regexes: ['^@supabase/'],
     message: `the Supabase client is imported only in src/core/repositories/supabase (${LAYERS_RULE}).`,

@@ -1,24 +1,69 @@
-// wrappers giving the library hooks a query client and a library repository, and catalog data
-// of the media of ENTRY_KEY, for the library hook tests (src/core/hooks/); the session library
-// lives in session-library-support.tsx
+// wrappers giving the library hooks a query client, a library repository and the reporter of the
+// library actions, and catalog data of the media of ENTRY_KEY, for the library hook tests
+// (src/core/hooks/); the session library lives in session-library-support.tsx
+import { jest } from '@jest/globals';
 import { QueryClientProvider, type QueryClient } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { useMemo, type ReactNode } from 'react';
 
+import { createFakeDevicePurgeMarkers } from './fake-device-purge-markers';
 import { createFakeLibraryRepository, type FakeLibraryRepository } from './fake-library-repository';
 import { ENTRY_KEY, SNAPSHOT, TITLE_TEXT } from './library-entry-fixtures';
 import { createFakeCatalogProvider } from '@core/catalog/__fixtures__/fake-catalog-provider';
 import type { MediaSummary } from '@core/catalog/catalog-provider';
 import type { LibraryEntry } from '@core/domain/library-entry';
+import type { ErrorReporter } from '@core/errors/error-reporter';
 import { createQueryClient } from '@core/query/query-client';
 import type { LibraryRepository } from '@core/repositories/library-repository';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
+import { DevicePurgeContext, type DevicePurgeValue } from '@core/hooks/device-purge-context';
+import { guardDevicePurgeMarkers } from '@core/hooks/device-purge-markers';
 import {
   LibraryContextProvider,
   type LibraryContextProviderProps,
 } from '@core/hooks/LibraryContextProvider';
 import { useLibraryEntry } from '@core/hooks/use-library-entry';
 import { useLibraryEntryActions } from '@core/hooks/use-library-entry-actions';
+
+// the tests that do not check the reports of the library actions: a report goes nowhere
+const IGNORED_REPORTS: ErrorReporter = Object.freeze({ captureError: (): void => undefined });
+
+const keepPersistedCache = (): void => undefined;
+const keepGeneration = (): void => undefined;
+
+export interface TestReporterContextProps {
+  /** receives the reports of the library actions; by default they go nowhere */
+  readonly reporter?: ErrorReporter;
+  readonly children: ReactNode;
+}
+
+/**
+ * the DevicePurgeContext the library actions report their programming errors through
+ * (useLibraryEntryActions), as the composition root gives it: `reporter`, markers in memory, a
+ * purge that never runs here
+ */
+export function TestReporterContext({
+  reporter = IGNORED_REPORTS,
+  children,
+}: TestReporterContextProps) {
+  const value = useMemo(
+    (): DevicePurgeValue => ({
+      removePersistedCache: keepPersistedCache,
+      reporter,
+      markers: guardDevicePurgeMarkers(createFakeDevicePurgeMarkers(), reporter),
+      generation: 0,
+      advanceGeneration: keepGeneration,
+    }),
+    [reporter],
+  );
+  return <DevicePurgeContext value={value}>{children}</DevicePurgeContext>;
+}
+
+/** a reporter whose `captureError` is a jest mock, for a test that checks the reports */
+export const createRecordingReporter = () => {
+  const captureError = jest.fn<ErrorReporter['captureError']>();
+  return { reporter: { captureError } satisfies ErrorReporter, captureError };
+};
 
 /** the catalog data of the media of ENTRY_KEY, whose snapshot is SNAPSHOT */
 export const MEDIA: MediaSummary = {
@@ -42,11 +87,14 @@ export const FRESH_MEDIA: MediaSummary = { ...MEDIA, totalUnits: FRESH_TOTAL };
 /** a media no snapshot can hold: a title is at least one character (the database limits) */
 export const UNSTORABLE_MEDIA: MediaSummary = { ...MEDIA, title: '' };
 
+/** the query client, the library over `repository` and `reporter` for the library actions */
 export const libraryWrapper =
-  (queryClient: QueryClient, repository: LibraryRepository) =>
+  (queryClient: QueryClient, repository: LibraryRepository, reporter?: ErrorReporter) =>
   ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
-      <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+      <TestReporterContext {...(reporter !== undefined && { reporter })}>
+        <LibraryContextProvider repository={repository}>{children}</LibraryContextProvider>
+      </TestReporterContext>
     </QueryClientProvider>
   );
 
@@ -71,12 +119,14 @@ export const switchableLibraryWrapper = (
   const wrapper = ({ children }: { readonly children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>
       <CatalogContextProvider provider={provider}>
-        <LibraryContextProvider
-          repository={current.repository}
-          {...(current.onRetired !== undefined && { onRetired: current.onRetired })}
-        >
-          {children}
-        </LibraryContextProvider>
+        <TestReporterContext>
+          <LibraryContextProvider
+            repository={current.repository}
+            {...(current.onRetired !== undefined && { onRetired: current.onRetired })}
+          >
+            {children}
+          </LibraryContextProvider>
+        </TestReporterContext>
       </CatalogContextProvider>
     </QueryClientProvider>
   );
@@ -95,7 +145,8 @@ export interface EntryHookProps {
 
 /**
  * the entry of ENTRY_KEY and its actions, rendered over a fake repository holding `initial`,
- * with `media` as the catalog data (a prop, so a test can change it)
+ * with `media` as the catalog data (a prop, so a test can change it); the reports of the actions
+ * reach `captureError`
  */
 export const renderLibraryEntry = (
   initial: readonly LibraryEntry[],
@@ -103,12 +154,13 @@ export const renderLibraryEntry = (
 ) => {
   const queryClient = createQueryClient();
   const repository: FakeLibraryRepository = createFakeLibraryRepository(initial);
+  const { reporter, captureError } = createRecordingReporter();
   const rendered = renderHook(
     (props: EntryHookProps) => ({
       entry: useLibraryEntry(ENTRY_KEY, props),
       actions: useLibraryEntryActions({ ...ENTRY_KEY }, props),
     }),
-    { initialProps: { media }, wrapper: libraryWrapper(queryClient, repository) },
+    { initialProps: { media }, wrapper: libraryWrapper(queryClient, repository, reporter) },
   );
-  return { ...rendered, queryClient, repository };
+  return { ...rendered, queryClient, repository, captureError };
 };
