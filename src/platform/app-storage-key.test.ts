@@ -28,6 +28,12 @@ const STEP_KEY = 'AIQYgow4'.repeat(4);
 // the high bits are dropped: 62 and 63 plus any multiple of 64 are - and _
 const HIGH_BIT_BYTES = [62, 63, 126, 127, 190, 191, 254, 255];
 const HIGH_BIT_KEY = '-_'.repeat(16);
+// a byte whose number and character (62 is '-') no error message may quote
+const QUOTABLE_BYTE = 62;
+// the whole message, so it cannot quote a byte
+const ANOTHER_ARRAY = /^the random source returned another array than the one it was given$/;
+const DETACHED = /^the random source detached the array it was given$/;
+const EVERY_BYTE_ZERO = /^the random source left every byte at zero$/;
 const VALID_KEY = 'Az09-_'.repeat(5).concat('xy');
 // keys with no session meaning: the session is sb-<project>-auth-token and its chunks
 const SESSION_KEY_PREFIX = 'sb-';
@@ -59,13 +65,42 @@ describe('generateAppStorageKey', () => {
     expect(new TextEncoder().encode(key)).toHaveLength(APP_STORAGE_KEY_LENGTH);
   });
 
-  it.each([16, 33])('rejects a source that returns %i bytes, quoting no byte', (length) => {
-    const short = () => new Uint8Array(length).fill(HIGH_BIT_BYTES[0] ?? 0);
+  it.each([16, APP_STORAGE_KEY_LENGTH, 33])(
+    'rejects a source that returns another array, of %i bytes, quoting no byte',
+    (length) => {
+      const other = () => new Uint8Array(length).fill(QUOTABLE_BYTE);
 
-    expect(() => generateAppStorageKey(short)).toThrow(RangeError);
-    expect(() => generateAppStorageKey(short)).toThrow(
-      `the random source returned ${String(length)} bytes, not ${String(APP_STORAGE_KEY_LENGTH)}`,
-    );
+      expect(() => generateAppStorageKey(other)).toThrow(RangeError);
+      expect(() => generateAppStorageKey(other)).toThrow(ANOTHER_ARRAY);
+    },
+  );
+
+  it('rejects a source that fills nothing, quoting no byte', () => {
+    const lazy = (array: Uint8Array) => array;
+
+    expect(() => generateAppStorageKey(lazy)).toThrow(RangeError);
+    expect(() => generateAppStorageKey(lazy)).toThrow(EVERY_BYTE_ZERO);
+  });
+
+  it('rejects a source that detaches the array it fills, quoting no byte', () => {
+    const detaching = (array: Uint8Array) => {
+      array.fill(QUOTABLE_BYTE);
+      // the key generation creates the array over an ArrayBuffer, never a shared one
+      (array.buffer as ArrayBuffer).transfer();
+      return array;
+    };
+
+    expect(() => generateAppStorageKey(detaching)).toThrow(RangeError);
+    expect(() => generateAppStorageKey(detaching)).toThrow(DETACHED);
+  });
+
+  it('keeps a key whose bytes are zero but one', () => {
+    const lastByteOnly = (array: Uint8Array) => {
+      array.set([1], APP_STORAGE_KEY_LENGTH - 1);
+      return array;
+    };
+
+    expect(generateAppStorageKey(lastByteOnly)).toBe(`${'A'.repeat(APP_STORAGE_KEY_LENGTH - 1)}B`);
   });
 });
 

@@ -54,6 +54,8 @@ export const seedEncrypted = (key: string, values: Readonly<Record<string, strin
   seedFile(APP_STORAGE_INSTANCE_ID, key, { [KEY_CHECK_KEY]: KEY_CHECK_VALUE, ...values });
 };
 
-/** the native events of the files and the secure store, without the value writes. */
+/** the native events of the files and the secure store, without the value writes and removals. */
 export const fileEvents = (): string[] =>
-  device.events.filter((event) => !event.startsWith('mmkv.set:'));
+  device.events.filter(
+    (event) => !event.startsWith('mmkv.set:') && !event.startsWith('mmkv.remove:'),
+  );

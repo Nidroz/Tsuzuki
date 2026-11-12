@@ -20,7 +20,11 @@ import {
 } from './__fixtures__/app-storage-launch';
 import { reportedProblems } from './__fixtures__/app-storage-reports';
 import { APP_STORAGE_INSTANCE_ID } from './app-storage-instance';
-import { APP_STORAGE_KEY_NAME } from './app-storage-key';
+import {
+  APP_STORAGE_KEY_LENGTH,
+  APP_STORAGE_KEY_NAME,
+  type GetRandomValues,
+} from './app-storage-key';
 import { STORAGE_INSTANCE_ID } from './storage';
 
 jest.mock('react-native-mmkv', () =>
@@ -29,6 +33,19 @@ jest.mock('react-native-mmkv', () =>
 jest.mock('expo-secure-store', () =>
   jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeSecureStoreModule(),
 );
+
+// random sources a key cannot come from: the key generation throws, whatever the reason
+const BROKEN_SOURCES: readonly [string, GetRandomValues][] = [
+  [
+    'throws',
+    () => {
+      throw new Error('no entropy');
+    },
+  ],
+  ['returns another array', () => new Uint8Array(APP_STORAGE_KEY_LENGTH).fill(1)],
+  ['returns an empty array', () => new Uint8Array(0)],
+  ['fills nothing', (array) => array],
+];
 
 beforeEach(resetLaunch);
 
@@ -75,15 +92,20 @@ describe('openAppStorage, a secure store that fails', () => {
     expect(reportedProblems(captureError)).toStrictEqual(['key-unavailable']);
   });
 
-  it('runs on memory when the random source fails, storing no key', () => {
-    getRandomValues.mockImplementationOnce(() => new Uint8Array(0));
+  it.each(BROKEN_SOURCES)(
+    'runs on memory when the random source %s, storing no key',
+    (_, source) => {
+      getRandomValues.mockImplementationOnce(source);
 
-    launch();
+      const storage = launch();
+      storage.set(THEME_KEY, THEME_VALUE);
 
-    expect(device.secureItems.size).toBe(0);
-    expect(device.configurations).toStrictEqual([]);
-    expect(reportedProblems(captureError)).toStrictEqual(['key-unavailable']);
-  });
+      expect(storage.getString(THEME_KEY)).toBe(THEME_VALUE);
+      expect(device.secureItems.size).toBe(0);
+      expect(device.configurations).toStrictEqual([]);
+      expect(reportedProblems(captureError)).toStrictEqual(['key-unavailable']);
+    },
+  );
 });
 
 describe('openAppStorage, an instance that fails to open', () => {

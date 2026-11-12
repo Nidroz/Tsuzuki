@@ -36,15 +36,24 @@ const KEY_FORM = new RegExp(`^[A-Za-z0-9_-]{${String(APP_STORAGE_KEY_LENGTH)}}$`
 export const appStorageKeySchema = z.string().regex(KEY_FORM);
 
 /**
- * a new key from 32 bytes of the injected source, one character per byte. throws when the source
- * throws or returns another length; the error never holds the bytes or the key
+ * a new key from 32 bytes of the injected source, one character per byte. throws what the source
+ * throws, and a RangeError with a fixed message, never holding a byte or the key, when the source
+ * returns an array other than the one it was given, detaches it, or leaves every byte at zero
  */
 export const generateAppStorageKey = (getRandomValues: GetRandomValues): string => {
-  const bytes = getRandomValues(new Uint8Array(APP_STORAGE_KEY_LENGTH));
+  const bytes = new Uint8Array(APP_STORAGE_KEY_LENGTH);
+  // the web crypto contract: the source fills the array it is given and returns that array.
+  // another one could be of another length or shared, and the given one left unfilled
+  if (getRandomValues(bytes) !== bytes) {
+    throw new RangeError('the random source returned another array than the one it was given');
+  }
+  // the array owns a buffer of fixed length: only a detached buffer changes it (to 0)
   if (bytes.length !== APP_STORAGE_KEY_LENGTH) {
-    throw new RangeError(
-      `the random source returned ${String(bytes.length)} bytes, not ${String(APP_STORAGE_KEY_LENGTH)}`,
-    );
+    throw new RangeError('the random source detached the array it was given');
+  }
+  // 32 random bytes are all zero with a chance of 2^-256: a source that filled nothing
+  if (bytes.every((byte) => byte === 0)) {
+    throw new RangeError('the random source left every byte at zero');
   }
   return Array.from(bytes, (byte) => KEY_ALPHABET.charAt(byte & KEY_ALPHABET_MASK)).join('');
 };

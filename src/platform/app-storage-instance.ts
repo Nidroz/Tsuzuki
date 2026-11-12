@@ -8,9 +8,10 @@ export type ReportAppStorageProblem = (problem: AppStorageProblem) => void;
 /** the id of the encrypted mmkv instance that holds the whole app storage. */
 export const APP_STORAGE_INSTANCE_ID = 'tsuzuki-encrypted';
 
-// the keys this module reserves in the encrypted instance. no StorageAdapter consumer writes under
-// the prefix (preferences.*, recent-searches, guest-library, query-cache, device-purge-pending,
-// account-library-copy.*, account-library-queue.*), and the copy of the unencrypted instance skips it
+// the keys the app storage reserves in the encrypted instance and in the unencrypted one. no
+// StorageAdapter consumer writes under the prefix (preferences.*, recent-searches, guest-library,
+// query-cache, device-purge-pending, account-library-copy.*, account-library-queue.*), and the copy
+// of the unencrypted instance skips it
 export const RESERVED_KEY_PREFIX = 'app-storage.';
 
 // written right after a new instance is created, before anything else: an existing instance that
@@ -21,6 +22,11 @@ export const KEY_CHECK_VALUE = 'tsuzuki-app-storage-check';
 // written once every value of the unencrypted instance is copied into the encrypted one
 export const MIGRATED_MARKER_KEY = `${RESERVED_KEY_PREFIX}migrated`;
 export const MIGRATED_MARKER_VALUE = 'copied';
+
+// written into the unencrypted instance right after the marker above, with the same value: its
+// values are copied, and a later launch that opens it again (the encrypted instance reset by a
+// lost or mismatched key) must not copy them again
+export const LEGACY_COPIED_MARKER_KEY = `${RESERVED_KEY_PREFIX}copied`;
 
 export const isReservedKey = (key: string): boolean => key.startsWith(RESERVED_KEY_PREFIX);
 

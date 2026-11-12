@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import type * as Device from './__fixtures__/app-storage-device';
-import { device, fileValues, seedFile, seedSecureItem } from './__fixtures__/app-storage-device';
+import { device, fileValues, seedSecureItem } from './__fixtures__/app-storage-device';
 import {
   CACHE_KEY,
   CACHE_VALUE,
@@ -10,18 +10,25 @@ import {
   LIBRARY_KEY,
   LIBRARY_VALUE,
   NEWER_THEME_VALUE,
-  OTHER_KEY,
   resetLaunch,
   seedEncrypted,
   STORED_KEY,
   THEME_KEY,
   THEME_VALUE,
 } from './__fixtures__/app-storage-launch';
+import {
+  COPIED_LEGACY,
+  launchWithEvents,
+  LEGACY_VALUES,
+  MIGRATED,
+  seedLegacy,
+} from './__fixtures__/app-storage-legacy';
 import { reportedProblems } from './__fixtures__/app-storage-reports';
 import {
   APP_STORAGE_INSTANCE_ID,
   KEY_CHECK_KEY,
   KEY_CHECK_VALUE,
+  LEGACY_COPIED_MARKER_KEY,
   MIGRATED_MARKER_KEY,
   MIGRATED_MARKER_VALUE,
 } from './app-storage-instance';
@@ -35,45 +42,29 @@ jest.mock('expo-secure-store', () =>
   jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeSecureStoreModule(),
 );
 
-// what an unencrypted instance of the previous version holds
-const LEGACY_VALUES = {
-  [THEME_KEY]: THEME_VALUE,
-  [LIBRARY_KEY]: LIBRARY_VALUE,
-  [CACHE_KEY]: CACHE_VALUE,
-};
-const MIGRATED = {
-  [KEY_CHECK_KEY]: KEY_CHECK_VALUE,
-  ...LEGACY_VALUES,
-  [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE,
-};
+// a value the process running on the unencrypted instance adds after a failed copy
+const SEARCHES_KEY = 'recent-searches';
+const SEARCHES_VALUE = '["frieren"]';
 
-const seedLegacy = (values: Readonly<Record<string, string | number>> = LEGACY_VALUES) => {
-  seedFile(STORAGE_INSTANCE_ID, undefined, values);
-};
-
-const legacySets = () =>
+const encryptedSets = () =>
   device.events.filter((event) => event.startsWith(`mmkv.set:${APP_STORAGE_INSTANCE_ID}:`));
-
-// a launch, then the events it caused
-const launchEvents = () => {
-  const start = device.events.length;
-  launch();
-  return device.events.slice(start);
-};
 
 beforeEach(resetLaunch);
 
 describe('openAppStorage, the unencrypted instance of a previous version', () => {
-  it('copies every value, then writes the marker, keeping the unencrypted instance it opened', () => {
+  it('copies every value, writes the marker, then marks the unencrypted instance copied', () => {
     seedLegacy();
 
     const storage = launch();
 
     expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(MIGRATED);
     expect(storage.getString(LIBRARY_KEY)).toBe(LIBRARY_VALUE);
-    expect(device.events.at(-1)).toBe(`mmkv.set:${APP_STORAGE_INSTANCE_ID}:${MIGRATED_MARKER_KEY}`);
+    expect(device.events.slice(-2)).toStrictEqual([
+      `mmkv.set:${APP_STORAGE_INSTANCE_ID}:${MIGRATED_MARKER_KEY}`,
+      `mmkv.set:${STORAGE_INSTANCE_ID}:${LEGACY_COPIED_MARKER_KEY}`,
+    ]);
     expect(device.events).not.toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
-    expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
+    expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(COPIED_LEGACY);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 
@@ -81,7 +72,7 @@ describe('openAppStorage, the unencrypted instance of a previous version', () =>
     seedLegacy();
     launch();
 
-    const events = launchEvents();
+    const { events } = launchWithEvents();
 
     expect(events).toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
     expect(events).not.toContain(`mmkv.create:${STORAGE_INSTANCE_ID}`);
@@ -139,8 +130,42 @@ describe('openAppStorage, a copy that fails', () => {
       [THEME_KEY]: NEWER_THEME_VALUE,
     });
     expect(storage.getString(THEME_KEY)).toBe(NEWER_THEME_VALUE);
-    expect(launchEvents()).toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
+    expect(launchWithEvents().events).toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
     expect(device.files.has(STORAGE_INSTANCE_ID)).toBe(false);
+    expect(reportedProblems(captureError)).toStrictEqual([]);
+  });
+
+  it('removes what the partial copy left first: a key deleted since never comes back', () => {
+    // the guest library is copied first, then the copy fails
+    seedLegacy({
+      [LIBRARY_KEY]: LIBRARY_VALUE,
+      [THEME_KEY]: THEME_VALUE,
+      [CACHE_KEY]: CACHE_VALUE,
+    });
+    device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 2 };
+    const fallback = launch();
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[LIBRARY_KEY]).toBe(LIBRARY_VALUE);
+    // the process on the unencrypted instance: the guest merge cleanup, a recent search
+    fallback.delete(LIBRARY_KEY);
+    fallback.set(SEARCHES_KEY, SEARCHES_VALUE);
+    device.failures.setLimit = undefined;
+    captureError.mockClear();
+
+    const { storage, events } = launchWithEvents();
+
+    expect(storage.getString(LIBRARY_KEY)).toBeUndefined();
+    expect(storage.getString(SEARCHES_KEY)).toBe(SEARCHES_VALUE);
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({
+      [KEY_CHECK_KEY]: KEY_CHECK_VALUE,
+      [THEME_KEY]: THEME_VALUE,
+      [CACHE_KEY]: CACHE_VALUE,
+      [SEARCHES_KEY]: SEARCHES_VALUE,
+      [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE,
+    });
+    expect(events.indexOf(`mmkv.remove:${APP_STORAGE_INSTANCE_ID}:${LIBRARY_KEY}`)).toBeLessThan(
+      events.indexOf(`mmkv.set:${APP_STORAGE_INSTANCE_ID}:${THEME_KEY}`),
+    );
+    expect(events).not.toContain(`mmkv.remove:${APP_STORAGE_INSTANCE_ID}:${KEY_CHECK_KEY}`);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 
@@ -165,14 +190,39 @@ describe('openAppStorage, a copy marked done', () => {
       [THEME_KEY]: NEWER_THEME_VALUE,
       [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE,
     });
+    // killed before the unencrypted instance was marked copied: the encrypted marker is enough
     seedLegacy();
 
     const storage = launch();
 
     expect(storage.getString(THEME_KEY)).toBe(NEWER_THEME_VALUE);
     expect(device.events).not.toContain(`mmkv.create:${STORAGE_INSTANCE_ID}`);
-    expect(legacySets()).toStrictEqual([]);
+    expect(encryptedSets()).toStrictEqual([]);
     expect(device.files.has(STORAGE_INSTANCE_ID)).toBe(false);
+    expect(reportedProblems(captureError)).toStrictEqual([]);
+  });
+
+  it('runs on the encrypted copy when the unencrypted instance cannot be marked copied', () => {
+    seedLegacy();
+    device.failures.setLimit = { id: STORAGE_INSTANCE_ID, remaining: 0 };
+
+    const storage = launch();
+    storage.set(THEME_KEY, NEWER_THEME_VALUE);
+
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual({
+      ...MIGRATED,
+      [THEME_KEY]: NEWER_THEME_VALUE,
+    });
+    expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
+    expect(reportedProblems(captureError)).toStrictEqual(['migration-failed']);
+
+    device.failures.setLimit = undefined;
+    captureError.mockClear();
+    const { events } = launchWithEvents();
+
+    expect(events).toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
+    expect(events).not.toContain(`mmkv.create:${STORAGE_INSTANCE_ID}`);
+    expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(NEWER_THEME_VALUE);
     expect(reportedProblems(captureError)).toStrictEqual([]);
   });
 
@@ -187,7 +237,7 @@ describe('openAppStorage, a copy marked done', () => {
       storage.set(THEME_KEY, NEWER_THEME_VALUE);
 
       expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(NEWER_THEME_VALUE);
-      expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
+      expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(COPIED_LEGACY);
       expect(reportedProblems(captureError)).toStrictEqual(['legacy-delete-failed']);
 
       device.failures.delete.clear();
@@ -199,39 +249,4 @@ describe('openAppStorage, a copy marked done', () => {
       expect(reportedProblems(captureError)).toStrictEqual([]);
     },
   );
-});
-
-describe('openAppStorage, a key lost while the unencrypted instance remains', () => {
-  it('copies the unencrypted instance again into the new instance: nothing of it is lost', () => {
-    seedEncrypted(OTHER_KEY, { ...LEGACY_VALUES, [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE });
-    seedLegacy();
-
-    const storage = launch();
-
-    expect(storage.getString(LIBRARY_KEY)).toBe(LIBRARY_VALUE);
-    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(MIGRATED);
-    expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
-    expect(reportedProblems(captureError)).toStrictEqual(['key-lost']);
-  });
-
-  it('copies it again after a key mismatch', () => {
-    seedSecureItem(APP_STORAGE_KEY_NAME, STORED_KEY);
-    seedEncrypted(OTHER_KEY, { [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE });
-    seedLegacy();
-
-    launch();
-
-    expect(fileValues(APP_STORAGE_INSTANCE_ID)).toStrictEqual(MIGRATED);
-    expect(reportedProblems(captureError)).toStrictEqual(['key-mismatch']);
-  });
-
-  it('keeps it when the key cannot be stored', () => {
-    device.failures.secureWrite = true;
-    seedLegacy();
-
-    launch();
-
-    expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual(LEGACY_VALUES);
-    expect(reportedProblems(captureError)).toStrictEqual(['key-unavailable']);
-  });
 });

@@ -44,7 +44,7 @@ interface Failures {
 const files = new Map<string, FakeFile>();
 const secureItems = new Map<string, string>();
 // the native calls in order: secure.get, secure.set, mmkv.exists:<id>, mmkv.create:<id>,
-// mmkv.delete:<id>, mmkv.set:<id>:<key>
+// mmkv.delete:<id>, mmkv.set:<id>:<key>, mmkv.remove:<id>:<key>
 const events: string[] = [];
 const secureOptions: (SecureStoreOptions | undefined)[] = [];
 const configurations: Configuration[] = [];
@@ -160,7 +160,11 @@ const createInstance = (configuration: Configuration): FakeMmkv => {
       events.push(`mmkv.set:${id}:${key}`);
       target.values.set(key, value);
     },
-    remove: (key) => live().values.delete(key),
+    remove: (key) => {
+      const target = live();
+      events.push(`mmkv.remove:${id}:${key}`);
+      return target.values.delete(key);
+    },
     getAllKeys: () => [...live().values.keys()],
     clearAll: () => {
       live().values.clear();
