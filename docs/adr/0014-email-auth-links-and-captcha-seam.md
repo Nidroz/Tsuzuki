@@ -82,7 +82,7 @@ Before this, on Hermes (React Native 0.86, Expo SDK 57), which installs neither 
 - `generatePKCEFlowId` (250) fills a `Uint8Array(16)` (252-253) when `typeof crypto.getRandomValues === 'function'` (251), else draws from `Math.random` (258).
 - `getCodeChallengeAndMethod` (388) sends `plain` when the challenge equals the verifier, `s256` otherwise (397).
 
-The integration test below runs this auth-js through the app's `createSupabaseClient`, so an update that brings back `plain` or `Math.random` under the binding fails it; M-01 still rereads these lines. Device assumption to confirm on the preview build (R-07): Hermes has `TextEncoder` and `btoa`.
+The integration test below runs this auth-js through the app's `createSupabaseClient`, so an update that brings back `plain` or `Math.random` under the binding fails it; M-01 still rereads these lines. Device assumption to confirm on the preview build (R-07): Hermes has `TextEncoder` and `btoa`. A missing one cannot silently bring back `plain`: once the binding is installed, `src/platform/web-crypto-polyfill.ts` fails the launch with a fixed error unless `crypto.getRandomValues`, `crypto.subtle.digest`, `TextEncoder` and `btoa` are all functions (`assertPkceS256Prerequisites`, `src/platform/web-crypto.ts`). The line numbers above are those of `dist/module`; Metro loads `dist/main` (`"main"` of the package), where the same functions sit at 241 (`generatePKCEVerifier`: `Math.random` 249, `getRandomValues` 253), 256 (`sha256`: `digest` 259), 265 (`generatePKCEChallenge`: the check 266-268, `btoa` 274), 285 (`generatePKCEFlowId`: `getRandomValues` 288, `Math.random` 293) and 424 (`getCodeChallengeAndMethod`: `plain` or `s256` 433).
 
 ### `getClaims`
 
