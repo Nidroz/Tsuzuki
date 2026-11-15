@@ -143,11 +143,12 @@ const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 const refreshRefusals = createTokenRefreshRefusalSignal();
 
 // the supabase client: anon key only, its session in the secure store, never in the app storage
-// (§8). the email links go to the app's routes (ADR-0014)
+// (§8). a first launch never reads a session stored before it: the ios keychain outlives an
+// uninstall, so a reinstall starts signed out. the email links go to the app's routes (ADR-0014)
 const supabase = createSupabaseClient({
   url: appEnv.supabaseUrl,
   anonKey: appEnv.supabaseAnonKey,
-  sessionStorage: createSecureSessionStorage(reporter),
+  sessionStorage: createSecureSessionStorage(reporter, { discardStored: firstLaunch }),
   onTokenRefreshRefused: refreshRefusals.notify,
 });
 // TODO(A-09): pass the oauth option (the browser session and the per-build provider list)

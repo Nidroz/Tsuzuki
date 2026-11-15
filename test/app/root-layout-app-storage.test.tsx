@@ -18,10 +18,11 @@ import {
 } from './app-storage-support';
 
 // the launches of the composition root (ADR-0020, R-09): the web crypto binding before the
-// supabase client, a first launch that drops the purges owed before it (the ios keychain outlives
-// an uninstall), a damaged owed document. the device is in memory (app-storage-support.ts): each
-// isolated load of the layout module is a launch, the files outliving it. no test of this file
-// loads the layout in the main registry, whose mocks every isolated registry would reuse
+// supabase client, a first launch that never reads a session or an owed purge stored before it
+// (the ios keychain outlives an uninstall), a damaged owed document. the device is in memory
+// (app-storage-support.ts): each isolated load of the layout module is a launch, the files
+// outliving it. no test here loads the layout in the main registry, whose mocks every isolated
+// registry would reuse
 
 jest.mock('react-native-mmkv', () => mockDevice.fakeMmkvModule());
 jest.mock('expo-secure-store', () => mockDevice.fakeSecureStoreModule());
@@ -50,6 +51,11 @@ jest.mock('@core/catalog/jikan/jikan-catalog-provider', () =>
   jest.requireActual<typeof FakeJikanModule>('../mobile/fake-jikan-module').fakeJikanModule(),
 );
 
+// the session key supabase-js derives from the project url, and a session stored under it by an
+// install before this one (the header, then its one chunk); low-entropy placeholders
+const SESSION_KEY = 'sb-test-project-auth-token';
+const STALE_SESSION = `stale-${'s'.repeat(16)}`;
+const NEW_SESSION = `new-${'n'.repeat(16)}`;
 // the sha-256 of "abc" (fips 180-2)
 const ABC = new TextEncoder().encode('abc');
 const ABC_SHA_256 = 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad';
@@ -57,6 +63,9 @@ const OWED_OF_A = { userId: USER_A, clearGuestLibrary: false, deviceWide: true }
 
 const hexOf = (buffer: ArrayBuffer): string =>
   Array.from(new Uint8Array(buffer), (byte) => byte.toString(16).padStart(2, '0')).join('');
+
+const sessionItems = (): string[] =>
+  [...mockDevice.device.secureItems.keys()].filter((key) => key.startsWith(SESSION_KEY));
 
 // a member of an object, or undefined for anything else
 const memberOf = (value: unknown, key: string): unknown =>
@@ -109,6 +118,21 @@ describe('root layout app storage', () => {
     } finally {
       if (nativeCrypto) Object.defineProperty(globalThis, 'crypto', nativeCrypto);
     }
+  });
+
+  it('starts a first launch signed out, its stored session gone, and keeps a session it writes', async () => {
+    mockDevice.seedSecureItem(SESSION_KEY, '0:1');
+    mockDevice.seedSecureItem(`${SESSION_KEY}.0.0`, STALE_SESSION);
+
+    const first = launchInIsolation();
+
+    await expect(first.sessionStorage.getItem(SESSION_KEY)).resolves.toBeNull();
+    expect(sessionItems()).toStrictEqual([]);
+    await first.sessionStorage.setItem(SESSION_KEY, NEW_SESSION);
+
+    const second = launchInIsolation();
+
+    await expect(second.sessionStorage.getItem(SESSION_KEY)).resolves.toBe(NEW_SESSION);
   });
 
   it('drops at a first launch the purges an earlier install owed: the files are new', () => {
