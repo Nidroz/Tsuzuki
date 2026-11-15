@@ -11,7 +11,7 @@ import type { LibraryWriter } from './library-writer';
 import { useSessionLibrary } from './session-library-context';
 import { AUTH_MUTATION_OPTIONS } from './use-auth-mutations';
 import { useAuthContext } from './use-auth-context';
-import { useDevicePurge, useDevicePurgeContext } from './use-device-purge';
+import { useDevicePurge, useDevicePurgeContext, useMarkDevicePurge } from './use-device-purge';
 import { useGuestMerge } from './use-guest-merge';
 import { useLatest } from './use-latest';
 import { useLibraryContext } from './use-library-context';
@@ -111,12 +111,14 @@ const runWithin = async (
  * (3) writes still queued or changes the live writer still holds, and no `discardUnsynced`:
  * `{ status: 'unsynced', count }` and nothing else; (4) whether the guest library is kept is read
  * from the latest merge status; (5) the user's purge-pending marker is written (ADR-0018, update of
- * 2026-11-04), then `signOut()`. the session is then read as the auth repository last reported it
- * (readState): a rejection (an AuthError, `network` when the session must stay) while the session
- * is still this user's removes the marker and rejects, nothing purged; a rejection once the
- * session ended (or another user's started) goes on as a success; (6) the device purge, the queue
- * included, unless this user was reported signed in again meanwhile (the marker is then removed,
- * nothing purged), its device-wide steps unless another user is signed in; then the marker is
+ * 2026-11-04), with the purge owed to the files while the app storage runs on memory
+ * (useMarkDevicePurge), then `signOut()`. the session is then read as the auth repository last
+ * reported it (readState): a rejection (an AuthError, `network` when the session must stay) while
+ * the session is still this user's removes the marker (the owed purge stays) and rejects, nothing
+ * purged; a rejection once the session ended (or another user's started) goes on as a success;
+ * (6) the device purge, the queue included, unless this user was reported signed in again
+ * meanwhile (the marker is then removed, nothing purged), its device-wide steps unless another
+ * user is signed in; then the marker is
  * removed, or rewritten for a retry at the next launch when the `account-library` step failed,
  * unless this user was reported signed in again during the purge (removed). a marker failure is
  * reported, never blocks the sign out. read inside every provider of the composition root.
@@ -130,6 +132,7 @@ export const useSignOut = () => {
   const library = useLibraryContext();
   const { status } = useGuestMerge();
   const { reporter, markers } = useDevicePurgeContext();
+  const mark = useMarkDevicePurge();
   const purge = useDevicePurge();
   const latest = useLatest({ account, userId, library, status });
   return useMutation({
@@ -167,14 +170,18 @@ export const useSignOut = () => {
       // before the session ends: the status reads `idle` once signed out
       const clearGuestLibrary = !keepsGuestLibrary(latest.current.status);
       // a kill between the end of the session and the purge leaves the marker: the next launch
-      // purges this user's documents
-      markers.add({ userId: sessionUserId, clearGuestLibrary, deviceWide: true });
+      // purges this user's documents. on memory the marker dies with the process, so the purge is
+      // owed to the files here too, before `signOut()` (useMarkDevicePurge)
+      mark({ userId: sessionUserId, clearGuestLibrary, deviceWide: true });
       const before = readState();
       try {
         await repository.signOut();
       } catch (error) {
         if (!hasSessionEnded(readState(), sessionUserId)) {
-          // still signed in: nothing is owed
+          // still signed in: nothing is owed. a purge owed to the files stays (only a launch on
+          // them settles it), which is harmless: the session is still stored, so the next launch
+          // on the files restores it and unmarks this user (DevicePurgeDriver); one that cannot
+          // restore it purges the documents of a user who asked to sign out
           markers.remove(sessionUserId);
           throw error;
         }

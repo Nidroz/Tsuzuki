@@ -6,7 +6,7 @@ import { keepsGuestLibrary } from './device-purge';
 import { useSessionLibrary } from './session-library-context';
 import { reportSignOutFailure } from './sign-out-failure';
 import { useAuthContext } from './use-auth-context';
-import { useDevicePurge, useDevicePurgeContext } from './use-device-purge';
+import { useDevicePurge, useDevicePurgeContext, useMarkDevicePurge } from './use-device-purge';
 import { useGuestMerge } from './use-guest-merge';
 import { useLatest } from './use-latest';
 
@@ -43,8 +43,9 @@ interface PurgeRuns {
  * from a stored session not confirmed yet (refreshed offline): it purges.
  * gone: from the moment it is ready, each user AuthRepository.onUserGone reports is marked
  * (`clearGuestLibrary` from the guest library rule when that user is the session's, else false;
- * `deviceWide` true), signed out when it is the session's user (a rejection is reported and the
- * purge goes on: the account is gone), then purged.
+ * `deviceWide` true), the purge owed to the files with the same flags while the app storage runs
+ * on memory (useMarkDevicePurge), signed out when it is the session's user (a rejection is
+ * reported and the purge goes on: the account is gone), then purged.
  *
  * each purge takes that user's documents through a new instance of that user's offline account
  * library (whose purge closes every instance of that user, and only them), runs the device-wide
@@ -59,6 +60,7 @@ export function DevicePurgeDriver() {
   const { accountRepositoryFor } = useSessionLibrary();
   const { status: mergeStatus } = useGuestMerge();
   const { markers, reporter } = useDevicePurgeContext();
+  const mark = useMarkDevicePurge();
   const purge = useDevicePurge();
   const restoring = useIsRestoring();
   // the session known and the persisted cache restored (PersistQueryClientProvider)
@@ -71,6 +73,7 @@ export function DevicePurgeDriver() {
     mergeStatus,
     accountRepositoryFor,
     markers,
+    mark,
     reporter,
     purge,
   });
@@ -140,7 +143,9 @@ export function DevicePurgeDriver() {
       const isSessionUser = current.sessionUserId === userId;
       // read before the session ends: the status reads `idle` once signed out
       const clearGuestLibrary = isSessionUser && !keepsGuestLibrary(current.mergeStatus);
-      current.markers.add({ userId, clearGuestLibrary, deviceWide: true });
+      // the marker, and on memory the purge owed to the files, before the session ends: a kill
+      // inside `signOut()` or before the purge leaves this user's documents to the next launch
+      current.mark({ userId, clearGuestLibrary, deviceWide: true });
       if (isSessionUser) {
         try {
           await current.repository.signOut();

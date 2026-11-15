@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { use, useCallback } from 'react';
 
 import type { DevicePurgeStep } from '../errors/device-purge-errors';
+import type { DevicePurgeMarker } from '../repositories/device-purge-marker-repository';
 import { purgeDeviceUserData, type DevicePurgeTarget } from './device-purge';
 import {
   DevicePurgeContext,
@@ -47,11 +48,38 @@ export const useDevicePurgeContext = (): DevicePurgeValue => {
 };
 
 /**
+ * marks `marker.userId` before their session ends (a sign out, a gone user): writes their
+ * purge-pending marker, then, while the app storage runs on memory, owes that purge to the files
+ * (the provider's `owedPurges`: `deviceWide` OR-merged with a record already there, never
+ * lowered, `clearGuestLibrary` false). never throws: a failure of either is reported
+ */
+export type MarkDevicePurge = (marker: DevicePurgeMarker) => void;
+
+/**
+ * the MarkDevicePurge of the nearest DevicePurgeContextProvider; throws outside of it. on memory,
+ * the marker goes with the process: the owed record is what outlives a kill inside `signOut()`
+ * (the revocation may hang up to the fetch bound) or before the purge starts, and the next launch
+ * on the files carries it into their markers (owed-device-purges.ts)
+ */
+export const useMarkDevicePurge = (): MarkDevicePurge => {
+  const { markers, owePurge } = useDevicePurgeContext();
+  return useCallback(
+    (marker: DevicePurgeMarker) => {
+      markers.add(marker);
+      owePurge(marker.userId, marker.deviceWide);
+    },
+    [markers, owePurge],
+  );
+};
+
+/**
  * the device purge of a sign out, an account deletion, a marked or a gone user (ADR-0018), bound
  * to the query client, the recent searches repository, the guest library of the session and the
  * DevicePurgeContextProvider. while the app storage runs on memory, the user is first recorded as
  * owed to the files (the provider's `owedPurges`), synchronously, before any step runs; a failed
- * record is reported and the purge still runs. throws outside of any of them
+ * record is reported and the purge still runs. a sign out and a gone purge owed it already, as
+ * they marked the user (useMarkDevicePurge): the record is then written again, its flags merged.
+ * throws outside of any of them
  */
 export const useDevicePurge = (): DevicePurge => {
   const queryClient = useQueryClient();
