@@ -113,6 +113,7 @@ export function DevicePurgeDriver() {
         return;
       }
       const failed = await current.purge({
+        userId,
         // created inside the step: a factory that throws fails the `account-library` step
         account: {
           purgeDeviceData: () => {

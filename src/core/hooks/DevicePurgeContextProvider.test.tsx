@@ -80,6 +80,7 @@ describe('DevicePurgeContextProvider', () => {
     let failed: readonly string[] | undefined;
     await act(async () => {
       failed = await result.current.purge({
+        userId: USER_A,
         account: deps.account,
         clearGuestLibrary: true,
         deviceWide: true,
@@ -121,7 +122,9 @@ describe('DevicePurgeContextProvider', () => {
     }
     render(<KeyedProbe />, { wrapper: Providers });
 
-    await act(() => purgeRef.current?.({ account, clearGuestLibrary: false, deviceWide: true }));
+    await act(() =>
+      purgeRef.current?.({ userId: USER_A, account, clearGuestLibrary: false, deviceWide: true }),
+    );
 
     expect(mounts).toBe(2);
     expect(seen).toStrictEqual([[STORED_SEARCH], []]);

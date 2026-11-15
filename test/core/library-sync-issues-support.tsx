@@ -13,6 +13,7 @@ import { USER_A } from './session-library-support';
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { DevicePurgeContext, type DevicePurgeValue } from '@core/hooks/device-purge-context';
 import { guardDevicePurgeMarkers } from '@core/hooks/device-purge-markers';
+import { OWE_NO_DEVICE_PURGE } from '@core/hooks/owed-device-purges';
 import { LibraryContext } from '@core/hooks/library-context';
 import {
   SessionLibraryContext,
@@ -68,6 +69,7 @@ export const renderSyncIssues = ({ account, live }: SyncIssuesSetup) => {
     removePersistedCache: jest.fn<() => void>(),
     reporter,
     markers: guardDevicePurgeMarkers(createFakeDevicePurgeMarkers(), reporter),
+    owePurge: OWE_NO_DEVICE_PURGE,
     generation: 0,
     advanceGeneration: jest.fn<() => void>(),
   };

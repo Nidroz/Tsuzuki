@@ -5,6 +5,7 @@ import {
   DRIVER_PROBE_QUERY_KEY,
   renderDevicePurgeDriver,
 } from '../../../test/core/device-purge-driver-support';
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import { createDeferred } from '../../../test/core/fake-library-repository';
 import { USER_A, USER_B } from '../../../test/core/session-library-support';
 import { AuthError } from '../errors/auth-errors';
@@ -158,5 +159,18 @@ describe('DevicePurgeDriver for a user gone', () => {
     expect(rendered.gone.listenerCount()).toBe(1);
     rendered.unmount();
     expect(rendered.gone.listenerCount()).toBe(0);
+  });
+
+  it('owes the purge of a user gone to the files while the app storage runs on memory', async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+    const rendered = await renderDevicePurgeDriver({ session: { userId: USER_A }, owedPurges });
+
+    await rendered.reportGone(USER_B);
+
+    // user A signed in keeps the device-wide data: B's documents only are owed
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: USER_B, clearGuestLibrary: false, deviceWide: false },
+    ]);
+    expect(rendered.accountsOf(USER_B)[0]?.purgeDeviceData).toHaveBeenCalledTimes(1);
   });
 });

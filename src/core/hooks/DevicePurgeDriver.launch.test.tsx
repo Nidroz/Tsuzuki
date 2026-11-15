@@ -5,6 +5,7 @@ import {
   renderDevicePurgeDriver,
   settleDriver,
 } from '../../../test/core/device-purge-driver-support';
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import {
   USER_A,
   USER_B,
@@ -183,6 +184,23 @@ describe('DevicePurgeDriver at launch', () => {
     // the purge of user A never settled its marker: the next launch tries again
     expect(rendered.markers.stored()).toStrictEqual([
       { userId: USER_A, clearGuestLibrary: true, deviceWide: true },
+    ]);
+  });
+
+  it('owes the launch purge of each marked user to the files while the app storage runs on memory', async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+
+    await renderDevicePurgeDriver({
+      owedPurges,
+      markers: [
+        { userId: USER_A, clearGuestLibrary: true, deviceWide: false },
+        { userId: USER_B, clearGuestLibrary: false, deviceWide: true },
+      ],
+    });
+
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: USER_A, clearGuestLibrary: false, deviceWide: false },
+      { userId: USER_B, clearGuestLibrary: false, deviceWide: true },
     ]);
   });
 });

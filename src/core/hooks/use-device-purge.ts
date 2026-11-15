@@ -16,6 +16,11 @@ import { useSessionLibrary } from './session-library-context';
 
 export interface DevicePurgeOptions {
   /**
+   * the user whose documents go: the user of `account`. recorded first, before any step, as owed
+   * to the files while the app storage runs on memory (owed-device-purges.ts)
+   */
+  readonly userId: string;
+  /**
    * an account instance of the user whose documents go: the session's, taken when the sign out
    * or deletion started, or a new instance of a marked or gone user
    */
@@ -44,7 +49,9 @@ export const useDevicePurgeContext = (): DevicePurgeValue => {
 /**
  * the device purge of a sign out, an account deletion, a marked or a gone user (ADR-0018), bound
  * to the query client, the recent searches repository, the guest library of the session and the
- * DevicePurgeContextProvider. throws outside of any of them
+ * DevicePurgeContextProvider. while the app storage runs on memory, the user is first recorded as
+ * owed to the files (the provider's `owedPurges`), synchronously, before any step runs; a failed
+ * record is reported and the purge still runs. throws outside of any of them
  */
 export const useDevicePurge = (): DevicePurge => {
   const queryClient = useQueryClient();
@@ -53,10 +60,11 @@ export const useDevicePurge = (): DevicePurge => {
     throw new Error(MISSING_RECENT_SEARCHES_PROVIDER_MESSAGE);
   }
   const { guest } = useSessionLibrary();
-  const { removePersistedCache, reporter, advanceGeneration } = useDevicePurgeContext();
+  const { removePersistedCache, reporter, owePurge, advanceGeneration } = useDevicePurgeContext();
   return useCallback(
-    ({ account, clearGuestLibrary, deviceWide }: DevicePurgeOptions) =>
-      purgeDeviceUserData({
+    ({ userId, account, clearGuestLibrary, deviceWide }: DevicePurgeOptions) => {
+      owePurge(userId, deviceWide);
+      return purgeDeviceUserData({
         account,
         guest,
         clearGuestLibrary,
@@ -66,8 +74,17 @@ export const useDevicePurge = (): DevicePurge => {
         removePersistedCache,
         reporter,
         advanceGeneration,
-      }),
-    [guest, recentSearches, queryClient, removePersistedCache, reporter, advanceGeneration],
+      });
+    },
+    [
+      guest,
+      recentSearches,
+      queryClient,
+      removePersistedCache,
+      reporter,
+      owePurge,
+      advanceGeneration,
+    ],
   );
 };
 

@@ -47,6 +47,7 @@ export const useDeleteAccount = () => {
       await repository.deleteAccount();
       // the purge first: the device data is gone even if the sign out fails or the app is killed
       const failed = await purge({
+        userId: sessionUserId,
         account: sessionAccount,
         clearGuestLibrary: !keepsGuestLibrary(latest.current.status),
         deviceWide: true,

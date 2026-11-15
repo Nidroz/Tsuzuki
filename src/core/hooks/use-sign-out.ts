@@ -195,6 +195,7 @@ export const useSignOut = () => {
         return SIGNED_OUT;
       }
       const failed = await purge({
+        userId: sessionUserId,
         account: sessionAccount,
         clearGuestLibrary,
         deviceWide: !isOtherUserSignedIn(readState(), sessionUserId),

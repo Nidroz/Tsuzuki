@@ -2,6 +2,7 @@ import { createContext } from 'react';
 
 import type { ErrorReporter } from '../errors/error-reporter';
 import type { DevicePurgeMarkers } from './device-purge-markers';
+import type { OweDevicePurge } from './owed-device-purges';
 
 /** what the device purge needs besides the repositories and the query client (ADR-0018) */
 export interface DevicePurgeValue {
@@ -18,6 +19,11 @@ export interface DevicePurgeValue {
    * `reporter`: written by the sign out and the DevicePurgeDriver, read by the driver at launch
    */
   readonly markers: DevicePurgeMarkers;
+  /**
+   * records the user of each device purge, before its steps, as owed to the files while the app
+   * storage runs on memory (owed-device-purges.ts); does nothing while it persists
+   */
+  readonly owePurge: OweDevicePurge;
   /**
    * the number of purges since the provider mounted: a screen keyed with it remounts once a purge
    * ended, its state (search text, results, recent searches) gone

@@ -13,6 +13,20 @@ const REPORT_SOURCE = 'device-purge-marker';
 
 const NO_MARKER: readonly DevicePurgeMarker[] = [];
 
+/**
+ * reports a marker call, or a step of the owed purges, that failed: a fixed message and the
+ * operation as the only tag, never the caught error or a user id
+ */
+export const reportDevicePurgeMarkerFailure = (
+  reporter: ErrorReporter,
+  operation: DevicePurgeMarkerOperation,
+): void => {
+  reporter.captureError(new DevicePurgeMarkerOperationError(operation), {
+    source: REPORT_SOURCE,
+    tags: { operation },
+  });
+};
+
 /** the purge-pending markers as the hooks use them; never throws */
 export interface DevicePurgeMarkers {
   /** the markers on the device; none when the read failed */
@@ -44,10 +58,7 @@ export const guardDevicePurgeMarkers = (
     try {
       return call();
     } catch {
-      reporter.captureError(new DevicePurgeMarkerOperationError(operation), {
-        source: REPORT_SOURCE,
-        tags: { operation },
-      });
+      reportDevicePurgeMarkerFailure(reporter, operation);
       return fallback;
     }
   };
