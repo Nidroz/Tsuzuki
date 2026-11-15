@@ -194,3 +194,38 @@ export const installWebCrypto = (target: WebCryptoTarget): readonly WebCryptoMem
   installedTargets.add(target);
   return installed;
 };
+
+/** the fixed message of the error that fails the launch without the s256 pkce prerequisites */
+export const PKCE_S256_PREREQUISITES_MESSAGE =
+  'the s256 pkce prerequisites are missing: crypto.getRandomValues, crypto.subtle.digest, TextEncoder and btoa must be functions';
+
+/** where the s256 prerequisites are read: globalThis in the app, a bare object in a test */
+export interface PkceS256Target extends WebCryptoTarget {
+  TextEncoder?: unknown;
+  btoa?: unknown;
+}
+
+/**
+ * throws an Error with PKCE_S256_PREREQUISITES_MESSAGE unless crypto.getRandomValues,
+ * crypto.subtle.digest, TextEncoder and btoa are functions of the target. auth-js 2.117.3 builds
+ * an s256 challenge only when crypto, crypto.subtle and TextEncoder are defined, and otherwise
+ * silently sends the plain verifier (generatePKCEChallenge in lib/helpers.js: dist/module lines
+ * 231-233, dist/main 266-268); it then hashes with TextEncoder and crypto.subtle.digest and
+ * encodes with btoa (dist/module 239, dist/main 274), and draws the verifier from
+ * crypto.getRandomValues (generatePKCEVerifier). the polyfill calls it right after installing the
+ * binding, so a launch fails instead of reaching `plain`
+ */
+export const assertPkceS256Prerequisites = (target: PkceS256Target): void => {
+  const { crypto } = target;
+  const subtle: unknown = isObject(crypto) ? Reflect.get(crypto, 'subtle') : undefined;
+  const ready =
+    isObject(crypto) &&
+    isFunction(Reflect.get(crypto, 'getRandomValues')) &&
+    isObject(subtle) &&
+    isFunction(Reflect.get(subtle, 'digest')) &&
+    isFunction(target.TextEncoder) &&
+    isFunction(target.btoa);
+  if (!ready) {
+    throw new Error(PKCE_S256_PREREQUISITES_MESSAGE);
+  }
+};

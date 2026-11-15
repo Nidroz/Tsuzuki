@@ -1,19 +1,26 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 import type * as Device from './__fixtures__/expo-crypto-device';
+import type * as WebCrypto from './web-crypto';
 
 jest.mock('expo-crypto', () =>
   jest.requireActual<typeof Device>('./__fixtures__/expo-crypto-device').fakeExpoCryptoModule(),
 );
 
-// the test environment's own crypto (node): hermes has none, so the tests remove it
-const nativeCrypto = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+// the test environment's own globals (node): hermes has no crypto, so the tests remove it, and
+// the s256 checks remove TextEncoder or btoa
+const NATIVE_GLOBALS = ['crypto', 'TextEncoder', 'btoa'] as const;
+const nativeGlobals = NATIVE_GLOBALS.map(
+  (name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const,
+);
 
-const restoreNativeCrypto = () => {
-  if (nativeCrypto) {
-    Object.defineProperty(globalThis, 'crypto', nativeCrypto);
-  } else {
-    Reflect.deleteProperty(globalThis, 'crypto');
+const restoreNativeGlobals = () => {
+  for (const [name, descriptor] of nativeGlobals) {
+    if (descriptor) {
+      Object.defineProperty(globalThis, name, descriptor);
+    } else {
+      Reflect.deleteProperty(globalThis, name);
+    }
   }
 };
 
@@ -48,7 +55,36 @@ const replacedSince = (before: Members): string[] => {
   return (Object.keys(before) as (keyof Members)[]).filter((name) => after[name] !== before[name]);
 };
 
-afterEach(restoreNativeCrypto);
+// loads the polyfill in a fresh module registry and returns what its evaluation threw, with the
+// launch error message of that registry's binding (the main registry never loads the binding,
+// whose expo-crypto mock every isolated registry would then share)
+const launchFailure = (): { readonly thrown: unknown; readonly expected: Error } => {
+  const result: { thrown?: unknown; message?: string } = {};
+  jest.isolateModules(() => {
+    try {
+      jest.requireActual('./web-crypto-polyfill');
+    } catch (error) {
+      result.thrown = error;
+    }
+    result.message =
+      jest.requireActual<typeof WebCrypto>('./web-crypto').PKCE_S256_PREREQUISITES_MESSAGE;
+  });
+  if (result.message === undefined) throw new Error('the isolated registry loaded no binding');
+  return { thrown: result.thrown, expected: new Error(result.message) };
+};
+
+const defineGlobal = (name: string, value: unknown): void => {
+  Object.defineProperty(globalThis, name, { value, writable: true, configurable: true });
+};
+
+// an engine object that accepts a definition and keeps nothing: the binding cannot land on it
+const ignoringDefinitions = (target: object): object =>
+  new Proxy(target, { defineProperty: () => true });
+
+const drawNothing = <T>(array: T): T => array;
+const digestNothing = (): Promise<ArrayBuffer> => Promise.resolve(new ArrayBuffer(0));
+
+afterEach(restoreNativeGlobals);
 
 describe('the web crypto polyfill on an engine without crypto', () => {
   beforeEach(() => {
@@ -99,5 +135,44 @@ describe('the web crypto polyfill on an engine with crypto', () => {
 
     expect(replacedSince(native)).toStrictEqual([]);
     expect(device.expoCrypto.calls).toStrictEqual([]);
+  });
+});
+
+describe('the web crypto polyfill without an s256 pkce prerequisite', () => {
+  it.each([
+    [
+      'crypto.getRandomValues',
+      () => {
+        defineGlobal('crypto', ignoringDefinitions({ subtle: { digest: digestNothing } }));
+      },
+    ],
+    [
+      'crypto.subtle.digest',
+      () => {
+        defineGlobal('crypto', { getRandomValues: drawNothing, subtle: ignoringDefinitions({}) });
+      },
+    ],
+    [
+      'TextEncoder',
+      () => {
+        Reflect.deleteProperty(globalThis, 'TextEncoder');
+      },
+    ],
+    [
+      'btoa',
+      () => {
+        Reflect.deleteProperty(globalThis, 'btoa');
+      },
+    ],
+  ])('fails the launch with a fixed error without %s', (_name, remove) => {
+    remove();
+
+    const { thrown, expected } = launchFailure();
+
+    expect(thrown).toStrictEqual(expected);
+  });
+
+  it('lets the launch go on where every prerequisite exists', () => {
+    expect(launchFailure().thrown).toBeUndefined();
   });
 });
