@@ -6,7 +6,7 @@ import {
   MIGRATED_MARKER_KEY,
   MIGRATED_MARKER_VALUE,
 } from '../app-storage-instance';
-import { STORAGE_INSTANCE_ID } from '../storage';
+import { STORAGE_INSTANCE_ID } from '../app-storage-migration';
 import { device, seedFile } from './app-storage-device';
 import {
   CACHE_KEY,

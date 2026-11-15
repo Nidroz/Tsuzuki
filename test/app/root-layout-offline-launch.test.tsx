@@ -13,13 +13,14 @@ import { onlineManager } from '@tanstack/react-query';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { createMMKV } from 'react-native-mmkv';
-import { createStorage, STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 
 import { createFakeAccountLibraryRepository } from '../core/fake-library-repository';
 import { entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeNetworkModule from '../mobile/fake-network-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
@@ -66,6 +67,13 @@ jest.mock('expo-localization', () => ({
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
 // read from the mock registry: a static import would load the modules before @jest/globals,
 // which the hoisted factories above need
@@ -78,7 +86,17 @@ const supabaseLibraryModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseLi
 const { network } = jest.requireMock<FakeNetworkModule.FakeNetworkModule>('expo-network');
 const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryRepository;
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
+// the same instance, as an earlier run of the app opened it
+const earlierRunStorage = {
+  getString: (key: string) => appStorage.getString(key),
+  set: (key: string, value: string) => {
+    appStorage.set(key, value);
+  },
+  delete: (key: string) => {
+    appStorage.remove(key);
+  },
+};
 
 // placeholder user ids. USER_C is seen by no test but the one that seeds its queue: the layout's
 // factory holds nothing of that user in memory when it launches, as after an app kill
@@ -203,7 +221,7 @@ describe('root layout account library across launches (A-05)', () => {
     // an earlier run of the app: its own factory over the same app storage, offline
     const earlierRemote = createFakeAccountLibraryRepository([ENTRY]);
     const earlierRun = createOfflineAccountLibraries({
-      storage: createStorage(),
+      storage: earlierRunStorage,
       remoteFor: () => earlierRemote,
       isOnline: () => false,
       reporter: { captureError: jest.fn() },

@@ -15,6 +15,8 @@ import { renderRouterAsync } from '../mobile/render-router';
 import { advance } from '../mobile/render-search-screen';
 import { APP_ROUTES } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
+import type * as SharedMmkv from '../mobile/shared-mmkv';
 
 // fR-04, C-06: the search tab stays mounted under the media detail route, so going back shows the
 // page and the results the user left, without searching again
@@ -29,6 +31,18 @@ jest.mock('@core/repositories/supabase/auth-repository', () =>
   jest
     .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
     .fakeSupabaseAuthModule(),
+);
+
+// the device the layout opens its app storage on: mmkv instances shared by id, and the secure
+// store and the random source of its key (test/mobile/shared-mmkv.ts, app-device.ts)
+jest.mock('react-native-mmkv', () =>
+  jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
 );
 
 // the composition root gets a fake provider instead of the tenrai one: no http

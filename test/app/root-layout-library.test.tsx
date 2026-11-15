@@ -11,7 +11,7 @@ import type * as LocalLibrary from '@core/repositories/local/library-repository'
 import { describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, userEvent } from '@testing-library/react-native';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { useEffect } from 'react';
@@ -24,6 +24,7 @@ import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { entryOf } from '../core/library-entry-fixtures';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 
 // the library wiring (L-03): the composition root (app/_layout.tsx) creates the guest library
 // repository over the app storage, once, when the layout module loads, and gives it to the library
@@ -64,6 +65,13 @@ jest.mock('expo-localization', () => ({
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
 // read from the mock registry: a static import would load the module before @jest/globals,
 // which the hoisted factory above needs
@@ -72,7 +80,7 @@ const localLibrary = jest.requireMock<typeof LocalLibrary>(
 );
 const createLocalLibrary = jest.mocked(localLibrary.createLocalLibraryRepository);
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 const MEDIA: MediaSummary = {
   key: { namespace: 'mal', kind: 'anime', externalId: 52991 },

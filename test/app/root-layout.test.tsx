@@ -3,7 +3,7 @@ import { LANGUAGE_PREFERENCE_KEY } from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, within } from '@testing-library/react-native';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import { Spinner } from '@ui/index';
 import type * as Localization from 'expo-localization';
 import type * as React from 'react';
@@ -18,6 +18,7 @@ import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 
 const ROOT_PATHNAME = '/';
 const STUB_TEXT = 'stub discover route';
@@ -85,8 +86,15 @@ jest.mock('expo-localization', () => {
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 // the stores outlive each test: every test starts on an english device with nothing stored
 beforeEach(() => {

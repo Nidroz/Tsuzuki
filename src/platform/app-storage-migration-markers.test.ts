@@ -32,7 +32,7 @@ import {
   MIGRATED_MARKER_VALUE,
 } from './app-storage-instance';
 import { APP_STORAGE_KEY_NAME } from './app-storage-key';
-import { STORAGE_INSTANCE_ID } from './storage';
+import { STORAGE_INSTANCE_ID } from './app-storage-migration';
 
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeMmkvModule(),

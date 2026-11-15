@@ -46,7 +46,7 @@ interface Failures {
 
 const files = new Map<string, FakeFile>();
 const secureItems = new Map<string, string>();
-// the native calls in order: secure.get, secure.set, mmkv.exists:<id>, mmkv.create:<id>,
+// the native calls in order: secure.get, secure.set, secure.delete, mmkv.exists:<id>, mmkv.create:<id>,
 // mmkv.delete:<id>, mmkv.set:<id>:<key>, mmkv.remove:<id>:<key>
 const events: string[] = [];
 const secureOptions: (SecureStoreOptions | undefined)[] = [];
@@ -199,24 +199,53 @@ export const fakeMmkvModule = () => ({
   deleteMMKV: deleteInstance,
 });
 
-/** the synchronous expo-secure-store functions over the fake secure store. */
+const getSecureItem = (key: string, options?: SecureStoreOptions): string | null => {
+  events.push('secure.get');
+  secureOptions.push(options);
+  const stored = secureItems.get(key) ?? null;
+  // the failures quote what they touch: a report holding them would leak it
+  if (failures.secureRead) throw new Error(`keychain read failed near ${String(stored)}`);
+  return stored;
+};
+
+const setSecureItem = (key: string, value: string, options?: SecureStoreOptions): void => {
+  events.push('secure.set');
+  secureOptions.push(options);
+  writtenSecureValues.add(value);
+  if (failures.secureWrite) throw new Error(`keychain write of ${value} failed`);
+  secureItems.set(key, value);
+};
+
+const deleteSecureItem = (key: string, options?: SecureStoreOptions): void => {
+  events.push('secure.delete');
+  secureOptions.push(options);
+  if (failures.secureWrite) throw new Error(`keychain deletion of ${key} failed`);
+  secureItems.delete(key);
+};
+
+// an asynchronous call over the synchronous one: a failure rejects
+const later =
+  <A extends unknown[], R>(call: (...args: A) => R) =>
+  (...args: A): Promise<R> => {
+    try {
+      return Promise.resolve(call(...args));
+    } catch (error) {
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  };
+
+/**
+ * the expo-secure-store functions over the fake secure store: the synchronous ones of the app
+ * storage key and the secure documents, and the asynchronous ones of the session storage (the
+ * same events and failures)
+ */
 export const fakeSecureStoreModule = () => ({
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: FAKE_WHEN_UNLOCKED_THIS_DEVICE_ONLY,
-  getItem: (key: string, options?: SecureStoreOptions): string | null => {
-    events.push('secure.get');
-    secureOptions.push(options);
-    const stored = secureItems.get(key) ?? null;
-    // the failures quote what they touch: a report holding them would leak it
-    if (failures.secureRead) throw new Error(`keychain read failed near ${String(stored)}`);
-    return stored;
-  },
-  setItem: (key: string, value: string, options?: SecureStoreOptions): void => {
-    events.push('secure.set');
-    secureOptions.push(options);
-    writtenSecureValues.add(value);
-    if (failures.secureWrite) throw new Error(`keychain write of ${value} failed`);
-    secureItems.set(key, value);
-  },
+  getItem: getSecureItem,
+  setItem: setSecureItem,
+  getItemAsync: later(getSecureItem),
+  setItemAsync: later(setSecureItem),
+  deleteItemAsync: later(deleteSecureItem),
 });
 
 /** a random source that fills the array with these bytes, repeated. */

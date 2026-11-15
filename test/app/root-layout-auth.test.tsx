@@ -10,6 +10,7 @@ import { AppState, Text, type AppStateStatus } from 'react-native';
 
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { appRoutesWithDiscover } from './app-routes';
@@ -43,6 +44,13 @@ jest.mock('expo-localization', () => ({
 
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
 );
 
 // read from the mock registry: a static import would load the modules before @jest/globals,

@@ -3,7 +3,7 @@ import type { GuestLibraryRepository } from '@core/repositories/library-reposito
 import type * as LocalLibrary from '@core/repositories/local/library-repository';
 import { describe, expect, it, jest } from '@jest/globals';
 import { userEvent, within } from '@testing-library/react-native';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { createMMKV } from 'react-native-mmkv';
@@ -15,6 +15,7 @@ import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 
 // fR-15: the favorites tab through the real root layout and tab navigator, over the guest library
 // the layout creates: only the favorites are listed, and a row unfavorited there stays until the
@@ -55,6 +56,13 @@ jest.mock('expo-localization', () => ({
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
 // read from the mock registry: a static import would load the module before @jest/globals,
 // which the hoisted factory above needs
@@ -63,7 +71,7 @@ const localLibrary = jest.requireMock<typeof LocalLibrary>(
 );
 const createLocalLibrary = jest.mocked(localLibrary.createLocalLibraryRepository);
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 // no cover: the rows never load an image
 const FAVORITE: LibraryEntry = entryWithMedia({ imageUrl: null }, { isFavorite: true });

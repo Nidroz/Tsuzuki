@@ -3,7 +3,7 @@ import type * as JikanProvider from '@core/catalog/jikan/jikan-catalog-provider'
 import { TENRAI_INSTANCE } from '@core/catalog/jikan/jikan-instances';
 import { SHOW_ADULT_PREFERENCE_KEY } from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import { act, userEvent } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { router as appRouter } from 'expo-router';
@@ -18,6 +18,7 @@ import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 import { headerTitles, visibleHeaderTitles } from './native-header';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 
 // bR-06: a deep link to an adult title through the root layout, which reads the adult content
 // setting from the app storage
@@ -53,8 +54,15 @@ jest.mock('expo-localization', () => ({
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 const CONTENT_TEST_ID = 'media-detail-content';
 const HIDDEN_TEST_ID = 'media-detail-hidden';

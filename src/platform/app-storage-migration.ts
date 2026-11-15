@@ -9,7 +9,12 @@ import {
   mmkvStorageAdapter,
   type ReportAppStorageProblem,
 } from './app-storage-instance';
-import { STORAGE_INSTANCE_ID } from './storage';
+
+/**
+ * the id of the unencrypted mmkv instance of the versions before ADR-0020: the app storage until
+ * the encrypted one was wired. only this migration opens it, to copy it once, then deletes it
+ */
+export const STORAGE_INSTANCE_ID = 'tsuzuki';
 
 // before the marker nothing but this copy writes the encrypted instance: what it holds besides its
 // reserved keys is a copy interrupted earlier, holding keys the unencrypted instance may have lost
@@ -41,7 +46,7 @@ const deleteLegacyInstance = (report: ReportAppStorageProblem): void => {
 };
 
 /**
- * the one-time migration of the unencrypted instance (storage.ts) into the encrypted one, then the
+ * the one-time migration of the unencrypted instance (STORAGE_INSTANCE_ID) into the encrypted one, then the
  * app storage of this process. without the encrypted marker, the unencrypted instance is opened:
  * unless it holds its own copied marker, the encrypted instance is emptied of everything but its
  * reserved keys, every string value is copied, and the copied marker is written into the
@@ -58,7 +63,7 @@ const deleteLegacyInstance = (report: ReportAppStorageProblem): void => {
  * unencrypted one was deleted), the missing encrypted marker is written, so an unencrypted
  * instance appearing later is deleted unopened at the next launch, never copied over what the
  * encrypted instance holds. precondition: nothing but this migration ever opens the unencrypted
- * instance (createStorage() goes once the composition root opens the app storage).
+ * instance (the app has no other way to open it since the composition root opens the app storage).
  *
  * a step that throws is reported (migration-failed) and leaves this process on the unencrypted
  * instance while it is not marked copied (the next launch copies it again, its newer content

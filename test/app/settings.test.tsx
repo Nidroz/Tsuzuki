@@ -4,7 +4,7 @@ import {
   THEME_PREFERENCE_KEY,
 } from '@core/preferences/index';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import { fireEvent, userEvent, within } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { useTheme } from 'expo-router';
@@ -21,6 +21,7 @@ import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 
 type ColorScheme = 'light' | 'dark';
 
@@ -70,8 +71,15 @@ jest.mock('nativewind', () => {
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 const NAVIGATION_SCHEME_TEST_ID = 'navigation-scheme';
 

@@ -12,7 +12,8 @@ import {
 } from '@core/repositories/local/account-library-documents';
 import { createLocalDevicePurgeMarkerRepository } from '@core/repositories/local/device-purge-marker-repository';
 import { jest } from '@jest/globals';
-import { createStorage, STORAGE_INSTANCE_ID } from '@platform/storage';
+import type { StorageAdapter } from '@core/repositories/storage-adapter';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import { onlineManager, type QueryClient } from '@tanstack/react-query';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, userEvent, within } from '@testing-library/react-native';
@@ -54,8 +55,19 @@ export const ENTRY_B = entryWithMedia(
 export const rowOf = (entry: LibraryEntry): string =>
   `library-entry-${entry.key.namespace}-${entry.key.kind}-${String(entry.key.externalId)}`;
 
-/** the app storage the layout opened (the shared in-memory instance) */
-export const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+/** the app storage the layout opened: the encrypted instance, shared in memory by id */
+export const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
+
+/** the app storage as the repositories read it (the StorageAdapter the layout opened) */
+export const appStorageAdapter: StorageAdapter = {
+  getString: (key) => appStorage.getString(key),
+  set: (key, value) => {
+    appStorage.set(key, value);
+  },
+  delete: (key) => {
+    appStorage.remove(key);
+  },
+};
 
 export const storedCopyOf = (userId: string): string | undefined =>
   appStorage.getString(accountLibraryStorageKeys(userId).copy);
@@ -79,7 +91,7 @@ export const seedDocumentsOfC = (): void => {
 
 /** the purge-pending markers of the app storage, as a sign out or the next launch reads them */
 export const deviceMarkers = () =>
-  createLocalDevicePurgeMarkerRepository(createStorage(), {
+  createLocalDevicePurgeMarkerRepository(appStorageAdapter, {
     reporter: { captureError: jest.fn() },
   });
 

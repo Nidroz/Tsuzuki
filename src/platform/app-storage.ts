@@ -19,9 +19,8 @@ import {
   openEncryptedInstance,
   type ReportAppStorageProblem,
 } from './app-storage-instance';
-import { migrateLegacyStorage } from './app-storage-migration';
+import { migrateLegacyStorage, STORAGE_INSTANCE_ID } from './app-storage-migration';
 import { createMemoryStorage } from './memory-storage';
-import { STORAGE_INSTANCE_ID } from './storage';
 
 export interface AppStorageOptions {
   readonly reporter: ErrorReporter;
