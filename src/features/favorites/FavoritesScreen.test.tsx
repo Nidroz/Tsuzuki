@@ -208,7 +208,7 @@ describe('FavoritesScreen', () => {
     const failure = screen.getByTestId('favorites-merge-error');
     expect(within(failure).getByText('Your library is not ready yet')).toBeOnTheScreen();
     expect(failure).toHaveTextContent(
-      'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.',
+      'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. To make room, remove titles in the Library tab or on another device, then try again. Or sign out to use them here.',
       { exact: false },
     );
     expect(screen.queryByTestId('favorites-list')).not.toBeOnTheScreen();

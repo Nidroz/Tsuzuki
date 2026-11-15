@@ -28,7 +28,7 @@ const FAILED_TEXT =
   'The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.';
 
 const FULL_TEXT =
-  'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.';
+  'The titles saved on this device could not be added to your account: its library is full, with 10,000 titles. They stay on this device. To make room, remove titles in the Library tab or on another device, then try again. Or sign out to use them here.';
 
 const mergeOf = (status: GuestMergeStatus) => {
   const retry = jest.fn<() => void>();
@@ -83,6 +83,7 @@ describe('LibraryScreen guest merge (A-04)', () => {
   });
 
   it('tells a merge refused by a full account library, announced, with a retry (R-04)', async () => {
+    // no account instance in this tree: the error, not the room to make (LibraryScreen.room tests)
     const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
     announce.mockClear();
     const { guestMerge, retry } = fullMerge();
@@ -146,7 +147,7 @@ describe('LibraryScreen guest merge (A-04)', () => {
     const max = formatNumber(LIBRARY_ENTRIES_PER_USER_MAX, 'fr');
     expect(
       within(screen.getByTestId('library-merge-error')).getByText(
-        `Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec ${max} titres. Ils restent sur cet appareil. Retirez des titres de votre bibliothèque sur un autre appareil, puis réessayez, ou déconnectez-vous pour les utiliser ici.`,
+        `Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec ${max} titres. Ils restent sur cet appareil. Pour faire de la place, retirez des titres dans l'onglet Bibliothèque ou sur un autre appareil, puis réessayez. Ou déconnectez-vous pour les utiliser ici.`,
       ),
     ).toBeOnTheScreen();
   });

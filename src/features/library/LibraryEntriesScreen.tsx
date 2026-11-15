@@ -12,6 +12,7 @@ import { useCallback, useState, type ReactElement } from 'react';
 import { GUEST_MERGE_FAILED_ANNOUNCE_KEY } from './announce-keys';
 import { guestMergeFailedText } from './library-failure-texts';
 import { LibraryList } from './LibraryList';
+import { LibraryMergeRoom } from './LibraryMergeRoom';
 import { LibrarySyncNotice } from './LibrarySyncNotice';
 
 // under the navigator header and above the tab bar: only the sides need the safe area
@@ -35,9 +36,15 @@ export interface LibraryEntriesScreenProps {
   /** lists the favorites only (the favorites screen, FR-15) */
   favoritesOnly: boolean;
   /**
+   * a guest merge refused because the account library is full shows the account's titles with
+   * Remove to make room (LibraryMergeRoom, R-09) instead of the merge error: the library tab only
+   */
+  mergeRoom?: boolean;
+  /**
    * the testID prefix: the screen is `<testID>-screen`, its states `-loading`, `-error`,
-   * `-empty`, the guest merge's `-merging` and `-merge-error`, its list `-list`, its filters
-   * `-filters` and the notice of the changes that could not be synced `-sync` (LibrarySyncNotice)
+   * `-empty`, the guest merge's `-merging`, `-merge-error` and `-merge-room` (LibraryMergeRoom),
+   * its list `-list`, its filters `-filters` and the notice of the changes that could not be
+   * synced `-sync` (LibrarySyncNotice)
    */
   testID: string;
   empty: LibraryEntriesEmptyTexts;
@@ -56,12 +63,18 @@ const hasDefaultFilters = (options: LibraryViewOptions): boolean =>
  * entry unfavorited from the favorites included: the list is laid out again on an option change
  * or when the screen gains focus (a tab switch, back from the detail). while the guest library is
  * merged into the account (ADR-0016), a labelled spinner says so instead; after a failed merge, an
- * error with a retry (a full account library says so, and how to go on): the library stays
- * pending until a retry succeeded, so nothing is listed.
+ * error with a retry (a full account library says so, and how to go on; with `mergeRoom`, the
+ * account's titles with Remove to make room instead): the library stays pending until a retry
+ * succeeded, so nothing is listed.
  * above any of these, while changes of the account library could not be synced, a notice says
  * how many, with Try again and Discard (LibrarySyncNotice)
  */
-export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEntriesScreenProps) {
+export function LibraryEntriesScreen({
+  favoritesOnly,
+  mergeRoom = false,
+  testID,
+  empty,
+}: LibraryEntriesScreenProps) {
   const translation = useTranslation();
   const { t } = translation;
   const router = useRouter();
@@ -111,9 +124,9 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
       </Stack>
     );
   } else if (merge.status === 'failed') {
-    // still the pending library: the account may lack a guest entry, so nothing to list or write.
-    // announced once with the other tab and the detail, which show it too
-    content = (
+    // still the pending library: the account may lack a guest entry, so nothing to list or write
+    // but a removal from a full account. announced once with the other tab and the detail
+    const failure = (
       <ErrorState
         title={t('library.merge.failedTitle')}
         message={guestMergeFailedText(translation, merge.failure)}
@@ -122,6 +135,12 @@ export function LibraryEntriesScreen({ favoritesOnly, testID, empty }: LibraryEn
         testID={`${testID}-merge-error`}
       />
     );
+    content =
+      mergeRoom && merge.failure === 'library-full' ? (
+        <LibraryMergeRoom fallback={failure} testID={`${testID}-merge-room`} />
+      ) : (
+        failure
+      );
   } else if (view === undefined) {
     // while the retry of an error runs, the spinner replaces it
     content =

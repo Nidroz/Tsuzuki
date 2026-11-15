@@ -221,8 +221,37 @@
       "inProgress": "Ajout à votre compte des titres enregistrés sur cet appareil…",
       "failedTitle": "Votre bibliothèque n'est pas encore prête",
       "failed": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte. Ils restent sur cet appareil : réessayez pour les ajouter et ouvrir votre bibliothèque.",
-      "full": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec {{max}} titres. Ils restent sur cet appareil. Retirez des titres de votre bibliothèque sur un autre appareil, puis réessayez, ou déconnectez-vous pour les utiliser ici.",
+      "full": "Les titres enregistrés sur cet appareil n'ont pas pu être ajoutés à votre compte : sa bibliothèque est pleine, avec {{max}} titres. Ils restent sur cet appareil. Pour faire de la place, retirez des titres dans l'onglet Bibliothèque ou sur un autre appareil, puis réessayez. Ou déconnectez-vous pour les utiliser ici.",
       "retry": "Réessayer"
+    },
+    "room": {
+      "notice": "La bibliothèque de votre compte est pleine, avec {{max}} titres : les titres enregistrés sur cet appareil n'ont donc pas pu y être ajoutés. Ils restent sur cet appareil. Retirez ici des titres de votre compte pour faire de la place : après chaque retrait, ils sont ajoutés s'il y a assez de place.",
+      "retry": "Réessayer",
+      "loading": "Chargement des titres de votre compte",
+      "error": {
+        "title": "Les titres de votre compte n'ont pas pu être chargés",
+        "message": "Réessayez dans un instant.",
+        "retry": "Réessayer"
+      },
+      "empty": {
+        "title": "Aucun titre à retirer",
+        "message": "La bibliothèque de votre compte ne contient plus aucun titre. Réessayez pour ajouter les titres enregistrés sur cet appareil.",
+        "action": "Réessayer"
+      },
+      "remove": "Retirer",
+      "removeLabel": "Retirer {{title}} de votre compte",
+      "removing": "Retrait de {{title}} de votre compte",
+      "feedback": {
+        "offline": "Vous êtes hors ligne. Connectez-vous à Internet, puis retirez de nouveau le titre.",
+        "failed": "Le titre n'a pas pu être retiré de votre compte. Réessayez."
+      },
+      "sheet": {
+        "title": "Retirer de votre compte ?",
+        "message": "{{title}} sera retiré de votre compte, avec son statut, sa progression, sa note et vos notes personnelles. S'il est aussi enregistré sur cet appareil, cette copie est ajoutée à votre compte avec les autres.",
+        "close": "Fermer sans retirer",
+        "cancel": "Annuler",
+        "confirm": "Retirer"
+      }
     },
     "sync": {
       "message_one": "{{count}} modification n'a pas pu être synchronisée avec votre compte.",
