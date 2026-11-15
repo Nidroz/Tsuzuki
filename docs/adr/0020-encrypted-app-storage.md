@@ -1,6 +1,6 @@
 # ADR-0020: Encrypted app storage
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-11-11
 
 ## Context
@@ -129,3 +129,67 @@ Jest, project `mobile`, over an in-memory device (`src/platform/__fixtures__/app
 2. Then, in one PR (R-09): `pnpm exec expo install expo-crypto` with its justification (`CONTRIBUTING.md` §7); the platform polyfill and its tests (a PKCE request sending an S256 challenge); `openAppStorage` wired in the root layout with its route test; this ADR's status set by the owner.
 3. A new EAS development build before the next E2E run (ADR-0019 prerequisite), and a preview build.
 4. Device checks on the preview build (R-07): an upgrade over a build holding data (the data still there, the plain file gone at the second launch), a fresh install, the launch time; the auth-js WebCrypto warning gone.
+
+## Update (2026-11-15)
+
+From the security follow-ups (R-09). The text above is kept as accepted; where they differ, this section applies.
+
+### Random source
+
+The open question is closed: `expo-crypto`. Its `getRandomValues` behind the Web Crypto contract, `secureRandomValues` (`src/platform/web-crypto.ts`), is the key source, and the same function the root layout installs as `crypto.getRandomValues` for auth-js (ADR-0014, Update of 2026-11-15, which also covers the PKCE gap described in "Open question").
+
+### Wiring
+
+- `app/_layout.tsx` calls `openAppStorage({ reporter, getRandomValues: secureRandomValues })` once at module level, after the reporter and before the persister, the preferences and the repositories read the storage. This replaces "Not wired" (Decision) and "Wiring, once the random source is decided".
+- It returns `AppStorage { storage, persistent, firstLaunch }` (`src/platform/app-storage.ts`) in place of a `StorageAdapter` (Interface): `storage` is the encrypted instance, the plain one while its copy is not complete, or memory; `persistent` is false exactly when the process runs on memory; `firstLaunch` is true when neither the encrypted nor the plain instance existed as the call started. MMKV that cannot tell whether the files exist (`existsMMKV` throwing) is not trusted to open them: memory, `open-failed`, the key and every file untouched, and `firstLaunch` false, the conservative value (true would write a new key over one that may open existing files, and discard a session on a guess).
+- `createStorage()` and `src/platform/storage.ts` are deleted; `STORAGE_INSTANCE_ID` (`tsuzuki`) moved to `app-storage-migration.ts`. This replaces the second bullet of "Wiring". Precondition: nothing but the migration ever opens the plain instance; the composition root has no other way to open it.
+
+### First launch
+
+- A first launch never reads the stored key: with no file, a key found is stale (the iOS keychain outlives an uninstall), and a new one is written over it before the instance is created.
+- The session storage is created with `createSecureSessionStorage(reporter, { discardStored: firstLaunch })` (`src/platform/secure-session.ts`, `discardStoredKey` in `secure-session-sweep.ts`): the first access of each key in the process removes whatever it holds (the header first, then the chunks of both generations and the F-09 keys, then the cleanup marker). A reinstall starts signed out and never reads a stale session, PKCE verifier or flow index. A failed discard is reported with a fixed error (`SecureSessionDiscardError`, no cause, no value); that access fails closed (a read resolves null, a write or a removal rejects, changing nothing) and the next access retries.
+- The owed purges of an earlier install are dropped (below).
+- Residual: verifier slots listed only in a discarded flow index stay orphaned in the keychain, never read; their codes are long expired.
+
+### Copy order and fresh install marker
+
+`migrateLegacyStorage` (`src/platform/app-storage-migration.ts`) now writes the plain copied marker first, then makes the encrypted instance the storage, then writes the encrypted marker. This replaces the marker order and the two marker failure cases of Launch step 5:
+
+- a plain marker that cannot be written: `migration-failed`, the process stays on the plain instance, copied again at the next launch;
+- an encrypted marker that cannot be written: `migration-failed`, the process stays on the encrypted instance, marked without a copy at the next launch.
+
+No process runs on the encrypted instance while the plain one is unmarked, so the residual "a plain instance left unmarked …, then a key lost before the plain file is deleted" (Consequences) is closed.
+
+Fresh install marker: with no plain instance, the encrypted marker is written too (a fresh install, or an encrypted instance reset after the plain one was deleted). A plain instance found later is deleted unopened at the next launch, never copied over what the encrypted instance holds.
+
+### Purges while on memory
+
+This settles the residual "to decide before the wiring" (Consequences): a purge on memory now records what it owes to the files.
+
+- While `persistent` is false, the composition root passes `owedPurges` to `DevicePurgeContextProvider`: a `createLocalDevicePurgeMarkerRepository` (the core marker repository, unchanged) over `createSecureDocumentStorage()` (`src/platform/secure-documents.ts`). That storage is a synchronous `StorageAdapter` over `expo-secure-store`, names under `tsuzuki.documents.`, `WHEN_UNLOCKED_THIS_DEVICE_ONLY`, at most 2048 UTF-8 bytes per value (about 20 users), a deletion written as an empty tombstone since `expo-secure-store` 57 has no synchronous delete.
+- Each device purge (sign out, account deletion, gone, launch) first records, synchronously and before any step, `{ userId, clearGuestLibrary: false, deviceWide }` in `tsuzuki.documents.device-purge-pending`, `deviceWide` true if already owed or if this purge runs the device-wide steps (`guardOwedDevicePurges`, `src/core/hooks/owed-device-purges.ts`). A failure is reported `DevicePurgeMarkerOperationError('owe')`, never thrown, and the purge still runs on memory.
+- `settleOwedDevicePurges`, at module level in the composition root before the tree mounts: a first launch removes every owed purge (the files are new: kept, they would purge the new install's device-wide data); a launch on the files carries each into the purge-pending markers (`deviceWide` OR-merged with the existing marker, `clearGuestLibrary` the existing marker's or false), then removes it, a failure being reported `carry` and that record kept; a launch on memory leaves them. `DevicePurgeDriver` then applies the markers with its existing rules (ADR-0018, Updates of 2026-11-04 and 2026-11-11): the session's user is not purged, and the device-wide steps run only with nobody else signed in.
+- `clearGuestLibrary` is false because the memory process merged only its memory guest library; the guest library of the files stays under its own rule.
+- Consequence: that next-launch purge also deletes the user's queued writes left in the files by an earlier launch, which the memory process could not count. The user asked for the sign out or the deletion, and ADR-0018 refuses notes at rest on a device that may be handed over.
+- Cost: one synchronous secure store read at a launch on the files or a first launch (none on memory); two reads and one write per purge while on memory.
+- Residuals (accepted):
+  - an owed record whose removal fails after its carry is carried again at each launch, purging that signed-out user again, the device-wide steps included when nobody is signed in (R-10 decides whether it needs a fix);
+  - a failed first-launch discard leaves stale records for a later launch to carry;
+  - a user who signs in again during their purge on memory, and whose session then ends on its own, still gets their files purged at the next launch;
+  - when memory comes from an unreadable secure store, the record fails too; only the `owe` report tells.
+
+### Tests added
+
+- `src/platform/app-storage-flags.test.ts`: `persistent` and `firstLaunch` (a stale key overwritten, never read; an upgrade is not a first launch; the plain fallback is persistent; MMKV in doubt runs on memory).
+- `src/platform/app-storage-migration-markers.test.ts`: the copy order and both marker failures (the encrypted marker failing after a fresh copy, missing so far), a kill between the markers, the fresh install marker, a stray plain instance deleted unopened.
+- `src/platform/secure-session-discard.test.ts`, `src/platform/secure-documents.test.ts`.
+- `src/core/hooks/owed-device-purges.test.ts`, `src/core/hooks/DevicePurgeContextProvider.owed.test.tsx` (recorded before any step, never owing the guest library or lowering `deviceWide`, `owe` reported and the purge run, nothing recorded without `owedPurges`).
+- `test/app/root-layout-app-storage-open.test.tsx` (the encrypted storage opened once with the secure source, the preferences read from it), `test/app/root-layout-app-storage.test.tsx` (the binding installed once before the supabase client, a first launch signed out, its owed purges dropped, a damaged owed document carrying nothing), `test/app/root-layout-owed-purges.test.tsx` and `root-layout-owed-purges-launch.test.tsx` (a purge owed on memory, carried and applied by the next launch, the guest library and other users kept).
+
+### Owner steps left
+
+These replace "Owner steps once decided":
+
+1. A new EAS development build (`expo-crypto` is a native module) before the next E2E run (ADR-0019 prerequisite and Update of 2026-11-15), and a preview build. New builds only: no EAS update of this code targets older binaries (ADR-0014, Update of 2026-11-15).
+2. The E2E suite re-run on a draft PR to `main`.
+3. Device checks on the preview build, in R-07: the WebCrypto warning gone and `s256` sent; `TextEncoder` and `btoa` on Hermes; an upgrade over a build holding plain data (the data kept, the plain file gone at the second launch); a fresh install; an iOS reinstall starting signed out; the launch time with the key read.
