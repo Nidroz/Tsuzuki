@@ -178,10 +178,11 @@ export const useSignOut = () => {
         await repository.signOut();
       } catch (error) {
         if (!hasSessionEnded(readState(), sessionUserId)) {
-          // still signed in: nothing is owed. a purge owed to the files stays (only a launch on
-          // them settles it), which is harmless: the session is still stored, so the next launch
-          // on the files restores it and unmarks this user (DevicePurgeDriver); one that cannot
-          // restore it purges the documents of a user who asked to sign out
+          // still signed in: the marker goes, nothing is purged. a purge already owed to the files
+          // stays (only a launch on them settles it), which is harmless: the session is still
+          // stored, so the next launch on the files restores it and unmarks this user
+          // (DevicePurgeDriver); one that cannot restore it purges the documents of a user who
+          // asked to sign out
           markers.remove(sessionUserId);
           throw error;
         }
