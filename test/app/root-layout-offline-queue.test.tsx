@@ -13,22 +13,22 @@ import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { AppState, type AppStateStatus } from 'react-native';
 import { createMMKV } from 'react-native-mmkv';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 
 import { holdNextCall, type Deferred } from '../core/fake-library-repository';
 import { entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeNetworkModule from '../mobile/fake-network-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 
-// the write queue of the account library through the composition root (A-05, ADR-0017): a change
-// made offline is queued for its user only, stays on the device when another user signs in, and
-// is replayed to its own account at its user's next sign in; the reconnect and foreground
-// triggers of one step send each batch once. the device network is a fake driving the real
-// connectivity binding; every supabase factory is a fake: no real client
+// the account library's write queue through the composition root (A-05, ADR-0017): a change made
+// offline is queued for its user only, kept when another user signs in, and replayed to its own
+// account at its user's next sign in; the reconnect and foreground triggers of one step send each
+// batch once. a fake device network drives the real connectivity binding; no real supabase client
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -60,13 +60,19 @@ jest.mock('expo-localization', () => ({
   useLocales: () => [{ languageTag: 'en-US' }],
 }));
 
-// the layout opens its storage when it is imported: the shared instance lets the test read it
+// the layout opens its storage when it is imported: the shared instance lets the test read it,
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
-// read from the mock registry: a static import would load the modules before @jest/globals,
-// which the hoisted factories above need
+// read from the mock registry: a static import would load them before the hoisted factories
 const supabaseAuthModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseAuthModule>(
   '@core/repositories/supabase/auth-repository',
 );
@@ -76,14 +82,13 @@ const supabaseLibraryModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseLi
 const { network } = jest.requireMock<FakeNetworkModule.FakeNetworkModule>('expo-network');
 const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryRepository;
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 // placeholder user ids
 const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
 const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
 
-// one entry per account, of different media, last changed before the test clock; no cover, so
-// the rows need no image host
+// one entry per account, of different media, changed before the test clock; no cover (no host)
 const lastChanged = {
   createdAt: '2025-11-02T10:00:00.000Z',
   updatedAt: '2025-12-20T10:00:00.000Z',

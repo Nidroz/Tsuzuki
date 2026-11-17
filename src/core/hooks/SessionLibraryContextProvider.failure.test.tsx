@@ -17,6 +17,7 @@ import {
 import type { LibraryEntry } from '../domain/library-entry';
 import { PROGRESS_WRITE_COALESCE_MS } from '../domain/library-progress';
 import { LibraryRemoteError } from '../errors/library-errors';
+import { LibraryFailureError } from '../errors/library-report-errors';
 import { PENDING_LIBRARY_REPOSITORY } from './SessionLibraryContextProvider';
 
 // bR-08, ADR-0016: a failed guest merge keeps the library pending (no read, no write of the
@@ -252,7 +253,7 @@ describe('SessionLibraryContextProvider failed guest merge (A-04)', () => {
     { step: 'the guest store read', repository: 'guest', method: 'list' },
     { step: 'the merge input check', repository: 'account', method: 'mergeGuestEntries' },
   ] as const)(
-    'reports a failure of $step with the guest-merge source only, and shows it',
+    'reports a failure of $step as a fixed error with the guest-merge source only, and shows it',
     async ({ repository, method }) => {
       const rendered = await renderHeld();
       const failure = method === 'list' ? new Error('storage failure') : new RangeError('invalid');
@@ -265,8 +266,11 @@ describe('SessionLibraryContextProvider failed guest merge (A-04)', () => {
 
       expect(rendered.result.current.merge.status).toBe('failed');
       expect(rendered.result.current.repository).toBe(PENDING_LIBRARY_REPOSITORY);
-      expect(rendered.captureError).toHaveBeenCalledTimes(1);
-      expect(rendered.captureError).toHaveBeenCalledWith(failure, { source: 'guest-merge' });
+      // r-09: the fixed error, never the caught one
+      expect(rendered.captureError.mock.calls).toStrictEqual([
+        [new LibraryFailureError('guest-merge'), { source: 'guest-merge' }],
+      ]);
+      expect(rendered.captureError.mock.calls.flat()).not.toContain(failure);
     },
   );
 

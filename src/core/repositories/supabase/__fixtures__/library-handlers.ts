@@ -7,13 +7,16 @@
 // postgrest's form (microseconds, +00:00): created_at kept on update, updated_at set on each write
 // but the merge's and the replay's. a configurable max_rows caps every page, every request is
 // logged, so a test can assert that nothing was sent, and a test can answer a request itself or
-// change the rows before one
+// change the rows before one. the per-user entry cap and the input bounds of the functions
+// (library-limits.ts) are the database's unless the backend is created with smaller ones
 import { http, HttpResponse, type HttpHandler } from 'msw';
 
+import { LIBRARY_ENTRIES_PER_USER_MAX } from '../../../domain/database-limits';
 import { PROJECT_URL } from './auth-handlers';
+import type { LibraryLimits } from './library-limits';
 import { handleDelete, handlePost, type RowStore } from './library-writes';
-import { handleMerge } from './merge-function';
-import { handleReplay } from './replay-function';
+import { MERGE_INPUT_BYTES_MAX, handleMerge } from './merge-function';
+import { REPLAY_INPUT_BYTES_MAX, handleReplay } from './replay-function';
 import {
   BAD_REQUEST,
   NOT_ACCEPTABLE,
@@ -74,8 +77,19 @@ const takeFor = <T>(pending: Pending<T>[], method: string): T | undefined => {
   return index === -1 ? undefined : pending.splice(index, 1)[0]?.value;
 };
 
-/** the fake backend: its handler, its rows, its request log and its knobs. */
-export const createLibraryBackend = () => {
+/** the limits of the database: the entry cap and the input bounds of its two functions. */
+export const DATABASE_LIBRARY_LIMITS: LibraryLimits = {
+  entriesPerUser: LIBRARY_ENTRIES_PER_USER_MAX,
+  mergeInputBytes: MERGE_INPUT_BYTES_MAX,
+  replayInputBytes: REPLAY_INPUT_BYTES_MAX,
+};
+
+/**
+ * the fake backend: its handler, its rows, its request log and its knobs. `limits` replaces some
+ * of DATABASE_LIBRARY_LIMITS, so a test reaches the entry cap or an input bound with a few rows
+ * and bytes.
+ */
+export const createLibraryBackend = (limits: Partial<LibraryLimits> = {}) => {
   const rows: LibraryRow[] = [];
   const requests: LibraryRequest[] = [];
   const pendingResponses: Pending<Respond>[] = [];
@@ -94,6 +108,7 @@ export const createLibraryBackend = () => {
       rowCount += 1;
       return rowCount;
     },
+    limits: { ...DATABASE_LIBRARY_LIMITS, ...limits },
   };
 
   const handleGet = (request: Request, userId: string, search: URLSearchParams): Response => {

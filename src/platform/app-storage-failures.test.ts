@@ -25,7 +25,7 @@ import {
   APP_STORAGE_KEY_NAME,
   type GetRandomValues,
 } from './app-storage-key';
-import { STORAGE_INSTANCE_ID } from './storage';
+import { STORAGE_INSTANCE_ID } from './app-storage-migration';
 
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof Device>('./__fixtures__/app-storage-device').fakeMmkvModule(),
@@ -56,11 +56,11 @@ describe('openAppStorage, a secure store that fails', () => {
     seedEncrypted(STORED_KEY, { [THEME_KEY]: THEME_VALUE });
     seedFile(STORAGE_INSTANCE_ID, undefined, { [LIBRARY_KEY]: LIBRARY_VALUE });
 
-    const storage = launch();
+    const { storage } = launch();
     storage.set(THEME_KEY, NEWER_THEME_VALUE);
 
     expect(storage.getString(THEME_KEY)).toBe(NEWER_THEME_VALUE);
-    expect(fileEvents()).toStrictEqual(['secure.get']);
+    expect(fileEvents()).toStrictEqual([`mmkv.exists:${APP_STORAGE_INSTANCE_ID}`, 'secure.get']);
     expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(THEME_VALUE);
     expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual({ [LIBRARY_KEY]: LIBRARY_VALUE });
     expect(reportedProblems(captureError)).toStrictEqual(['key-unavailable']);
@@ -80,10 +80,12 @@ describe('openAppStorage, a secure store that fails', () => {
     device.failures.secureWrite = true;
     seedFile(STORAGE_INSTANCE_ID, undefined, { [LIBRARY_KEY]: LIBRARY_VALUE });
 
-    const storage = launch();
+    const { storage } = launch();
 
     expect(storage.getString(LIBRARY_KEY)).toBeUndefined();
     expect(fileEvents()).toStrictEqual([
+      `mmkv.exists:${APP_STORAGE_INSTANCE_ID}`,
+      `mmkv.exists:${STORAGE_INSTANCE_ID}`,
       'secure.get',
       `mmkv.exists:${APP_STORAGE_INSTANCE_ID}`,
       'secure.set',
@@ -97,7 +99,7 @@ describe('openAppStorage, a secure store that fails', () => {
     (_, source) => {
       getRandomValues.mockImplementationOnce(source);
 
-      const storage = launch();
+      const { storage } = launch();
       storage.set(THEME_KEY, THEME_VALUE);
 
       expect(storage.getString(THEME_KEY)).toBe(THEME_VALUE);
@@ -112,7 +114,7 @@ describe('openAppStorage, an instance that fails to open', () => {
   it('runs on memory, the new key kept for the next launch', () => {
     device.failures.create.add(APP_STORAGE_INSTANCE_ID);
 
-    const storage = launch();
+    const { storage } = launch();
     storage.set(THEME_KEY, THEME_VALUE);
 
     expect(storage.getString(THEME_KEY)).toBe(THEME_VALUE);
@@ -121,15 +123,17 @@ describe('openAppStorage, an instance that fails to open', () => {
     expect(reportedProblems(captureError)).toStrictEqual(['open-failed']);
   });
 
-  it('opens at the next launch with the key stored by the failed one', () => {
+  it('opens at the next launch, a first launch again with a new key: the failed one left no file', () => {
     device.failures.create.add(APP_STORAGE_INSTANCE_ID);
     launch();
     device.failures.create.clear();
     captureError.mockClear();
+    const start = device.events.length;
 
-    launch().set(THEME_KEY, THEME_VALUE);
+    launch().storage.set(THEME_KEY, THEME_VALUE);
 
-    expect(getRandomValues).toHaveBeenCalledTimes(1);
+    expect(device.events.slice(start)).not.toContain('secure.get');
+    expect(getRandomValues).toHaveBeenCalledTimes(2);
     expect(device.configurations.at(-1)?.encryptionKey).toBe(NEW_KEY);
     expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(THEME_VALUE);
     expect(reportedProblems(captureError)).toStrictEqual([]);
@@ -141,7 +145,7 @@ describe('openAppStorage, an instance that fails to open', () => {
     seedFile(STORAGE_INSTANCE_ID, undefined, { [LIBRARY_KEY]: LIBRARY_VALUE });
     device.failures.create.add(APP_STORAGE_INSTANCE_ID);
 
-    expect(launch().getString(THEME_KEY)).toBeUndefined();
+    expect(launch().storage.getString(THEME_KEY)).toBeUndefined();
     expect(fileValues(APP_STORAGE_INSTANCE_ID)?.[THEME_KEY]).toBe(THEME_VALUE);
     expect(fileValues(STORAGE_INSTANCE_ID)).toStrictEqual({ [LIBRARY_KEY]: LIBRARY_VALUE });
     expect(fileEvents()).not.toContain(`mmkv.delete:${STORAGE_INSTANCE_ID}`);
@@ -151,7 +155,7 @@ describe('openAppStorage, an instance that fails to open', () => {
   it('runs on memory when the key check cannot be written', () => {
     device.failures.setLimit = { id: APP_STORAGE_INSTANCE_ID, remaining: 0 };
 
-    expect(launch().getString(THEME_KEY)).toBeUndefined();
+    expect(launch().storage.getString(THEME_KEY)).toBeUndefined();
     expect(reportedProblems(captureError)).toStrictEqual(['open-failed']);
   });
 });

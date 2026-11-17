@@ -1,14 +1,18 @@
 // the fake of the database function merge_guest_library_entries
-// (supabase/migrations/*_guest_merge_client_time.sql, *_guest_merge_time_format.sql) for the
-// postgrest fake (library-handlers.ts): the user from the token only, the input checks in the
-// function's order (each a 400 with code 22023), then per entry, among the rows of that user: a
-// time before the year 1 refused, its time capped at the server clock of the call, an insert when
-// the user has no row of its key, a replace when the capped time is strictly later than the
-// stored one (compared as instants: stored microseconds against the entry's milliseconds), else
-// kept. the batch is written whole or not at all. answers one row per entry: its key, the user id
-// and `written` or `kept`
+// (supabase/migrations/*_guest_merge_client_time.sql, *_guest_merge_time_format.sql,
+// *_library_input_byte_bounds.sql) for the postgrest fake (library-handlers.ts): the user from the
+// token only, the input checks in the function's order (each a 400 with code 22023: the size of
+// the input's jsonb text right after the count, before any per-element check), then per entry,
+// among the rows of that user: a time before the year 1 refused, its time capped at the server
+// clock of the call, an insert when the user has no row of its key (refused at the entry cap,
+// *_per_user_library_caps.sql, counting the call's earlier inserts), a replace when the capped
+// time is strictly later than the stored one (compared as instants: stored microseconds against
+// the entry's milliseconds), else kept. the batch is written whole or not at all. answers one row
+// per entry: its key, the user id and `written` or `kept`
 import { HttpResponse } from 'msw';
 
+import { jsonbTextBytes } from './jsonb-text';
+import { entryCapRefusal } from './library-limits';
 import type { RowStore } from './library-writes';
 import {
   BAD_REQUEST,
@@ -26,6 +30,20 @@ import {
 
 /** the entries one call takes at most: the function's max_entries. */
 export const MERGE_MAX_ENTRIES = 100;
+
+/**
+ * the array punctuation of one element in jsonb text, the functions' element_punctuation_bytes:
+ * "[" and "]" for the first, ", " before each other one.
+ */
+export const ELEMENT_PUNCTUATION_BYTES = 2;
+
+// the jsonb text of one entry at most, the function's max_entry_bytes: the worst case of every
+// column (the table of supabase/migrations/*_library_input_byte_bounds.sql)
+const MERGE_ENTRY_BYTES_MAX = 28_049;
+
+/** the jsonb text of one call at most, the function's max_input_bytes: 2805100 bytes. */
+export const MERGE_INPUT_BYTES_MAX =
+  MERGE_MAX_ENTRIES * (MERGE_ENTRY_BYTES_MAX + ELEMENT_PUNCTUATION_BYTES);
 
 const INVALID_PARAMETER = '22023';
 /** the media key columns. */
@@ -81,13 +99,17 @@ export const keyIdOf = (entry: Entry): string =>
   KEY_COLUMNS.map((column) => String(entry[column])).join(':');
 
 // the function's checks of `entries`, in its order: the entries, or the refusal of the first
-// failing check
-const validEntries = (entries: unknown): Entry[] | Response => {
+// failing check. octet_length(entries::text) over `maxInputBytes` is refused before any
+// per-element check
+const validEntries = (entries: unknown, maxInputBytes: number): Entry[] | Response => {
   if (!Array.isArray(entries)) {
     return invalid('entries must be a json array');
   }
   if (entries.length > MERGE_MAX_ENTRIES) {
     return invalid('too many entries');
+  }
+  if (jsonbTextBytes(entries) > maxInputBytes) {
+    return invalid('entries are too large');
   }
   if (!entries.every(isRecord)) {
     return invalid('an entry is not a json object');
@@ -111,9 +133,22 @@ const validEntries = (entries: unknown): Entry[] | Response => {
   return entries;
 };
 
+// the refusal of a not null constraint, checked after the before insert triggers and before the
+// conflict, so on a write of a key the user holds too
+const notNullRefusal = (entry: Entry): Response | null => {
+  const missing = NOT_NULL_COLUMNS.find((column) => entry[column] === null);
+  if (missing === undefined) {
+    return null;
+  }
+  const detail = `${SERVER_DETAIL_PREFIX} (${JSON.stringify(entry)})`;
+  return errorResponse(BAD_REQUEST, '23502', `null value in column "${missing}"`, detail);
+};
+
 /**
  * private.write_client_library_entry: writes one entry of `userId` into `rows` at `now` (the call's
- * server time): its outcome, or the refusal of a value postgres would reject.
+ * server time): its outcome, or the refusal of a value postgres would reject, in the function's
+ * order: the time checks, then the insert's cap trigger (a key the user does not hold, counted
+ * among `rows`, the call's earlier writes included), then the not null constraints.
  */
 export const writeEntry = (
   store: RowStore,
@@ -121,11 +156,6 @@ export const writeEntry = (
   { userId, now }: { readonly userId: string; readonly now: string },
   entry: Entry,
 ): MergeOutcome | Response => {
-  const missing = NOT_NULL_COLUMNS.find((column) => entry[column] === null);
-  if (missing !== undefined) {
-    const detail = `${SERVER_DETAIL_PREFIX} (${JSON.stringify(entry)})`;
-    return errorResponse(BAD_REQUEST, '23502', `null value in column "${missing}"`, detail);
-  }
   const entryUs = instantOf(entry.updated_at);
   const nowUs = instantOf(now);
   const earliestUs = instantOf(EARLIEST_TIME);
@@ -142,6 +172,12 @@ export const writeEntry = (
       row.user_id === userId &&
       KEY_COLUMNS.every((column) => valueOf(row, column) === entry[column]),
   );
+  const refusal =
+    (stored === undefined ? entryCapRefusal(store.limits, rows, userId) : null) ??
+    notNullRefusal(entry);
+  if (refusal !== null) {
+    return refusal;
+  }
   if (stored === undefined) {
     rows.push(
       Object.assign(defaultRow(userId, store.nextIndex(), now), entry, { updated_at: updatedAt }),
@@ -169,7 +205,7 @@ export const handleMerge = (store: RowStore, userId: string, body: unknown): Res
   if (!isRecord(body) || Object.keys(body).join() !== 'entries') {
     return errorResponse(NOT_FOUND, 'PGRST202', 'no function matches the arguments');
   }
-  const entries = validEntries(body.entries);
+  const entries = validEntries(body.entries, store.limits.mergeInputBytes);
   if (entries instanceof Response) {
     return entries;
   }

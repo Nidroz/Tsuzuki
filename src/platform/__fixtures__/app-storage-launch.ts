@@ -1,8 +1,14 @@
 import type { ErrorReporter } from '@core/errors/error-reporter';
 import { jest } from '@jest/globals';
 
-import { openAppStorage } from '../app-storage';
-import { APP_STORAGE_INSTANCE_ID, KEY_CHECK_KEY, KEY_CHECK_VALUE } from '../app-storage-instance';
+import { type AppStorage, openAppStorage } from '../app-storage';
+import {
+  APP_STORAGE_INSTANCE_ID,
+  KEY_CHECK_KEY,
+  KEY_CHECK_VALUE,
+  MIGRATED_MARKER_KEY,
+  MIGRATED_MARKER_VALUE,
+} from '../app-storage-instance';
 import {
   device,
   FAKE_WHEN_UNLOCKED_THIS_DEVICE_ONLY,
@@ -35,6 +41,12 @@ export const CACHE_VALUE = '{"clientState":{"queries":[{"queryHash":"[\\"search\
 
 export const SESSION_OPTIONS = { keychainAccessible: FAKE_WHEN_UNLOCKED_THIS_DEVICE_ONLY };
 
+/** a new encrypted instance without an unencrypted one: the key check, then the marker. */
+export const NEW_INSTANCE = {
+  [KEY_CHECK_KEY]: KEY_CHECK_VALUE,
+  [MIGRATED_MARKER_KEY]: MIGRATED_MARKER_VALUE,
+};
+
 export const captureError = jest.fn<ErrorReporter['captureError']>();
 export const getRandomValues = jest.fn<(array: Uint8Array) => Uint8Array>();
 
@@ -47,7 +59,7 @@ export const resetLaunch = (): void => {
 };
 
 /** one launch of the app: the device files outlive it. it never uses Math.random. */
-export const launch = () =>
+export const launch = (): AppStorage =>
   withoutMathRandom(() => openAppStorage({ reporter: { captureError }, getRandomValues }));
 
 /** an encrypted instance as a previous launch left it (its key check included). */

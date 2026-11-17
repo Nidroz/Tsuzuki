@@ -214,8 +214,37 @@
       "inProgress": "Adding the titles saved on this device to your account…",
       "failedTitle": "Your library is not ready yet",
       "failed": "The titles saved on this device could not be added to your account. They stay on this device: try again to add them and open your library.",
-      "full": "The titles saved on this device could not be added to your account: its library is full, with {{max}} titles. They stay on this device. Remove titles from your library on another device, then try again, or sign out to use them here.",
+      "full": "The titles saved on this device could not be added to your account: its library is full, with {{max}} titles. They stay on this device. To make room, remove titles in the Library tab or on another device, then try again. Or sign out to use them here.",
       "retry": "Try again"
+    },
+    "room": {
+      "notice": "Your account's library is full, with {{max}} titles, so the titles saved on this device could not be added to it. They stay on this device. Remove titles from your account here to make room: after each removal, they are added if there is room.",
+      "retry": "Try again",
+      "loading": "Loading the titles of your account",
+      "error": {
+        "title": "The titles of your account could not be loaded",
+        "message": "Try again in a moment.",
+        "retry": "Try again"
+      },
+      "empty": {
+        "title": "No titles to remove",
+        "message": "Your account's library holds no titles now. Try again to add the titles saved on this device.",
+        "action": "Try again"
+      },
+      "remove": "Remove",
+      "removeLabel": "Remove {{title}} from your account",
+      "removing": "Removing {{title}} from your account",
+      "feedback": {
+        "offline": "You are offline. Connect to the internet, then remove the title again.",
+        "failed": "The title could not be removed from your account. Try again."
+      },
+      "sheet": {
+        "title": "Remove from your account?",
+        "message": "{{title}} will be removed from your account, with its status, progress, score and notes. If it is also saved on this device, that copy is added to your account with the others.",
+        "close": "Close without removing",
+        "cancel": "Cancel",
+        "confirm": "Remove"
+      }
     },
     "sync": {
       "message_one": "{{count}} change could not be synced to your account.",

@@ -75,6 +75,21 @@ describe('useLibraryEntryActions: reports of programming errors (R-04)', () => {
     expectCaughtErrorNotReported(rendered);
   });
 
+  it('reports an add without its media as media-missing, writing nothing (R-09)', async () => {
+    const rendered = await renderLoaded([], null);
+
+    await settleAction(rendered.result.current.actions.add);
+
+    expect(rendered.captureError.mock.calls).toStrictEqual([
+      [new LibraryActionError('media-missing'), REPORT_CONTEXT],
+    ]);
+    expect(rendered.result.current.actions.error).toStrictEqual(
+      new LibraryActionError('media-missing'),
+    );
+    expectCaughtErrorNotReported(rendered);
+    expect(rendered.repository.save).not.toHaveBeenCalled();
+  });
+
   it('reports a snapshot no library can hold as invalid-change', async () => {
     const rendered = renderLibraryEntry([], UNSTORABLE_MEDIA);
     await waitFor(() => {

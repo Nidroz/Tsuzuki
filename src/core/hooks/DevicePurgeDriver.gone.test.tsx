@@ -5,6 +5,7 @@ import {
   DRIVER_PROBE_QUERY_KEY,
   renderDevicePurgeDriver,
 } from '../../../test/core/device-purge-driver-support';
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import { createDeferred } from '../../../test/core/fake-library-repository';
 import { USER_A, USER_B } from '../../../test/core/session-library-support';
 import { AuthError } from '../errors/auth-errors';
@@ -158,5 +159,49 @@ describe('DevicePurgeDriver for a user gone', () => {
     expect(rendered.gone.listenerCount()).toBe(1);
     rendered.unmount();
     expect(rendered.gone.listenerCount()).toBe(0);
+  });
+
+  it("owes the purge of the session's user gone to the files before the session ends, on memory", async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+    const owedAtSignOut: (readonly DevicePurgeMarker[])[] = [];
+    const rendered = await renderDevicePurgeDriver({ session: { userId: USER_A }, owedPurges });
+    // a kill inside `signOut()` leaves what was owed by then
+    rendered.auth.signOut.mockImplementation(() => {
+      owedAtSignOut.push(owedPurges.stored());
+      return Promise.resolve();
+    });
+
+    await rendered.reportGone(USER_A);
+
+    // the marker's flags, never the guest library
+    expect(owedAtSignOut).toStrictEqual([
+      [{ userId: USER_A, clearGuestLibrary: false, deviceWide: true }],
+    ]);
+    expect(rendered.markers.add).toHaveBeenCalledWith({
+      userId: USER_A,
+      clearGuestLibrary: true,
+      deviceWide: true,
+    });
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: USER_A, clearGuestLibrary: false, deviceWide: true },
+    ]);
+    expect(rendered.accountsOf(USER_A)[0]?.purgeDeviceData).toHaveBeenCalledTimes(1);
+  });
+
+  it('owes the purge of another user gone with the flags of their marker, never lowered', async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+    const rendered = await renderDevicePurgeDriver({ session: { userId: USER_A }, owedPurges });
+
+    await rendered.reportGone(USER_B);
+
+    // user A signed in keeps the device-wide data now; the next launch on the files decides
+    // again, as it does for B's marker
+    expect(rendered.deviceWideUntouched()).toBe(true);
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: USER_B, clearGuestLibrary: false, deviceWide: true },
+    ]);
+    expect(owedPurges.add.mock.invocationCallOrder[0]).toBeLessThan(
+      rendered.accountsOf(USER_B)[0]?.purgeDeviceData.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });

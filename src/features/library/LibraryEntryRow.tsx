@@ -1,14 +1,15 @@
-import { SCORE_MAX, type LibraryEntry } from '@core/domain/library-entry';
+import type { LibraryEntry } from '@core/domain/library-entry';
 import { canIncrementProgress } from '@core/domain/library-progress';
 import type { MediaKey } from '@core/domain/media';
 import {
   useLibraryEntryActions,
   type UseLibraryEntryActionsOptions,
 } from '@core/hooks/use-library-entry-actions';
-import { FORMAT_KEYS, PROGRESS_LABEL_KEYS, useTranslation } from '@core/i18n/index';
+import { PROGRESS_LABEL_KEYS, useTranslation } from '@core/i18n/index';
 import { IconButton, InlineError, MediaListItem, Row, Stack, type StateAction } from '@ui/index';
 import { memo, useCallback, useMemo } from 'react';
 
+import { libraryEntryDetails } from './library-entry-details';
 import { libraryWriteErrorText } from './library-failure-texts';
 
 // the list has no catalog data: an action never refreshes the snapshot from here (ADR-0009)
@@ -27,7 +28,7 @@ export interface LibraryEntryRowProps {
 
 function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
   const translation = useTranslation();
-  const { t, formatNumber } = translation;
+  const { t } = translation;
   // writes go through the actions, which read the stored entry: the shown one is for display only
   const { incrementProgress, toggleFavorite, error, dismissError } = useLibraryEntryActions(
     entry.key,
@@ -43,22 +44,7 @@ function LibraryEntryRowView({ entry, onOpen }: LibraryEntryRowProps) {
   );
 
   const progressKeys = PROGRESS_LABEL_KEYS[key.kind];
-  const total = entry.media.totalUnits;
-  const progress = formatNumber(entry.progress);
-  const details = [
-    t(FORMAT_KEYS[entry.media.format]),
-    total === null
-      ? t(progressKeys.alone, { progress, count: entry.progress })
-      : t(progressKeys.ofTotal, { progress, total: formatNumber(total), count: total }),
-    ...(entry.score === null
-      ? []
-      : [
-          t('library.list.score', {
-            score: formatNumber(entry.score),
-            max: formatNumber(SCORE_MAX),
-          }),
-        ]),
-  ];
+  const details = libraryEntryDetails(translation, entry);
   const testID = libraryEntryTestID(key);
   const title = entry.media.title;
 

@@ -81,3 +81,21 @@ The suite ran for the first time on the owner's draft release PR from `dev` to `
 GitHub dispatches a workflow only from the default branch. Until `e2e.yml` reaches `main` with the first release, a run is started by a pull request to `main` (a draft from `dev` will do), not by `workflow_dispatch`. The "re-run by dispatch" of "Consequences" applies from then on; before that, re-run the failed job of the pull request.
 
 The gate is a second ruleset targeting `main` only (`require-e2e-main`, required check `e2e`), set by the owner. `protect-main-dev` stays as it is.
+
+## Update (2026-11-15)
+
+From the security follow-ups (R-09). The text above and the earlier Update are kept as accepted; where they differ, this section applies.
+
+### Flow variables from the environment
+
+Maestro reads every `MAESTRO_` variable of its environment, so the test account never goes on the command line or in the runner's process list.
+
+- The step "Run the flows" of `.github/workflows/e2e.yml` sets in its `env` `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` from the `e2e` secrets `E2E_EMAIL` and `E2E_PASSWORD` (names unchanged), and `MAESTRO_E2E_RUN_ID` (run id and attempt). Its command is `maestro test e2e/flows`, with no `-e`, then `|| bash tools/ci/e2e-diagnostics.sh` (Update of 2026-11-06). This replaces, in Workflow step 6, `maestro test -e E2E_EMAIL -e E2E_PASSWORD -e E2E_RUN_ID e2e/flows` (`E2E_RUN_ID` = run id and attempt).
+- The CI flows read `MAESTRO_E2E_EMAIL`, `MAESTRO_E2E_PASSWORD` and `MAESTRO_E2E_RUN_ID`; the manual flows `MAESTRO_E2E_THROWAWAY_EMAIL` and `MAESTRO_E2E_THROWAWAY_PASSWORD`, set in the environment of a local run (`e2e/README.md`). This replaces the names in Flows: `E2E_THROWAWAY_EMAIL` and `E2E_THROWAWAY_PASSWORD` (manual flows), `E2E_RUN_ID` (shared account).
+- `tools/e2e/maestro-workflow.test.mjs` (`pnpm test:tooling`) checks the workflow: the command carries no value, the step env is exactly these three variables from the secrets and the run id, the credential secrets are read nowhere else but the presence check of step 1, and every variable the CI flows read is in that env. This replaces "the variables against the workflow's `-e` values" in Flows; `tools/e2e/maestro-flows.test.mjs` keeps the other static checks.
+
+### New development build
+
+`expo-crypto` (ADR-0014 and ADR-0020, Updates of 2026-11-15) is a native module, so the Workflow prerequisite applies: until `pnpm exec eas build --profile development --platform android` has run, the latest development build lacks it and the app fails to load. The owner runs it before the next E2E run.
+
+No flow changed for the first launch of ADR-0020 (Update of 2026-11-15), which starts signed out: every CI flow begins with `clearState`, directly or through `e2e/subflows/launch-signed-out.yaml`, so each run is a first launch, signed out and empty, as the flows expect. The manual `gone-purge-check` relaunches without `clearState`: the files exist and the session is kept.

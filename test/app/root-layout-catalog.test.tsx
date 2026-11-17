@@ -13,6 +13,8 @@ import { Text } from 'react-native';
 import { renderRouterAsync } from '../mobile/render-router';
 import { APP_ROUTES, appRoutesWithDiscover } from './app-routes';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
+import type * as SharedMmkv from '../mobile/shared-mmkv';
 
 // see ADR-0013: the composition root (app/_layout.tsx) is the only place that picks the catalog
 // provider and its instance. both factories keep their real behaviour and record their calls,
@@ -28,6 +30,18 @@ jest.mock('@core/repositories/supabase/auth-repository', () =>
   jest
     .requireActual<typeof FakeSupabaseModule>('../mobile/fake-supabase-module')
     .fakeSupabaseAuthModule(),
+);
+
+// the device the layout opens its app storage on: mmkv instances shared by id, and the secure
+// store and the random source of its key (test/mobile/shared-mmkv.ts, app-device.ts)
+jest.mock('react-native-mmkv', () =>
+  jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
 );
 
 jest.mock('@core/catalog/jikan/jikan-catalog-provider', () => {

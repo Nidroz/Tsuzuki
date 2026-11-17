@@ -1,5 +1,4 @@
-import type { StorageAdapter } from '@core/repositories/storage-adapter';
-
+import type { AppStorage } from '../app-storage';
 import {
   KEY_CHECK_KEY,
   KEY_CHECK_VALUE,
@@ -7,7 +6,7 @@ import {
   MIGRATED_MARKER_KEY,
   MIGRATED_MARKER_VALUE,
 } from '../app-storage-instance';
-import { STORAGE_INSTANCE_ID } from '../storage';
+import { STORAGE_INSTANCE_ID } from '../app-storage-migration';
 import { device, seedFile } from './app-storage-device';
 import {
   CACHE_KEY,
@@ -54,9 +53,9 @@ export const seedLegacy = (values: Readonly<Record<string, string | number>> = L
   seedFile(STORAGE_INSTANCE_ID, undefined, values);
 };
 
-/** one launch, and the native events it caused. */
-export const launchWithEvents = (): { storage: StorageAdapter; events: string[] } => {
+/** one launch, its storage and flags, and the native events it caused. */
+export const launchWithEvents = (): AppStorage & { events: string[] } => {
   const start = device.events.length;
-  const storage = launch();
-  return { storage, events: device.events.slice(start) };
+  const opened = launch();
+  return { ...opened, events: device.events.slice(start) };
 };

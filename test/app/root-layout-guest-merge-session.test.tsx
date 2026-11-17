@@ -7,23 +7,22 @@ import { act, userEvent } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
 import { createMMKV } from 'react-native-mmkv';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 
 import { holdNextCall, mergedCopyOf, type Deferred } from '../core/fake-library-repository';
 import { entryOf, entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
 
-// the guest merge through the composition root across session changes (A-04, BR-08, ADR-0016): a
-// merge whose session ended leaves the guest store (the real local store over the app storage)
-// untouched, the guest entries go to the account library created for the signed-in user only,
-// an entry changed while the merge ran stays on the device and replaces the merged copy at the next
-// merge, and a `+1` still in its coalescing window at sign in reaches the guest store before the
-// merge reads it. every supabase factory is a fake (its merge keeps the guest times, capped at the
-// merge time, as the database does): no real client
+// the guest merge across session changes (A-04, BR-08, ADR-0016): a merge whose session ended
+// leaves the guest store (the real local store) untouched, the guest entries go to the signed-in
+// user's account library only, an entry changed during the merge stays on the device and replaces
+// the merged copy at the next merge, and a `+1` in its coalescing window at sign in reaches the
+// guest store first. every supabase factory is a fake (its merge keeps the guest times, capped)
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -58,13 +57,19 @@ jest.mock('expo-localization', () => ({
   useLocales: () => [{ languageTag: 'en-US' }],
 }));
 
-// the layout opens its storage when it is imported: the shared instance lets the test read it
+// the layout opens its storage when it is imported: the shared instance lets the test read it,
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
-// read from the mock registry: a static import would load the modules before @jest/globals,
-// which the hoisted factories above need
+// read from the mock registry: a static import would load them before the hoisted factories
 const supabaseAuthModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseAuthModule>(
   '@core/repositories/supabase/auth-repository',
 );
@@ -76,7 +81,7 @@ const localLibrary = jest.requireMock<typeof LocalLibrary>(
 );
 const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryRepository;
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 // the options of every guest merge call: the signal of its run, aborted once its session ended
 const MERGE_OPTIONS = { signal: expect.any(AbortSignal) };
@@ -120,8 +125,7 @@ const accountOf = (call: number) => {
   return result.value;
 };
 
-// the merge steps settle inside act, after `ms` of fake time: a state update of the merge never
-// lands outside of it
+// the merge steps settle inside act, after `ms` of fake time: no merge update lands outside it
 const settle = async (ms = 0) => {
   await act(async () => {
     await jest.advanceTimersByTimeAsync(ms);
@@ -135,8 +139,7 @@ const reportSession = async (userId: string | null) => {
   });
 };
 
-// holds the guest merge of the next account repository the composition root gets; `release`
-// lets it go on
+// holds the guest merge of the next account repository the layout gets; `release` lets it go on
 const holdNextMerge = () => {
   const holds: Deferred<void>[] = [];
   supabaseLibraryModule.accountSetups.push((repository) => {

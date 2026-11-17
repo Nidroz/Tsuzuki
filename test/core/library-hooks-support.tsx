@@ -18,6 +18,7 @@ import type { LibraryRepository } from '@core/repositories/library-repository';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { DevicePurgeContext, type DevicePurgeValue } from '@core/hooks/device-purge-context';
 import { guardDevicePurgeMarkers } from '@core/hooks/device-purge-markers';
+import { OWE_NO_DEVICE_PURGE } from '@core/hooks/owed-device-purges';
 import {
   LibraryContextProvider,
   type LibraryContextProviderProps,
@@ -51,6 +52,7 @@ export function TestReporterContext({
       removePersistedCache: keepPersistedCache,
       reporter,
       markers: guardDevicePurgeMarkers(createFakeDevicePurgeMarkers(), reporter),
+      owePurge: OWE_NO_DEVICE_PURGE,
       generation: 0,
       advanceGeneration: keepGeneration,
     }),

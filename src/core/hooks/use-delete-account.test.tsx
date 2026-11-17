@@ -169,4 +169,16 @@ describe('useDeleteAccount', () => {
     expect(rendered.account?.purgeDeviceData).toHaveBeenCalledTimes(1);
     expect(rendered.result.current.generation).toBe(1);
   });
+
+  it('owes the purge of the deleted user to the files while the app storage runs on memory', async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+    const rendered = renderDelete({ owedPurges });
+
+    await deleteAccount(rendered);
+
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: SESSION_USER_ID, clearGuestLibrary: false, deviceWide: true },
+    ]);
+    expect(rendered.markers.stored()).toStrictEqual([]);
+  });
 });

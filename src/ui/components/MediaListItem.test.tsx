@@ -211,4 +211,36 @@ describe('MediaListItem', () => {
       expect(classesOf(row())).not.toContain('flex-1');
     });
   });
+
+  describe('without onPress', () => {
+    const ACTION = 'Remove Frieren from your account';
+
+    it('is no button: one element named by its lines, its action the only button', async () => {
+      const onAction = jest.fn();
+      const user = userEvent.setup();
+      await renderWithTheme(
+        <MediaListItem
+          title={TITLE}
+          details={DETAILS}
+          imageUrl={URL}
+          trailing={<IconButton icon="close" accessibilityLabel={ACTION} onPress={onAction} />}
+          testID={TEST_ID}
+        />,
+      );
+
+      expect(row()).toHaveProp('accessible', true);
+      expect(row()).toHaveAccessibleName([TITLE, ...DETAILS].join(', '));
+      expect(row()).not.toHaveProp('accessibilityRole');
+      expect(screen.getAllByRole('button')).toStrictEqual([
+        screen.getByRole('button', { name: ACTION }),
+      ]);
+      expect(row()).toContainElement(cover());
+      expect(classesOf(row())).toEqual(expect.arrayContaining(['flex-1', 'min-h-touch']));
+      expect(classesOf(row())).not.toContain('active:opacity-pressed');
+
+      await user.press(screen.getByRole('button', { name: ACTION }));
+
+      expect(onAction).toHaveBeenCalledTimes(1);
+    });
+  });
 });

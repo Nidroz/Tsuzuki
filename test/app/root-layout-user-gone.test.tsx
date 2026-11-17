@@ -9,6 +9,7 @@ import { screen } from 'expo-router/testing-library';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeNetworkModule from '../mobile/fake-network-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import type * as RecordingQueryClient from '../mobile/recording-query-client';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
@@ -75,6 +76,13 @@ jest.mock('expo-localization', () => ({
 // the layout opens its storage when it is imported: the shared instance lets the test read it
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
+);
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
 );
 
 const mocks = signOutMocks();

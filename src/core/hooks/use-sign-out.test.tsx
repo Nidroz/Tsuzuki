@@ -1,10 +1,12 @@
 import { describe, expect, it, jest } from '@jest/globals';
 import { act } from '@testing-library/react';
 
+import { createFakeDevicePurgeMarkers } from '../../../test/core/fake-device-purge-markers';
 import { createDeferred } from '../../../test/core/fake-library-repository';
 import {
   PROBE_QUERY_KEY,
   renderSessionEndHook,
+  SESSION_USER_ID,
   STORED_SEARCH,
   type SessionEndSetup,
 } from '../../../test/core/session-end-hooks-support';
@@ -263,5 +265,19 @@ describe('useSignOut', () => {
     expect(rendered.writer.pendingChangeCount).not.toHaveBeenCalled();
     expect(rendered.sequence()).toContain('replay');
     expect(rendered.account?.purgeDeviceData).toHaveBeenCalledTimes(1);
+  });
+
+  it("owes the purge of the session's user to the files while the app storage runs on memory", async () => {
+    const owedPurges = createFakeDevicePurgeMarkers();
+    const rendered = renderSignOut({ owedPurges });
+
+    await signOut(rendered);
+
+    expect(owedPurges.stored()).toStrictEqual([
+      { userId: SESSION_USER_ID, clearGuestLibrary: false, deviceWide: true },
+    ]);
+    expect(owedPurges.add.mock.invocationCallOrder[0]).toBeLessThan(
+      rendered.account?.purgeDeviceData.mock.invocationCallOrder[0] ?? 0,
+    );
   });
 });

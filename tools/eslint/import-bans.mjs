@@ -45,6 +45,13 @@ export const BANNED = {
     regexes: ['^expo-image($|/)', '^@shopify/flash-list($|/)'],
     message: `expo-image and @shopify/flash-list are imported only in src/ui: other layers render lists and covers through the List and CoverImage primitives of @ui/index (${LAYERS_RULE}).`,
   },
+  // the secure random source and the digest stay behind src/platform (R-09): the root layout
+  // installs the web crypto binding, and the app storage key takes its source from src/platform.
+  // src/core rejects the package with its expo group already
+  platformOnlyPackages: {
+    regexes: ['^expo-crypto($|/)'],
+    message: `expo-crypto is imported only in src/platform: other layers use the web crypto binding the root layout installs (src/platform/web-crypto-polyfill.ts) or the random source of src/platform/web-crypto.ts (${LAYERS_RULE}).`,
+  },
   // the react-native modules of Image and ImageBackground, in every import form (default, namespace
   // and side-effect imports, re-exports, import(), jest module calls): layerRules bans them in the
   // layers that ban the components (bansNativeImages), next to the guards of syntax-guards.mjs

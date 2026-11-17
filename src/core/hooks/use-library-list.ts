@@ -1,7 +1,6 @@
 import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 
-import { toAllowedImageUrl } from '../catalog/image-url';
 import type { LibraryEntry } from '../domain/library-entry';
 import {
   buildLibraryView,
@@ -16,6 +15,7 @@ import {
 } from '../domain/library-view';
 import { queryKeys, type LibraryScope } from '../query/keys';
 import { STALE_TIMES } from '../query/stale-times';
+import { withAllowedCover, type CoverSource } from './library-covers';
 import { useCatalogProvider } from './use-catalog-provider';
 import { useLibraryContext } from './use-library-context';
 
@@ -55,13 +55,6 @@ export interface LibraryListResult {
 
 type SelectLibrary = (entries: readonly LibraryEntry[]) => LibrarySelection;
 
-// the provider of the covers: its namespace (a string: compared with the namespace of entries
-// stored by any provider) and its cdn hosts
-interface CoverSource {
-  readonly namespace: string;
-  readonly imageHosts: readonly string[];
-}
-
 // what a shown view was laid out for: the same values keep its layout. the library scope too, so
 // the layout of one library is never kept for another (a library switch, A-03)
 interface LayoutScope {
@@ -78,18 +71,6 @@ interface ShownView extends LayoutScope {
   readonly selection: LibrarySelection;
   readonly view: LibraryView;
 }
-
-// a stored cover is untrusted (CONTRIBUTING.md §7): kept on a cdn host of the entry's provider
-// only, else null. a display copy, the entry itself when the cover is kept
-const withAllowedCover = (entry: LibraryEntry, source: CoverSource): LibraryEntry => {
-  const imageUrl =
-    entry.key.namespace === source.namespace
-      ? toAllowedImageUrl(entry.media.imageUrl, source.imageHosts)
-      : null;
-  return imageUrl === entry.media.imageUrl
-    ? entry
-    : { ...entry, media: { ...entry.media, imageUrl } };
-};
 
 // what the selection lays out, besides the view options
 interface SelectScope {

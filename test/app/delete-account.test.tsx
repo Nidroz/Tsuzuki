@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { STORAGE_INSTANCE_ID } from '@platform/storage';
+import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 import { onlineManager } from '@tanstack/react-query';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
 import { act, userEvent } from '@testing-library/react-native';
@@ -10,6 +10,7 @@ import { createMMKV } from 'react-native-mmkv';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeNetworkModule from '../mobile/fake-network-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
+import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
@@ -55,6 +56,13 @@ jest.mock('expo-localization', () => ({
 jest.mock('react-native-mmkv', () =>
   jest.requireActual<typeof SharedMmkv>('../mobile/shared-mmkv').sharedMmkvModule(),
 );
+// with the secure store and the random source of its key (test/mobile/app-device.ts)
+jest.mock('expo-secure-store', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeSecureStoreModule(),
+);
+jest.mock('expo-crypto', () =>
+  jest.requireActual<typeof AppDevice>('../mobile/app-device').fakeCryptoModule(),
+);
 
 // read from the mock registry: a static import would load the modules before @jest/globals,
 // which the hoisted factories above need
@@ -69,7 +77,7 @@ const { appAuthRepositoryOf } = jest.requireActual<typeof FakeSupabaseModule>(
   '../mobile/fake-supabase-module',
 );
 
-const appStorage = createMMKV({ id: STORAGE_INSTANCE_ID });
+const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
 
 // the repository the layout created when it loaded
 const appAuthRepository = () => appAuthRepositoryOf(supabaseAuthModule);

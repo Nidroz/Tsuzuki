@@ -5,6 +5,7 @@ import type { DevicePurgeMarkerRepository } from '../repositories/device-purge-m
 import { DevicePurgeContext, type DevicePurgeValue } from './device-purge-context';
 import { DevicePurgeDriver } from './DevicePurgeDriver';
 import { guardDevicePurgeMarkers } from './device-purge-markers';
+import { guardOwedDevicePurges, OWE_NO_DEVICE_PURGE } from './owed-device-purges';
 
 export interface DevicePurgeContextProviderProps {
   /**
@@ -23,6 +24,12 @@ export interface DevicePurgeContextProviderProps {
    * (module level)
    */
   markers: DevicePurgeMarkerRepository;
+  /**
+   * only while the app storage runs on memory: where each device purge first records its user as
+   * owed to the files, for the next launch on them (owed-device-purges.ts); pass a stable object
+   * (module level)
+   */
+  owedPurges?: DevicePurgeMarkerRepository;
   children: ReactNode;
 }
 
@@ -30,16 +37,17 @@ const FIRST_GENERATION = 0;
 
 /**
  * gives useDevicePurge(), usePurgeGeneration() and the purge-pending markers the persisted cache
- * removal, the reporter, the markers (their failures reported, never thrown) and the purge
- * generation (ADR-0018 "Device purge"), and renders DevicePurgeDriver, the purges of a marked or
- * gone user. render it inside the query client provider, AuthContextProvider,
- * RecentSearchesContextProvider and SessionLibraryContextProvider, whose repositories the purge
- * binds
+ * removal, the reporter, the markers (their failures reported, never thrown), the record of the
+ * purges owed to the files (with `owedPurges` only) and the purge generation (ADR-0018 "Device
+ * purge"), and renders DevicePurgeDriver, the purges of a marked or gone user. render it inside
+ * the query client provider, AuthContextProvider, RecentSearchesContextProvider and
+ * SessionLibraryContextProvider, whose repositories the purge binds
  */
 export function DevicePurgeContextProvider({
   removePersistedCache,
   reporter,
   markers,
+  owedPurges,
   children,
 }: DevicePurgeContextProviderProps) {
   const [generation, setGeneration] = useState(FIRST_GENERATION);
@@ -47,15 +55,21 @@ export function DevicePurgeContextProvider({
     setGeneration((current) => current + 1);
   }, []);
   const guarded = useMemo(() => guardDevicePurgeMarkers(markers, reporter), [markers, reporter]);
+  const owePurge = useMemo(
+    () =>
+      owedPurges === undefined ? OWE_NO_DEVICE_PURGE : guardOwedDevicePurges(owedPurges, reporter),
+    [owedPurges, reporter],
+  );
   const value = useMemo(
     (): DevicePurgeValue => ({
       removePersistedCache,
       reporter,
       markers: guarded,
+      owePurge,
       generation,
       advanceGeneration,
     }),
-    [removePersistedCache, reporter, guarded, generation, advanceGeneration],
+    [removePersistedCache, reporter, guarded, owePurge, generation, advanceGeneration],
   );
   return (
     <DevicePurgeContext value={value}>

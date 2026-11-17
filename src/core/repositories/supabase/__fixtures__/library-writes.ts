@@ -1,9 +1,11 @@
 // the writes of the postgrest fake (library-handlers.ts) on the rows of every user, rls applied
 // (the rows of the token's user only): the upsert of `save` (one object, merge-duplicates) and the
-// filtered delete. what supabase-js would not send for these calls is a 400. the guest merge's
-// function is merge-function.ts
+// filtered delete. what supabase-js would not send for these calls is a 400. the upsert of a new
+// key passes the per-user entry cap first (library-limits.ts), as the before insert trigger does.
+// the guest merge's function is merge-function.ts
 import { HttpResponse } from 'msw';
 
+import { entryCapRefusal, type LibraryLimits } from './library-limits';
 import {
   BAD_REQUEST,
   CREATED,
@@ -37,6 +39,8 @@ export interface RowStore {
   readonly tick: () => string;
   /** the index of the next inserted row, for its id. */
   readonly nextIndex: () => number;
+  /** the entry cap and the input bounds the writes apply. */
+  readonly limits: LibraryLimits;
 }
 
 /** a write as the fake reads it: the user of the token (rls), the params and the parsed body. */
@@ -49,11 +53,15 @@ export interface WriteRequest {
 
 const preferOf = (request: Request): string => request.headers.get('prefer') ?? '';
 
-// a payload postgres refuses: a server-set column (no grant) or a missing required one
-const payloadRefusal = (payload: Record<string, unknown>): Response | null => {
-  if (SERVER_ONLY_COLUMNS.some((column) => column in payload)) {
-    return errorResponse(FORBIDDEN, '42501', 'permission denied for table library_entries');
-  }
+// a payload postgres refuses before it runs the insert: a server-set column (no grant)
+const privilegeRefusal = (payload: Record<string, unknown>): Response | null =>
+  SERVER_ONLY_COLUMNS.some((column) => column in payload)
+    ? errorResponse(FORBIDDEN, '42501', 'permission denied for table library_entries')
+    : null;
+
+// a payload whose row a not null constraint refuses: a missing required column, checked after the
+// before insert triggers and before the conflict, so on an update of the upsert too
+const notNullRefusal = (payload: Record<string, unknown>): Response | null => {
   const missing = REQUIRED_COLUMNS.find((column) => payload[column] === undefined);
   if (missing === undefined) {
     return null;
@@ -88,11 +96,15 @@ const upsertOne = (store: RowStore, { request, userId, search, body }: WriteRequ
   if (!isRecord(body)) {
     return errorResponse(BAD_REQUEST, 'PGRST102', 'expected one object');
   }
-  const refusal = payloadRefusal(body);
+  const existing = rowOfKey(store.rows, userId, body);
+  // the cap trigger lets a key the user holds through, uncounted
+  const refusal =
+    privilegeRefusal(body) ??
+    (existing === undefined ? entryCapRefusal(store.limits, store.rows, userId) : null) ??
+    notNullRefusal(body);
   if (refusal !== null) {
     return refusal;
   }
-  const existing = rowOfKey(store.rows, userId, body);
   const now = store.tick();
   if (existing === undefined) {
     const inserted = insertRow(store, userId, now, body);

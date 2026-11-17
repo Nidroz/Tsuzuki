@@ -67,12 +67,20 @@ export class DevicePurgeMarkerError extends Error {
 /** the calls of the purge-pending marker repository the hooks make. */
 export const DEVICE_PURGE_MARKER_OPERATIONS = ['list', 'add', 'remove'] as const;
 
-export type DevicePurgeMarkerOperation = (typeof DEVICE_PURGE_MARKER_OPERATIONS)[number];
+/**
+ * the steps of the owed purges (R-09): while the app storage runs on memory, a device purge first
+ * records its user as owed in a durable secure-store document (`owe`); the next launch on the
+ * files carries the owed purges into the purge-pending markers (`carry`).
+ */
+export const DEVICE_PURGE_OWED_OPERATIONS = ['owe', 'carry'] as const;
+
+export type DevicePurgeMarkerOperation =
+  (typeof DEVICE_PURGE_MARKER_OPERATIONS)[number] | (typeof DEVICE_PURGE_OWED_OPERATIONS)[number];
 
 /**
  * a call of the purge-pending marker repository failed (a storage error, a user id that is not a
- * uuid); reported, never thrown by the hooks. it holds the operation only: never a user id or
- * stored content, and no cause is attached.
+ * uuid), or a step of the owed purges did; reported, never thrown by the hooks. it holds the
+ * operation only: never a user id or stored content, and no cause is attached.
  */
 export class DevicePurgeMarkerOperationError extends Error {
   readonly operation: DevicePurgeMarkerOperation;

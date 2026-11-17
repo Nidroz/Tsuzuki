@@ -1,6 +1,6 @@
-// fixed errors the library hooks report in place of the error they caught (R-04): a device storage
-// error could quote stored content (a title, a note), and a rule's RangeError names the change it
-// refused. the message is fixed per kind and no cause is attached
+// fixed errors the library hooks report in place of the error they caught (R-04, R-09): a device
+// storage error could quote stored content (a title, a note), and a rule's RangeError names the
+// change it refused. the message is fixed per kind and no cause is attached
 
 /**
  * a device storage step of the library that failed: the removal of the merged entries from the
@@ -28,17 +28,50 @@ export class LibraryCleanupError extends Error {
 }
 
 /**
+ * a library operation that failed for a reason the repositories do not report themselves (R-09):
+ * a guest merge run that rejected with anything but a LibraryRemoteError (`guest-merge`: the
+ * guest store read, a bug), a retry of the stuck writes that rejected (`stuck-writes-retry`,
+ * ADR-0017 "Stuck writes").
+ */
+export const LIBRARY_FAILURE_OPERATIONS = ['guest-merge', 'stuck-writes-retry'] as const;
+
+export type LibraryFailureOperation = (typeof LIBRARY_FAILURE_OPERATIONS)[number];
+
+const LIBRARY_FAILURE_MESSAGES: Readonly<Record<LibraryFailureOperation, string>> = {
+  'guest-merge': 'Library operation failed: guest merge',
+  'stuck-writes-retry': 'Library operation failed: stuck writes retry',
+};
+
+/** a library operation that failed; it holds the operation only. */
+export class LibraryFailureError extends Error {
+  readonly operation: LibraryFailureOperation;
+
+  constructor(operation: LibraryFailureOperation) {
+    super(LIBRARY_FAILURE_MESSAGES[operation]);
+    this.name = 'LibraryFailureError';
+    this.operation = operation;
+  }
+}
+
+/**
  * a programming error of a library action: an action applied before its entry was loaded
  * (`entry-not-loaded`), a change a business rule or the snapshot refused with a RangeError
- * (`invalid-change`). the user sees the action's error; the report tells a bug apart.
+ * (`invalid-change`), an add of an entry the library lacks without the media summary to create
+ * it from (`media-missing`: the ui enables add once the catalog data is loaded). the user sees
+ * the action's error; the report tells a bug apart.
  */
-export const LIBRARY_ACTION_PROBLEMS = ['entry-not-loaded', 'invalid-change'] as const;
+export const LIBRARY_ACTION_PROBLEMS = [
+  'entry-not-loaded',
+  'invalid-change',
+  'media-missing',
+] as const;
 
 export type LibraryActionProblem = (typeof LIBRARY_ACTION_PROBLEMS)[number];
 
 const LIBRARY_ACTION_MESSAGES: Readonly<Record<LibraryActionProblem, string>> = {
   'entry-not-loaded': 'Library action applied before its entry was loaded',
   'invalid-change': 'Library action refused by a rule',
+  'media-missing': 'Library add applied without its media',
 };
 
 /** the report source of the library action programming errors. */

@@ -61,6 +61,8 @@ export interface SessionEndSetup {
   readonly auth?: Partial<AuthRepository>;
   /** the purge-pending markers, none by default */
   readonly markers?: FakeDevicePurgeMarkers;
+  /** the purges owed to the files, as while the app storage runs on memory; none by default */
+  readonly owedPurges?: FakeDevicePurgeMarkers;
 }
 
 /** the user id of the session's account instance */
@@ -85,6 +87,7 @@ export const renderSessionEndHook = <T,>(
     mergeStatus = 'idle',
     auth: overrides = {},
     markers = createFakeDevicePurgeMarkers(),
+    owedPurges,
   }: SessionEndSetup = {},
 ) => {
   const auth = createSessionAuthRepository(null, { onAuthStateChange: neverReports, ...overrides });
@@ -120,6 +123,7 @@ export const renderSessionEndHook = <T,>(
                   removePersistedCache={removePersistedCache}
                   reporter={reporter}
                   markers={markers}
+                  {...(owedPurges && { owedPurges })}
                 >
                   {children}
                 </DevicePurgeContextProvider>

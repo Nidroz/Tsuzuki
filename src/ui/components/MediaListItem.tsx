@@ -17,7 +17,11 @@ export interface MediaListItemProps {
   details?: readonly string[];
   /** the catalog cover url, used as given; null shows a placeholder */
   imageUrl: string | null;
-  onPress: () => void;
+  /**
+   * called when the row is pressed, e.g. to open the detail; without it the row is no button: its
+   * lines are read as one element, and only the trailing action can be pressed
+   */
+  onPress?: () => void;
   /** read instead of the visible lines; the title and lines joined by commas by default */
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -33,8 +37,8 @@ export interface MediaListItemProps {
 const NO_DETAILS: readonly string[] = [];
 
 /**
- * a pressable row of a title list: its cover, its title and secondary lines, and an optional
- * trailing action beside the row's button
+ * a row of a title list, pressable with `onPress`: its cover, its title and secondary lines, and
+ * an optional trailing action beside the row's button
  */
 export function MediaListItem({
   title,
@@ -51,18 +55,12 @@ export function MediaListItem({
     accessibilityLabel ??
     [title, ...(subtitle === undefined ? [] : [subtitle]), ...details].join(LABEL_SEPARATOR);
 
-  const button = (
-    <Pressable
-      className={cx(
-        'min-h-touch flex-row items-start gap-md py-sm active:opacity-pressed',
-        trailing !== undefined && 'flex-1',
-      )}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      {...(accessibilityHint !== undefined && { accessibilityHint })}
-      testID={testID}
-    >
+  const rowClassName = cx(
+    'min-h-touch flex-row items-start gap-md py-sm',
+    trailing !== undefined && 'flex-1',
+  );
+  const lines = (
+    <>
       <CoverImage url={imageUrl} {...(testID !== undefined && { testID: `${testID}-cover` })} />
       <View className="flex-1 gap-xs">
         <Text variant="label" numberOfLines={2}>
@@ -84,15 +82,35 @@ export function MediaListItem({
           </View>
         )}
       </View>
-    </Pressable>
+    </>
   );
+  const accessibility = {
+    accessibilityLabel: label,
+    ...(accessibilityHint !== undefined && { accessibilityHint }),
+  };
+  const main =
+    onPress === undefined ? (
+      <View className={rowClassName} accessible {...accessibility} testID={testID}>
+        {lines}
+      </View>
+    ) : (
+      <Pressable
+        className={cx(rowClassName, 'active:opacity-pressed')}
+        onPress={onPress}
+        accessibilityRole="button"
+        {...accessibility}
+        testID={testID}
+      >
+        {lines}
+      </Pressable>
+    );
 
   // a button nested in a pressable is not reachable on its own: the action sits beside the row
   return trailing === undefined ? (
-    button
+    main
   ) : (
     <View className="flex-row items-center gap-sm">
-      {button}
+      {main}
       {trailing}
     </View>
   );

@@ -1,4 +1,8 @@
-// first: plural rules must exist before i18next builds its plural resolvers
+// first: crypto.getRandomValues and crypto.subtle.digest must exist before the supabase client
+// draws a pkce verifier (s256 from a secure source, never Math.random and plain) and before the
+// app storage key is drawn: hermes has neither
+import '@platform/web-crypto-polyfill';
+// then: plural rules must exist before i18next builds its plural resolvers
 import '@platform/intl-polyfills';
 
 import { monitorCatalogProvider } from '@core/catalog/catalog-failure-monitor';
@@ -7,6 +11,7 @@ import { jikanInstanceFor } from '@core/catalog/jikan/jikan-instances';
 import { AuthContextProvider } from '@core/hooks/AuthContextProvider';
 import { CatalogContextProvider } from '@core/hooks/CatalogContextProvider';
 import { DevicePurgeContextProvider } from '@core/hooks/DevicePurgeContextProvider';
+import { settleOwedDevicePurges } from '@core/hooks/owed-device-purges';
 import { RecentSearchesContextProvider } from '@core/hooks/RecentSearchesContextProvider';
 import { SessionLibraryContextProvider } from '@core/hooks/SessionLibraryContextProvider';
 import {
@@ -41,12 +46,14 @@ import { appLinkUrl, AUTH_LINK_PATHS } from '@core/schemas/app-links';
 import { parseAppEnv } from '@core/schemas/app-env';
 import { readAppEnv } from '@platform/app-env';
 import { subscribeToForeground } from '@platform/app-state';
+import { openAppStorage } from '@platform/app-storage';
 import { APP_VERSION } from '@platform/app-version';
 import { createConnectivitySubscription } from '@platform/connectivity';
 import { useDeviceLanguageTags } from '@platform/locale';
+import { createSecureDocumentStorage } from '@platform/secure-documents';
 import { createSecureSessionStorage } from '@platform/secure-session';
 import { createErrorReporter, initSentry } from '@platform/sentry';
-import { createStorage } from '@platform/storage';
+import { secureRandomValues } from '@platform/web-crypto';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { ThemeProvider } from '@ui/index';
 import { Stack } from 'expo-router';
@@ -66,8 +73,7 @@ const ROOT_SCREEN_OPTIONS = {
 } as const;
 
 // the build-time env, validated again at startup: a missing or invalid env throws here, before
-// anything else is created (fail closed, ADR-0012). the supabase client and the catalog instance
-// come from it below
+// anything else is created (fail closed, ADR-0012)
 const appEnv = readAppEnv(parseAppEnv);
 
 // sentry in release builds with a dsn, the console in development (ADR-0012)
@@ -80,8 +86,7 @@ const THEME_SOURCE = 'theme';
 // the offline account library and the catalog failure monitor read the same flag (ADR-0017)
 followConnectivity(createConnectivitySubscription(reporter));
 
-// a key and a language are not personal data. the polyfill above should make the plural report
-// unreachable; it stays as a guard
+// unreachable with the polyfill above: kept as a guard. a key and a language are not personal data
 if (!hasIntlPluralRules()) {
   reporter.captureError(
     new Error('Intl.PluralRules is missing: plural forms fall back to a one/other rule'),
@@ -106,10 +111,11 @@ const reportThemeError = (error: unknown) => {
   reporter.captureError(error, { source: THEME_SOURCE });
 };
 
-// the app's single key-value storage: it holds the preferences, the recent searches, the guest
-// library, the device copy and write queue of each account library, and the persisted query
-// cache. module level, so the persist options stay one stable object for PersistQueryClientProvider
-const storage = createStorage();
+// the app's single key-value storage, one aes-256 mmkv instance whose key the secure store keeps
+// (ADR-0020), opened once before anything reads it; on memory (persistent false) when the key or
+// the files cannot be opened, every file untouched until the next launch
+const appStorage = openAppStorage({ reporter, getRandomValues: secureRandomValues });
+const { storage, persistent, firstLaunch } = appStorage;
 
 // a new app version or cache schema version drops the persisted cache; the device purge of a sign
 // out or an account deletion deletes it (removeClient, ADR-0018)
@@ -117,9 +123,7 @@ const queryPersister = createQueryPersister(storage);
 const persistOptions = createPersistOptions({ persister: queryPersister, appVersion: APP_VERSION });
 
 // the only place that selects a catalog provider and its instance (ADR-0013): tenrai unless the
-// build sets a self-hosted jikan base url. sustained provider failures go to the reporter, network
-// errors counted only while the device is online. module level, like the repository below: each
-// is one stable object for its context
+// build sets a self-hosted jikan base url. sustained failures are reported, network errors online
 const catalogProvider = monitorCatalogProvider(
   createJikanCatalogProvider(jikanInstanceFor(appEnv.jikanBaseUrl)),
   { reporter, isOnline: isDeviceOnline },
@@ -130,23 +134,21 @@ const recentSearchesRepository = createLocalRecentSearchesRepository(storage, {
   maxQueryLength: catalogProvider.searchQueryMaxLength,
 });
 
-// the guest library on the device (FR-20); a damaged store is reported, never thrown. shown while
-// signed out: the session library switch picks it or the account library below, into which it
-// merges it at sign in (BR-08, ADR-0016)
+// the guest library on the device (FR-20), shown while signed out and merged into the account
+// library at sign in (BR-08, ADR-0016); a damaged store is reported, never thrown
 const libraryRepository = createLocalLibraryRepository(storage, { reporter });
 
 // the token refreshes the auth server refused, seen by the supabase client's fetch and told to the
-// auth repository, which then checks whether the session's user is gone (ADR-0018, update of
-// 2026-11-04): neither module knows the other
+// auth repository, which checks whether the user is gone (ADR-0018, update of 2026-11-04)
 const refreshRefusals = createTokenRefreshRefusalSignal();
 
-// the supabase client of the app: anon key only, its session in the secure store, never in the
-// app storage (§8). the auth repository sends the email links to the app's own routes (ADR-0014);
-// the account library repositories share the client
+// the supabase client: anon key only, its session in the secure store, never in the app storage
+// (§8). a first launch never reads a session stored before it: the ios keychain outlives an
+// uninstall, so a reinstall starts signed out. the email links go to the app's routes (ADR-0014)
 const supabase = createSupabaseClient({
   url: appEnv.supabaseUrl,
   anonKey: appEnv.supabaseAnonKey,
-  sessionStorage: createSecureSessionStorage(reporter),
+  sessionStorage: createSecureSessionStorage(reporter, { discardStored: firstLaunch }),
   onTokenRefreshRefused: refreshRefusals.notify,
 });
 // TODO(A-09): pass the oauth option (the browser session and the per-build provider list)
@@ -157,10 +159,8 @@ const authRepository = createSupabaseAuthRepository(supabase, {
   refreshRefusals,
 });
 
-// the account library of a signed-in user (FR-23), in supabase behind a device copy and a write
-// queue per user in the app storage, so it reads and writes offline and replays its writes
-// (ADR-0017): the session library switch calls it once per user id, and merges the guest library
-// into each one it gets. module level, so the switch gets one stable function
+// the account library of a signed-in user (FR-23), behind a device copy and a write queue per user
+// in the app storage (ADR-0017): the session library switch calls it once per user id
 const accountLibraryFor = createOfflineAccountLibraries({
   storage,
   remoteFor: (userId) => createSupabaseLibraryRepository(supabase, { userId, reporter }),
@@ -168,13 +168,26 @@ const accountLibraryFor = createOfflineAccountLibraries({
   reporter,
 });
 
-// the users whose device purge is owed (ADR-0018, update of 2026-11-04): a sign out marks its user
-// before the session ends, a user reported gone is marked before the purge, and the next launch
-// purges a marked user whose purge did not complete; a damaged document is reported, never thrown
+// the users whose device purge is owed (ADR-0018, update of 2026-11-04), marked by a sign out or a
+// gone purge and purged by the next launch when it did not complete
 const devicePurgeMarkers = createLocalDevicePurgeMarkerRepository(storage, { reporter });
 
-// the token auto refresh runs only while the app is in the foreground (supabase-js on react
-// native): no timer in the background, and a token close to expiry is refreshed on return
+// the purges a memory app storage owes to the files (R-09), in the secure store: each purge on
+// memory records its user there first, the next launch on the files carries them into the markers
+// above, a first launch drops them. passed to the purge only while on memory
+const owedStorage = createSecureDocumentStorage();
+const owedDevicePurges = createLocalDevicePurgeMarkerRepository(owedStorage, { reporter });
+settleOwedDevicePurges({
+  owed: owedDevicePurges,
+  markers: devicePurgeMarkers,
+  persistent,
+  firstLaunch,
+  reporter,
+});
+const owedPurgesProp = persistent ? {} : { owedPurges: owedDevicePurges };
+
+// the token auto refresh runs only in the foreground (supabase-js on react native): no timer in
+// the background, and a token close to expiry is refreshed on return
 const bindAutoRefreshToForeground = () =>
   subscribeToForeground((foreground) => {
     authRepository.setAutoRefresh(foreground);
@@ -214,18 +227,12 @@ function RootStack() {
   );
 }
 
-// the composition root: it owns the storage, the auth repository, the catalog provider, the recent
-// searches and library repositories, the query client and the preferences, and gives the tree the
-// query cache (persisted to the storage), the auth (its mutations need the query client), the
-// catalog provider, the recent searches and the library of the session (the data dependencies,
-// next to the query client; the library writer keeps its optimistic entries in that cache, and
-// the library switch reads the session, inside the auth, and reports the guest merge failures),
-// the device purge of a sign out, an account deletion, a user reported gone and the purges a
-// marker still owes at launch (inside all of them, whose data it deletes), then the
-// preferences, the translations and the theme. the stored preferences are read
-// synchronously on mount, so the first frame already uses them. expo-router's root already
-// provides the SafeAreaProvider that Screen relies on; ThemeProvider renders the status bar and
-// gives navigators their theme
+// the composition root: it gives the tree the query cache (persisted to the storage), the auth (its
+// mutations need the query client), the catalog provider, the recent searches and the library of
+// the session (the library switch reads the session, inside the auth), the device purges (inside
+// all of them, whose data they delete), then the preferences, the translations and the theme. the
+// stored preferences are read synchronously on mount, so the first frame already uses them.
+// expo-router's root provides the SafeAreaProvider; ThemeProvider renders the status bar
 export default function RootLayout() {
   const [queryClient] = useState(createQueryClient);
   const [initialPreferences] = useState(() => loadPreferences(storage));
@@ -267,6 +274,7 @@ export default function RootLayout() {
                 removePersistedCache={queryPersister.removeClient}
                 reporter={reporter}
                 markers={devicePurgeMarkers}
+                {...owedPurgesProp}
               >
                 <PreferencesProvider
                   theme={themePreference}

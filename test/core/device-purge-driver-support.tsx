@@ -8,7 +8,10 @@ import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 
 import { flushSessionReports } from './auth-hooks-support';
-import { createFakeDevicePurgeMarkers } from './fake-device-purge-markers';
+import {
+  createFakeDevicePurgeMarkers,
+  type FakeDevicePurgeMarkers,
+} from './fake-device-purge-markers';
 import {
   createSessionAuthRepository,
   createSessionSource,
@@ -52,6 +55,8 @@ export interface DevicePurgeDriverSetup {
   readonly restoring?: boolean;
   /** what the reporter does with a report (record only by default) */
   readonly captureError?: ErrorReporter['captureError'];
+  /** the purges owed to the files, as while the app storage runs on memory; none by default */
+  readonly owedPurges?: FakeDevicePurgeMarkers;
 }
 
 const neverReports = (): (() => void) => () => undefined;
@@ -71,6 +76,7 @@ export const renderDevicePurgeDriver = async ({
   onAccount,
   captureError: onReport = () => undefined,
   restoring = false,
+  owedPurges,
 }: DevicePurgeDriverSetup = {}) => {
   const source = createSessionSource(session === 'loading' ? null : session);
   const gone = createUserGoneSource();
@@ -113,6 +119,7 @@ export const renderDevicePurgeDriver = async ({
                   removePersistedCache={removePersistedCache}
                   reporter={reporter}
                   markers={markers}
+                  {...(owedPurges && { owedPurges })}
                 >
                   {children}
                 </DevicePurgeContextProvider>

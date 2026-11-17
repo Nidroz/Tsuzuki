@@ -9,9 +9,9 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { ErrorReporter } from '../errors/error-reporter';
+import type { ErrorContext, ErrorReporter } from '../errors/error-reporter';
 import { LibraryRemoteError } from '../errors/library-errors';
-import { LibraryCleanupError } from '../errors/library-report-errors';
+import { LibraryCleanupError, LibraryFailureError } from '../errors/library-report-errors';
 import type { GuestLibraryRepository, LibraryRepository } from '../repositories/library-repository';
 import type { OfflineAccountLibraryRepository } from '../repositories/offline-account-library-repository';
 import type { ForegroundSubscription } from './foreground';
@@ -72,7 +72,7 @@ interface StartedRun {
 
 const NO_MERGE: MergeState = { account: null, phase: 'done', attempt: 0, failure: null };
 
-const REPORT_SOURCE = 'guest-merge';
+const REPORT_CONTEXT: ErrorContext = { source: 'guest-merge' };
 
 const noop = (): void => undefined;
 
@@ -187,9 +187,7 @@ export function SessionLibraryContextProvider({
         // the merge is done: the account holds every listed entry or a newer copy. reported, never
         // shown, as a fixed error: the storage error could quote stored content
         onCleanupFailed: () => {
-          reporter.captureError(new LibraryCleanupError('guest-merge-cleanup'), {
-            source: REPORT_SOURCE,
-          });
+          reporter.captureError(new LibraryCleanupError('guest-merge-cleanup'), REPORT_CONTEXT);
         },
       });
       lastRunRef.current = started.then(noop, noop);
@@ -205,11 +203,10 @@ export function SessionLibraryContextProvider({
           }
         },
         (error: unknown) => {
-          // reported even for a stale run, never swallowed; the account store reports its own
-          // failures (a full account library is none). the errors of the repositories hold no
-          // entry, key or user id
+          // reported even for a stale run, as a fixed error (a storage error could quote stored
+          // content); the account store reports its own failures (a full account library is none)
           if (!(error instanceof LibraryRemoteError)) {
-            reporter.captureError(error, { source: REPORT_SOURCE });
+            reporter.captureError(new LibraryFailureError('guest-merge'), REPORT_CONTEXT);
           }
           conclude('failed', guestMergeFailureOf(error));
         },

@@ -59,3 +59,42 @@ Options considered, captcha:
 - Performance: no new dependency in A-01; the auto refresh timer stops in the background.
 - Operations: each hosted project needs the redirect allow list, the password policy, email confirmations and a custom SMTP sender (`ARCHITECTURE.md` §10). A link opened on a device without the pending verifier (another phone, the app reinstalled, the verifier evicted after 5 newer requests) fails as `link-invalid`; the email of a confirmation is confirmed anyway. A failed exchange, a lost connection or a server error included, consumes the verifier (supabase-js deletes it on every failure), so the link becomes `link-invalid` and cannot be retried: the confirmation screen then says the email is confirmed and offers sign in; the reset screen offers a new link. All variants share the `tsuzuki` scheme, so with two variants installed Android may ask which app opens a link, and the wrong one fails as `link-invalid`. Mail link scanners that follow links consume the single-use token. Enabling the captcha on a project makes older binaries without a provider fail every protected call, so the server side is switched on only once the binaries in use send tokens.
 - Web app: the interface, schemas, hooks and captcha seam are platform-agnostic. A web app passes https redirect URLs to the same factory, reads the flow id from its own callback URL, and implements `CaptchaTokenProvider` with the provider's browser widget.
+
+## Update (2026-11-15)
+
+From the security follow-ups (R-09, `docs/security-review.md`). The text above is kept as accepted; where they differ, this section applies.
+
+### Secure random source and S256 challenge
+
+Before this, on Hermes (React Native 0.86, Expo SDK 57), which installs neither `crypto.getRandomValues` nor `crypto.subtle`, auth-js drew the PKCE verifier and the flow id from `Math.random` and sent the verifier itself as a `plain` challenge (MASVS-CRYPTO-1, MASVS-AUTH-1). With `plain`, "a stolen code is useless without the verifier" (Options, link transport) held only while the authorize request stayed unseen, the OAuth URL opened in the browser included.
+
+- `expo-crypto` 57.0.4: MIT, Expo-maintained, 373,103 bytes unpacked with its native sources, only peer `expo`. Its generator is the platform's: `SecRandomCopyBytes` on iOS (`ios/CryptoModule.swift`), `java.security.SecureRandom` on Android (`CryptoModule.kt`). Lint confines it to `src/platform/` (`tools/eslint/import-bans.mjs`, cases in `tools/eslint/layers-platform-only-cases.mjs`). This replaces "no new dependency in A-01" (Consequences, Performance) from R-09 on.
+- `installWebCrypto(target)` (`src/platform/web-crypto.ts`) installs on the target only the members it lacks (`crypto`, `getRandomValues`, `subtle`, `subtle.digest`), member by member, never replacing an engine's own implementation, once per target (a second call adds nothing). A target that cannot take a member (frozen) fails the launch instead of leaving `Math.random` to auth-js.
+- `getRandomValues` keeps the Web Crypto contract, checked before any byte is drawn: a `TypeError` for anything but an `ArrayBufferView`, integer typed arrays only (`TypeMismatchError`), at most 65,536 bytes per call (`QuotaExceededError`); both names are set on plain `Error`s, React Native has no `DOMException`. `subtle.digest` supports SHA-256 only and rejects any other algorithm with `NotSupportedError`. No other `subtle` member: only what the app's libraries call.
+- `src/platform/web-crypto-polyfill.ts` runs it on `globalThis` and is the first import of `app/_layout.tsx`, so both members exist before `createSupabaseClient` draws a verifier and before the app storage key is drawn. `secureRandomValues`, the key source of ADR-0020, is the same function as the installed `getRandomValues`.
+
+### What auth-js 2.117.3 checks
+
+`@supabase/auth-js/dist/module/lib/helpers.js`:
+
+- `generatePKCEVerifier` (line 206): `Math.random` (209-216) when `typeof crypto === 'undefined'`, else `crypto.getRandomValues(new Uint32Array(56))` (218).
+- `generatePKCEChallenge` (230) needs `crypto`, `crypto.subtle` and `TextEncoder` (231-233); without them it warns "WebCrypto API is not supported" (235) and returns the verifier. Otherwise `sha256` (221) hashes through `crypto.subtle.digest('SHA-256', …)` (224) and the result is encoded with `btoa` (239).
+- `generatePKCEFlowId` (250) fills a `Uint8Array(16)` (252-253) when `typeof crypto.getRandomValues === 'function'` (251), else draws from `Math.random` (258).
+- `getCodeChallengeAndMethod` (388) sends `plain` when the challenge equals the verifier, `s256` otherwise (397).
+
+The integration test below runs this auth-js through the app's `createSupabaseClient`, so an update that brings back `plain` or `Math.random` under the binding fails it; M-01 still rereads these lines. Device assumption to confirm on the preview build (R-07): Hermes has `TextEncoder` and `btoa`. A missing one cannot silently bring back `plain`: once the binding is installed, `src/platform/web-crypto-polyfill.ts` fails the launch with a fixed error unless `crypto.getRandomValues`, `crypto.subtle.digest`, `TextEncoder` and `btoa` are all functions (`assertPkceS256Prerequisites`, `src/platform/web-crypto.ts`). The line numbers above are those of `dist/module`; Metro loads `dist/main` (`"main"` of the package), where the same functions sit at 241 (`generatePKCEVerifier`: `Math.random` 249, `getRandomValues` 253), 256 (`sha256`: `digest` 259), 265 (`generatePKCEChallenge`: the check 266-268, `btoa` 274), 285 (`generatePKCEFlowId`: `getRandomValues` 288, `Math.random` 293) and 424 (`getCodeChallengeAndMethod`: `plain` or `s256` 433).
+
+### `getClaims`
+
+`GoTrueClient.getClaims` (`GoTrueClient.js` line 5512) verifies an asymmetric JWT locally once `'subtle' in globalThis.crypto` (5536), through `crypto.subtle.importKey` (5557) and `verify` (5561); a symmetric JWT falls back to `getUser`. The binding has a `subtle` without `importKey`, so such a call would throw. The app never calls `getClaims`; a future call needs `importKey` and `verify` in the binding first.
+
+### Tests
+
+- `src/platform/web-crypto.test.ts`: the contract above (arrays, bounds, error names, SHA-256 only, members kept, once per target), and `secureRandomValues` as the binding's `getRandomValues`.
+- `src/platform/web-crypto-polyfill.test.ts`: both members installed on expo-crypto, one binding when evaluated twice, a native crypto untouched.
+- `test/mobile/pkce-web-crypto.test.ts`, on an engine without crypto and with the binding: sign up and password reset send `s256` with challenge = base64url(SHA-256(verifier)) of the stored verifier, the OAuth authorize URL carries it, the verifier and the flow id come from expo-crypto, no `Math.random` call and no warning. Control case without the binding: `plain`, the challenge equal to the verifier, `Math.random` called once per verifier character and flow id digit.
+- `test/app/root-layout-app-storage.test.tsx`: the binding installed once, before `createSupabaseClient`.
+
+### Release
+
+`runtimeVersion` uses the `appVersion` policy (`app.config.ts`): an EAS update of this JavaScript reaching a binary of the same version built without the ExpoCrypto native module would crash at launch. The change ships with new builds only; no update targets older binaries.

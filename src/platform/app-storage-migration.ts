@@ -9,8 +9,12 @@ import {
   mmkvStorageAdapter,
   type ReportAppStorageProblem,
 } from './app-storage-instance';
-import { createMemoryStorage } from './memory-storage';
-import { STORAGE_INSTANCE_ID } from './storage';
+
+/**
+ * the id of the unencrypted mmkv instance of the versions before ADR-0020: the app storage until
+ * the encrypted one was wired. only this migration opens it, to copy it once, then deletes it
+ */
+export const STORAGE_INSTANCE_ID = 'tsuzuki';
 
 // before the marker nothing but this copy writes the encrypted instance: what it holds besides its
 // reserved keys is a copy interrupted earlier, holding keys the unencrypted instance may have lost
@@ -26,6 +30,9 @@ const copyLegacyValues = (legacy: MMKV, encrypted: MMKV): void => {
   }
 };
 
+const isMarkedMigrated = (encrypted: MMKV): boolean =>
+  encrypted.getString(MIGRATED_MARKER_KEY) === MIGRATED_MARKER_VALUE;
+
 // a failed deletion leaves the unencrypted instance for the next launch, which only deletes it
 const deleteLegacyInstance = (report: ReportAppStorageProblem): void => {
   let deleted: boolean;
@@ -39,26 +46,35 @@ const deleteLegacyInstance = (report: ReportAppStorageProblem): void => {
 };
 
 /**
- * the one-time migration of the unencrypted instance (storage.ts) into the encrypted one, then the
+ * the one-time migration of the unencrypted instance (STORAGE_INSTANCE_ID) into the encrypted one, then the
  * app storage of this process. without the encrypted marker, the unencrypted instance is opened:
  * unless it holds its own copied marker, the encrypted instance is emptied of everything but its
- * reserved keys and every string value is copied; then the encrypted marker is written, then the
- * copied marker into the unencrypted instance. one already marked copied (the encrypted instance
- * was reset since by a lost or mismatched key) is stale: nothing is copied, only the encrypted
- * marker is written. with the encrypted marker, nothing is copied again (the encrypted copy may be
- * newer) and the unencrypted instance is deleted without being opened: only after a complete copy
- * marked done, so its data is never lost.
+ * reserved keys, every string value is copied, and the copied marker is written into the
+ * unencrypted instance; only then is the encrypted instance the storage of this process, and its
+ * marker written. one already marked copied (a kill between the two markers, or the encrypted
+ * instance reset since by a lost or mismatched key) is stale: nothing is copied, only the
+ * encrypted marker is written. with the encrypted marker, nothing is copied again (the encrypted
+ * copy may be newer) and the unencrypted instance is deleted without being opened: only after a
+ * complete copy marked done, so its data is never lost. no process ever runs on the encrypted
+ * instance while the unencrypted one is there unmarked: a key lost before its deletion would copy
+ * its values again into the reset instance, undoing the purges made since.
+ *
+ * without an unencrypted instance (a fresh install, or an encrypted instance reset after the
+ * unencrypted one was deleted), the missing encrypted marker is written, so an unencrypted
+ * instance appearing later is deleted unopened at the next launch, never copied over what the
+ * encrypted instance holds. precondition: nothing but this migration ever opens the unencrypted
+ * instance (the app has no other way to open it since the composition root opens the app storage).
  *
  * a step that throws is reported (migration-failed) and leaves this process on the unencrypted
- * instance while the copy is not marked done (the next launch copies it again, its newer content
- * replacing the partial copy), on the encrypted instance once it is marked done or when the
- * unencrypted instance was copied before, and on memory when the unencrypted instance cannot be
- * opened or read
+ * instance while it is not marked copied (the next launch copies it again, its newer content
+ * replacing the partial copy), on the encrypted instance once it is or when there is none (the
+ * next launch only writes the encrypted marker), and on memory when the unencrypted instance
+ * cannot be opened or read. returns the storage of this process, or undefined for memory
  */
 export const migrateLegacyStorage = (
   encrypted: MMKV,
   report: ReportAppStorageProblem,
-): StorageAdapter => {
+): StorageAdapter | undefined => {
   const storage = mmkvStorageAdapter(encrypted);
   // the storage of this process when a step throws, moved on as the steps succeed; memory until
   // the unencrypted instance is read: writing the encrypted instance before the copy would let
@@ -66,23 +82,29 @@ export const migrateLegacyStorage = (
   let fallback: StorageAdapter | undefined;
   let openedLegacy = false;
   try {
-    if (!existsMMKV(STORAGE_INSTANCE_ID)) return storage;
-    if (encrypted.getString(MIGRATED_MARKER_KEY) !== MIGRATED_MARKER_VALUE) {
+    if (!existsMMKV(STORAGE_INSTANCE_ID)) {
+      fallback = storage;
+      if (!isMarkedMigrated(encrypted)) encrypted.set(MIGRATED_MARKER_KEY, MIGRATED_MARKER_VALUE);
+      return storage;
+    }
+    if (!isMarkedMigrated(encrypted)) {
       openedLegacy = true;
       const legacy = createMMKV({ id: STORAGE_INSTANCE_ID });
-      const copiedBefore = legacy.getString(LEGACY_COPIED_MARKER_KEY) === MIGRATED_MARKER_VALUE;
-      fallback = copiedBefore ? storage : mmkvStorageAdapter(legacy);
-      if (!copiedBefore) copyLegacyValues(legacy, encrypted);
-      encrypted.set(MIGRATED_MARKER_KEY, MIGRATED_MARKER_VALUE);
-      // marked done: a kill or a failure from here on leaves the encrypted marker alone, which
-      // deletes the unencrypted instance at the next launch all the same
+      if (legacy.getString(LEGACY_COPIED_MARKER_KEY) !== MIGRATED_MARKER_VALUE) {
+        fallback = mmkvStorageAdapter(legacy);
+        copyLegacyValues(legacy, encrypted);
+        // marked copied first: from here on no launch copies these values again
+        legacy.set(LEGACY_COPIED_MARKER_KEY, MIGRATED_MARKER_VALUE);
+      }
+      // then the encrypted instance is the storage, then its marker: a kill or a failure from
+      // here on leaves the copied marker alone, and the next launch writes only the encrypted one
       fallback = storage;
-      if (!copiedBefore) legacy.set(LEGACY_COPIED_MARKER_KEY, MIGRATED_MARKER_VALUE);
+      encrypted.set(MIGRATED_MARKER_KEY, MIGRATED_MARKER_VALUE);
     }
   } catch {
     // the caught error is dropped, not reported: it could quote a stored key or value
     report('migration-failed');
-    return fallback ?? createMemoryStorage();
+    return fallback;
   }
   // an instance opened in this process is never deleted in it: mmkv destroys an open instance on
   // deletion, while react-native-mmkv keeps calling it (its app state listeners trim every created
