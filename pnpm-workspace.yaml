@@ -58,6 +58,12 @@ auditConfig:
     # any incoming link above the size limits (src/core/schemas/incoming-link.ts) to home before
     # expo-router parses it. remove once expo-router ships a compatible query-string
     - GHSA-qr28-fpjm-wq7f
+    # picomatch 2.3 and 4.0 (<=4.0.7, no patched release yet), via the build and test tooling only:
+    # tinyglobby and fdir (react native codegen, the expo cli), micromatch (metro), anymatch and
+    # readdirp (file watchers), jest-util. it matches glob patterns from the repository's own config
+    # on the developer machine and in ci, never user input; not in the app bundle. remove once a
+    # patched picomatch can be forced by an override
+    - GHSA-fc5q-39xc-vjpf
 
 # the sentry gradle step runs node_modules/@sentry/cli/bin/sentry-cli from the project root; with
 # pnpm, @sentry/cli is only a dependency of @sentry/react-native, so it is hoisted to the root
