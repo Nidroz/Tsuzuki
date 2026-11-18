@@ -307,6 +307,7 @@ Details:
 - [ ] R-05 Privacy policy, store listings, screenshots, age rating
 - [ ] R-06 Internal testing: TestFlight + Play internal track
 - [ ] R-07 Device performance checks (R-02)
+- [ ] R-12 Library store parse cache (R-08)
 - [ ] R-08 Performance follow-ups (R-02)
 - [x] R-09 Security follow-ups (R-04): `expo-crypto` behind a Web Crypto binding (PKCE S256, the ADR-0020 key source), the encrypted app storage wired with its migration, the purges owed while on memory, the Remove only way out of a guest merge refused at the cap, a reinstall starting signed out, fixed report errors, the credentials scrub, the PostgREST fake limits; every L1 control met, accepted or not applicable, MASVS-PRIVACY-3 open (R-05); device checks moved to R-07 and follow-ups to R-10
 - [x] R-10 Security follow-ups (R-09): merge room removals confirmed per call and reported as `guest-merge-room`, the `tsuzuki/no-get-claims` lint ban, the ADR-0016 and ADR-0018 Updates of 2026-11-18, the owed purges kill test warmed, two route tests split; the deadlock fix not taken and the repeated owed carry accepted
@@ -393,13 +394,17 @@ On a preview build (release, Hermes) on a mid-range Android device, and on iOS i
 - Encrypted app storage (moved from R-09): an upgrade over a build holding plain data keeps the library, the recent searches and the preferences, and the plain `tsuzuki` file is gone after the second launch; a fresh install starts empty with no plain file; an iOS reinstall over a signed-in install starts signed out.
 - Launch time with the app storage key read (moved from R-09, ADR-0020 "Performance"): the cold start above, measured with the synchronous secure store read of the key before the first frame.
 
-### R-08 Performance follow-ups (R-02)
+### R-12 Library store parse cache (R-08)
+Moved out of R-08 (owner decision of 2026-11-18). Depends on R-07: the `+1` with the largest library available gives the device baseline the cache is measured against.
 - Offline account library and guest store parse cost (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse on every read). Proposal: a parsed-document cache reused only while `storage.getString` returns the exact string last read or written, and one copy read per save; the persisted format unchanged. It reverses the "no in-memory cache" rule (`ARCHITECTURE.md` §4, ADR-0017); approved by the owner on 2026-11-06, with these requirements:
   - the cache key is the exact stored string, with one cached entry per storage key, so the cache cannot grow without bound;
   - returned values are never shared mutable state: frozen, or copies, with a test proving that a consumer mutation cannot alter the next read;
   - the cache is cleared by the sign-out and account deletion purge (A-06, ADR-0018), with a test;
   - ADR-0017 gets a dated Update describing the exception: exact-string key, no staleness possible, purge on sign out;
   - the PR reports before and after timings measured on a real device (preview build), not only on a PC.
+
+### R-08 Performance follow-ups (R-02)
+- Offline account library and guest store parse cost (`ARCHITECTURE.md` §6 "Performance baseline": the per-entry Zod parse on every read): the parsed-document cache approved by the owner on 2026-11-06. Outcome: moved to R-12 (owner decision of 2026-11-18) with its requirements, after R-07's device baseline; not implemented here.
 - The Material Symbols font on Android (`MaterialSymbols_400Regular.ttf`, about 70 % of the Android assets), pulled in by expo-router's native tabs code through `expo-symbols` / `@expo-google-fonts/material-symbols` and unused by the app's JS tabs: drop it if expo-router or `expo-symbols` offer a supported way (no resolver hack).
 - Sentry Session Replay, replay canvas and feedback modules (about 180 KB) bundled while disabled: check again with Expo tree shaking once it is stable.
 - Evaluate `zod/mini` (about 494 KB of zod v4 classic in the bundle): an API change across every schema.
