@@ -8,7 +8,11 @@ const { withNativeWind } = require('nativewind/metro');
 
 const THEME_DIR = path.join(__dirname, 'src', 'ui', 'theme');
 
-module.exports = withNativeWind(getSentryExpoConfig(__dirname), {
+// the sentry sdk's documented option: leaves its web session replay packages out of the bundle
+// (@sentry-internal/replay and replay-canvas, web only); the app records no replay (ADR-0012)
+const SENTRY_OPTIONS = { includeWebReplay: false };
+
+module.exports = withNativeWind(getSentryExpoConfig(__dirname, SENTRY_OPTIONS), {
   input: path.join(THEME_DIR, 'global.css'),
   configPath: path.join(THEME_DIR, 'tailwind.config.ts'),
   // nativewind would write a nativewind-env.d.ts at the root and rewrite tsconfig.json to include
