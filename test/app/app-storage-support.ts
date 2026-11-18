@@ -115,6 +115,36 @@ export interface RenderedLaunch {
 const SKIP_AUTO_CLEANUP = 'RNTL_SKIP_AUTO_CLEANUP';
 const ACT_ENVIRONMENT = 'IS_REACT_ACT_ENVIRONMENT';
 
+const restoreEnv = (name: string, value: string | undefined): void => {
+  if (value === undefined) {
+    Reflect.deleteProperty(process.env, name);
+  } else {
+    process.env[name] = value;
+  }
+};
+
+/**
+ * the first load of what renderLaunchInIsolation loads (the testing library, the router, every
+ * route and the layout) in a module registry nothing renders. their transforms, read from the
+ * cache, take most of a cold first launch: a test file calls it as it loads, outside its tests'
+ * timeout. the testing library skips its cleanup hooks there too, as in a launch: added as it
+ * loads, they would run around every test of the file. it writes to the device (the layout's top
+ * level), which each test resets
+ */
+export const warmUpRenderedLaunch = (): void => {
+  const skipAutoCleanup = process.env[SKIP_AUTO_CLEANUP];
+  process.env[SKIP_AUTO_CLEANUP] = 'true';
+  try {
+    launchInIsolation(() => {
+      jest.requireActual('@testing-library/react-native');
+      jest.requireActual('../mobile/render-router');
+      jest.requireActual('./app-routes');
+    });
+  } finally {
+    restoreEnv(SKIP_AUTO_CLEANUP, skipAutoCleanup);
+  }
+};
+
 /**
  * renders the app at `initialUrl` in a fresh module registry, as a launch of the app would (the
  * device files and secure store outlive it), runs `beforeRender` (to restore a session) then
@@ -158,11 +188,7 @@ export const renderLaunchInIsolation = async (
       }
     });
   } finally {
-    if (skipAutoCleanup === undefined) {
-      Reflect.deleteProperty(process.env, SKIP_AUTO_CLEANUP);
-    } else {
-      process.env[SKIP_AUTO_CLEANUP] = skipAutoCleanup;
-    }
+    restoreEnv(SKIP_AUTO_CLEANUP, skipAutoCleanup);
     if (actEnvironment === undefined) {
       Reflect.deleteProperty(globalThis, ACT_ENVIRONMENT);
     } else {

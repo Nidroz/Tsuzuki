@@ -22,12 +22,12 @@ import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 import {
   appFileValues,
-  launchInIsolation,
   renderLaunchInIsolation,
   seedEarlierLaunch,
   storedOwedPurges,
   USER_A,
   USER_C,
+  warmUpRenderedLaunch,
   type RenderedLaunch,
 } from './app-storage-support';
 
@@ -124,11 +124,11 @@ const signOutOnMemory = async (signOut: () => Promise<void>) => {
   mockDevice.device.failures.create.clear();
 };
 
-// every launch below loads the whole app in a fresh module registry. the first load of those
-// modules (their transforms read from the cache) takes most of a cold run: it happens here, as
-// the file loads, outside the tests' timeout, as the top-level imports of the other route tests
-// do. it writes to the device, which each test resets
-launchInIsolation();
+// every launch below loads the whole app, the testing library and the router in a fresh module
+// registry. the first load of those modules (their transforms read from the cache) takes most of
+// a cold run: it happens here, as the file loads, outside the tests' timeout, as the top-level
+// imports of the other route tests do. it writes to the device, which each test resets
+warmUpRenderedLaunch();
 
 beforeEach(() => {
   mockDevice.resetDevice();
