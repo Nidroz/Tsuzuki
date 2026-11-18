@@ -8,7 +8,8 @@ import { withAllowedCover, type CoverSource } from './library-covers';
 
 /**
  * the report source of an unexpected failure (not a LibraryRemoteError) of the account library
- * read or of a removal, reported as a fixed error: never with the caught error, a key or a value
+ * read or of a removal, reported as a fixed LibraryFailureError('guest-merge-room'), told apart
+ * from a failed merge run (`guest-merge`): never with the caught error, a key or a value
  */
 export const GUEST_MERGE_ROOM_REPORT_SOURCE = 'guest-merge-room';
 
@@ -91,16 +92,28 @@ export const guestMergeRoomEntriesOf = (
 };
 
 /**
- * removes `key` from `account` and tells whether the server confirmed it: the offline account
- * library resolves a removal it kept queued (the request failed without a definite answer), which
- * leaves one more queued write. nothing else writes to the account meanwhile: the live library is
- * the pending one, and no replay runs before the merge is done
+ * removes `key` from `account` and tells whether the server confirmed it, per call: the offline
+ * account library resolves a removal it kept queued (offline, or the request failed without a
+ * definite answer) after calling the listeners of `subscribeToQueuedWrites`, so the removal is
+ * confirmed when none was called during the call. the queued write count cannot tell it: a removal
+ * of a key already queued (stuck, or queued offline) replaces that write and leaves the count as
+ * it was. nothing else writes to the account meanwhile: the live library is the pending one, and
+ * no replay runs before the merge is done; a notification of another write would read as
+ * unconfirmed, the safe side (offline feedback, no merge retry). the listener is unsubscribed once
+ * the call settled, a rejection included
  */
 export const removeConfirmed = async (
   account: OfflineAccountLibraryRepository,
   key: MediaKey,
 ): Promise<boolean> => {
-  const queuedBefore = account.queuedWriteCount();
-  await account.remove(key);
-  return account.queuedWriteCount() <= queuedBefore;
+  let queuedNotifications = 0;
+  const unsubscribe = account.subscribeToQueuedWrites(() => {
+    queuedNotifications += 1;
+  });
+  try {
+    await account.remove(key);
+  } finally {
+    unsubscribe();
+  }
+  return queuedNotifications === 0;
 };

@@ -31,15 +31,21 @@ export class LibraryCleanupError extends Error {
  * a library operation that failed for a reason the repositories do not report themselves (R-09):
  * a guest merge run that rejected with anything but a LibraryRemoteError (`guest-merge`: the
  * guest store read, a bug), a retry of the stuck writes that rejected (`stuck-writes-retry`,
- * ADR-0017 "Stuck writes").
+ * ADR-0017 "Stuck writes"), a read of the account library or a removal from it, in the way out of
+ * a guest merge refused at the entry cap, that failed so (`guest-merge-room`, R-10).
  */
-export const LIBRARY_FAILURE_OPERATIONS = ['guest-merge', 'stuck-writes-retry'] as const;
+export const LIBRARY_FAILURE_OPERATIONS = [
+  'guest-merge',
+  'stuck-writes-retry',
+  'guest-merge-room',
+] as const;
 
 export type LibraryFailureOperation = (typeof LIBRARY_FAILURE_OPERATIONS)[number];
 
 const LIBRARY_FAILURE_MESSAGES: Readonly<Record<LibraryFailureOperation, string>> = {
   'guest-merge': 'Library operation failed: guest merge',
   'stuck-writes-retry': 'Library operation failed: stuck writes retry',
+  'guest-merge-room': 'Library operation failed: guest merge room',
 };
 
 /** a library operation that failed; it holds the operation only. */
