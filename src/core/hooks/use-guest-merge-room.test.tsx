@@ -20,7 +20,10 @@ import { GUEST_MERGE_ROOM_REPORT_SOURCE } from './use-guest-merge-room';
 // per R-09 and ADR-0016 "Merge at the entry cap": the account library read while the guest merge
 // is refused at the cap, the only way out on the device
 
-const REPORT = [new LibraryFailureError('guest-merge'), { source: GUEST_MERGE_ROOM_REPORT_SOURCE }];
+const REPORT = [
+  new LibraryFailureError('guest-merge-room'),
+  { source: GUEST_MERGE_ROOM_REPORT_SOURCE },
+];
 
 const otherMerges: readonly { readonly name: string; readonly merge: GuestMergeValue }[] = [
   { name: 'idle', merge: { status: 'idle', retry: jest.fn() } },

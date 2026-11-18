@@ -18,6 +18,8 @@ export const LAYER_RULE_IDS = [
   'no-restricted-globals',
   'no-restricted-properties',
   'no-console',
+  // not a layer rule: a ban over the app layers and their tests (layers-get-claims-cases.mjs)
+  'tsuzuki/no-get-claims',
 ];
 
 // virtual probe paths, relative to the root: none of them may exist, since allowDefaultProject must

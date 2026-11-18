@@ -32,6 +32,8 @@ const TS_FILES = ['**/*.{ts,tsx}'];
 const JS_FILES = ['**/*.{js,mjs,cjs}'];
 // jest tests only: the node:test tooling tests (*.test.mjs) get no jest rules
 const JEST_FILES = ['**/*.test.{ts,tsx}'];
+// the app (routes and src/) and its tests (test/): tsuzuki/no-get-claims
+const GET_CLAIMS_BANNED_FILES = ['app/**', 'src/**', 'test/**'];
 // matches the installed jest major, so version-dependent rules skip auto-detection
 const JEST_VERSION = 29;
 // a ts directive must cite a backlog id from docs/BACKLOG.md, e.g. (X-00) as a placeholder
@@ -201,6 +203,12 @@ export default defineConfig(
       'tsuzuki/backlog-reference': 'error',
       'tsuzuki/file-name-case': 'error',
     },
+  },
+  {
+    // the app and its tests never reach auth-js getClaims, which throws under the web crypto
+    // binding (ADR-0014); the edge functions run on deno's own web crypto, the tools load no auth-js
+    files: GET_CLAIMS_BANNED_FILES,
+    rules: { 'tsuzuki/no-get-claims': 'error' },
   },
 
   ...LAYERS.map(({ files, ignores, ...layer }) => ({

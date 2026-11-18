@@ -68,10 +68,11 @@ const FIRST_REQUEST = 0;
  * store is never touched. active only while useGuestMerge() is `failed` with `library-full` and
  * useSessionLibrary() has an account instance. the entries are read with `account.list()` once per
  * refusal (each retry refused again reads afresh), kept in this hook: no query key. a removal
- * while offline writes nothing and says so. an unexpected failure is reported to the reporter of
- * the DevicePurgeContextProvider as a fixed LibraryFailureError, with
- * GUEST_MERGE_ROOM_REPORT_SOURCE only. throws outside SessionLibraryContextProvider,
- * DevicePurgeContextProvider or CatalogContextProvider
+ * while offline writes nothing and says so, and so does one the server did not confirm (kept
+ * queued, told per call by removeConfirmed). an unexpected failure is reported to the reporter of
+ * the DevicePurgeContextProvider as a fixed LibraryFailureError('guest-merge-room'), told apart
+ * from a failed merge run, with GUEST_MERGE_ROOM_REPORT_SOURCE only. throws outside
+ * SessionLibraryContextProvider, DevicePurgeContextProvider or CatalogContextProvider
  */
 export const useGuestMergeRoom = ({ showAdult }: UseGuestMergeRoomOptions): GuestMergeRoom => {
   const merge = useGuestMerge();
@@ -88,7 +89,7 @@ export const useGuestMergeRoom = ({ showAdult }: UseGuestMergeRoomOptions): Gues
   const latestRefusal = useLatest(refusal);
 
   const report = useCallback(() => {
-    latestReporter.current.captureError(new LibraryFailureError('guest-merge'), {
+    latestReporter.current.captureError(new LibraryFailureError('guest-merge-room'), {
       source: GUEST_MERGE_ROOM_REPORT_SOURCE,
     });
   }, [latestReporter]);

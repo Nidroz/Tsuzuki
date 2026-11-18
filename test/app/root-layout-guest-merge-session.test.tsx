@@ -1,28 +1,31 @@
-import type { LibraryEntry } from '@core/domain/library-entry';
-import type { GuestLibraryRepository } from '@core/repositories/library-repository';
 import type * as LocalLibrary from '@core/repositories/local/library-repository';
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 // react native testing library 14's act is async; expo-router re-exports it typed as react's act
-import { act, userEvent } from '@testing-library/react-native';
+import { userEvent } from '@testing-library/react-native';
 import type * as Localization from 'expo-localization';
 import { screen } from 'expo-router/testing-library';
-import { createMMKV } from 'react-native-mmkv';
-import { APP_STORAGE_INSTANCE_ID } from '@platform/app-storage-instance';
 
-import { holdNextCall, mergedCopyOf, type Deferred } from '../core/fake-library-repository';
-import { entryOf, entryWithMedia, keyOf } from '../core/library-entry-fixtures';
 import type * as FakeJikanModule from '../mobile/fake-jikan-module';
 import type * as FakeSupabaseModule from '../mobile/fake-supabase-module';
 import type * as AppDevice from '../mobile/app-device';
 import { renderRouterAsync } from '../mobile/render-router';
 import type * as SharedMmkv from '../mobile/shared-mmkv';
 import { APP_ROUTES } from './app-routes';
+import {
+  GUEST_ENTRY,
+  GUEST_OTHER,
+  guestMergeSessionMocks,
+  MERGE_OPTIONS,
+  rowOf,
+  settle,
+  USER_A,
+  USER_B,
+} from './guest-merge-session-support';
 
-// the guest merge across session changes (A-04, BR-08, ADR-0016): a merge whose session ended
-// leaves the guest store (the real local store) untouched, the guest entries go to the signed-in
-// user's account library only, an entry changed during the merge stays on the device and replaces
-// the merged copy at the next merge, and a `+1` in its coalescing window at sign in reaches the
-// guest store first. every supabase factory is a fake (its merge keeps the guest times, capped)
+// the guest merge across session changes (A-04, ADR-0016): the guest entries go to the signed-in
+// user's account library only, once per sign in, and a `+1` in its coalescing window at sign in
+// reaches the guest store first. a merge in flight as its session ends or a guest entry changes
+// is in root-layout-guest-merge-session-in-flight.test.tsx. every supabase factory is a fake
 
 jest.mock('@core/repositories/supabase/create-supabase-client', () =>
   jest
@@ -70,130 +73,14 @@ jest.mock('expo-crypto', () =>
 );
 
 // read from the mock registry: a static import would load them before the hoisted factories
-const supabaseAuthModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseAuthModule>(
-  '@core/repositories/supabase/auth-repository',
-);
-const supabaseLibraryModule = jest.requireMock<FakeSupabaseModule.FakeSupabaseLibraryModule>(
-  '@core/repositories/supabase/library-repository',
-);
-const localLibrary = jest.requireMock<typeof LocalLibrary>(
-  '@core/repositories/local/library-repository',
-);
-const createAccountLibrary = supabaseLibraryModule.createSupabaseLibraryRepository;
-
-const appStorage = createMMKV({ id: APP_STORAGE_INSTANCE_ID });
-
-// the options of every guest merge call: the signal of its run, aborted once its session ended
-const MERGE_OPTIONS = { signal: expect.any(AbortSignal) };
-
-// placeholder user ids
-const USER_A = 'aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee';
-const USER_B = 'bbbbbbbb-cccc-4ddd-8eee-ffffffffffff';
-
-// no cover: the rows need no image host. two guest entries, of two media
-const noCover = { ...entryOf().media, imageUrl: null };
-const GUEST_ENTRY = entryOf({ media: noCover });
-const GUEST_OTHER = entryWithMedia(
-  { imageUrl: null, title: 'Guest title' },
-  { key: keyOf('manga', 2), updatedAt: '2026-02-01T00:00:00.000Z' },
-);
-
-// between two steps on the device: a minute of fake time
-const DEVICE_STEP_MS = 60_000;
-
-const rowOf = (entry: LibraryEntry): string =>
-  `library-entry-${entry.key.namespace}-${entry.key.kind}-${String(entry.key.externalId)}`;
-
-// the guest repository the layout created when it loaded
-const guestLibrary = (): GuestLibraryRepository => {
-  const created = jest.mocked(localLibrary.createLocalLibraryRepository).mock.results[0];
-  if (created?.type !== 'return') {
-    throw new Error('the composition root created no guest library repository');
-  }
-  return created.value;
-};
-
-const storedGuestLibrary = (): string | undefined =>
-  appStorage.getString(localLibrary.GUEST_LIBRARY_STORAGE_KEY);
-
-// the account repository of the nth factory call (0 first) since the test started
-const accountOf = (call: number) => {
-  const result = createAccountLibrary.mock.results[call];
-  if (result?.type !== 'return') {
-    throw new Error('the composition root created no account library repository');
-  }
-  return result.value;
-};
-
-// the merge steps settle inside act, after `ms` of fake time: no merge update lands outside it
-const settle = async (ms = 0) => {
-  await act(async () => {
-    await jest.advanceTimersByTimeAsync(ms);
-  });
-};
-
-const reportSession = async (userId: string | null) => {
-  await act(async () => {
-    supabaseAuthModule.sessionSource.emit(userId === null ? null : { userId });
-    await jest.advanceTimersByTimeAsync(0);
-  });
-};
-
-// holds the guest merge of the next account repository the layout gets; `release` lets it go on
-const holdNextMerge = () => {
-  const holds: Deferred<void>[] = [];
-  supabaseLibraryModule.accountSetups.push((repository) => {
-    holds.push(holdNextCall(repository, 'mergeGuestEntries'));
-  });
-  const release = async () => {
-    const [held] = holds;
-    if (held === undefined) {
-      throw new Error('no account library repository was created');
-    }
-    await act(async () => {
-      held.resolve();
-      await jest.advanceTimersByTimeAsync(0);
-    });
-  };
-  return { release };
-};
+const { createAccountLibrary, guestLibrary, storedGuestLibrary, accountOf, reportSession, reset } =
+  guestMergeSessionMocks();
 
 beforeEach(() => {
-  appStorage.clearAll();
-  supabaseLibraryModule.accountEntries.clear();
-  supabaseLibraryModule.accountSetups.length = 0;
-  createAccountLibrary.mockClear();
-  // no listener between tests: this sets the session the next mount reports, signed out
-  supabaseAuthModule.sessionSource.emit(null);
+  reset();
 });
 
 describe('root layout guest merge across sessions (A-04)', () => {
-  it('shows the guest library at once on sign out during the merge, and never removes its entries', async () => {
-    await guestLibrary().save(GUEST_ENTRY);
-    await guestLibrary().save(GUEST_OTHER);
-    const merge = holdNextMerge();
-    await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
-    expect(await screen.findByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
-    const stored = storedGuestLibrary();
-    await reportSession(USER_A);
-    expect(screen.getByTestId('library-merging')).toBeOnTheScreen();
-
-    await reportSession(null);
-
-    expect(await screen.findByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
-    expect(screen.queryByTestId('library-merging')).not.toBeOnTheScreen();
-
-    // the merge of the ended session concludes: it changes and removes nothing
-    await merge.release();
-    await settle();
-
-    expect(storedGuestLibrary()).toBe(stored);
-    expect(screen.getByTestId(rowOf(GUEST_ENTRY))).toBeOnTheScreen();
-    expect(screen.getByTestId(rowOf(GUEST_OTHER))).toBeOnTheScreen();
-    expect(screen.queryByTestId('library-merging')).not.toBeOnTheScreen();
-    expect(screen.queryByTestId('library-merge-error')).not.toBeOnTheScreen();
-  });
-
   it('merges the guest entries into the account library of the signed-in user only, once per sign in', async () => {
     await guestLibrary().save(GUEST_ENTRY);
     await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
@@ -221,62 +108,6 @@ describe('root layout guest merge across sessions (A-04)', () => {
     expect(accountB.mergeGuestEntries.mock.calls).toStrictEqual([[[GUEST_OTHER], MERGE_OPTIONS]]);
     expect(accountA.stored(GUEST_OTHER.key)).toBeNull();
     expect(accountB.stored(GUEST_ENTRY.key)).toBeNull();
-    expect(storedGuestLibrary()).toBeUndefined();
-  });
-
-  it('keeps a guest entry changed while the merge ran, and its next merge replaces the merged copy with that newer change (BR-08)', async () => {
-    // the guest entries, last changed on the device before the sign in
-    const lastChanged = {
-      createdAt: '2025-11-02T10:00:00.000Z',
-      updatedAt: '2025-12-20T10:00:00.000Z',
-    };
-    const first = { ...GUEST_ENTRY, ...lastChanged };
-    const other = { ...GUEST_OTHER, ...lastChanged };
-    await guestLibrary().save(first);
-    await guestLibrary().save(other);
-    const merge = holdNextMerge();
-    await renderRouterAsync(APP_ROUTES, { initialUrl: '/library' });
-    expect(await screen.findByTestId(rowOf(first))).toBeOnTheScreen();
-    await reportSession(USER_A);
-    // the merge listed the guest store, its write is held
-    expect(accountOf(0).mergeGuestEntries.mock.calls).toStrictEqual([
-      [[first, other], MERGE_OPTIONS],
-    ]);
-
-    // a change on the device after the listing, before the merge write, at the device's time
-    await settle(DEVICE_STEP_MS);
-    const changed = await guestLibrary().save({
-      ...other,
-      progress: other.progress + 1,
-      updatedAt: new Date().toISOString(),
-    });
-    await settle(DEVICE_STEP_MS);
-    await merge.release();
-    const mergedAt = new Date().toISOString();
-    await settle();
-
-    // only the entry the account got as it is on the device leaves it
-    await expect(guestLibrary().list()).resolves.toStrictEqual([changed]);
-    // the account keeps the guest times, so the change is newer than the merged copy
-    const merged = [mergedCopyOf(first, mergedAt), mergedCopyOf(other, mergedAt)];
-    expect(merged.map(({ key }) => accountOf(0).stored(key))).toStrictEqual(merged);
-    expect(merged[1]?.updatedAt).toBe(other.updatedAt);
-    expect(changed.updatedAt > other.updatedAt).toBe(true);
-
-    // the account keeps what the merge wrote: the next instance of the same user holds it
-    supabaseLibraryModule.accountEntries.set(USER_A, merged);
-    await reportSession(null);
-    await reportSession(USER_A);
-    await settle();
-
-    // the change is sent again and, newer, replaces the merged copy (BR-08); then nothing is left
-    // on the device that the account does not hold
-    expect(accountOf(1).mergeGuestEntries.mock.calls).toStrictEqual([[[changed], MERGE_OPTIONS]]);
-    expect(accountOf(1).stored(other.key)).toStrictEqual({
-      ...changed,
-      createdAt: merged[1]?.createdAt,
-    });
-    expect(accountOf(1).stored(first.key)).toStrictEqual(merged[0]);
     expect(storedGuestLibrary()).toBeUndefined();
   });
 

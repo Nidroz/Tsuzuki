@@ -28,8 +28,12 @@ describe('LibraryCleanupError', () => {
 });
 
 describe('LibraryFailureError', () => {
-  it('lists the guest merge and the stuck writes retry', () => {
-    expect(LIBRARY_FAILURE_OPERATIONS).toStrictEqual(['guest-merge', 'stuck-writes-retry']);
+  it('lists the guest merge, the stuck writes retry and the guest merge room', () => {
+    expect(LIBRARY_FAILURE_OPERATIONS).toStrictEqual([
+      'guest-merge',
+      'stuck-writes-retry',
+      'guest-merge-room',
+    ]);
   });
 
   it.each(LIBRARY_FAILURE_OPERATIONS)('keeps the %s operation, and only it', (operation) => {
@@ -48,6 +52,9 @@ describe('LibraryFailureError', () => {
     );
     expect(new LibraryFailureError('stuck-writes-retry').message).toBe(
       'Library operation failed: stuck writes retry',
+    );
+    expect(new LibraryFailureError('guest-merge-room').message).toBe(
+      'Library operation failed: guest merge room',
     );
   });
 });

@@ -1,7 +1,8 @@
 // the useGuestMergeRoom hook inside the catalog, device purge, session library and guest merge
 // contexts the composition root gives, with a recording reporter, for the use-guest-merge-room
-// tests. the test drives the merge value and the session account between renders
-import { jest } from '@jest/globals';
+// tests. the test drives the merge value and the session account between renders, and the queue
+// listeners of the account (driveQueuedWrites)
+import { expect, jest } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 import { useMemo, type ReactNode } from 'react';
 
@@ -119,4 +120,43 @@ export const settle = async (): Promise<void> => {
   await act(async () => {
     await jest.advanceTimersByTimeAsync(0);
   });
+};
+
+/** renderRoom, once its entries are read */
+export const renderReadyRoom = async (setup?: RoomSetup) => {
+  const rendered = renderRoom(setup);
+  await settle();
+  expect(rendered.result.current.status).toBe('ready');
+  return rendered;
+};
+
+/**
+ * gives the queue subscription of `account` real listeners (the fake's never calls one):
+ * `keepNextRemovalQueued(onKept)` makes its next `remove` run `onKept` (a test changes the queued
+ * count there), then call each listener subscribed then and resolve, as the offline account
+ * library does for a removal it kept queued (offline, or the request failed without a definite
+ * answer); `listenerCount()` tells the listeners subscribed now
+ */
+export const driveQueuedWrites = (account: FakeOfflineAccount) => {
+  const listeners = new Set<() => void>();
+  account.subscribeToQueuedWrites.mockImplementation((listener) => {
+    // a wrapper per subscription: the same listener subscribed twice is two subscriptions
+    const subscription = (): void => {
+      listener();
+    };
+    listeners.add(subscription);
+    return () => {
+      listeners.delete(subscription);
+    };
+  });
+  const keepNextRemovalQueued = (onKept: () => void = () => undefined): void => {
+    account.remove.mockImplementationOnce(() => {
+      onKept();
+      for (const listener of [...listeners]) {
+        listener();
+      }
+      return Promise.resolve();
+    });
+  };
+  return { keepNextRemovalQueued, listenerCount: () => listeners.size };
 };
