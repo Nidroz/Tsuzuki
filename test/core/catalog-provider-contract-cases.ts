@@ -209,7 +209,7 @@ export const summaryViolations = (
       'thumbnailUrl is null or https',
       thumbnailUrl === null || thumbnailUrl.startsWith(HTTPS_PREFIX),
     ],
-    ['thumbnailUrl is null only with no imageUrl', (thumbnailUrl === null) === (imageUrl === null)],
+    ['thumbnailUrl is null only with no imageUrl', thumbnailUrl !== null || imageUrl === null],
     ['score is null or in (0, 10]', score === null || (score > 0 && score <= SCORE_MAX)],
     [
       'totalUnits is null or a positive integer',

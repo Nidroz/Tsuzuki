@@ -90,6 +90,12 @@ describe('the list row cover', () => {
     expect(detailWith(images).thumbnailUrl).toBe(thumbnailUrl);
   });
 
+  it('keeps the medium webp when it is the only image, with no full cover', () => {
+    const media = detailWith({ jpg: null, webp: { image_url: `${CDN}${PATH}.webp` } });
+    expect(media.imageUrl).toBeNull();
+    expect(media.thumbnailUrl).toBe(`${CDN}${PATH}.webp`);
+  });
+
   it('never takes the small image', () => {
     const images = { jpg: { small_image_url: `${CDN}${PATH}t.jpg` }, webp: variant(CDN, 'webp') };
     expect(detailWith(images).thumbnailUrl).toBe(`${CDN}${PATH}.webp`);
