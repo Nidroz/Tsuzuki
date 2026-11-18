@@ -9,6 +9,7 @@ import * as classNameCases from './layers-class-name-cases.mjs';
 import * as consoleCases from './layers-console-cases.mjs';
 import * as layerCases from './layers-cases.mjs';
 import * as dotfileCases from './layers-dotfile-cases.mjs';
+import * as getClaimsCases from './layers-get-claims-cases.mjs';
 import * as i18nBarrelCases from './layers-i18n-barrel-cases.mjs';
 import * as i18nCases from './layers-i18n-cases.mjs';
 import * as jestCases from './layers-jest-cases.mjs';
@@ -53,6 +54,7 @@ const TABLES = [
   dotfileCases,
   canonicalCases,
   consoleCases,
+  getClaimsCases,
 ];
 const groups = (table) => TABLES.flatMap((cases) => Object.entries(cases[table]));
 
