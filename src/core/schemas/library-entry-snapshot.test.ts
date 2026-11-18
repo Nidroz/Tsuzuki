@@ -39,11 +39,15 @@ const thrownBy = (run: () => unknown): unknown => {
   return undefined;
 };
 
+// the full-size cover of SUMMARY, which a snapshot never takes
+const FULL_COVER = 'https://cdn.myanimelist.net/images/anime/1015/138006l.webp';
+
 const SUMMARY: MediaSummary = {
   key: { namespace: 'mal', kind: 'anime', externalId: 52991 },
   title: SNAPSHOT.title,
   titleEnglish: 'Frieren: Beyond Journey’s End',
-  imageUrl: SNAPSHOT.imageUrl,
+  imageUrl: FULL_COVER,
+  thumbnailUrl: SNAPSHOT.imageUrl,
   format: 'tv',
   status: 'finished',
   totalUnits: 28,
@@ -149,8 +153,19 @@ describe('toLibraryMediaSnapshot', () => {
     expect(toLibraryMediaSnapshot(detail)).toStrictEqual(SNAPSHOT);
   });
 
+  it('takes the list row cover, never the full-size one', () => {
+    const snapshot = toLibraryMediaSnapshot(SUMMARY);
+    expect(snapshot.imageUrl).toBe(SUMMARY.thumbnailUrl);
+    expect(snapshot.imageUrl).not.toBe(FULL_COVER);
+  });
+
   it('keeps a null image url and an unknown total', () => {
-    const snapshot = toLibraryMediaSnapshot({ ...SUMMARY, imageUrl: null, totalUnits: null });
+    const snapshot = toLibraryMediaSnapshot({
+      ...SUMMARY,
+      imageUrl: null,
+      thumbnailUrl: null,
+      totalUnits: null,
+    });
     expect(snapshot.imageUrl).toBeNull();
     expect(snapshot.totalUnits).toBeNull();
   });
@@ -203,7 +218,7 @@ describe('toLibraryMediaSnapshot', () => {
     const summary: MediaSummary = {
       ...SUMMARY,
       title: `Secret title${NUL}`,
-      imageUrl: 'http://cdn.example/secret.jpg',
+      thumbnailUrl: 'http://cdn.example/secret.jpg',
     };
 
     const error = thrownBy(() => toLibraryMediaSnapshot(summary));
@@ -214,7 +229,7 @@ describe('toLibraryMediaSnapshot', () => {
   });
 
   it.each<[string, Partial<MediaSummary>]>([
-    ['a non-https image url', { imageUrl: 'http://cdn.myanimelist.net/a.jpg' }],
+    ['a non-https list row cover', { thumbnailUrl: 'http://cdn.myanimelist.net/a.jpg' }],
     ['a zero total', { totalUnits: 0 }],
   ])('throws a LibrarySnapshotError, a RangeError, for %s', (_label, overrides) => {
     const error = thrownBy(() => toLibraryMediaSnapshot({ ...SUMMARY, ...overrides }));

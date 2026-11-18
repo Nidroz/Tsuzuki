@@ -79,6 +79,20 @@ describe('covers', () => {
     );
     expect(summaries.filter(({ imageUrl }) => !imageUrl?.startsWith(MAL_CDN))).toStrictEqual([]);
   });
+
+  it('give every summary the medium webp image as its list row cover', async () => {
+    const summaries = await fetchAllSummaries(server);
+
+    expect(summaries.map(({ thumbnailUrl }) => thumbnailUrl)).toStrictEqual(
+      summaries.map(({ key }) => rawItemOf(key.kind, key.externalId).images.webp.image_url),
+    );
+    expect(
+      summaries.filter(({ thumbnailUrl, imageUrl }) => thumbnailUrl === imageUrl),
+    ).toStrictEqual([]);
+    expect(
+      summaries.filter(({ thumbnailUrl }) => !thumbnailUrl?.startsWith(MAL_CDN)),
+    ).toStrictEqual([]);
+  });
 });
 
 describe('the year probe', () => {

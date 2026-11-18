@@ -67,12 +67,17 @@ export const createRecordingReporter = () => {
   return { reporter: { captureError } satisfies ErrorReporter, captureError };
 };
 
+/** the full-size cover of MEDIA, which its snapshot never takes */
+const FULL_COVER = 'https://cdn.myanimelist.net/images/anime/1015/138006l.jpg';
+
 /** the catalog data of the media of ENTRY_KEY, whose snapshot is SNAPSHOT */
 export const MEDIA: MediaSummary = {
   key: ENTRY_KEY,
   title: TITLE_TEXT,
   titleEnglish: null,
-  imageUrl: SNAPSHOT.imageUrl,
+  imageUrl: FULL_COVER,
+  // a snapshot takes the list row cover
+  thumbnailUrl: SNAPSHOT.imageUrl,
   format: SNAPSHOT.format,
   status: 'finished',
   totalUnits: SNAPSHOT.totalUnits,

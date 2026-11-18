@@ -1,4 +1,4 @@
-// maps parsed jikan payloads to the catalog types: genres, the BR-06 flag, the cover image and
+// maps parsed jikan payloads to the catalog types: genres, the BR-06 flag, the covers and
 // pages. a payload that fails its schema is a CatalogResponseError without any detail: the issues
 // could quote provider text, and catalog errors reach the error reporter
 import type { z } from 'zod';
@@ -58,6 +58,7 @@ const toGenres = (refs: readonly JikanGenreRef[]): Genre[] =>
 const isRxRating = (rating: string | null): boolean =>
   rating !== null && rating.trim().toLowerCase().startsWith(RX_RATING_PREFIX);
 
+// the first candidate the allowlist keeps
 const imageUrlOf = (candidates: readonly (string | null)[]): string | null => {
   for (const candidate of candidates) {
     const url = toAllowedImageUrl(candidate, JIKAN_IMAGE_HOSTS);
@@ -75,6 +76,7 @@ export const toMediaSummary = (kind: MediaKind, entry: JikanEntry): MediaSummary
     title: entry.title,
     titleEnglish: entry.titleEnglish,
     imageUrl: imageUrlOf(entry.imageCandidates),
+    thumbnailUrl: imageUrlOf(entry.thumbnailCandidates),
     format: entry.format,
     status: entry.status,
     totalUnits: entry.totalUnits,

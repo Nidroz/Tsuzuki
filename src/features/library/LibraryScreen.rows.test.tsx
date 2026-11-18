@@ -114,6 +114,7 @@ describe('LibraryScreen rows', () => {
       titleEnglish: null,
       titleNative: null,
       imageUrl: 'https://cdn.myanimelist.net/images/anime/1015/138006l.webp',
+      thumbnailUrl: 'https://cdn.myanimelist.net/images/anime/1015/138006.webp',
       format: 'tv',
       status: 'finished',
       totalUnits: 30,

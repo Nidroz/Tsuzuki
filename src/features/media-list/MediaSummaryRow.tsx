@@ -32,7 +32,7 @@ function MediaSummaryRowView({ item, onOpen, testIDPrefix }: MediaSummaryRowProp
       title={item.title}
       {...(subtitle !== undefined && { subtitle })}
       details={details}
-      imageUrl={item.imageUrl}
+      imageUrl={item.thumbnailUrl}
       onPress={open}
       accessibilityHint={t('mediaList.openHint')}
       testID={`${testIDPrefix}-${item.key.namespace}-${item.key.kind}-${String(item.key.externalId)}`}

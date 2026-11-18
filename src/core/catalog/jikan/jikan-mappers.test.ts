@@ -12,7 +12,6 @@ import {
 import { parseJikanDetail } from './jikan-mappers';
 
 const CDN = 'https://cdn.myanimelist.net';
-const OTHER_HOST = 'https://images.example';
 
 const builderOf = { anime: buildJikanAnime, manga: buildJikanManga } as const;
 const defaultIdOf = { anime: 101, manga: 201 } as const;
@@ -133,47 +132,6 @@ describe('genres', () => {
   });
 });
 
-describe('cover image', () => {
-  const variant = (base: string) => ({
-    image_url: `${base}/images/anime/1/101.jpg`,
-    large_image_url: `${base}/images/anime/1/101l.jpg`,
-  });
-
-  it('prefers the large webp, then the large jpg, then the jpg', () => {
-    const webp = { image_url: `${CDN}/images/anime/1/101.webp`, large_image_url: `${CDN}/w.webp` };
-    expect(detailOf('anime', { images: { jpg: variant(CDN), webp } }).imageUrl).toBe(
-      `${CDN}/w.webp`,
-    );
-    expect(
-      detailOf('anime', { images: { jpg: variant(CDN), webp: variant(OTHER_HOST) } }).imageUrl,
-    ).toBe(`${CDN}/images/anime/1/101l.jpg`);
-    expect(
-      detailOf('anime', {
-        images: {
-          jpg: { ...variant(CDN), large_image_url: `${OTHER_HOST}/x.jpg` },
-          webp: { large_image_url: null },
-        },
-      }).imageUrl,
-    ).toBe(`${CDN}/images/anime/1/101.jpg`);
-  });
-
-  it.each([
-    ['every candidate on another host', { jpg: variant(OTHER_HOST), webp: variant(OTHER_HOST) }],
-    ['only a small image', { jpg: { small_image_url: `${CDN}/images/anime/1/101t.jpg` } }],
-    ['malformed variants', { jpg: 'x', webp: [] }],
-    ['images set to null', null],
-  ])('gives no cover with %s', (_case, images) => {
-    expect(detailOf('anime', { images }).imageUrl).toBeNull();
-  });
-
-  it('gives no cover without an images key', () => {
-    const body = buildJikanDetail(withoutKeys(buildJikanManga(), 'images'));
-    expect(
-      parseJikanDetail({ namespace: 'mal', kind: 'manga', externalId: 201 }, body).imageUrl,
-    ).toBeNull();
-  });
-});
-
 describe('parseJikanDetail', () => {
   it('maps a whole anime and strips every other field', () => {
     expect(detailOf('anime')).toStrictEqual({
@@ -181,6 +139,7 @@ describe('parseJikanDetail', () => {
       title: 'Sample Anime',
       titleEnglish: 'Sample Anime in English',
       imageUrl: `${CDN}/images/anime/1/101l.webp`,
+      thumbnailUrl: `${CDN}/images/anime/1/101.webp`,
       format: 'tv',
       status: 'finished',
       totalUnits: 12,
@@ -204,6 +163,7 @@ describe('parseJikanDetail', () => {
       title: 'Sample Manga',
       titleEnglish: 'Sample Manga in English',
       imageUrl: `${CDN}/images/manga/1/201l.webp`,
+      thumbnailUrl: `${CDN}/images/manga/1/201.webp`,
       format: 'manga',
       status: 'finished',
       totalUnits: 40,

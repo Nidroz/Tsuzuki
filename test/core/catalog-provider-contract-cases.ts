@@ -193,7 +193,7 @@ export const summaryViolations = (
   kind: MediaKind,
 ): readonly string[] => {
   const formats: readonly MediaFormat[] = MEDIA_FORMATS_BY_KIND[kind];
-  const { key, score, totalUnits, year, imageUrl } = item;
+  const { key, score, totalUnits, year, imageUrl, thumbnailUrl } = item;
   return violations(`${key.kind} ${String(key.externalId)}`, [
     ['key.namespace is the provider namespace', key.namespace === namespace],
     ['key.kind is the requested kind', key.kind === kind],
@@ -205,6 +205,11 @@ export const summaryViolations = (
     ['format is a format of the kind', formats.includes(item.format)],
     ['status is a media status', MEDIA_STATUSES.includes(item.status)],
     ['imageUrl is null or https', imageUrl === null || imageUrl.startsWith(HTTPS_PREFIX)],
+    [
+      'thumbnailUrl is null or https',
+      thumbnailUrl === null || thumbnailUrl.startsWith(HTTPS_PREFIX),
+    ],
+    ['thumbnailUrl is null only with no imageUrl', thumbnailUrl !== null || imageUrl === null],
     ['score is null or in (0, 10]', score === null || (score > 0 && score <= SCORE_MAX)],
     [
       'totalUnits is null or a positive integer',

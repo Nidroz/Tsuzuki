@@ -71,15 +71,17 @@ describe('MediaSummaryRow', () => {
     expect(screen.getByTestId('discover-result-mal-manga-121496')).toBeOnTheScreen();
   });
 
-  it('loads exactly the item cover url, with no placeholder', async () => {
+  it('loads exactly the list row cover of the item, never its full-size one', async () => {
     await renderRow(FRIEREN);
 
-    expect(coverImage(FRIEREN_TEST_ID)?.props.source).toStrictEqual([{ uri: FRIEREN.imageUrl }]);
+    const source: unknown = coverImage(FRIEREN_TEST_ID)?.props.source;
+    expect(source).toStrictEqual([{ uri: FRIEREN.thumbnailUrl }]);
+    expect(source).not.toStrictEqual([{ uri: FRIEREN.imageUrl }]);
     expect(coverPlaceholder(FRIEREN_TEST_ID)).not.toBeOnTheScreen();
   });
 
   it('shows the placeholder and no image without a cover url', async () => {
-    await renderRow({ ...FRIEREN, imageUrl: null });
+    await renderRow({ ...FRIEREN, imageUrl: null, thumbnailUrl: null });
 
     expect(coverImage(FRIEREN_TEST_ID)).toBeNull();
     expect(coverPlaceholder(FRIEREN_TEST_ID)).not.toBeNull();

@@ -98,3 +98,11 @@ The integration test below runs this auth-js through the app's `createSupabaseCl
 ### Release
 
 `runtimeVersion` uses the `appVersion` policy (`app.config.ts`): an EAS update of this JavaScript reaching a binary of the same version built without the ExpoCrypto native module would crash at launch. The change ships with new builds only; no update targets older binaries.
+
+## Update (2026-11-18)
+
+From the security follow-ups (R-10, `docs/security-review.md`). A pointer only: the decision is unchanged.
+
+### `getClaims`
+
+The "`getClaims`" section of the Update of 2026-11-15 says a future call needs `importKey` and `verify` in the binding first. Since R-10, a lint rule keeps the call out and the binding gains no members. `tsuzuki/no-get-claims` (`tools/eslint/plugin/rules/no-get-claims.mjs`, enabled in `eslint.config.mjs`) rejects every static access to `getClaims` in `app/`, `src/` and `test/`: a member read in any form (optional chaining included) and a destructured key. Its message points to `auth.getUser()`. The edge functions (Deno's own Web Crypto) and `tools/` are out of its scope. Cases: `tools/eslint/plugin/rules/no-get-claims.test.mjs` and `tools/eslint/layers-get-claims-cases.mjs`, run by `pnpm test:tooling` (`ARCHITECTURE.md` §8 "Supabase client", §9).
