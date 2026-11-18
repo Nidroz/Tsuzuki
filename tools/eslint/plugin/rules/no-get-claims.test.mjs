@@ -35,5 +35,9 @@ ruleTester.run('no-get-claims', noGetClaims, {
     "export const claims = (auth) => auth['getClaims']();",
     'export const claims = (auth) => auth?.getClaims?.();',
     'export const claims = (auth) => {\n  const { getClaims } = auth;\n  return getClaims;\n};',
+    'export const claims = (auth) => auth[`getClaims`]();',
+    'export const claims = (session) => {\n  const { auth: { getClaims: gc } } = session;\n  return gc;\n};',
+    "export const claims = (auth) => {\n  const { 'getClaims': read } = auth;\n  return read;\n};",
+    'export let read;\nexport const claims = (auth) => {\n  ({ getClaims: read } = auth);\n};',
   ].map((code) => ({ code, errors: [{ messageId: 'getClaims' }] })),
 });
