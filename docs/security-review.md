@@ -4,6 +4,8 @@ Backlog item R-04, 2026-11-11. The baseline is OWASP MASVS L1 (`SPEC.md`, `CONTR
 
 Updated by backlog item R-09 on 2026-11-15: its findings are fixed or accepted ("R-09 items" below); the follow-ups are backlog item R-10.
 
+Updated by backlog item R-10 on 2026-11-18: the R-09 follow-ups are done or accepted ("R-10 items" below).
+
 The L1 profile covers the STORAGE, CRYPTO, AUTH, NETWORK, PLATFORM and CODE controls; RESILIENCE belongs to the R profile and PRIVACY to the P profile. The privacy controls are reviewed anyway, since `SPEC.md` requires GDPR compliance.
 
 Statuses: **Met**; **Accepted** (not met, with the reason recorded); **Not applicable** (the app does not use what the control is about, or the control is outside the L1 profile); **Open** (with its backlog item).
@@ -69,7 +71,7 @@ Statuses: **Met**; **Accepted** (not met, with the reason recorded); **Not appli
 | Secure random source and PKCE (Medium) | Done: `expo-crypto` 57.0.4 behind `installWebCrypto` (`src/platform/web-crypto.ts`, `web-crypto-polyfill.ts` first imported by `app/_layout.tsx`); PKCE S256, the verifier and flow id from the secure source (`test/mobile/pkce-web-crypto.test.ts`); the same source keys ADR-0020. New native builds required: with `runtimeVersion` `appVersion`, no EAS update of this JavaScript may target older binaries, which lack the ExpoCrypto module. Device checks in R-07 |
 | Purges while on the memory storage (Medium) | Done: each device purge made on memory is owed to the next launch on the files (`tsuzuki.documents.device-purge-pending`, `src/platform/secure-documents.ts`; `settleOwedDevicePurges`, `src/core/hooks/owed-device-purges.ts`); a failed record is reported (`DevicePurgeMarkerOperationError('owe')`) and the purge still runs. Residuals below |
 | Guest merge refused at the cap (Medium) | Done: the library tab shows `LibraryMergeRoom` (`useGuestMergeRoom`): the account library with Remove only, behind a danger confirmation, the merge retried after each removal; nothing written past the cap, the guest store untouched |
-| Replay and upsert deadlock (Low) | Accepted (below): the fix needs a migration and a pgTAP case; optional follow-up in R-10 |
+| Replay and upsert deadlock (Low) | Accepted (below): the fix needs a migration and a pgTAP case; optional follow-up in R-10, not taken (R-10 items) |
 | Raw errors of the merge and the stuck writes retry (Low) | Done: `LibraryFailureError` (`guest-merge`, `stuck-writes-retry`, `src/core/errors/library-report-errors.ts`) |
 | Credentials scrub (Low) | Done: every credentials key found on its own, in bounded time (`src/platform/sentry-scrub-keys.ts`, `sentry-scrub-credentials.test.ts`); the remaining limits accepted (below) |
 | `add` without the media (Low) | Done: `LibraryActionError('media-missing')`, reported with the source `library-action` |
@@ -80,6 +82,19 @@ Statuses: **Met**; **Accepted** (not met, with the reason recorded); **Not appli
 | ADR-0020 copy order (Low) | Done: the plain copied marker first, then the encrypted instance, then its marker; the "key lost while the plain file is unmarked" residual closed |
 | ADR-0020 fresh install (Low) | Done: the encrypted marker written when no plain instance exists; `createStorage()` and `src/platform/storage.ts` deleted, only the migration opens the plain instance |
 | ADR-0020 marker failure tests (Low) | Done: `app-storage-migration-markers.test.ts` |
+
+## R-10 items
+
+| Item (`docs/BACKLOG.md` R-10) | Outcome |
+| --- | --- |
+| ADR pointers to R-09 | ADR-0016 and ADR-0018 Updates of 2026-11-18: the merge room, the owed purges |
+| Replay and upsert deadlock (optional) | Not taken: stays accepted (below) |
+| Merge room removal confirmation | Done: confirmed per call (`removeConfirmed` listens to `subscribeToQueuedWrites` during the removal), a removal replacing an already queued write of its key says offline and retries nothing (`use-guest-merge-room-queued.test.tsx`, `account-library-queued-listeners.test.ts`) |
+| `getClaims` hazard | Done: lint rule `tsuzuki/no-get-claims` (`tools/eslint/plugin/rules/no-get-claims.mjs`) on `app/`, `src/`, `test/`, with cases in `pnpm test:tooling`; the binding keeps `digest` only |
+| Merge room reports | Done: `LibraryFailureError('guest-merge-room')` |
+| Owed purges kill test warm-up | Done: `warmUpRenderedLaunch` (`test/app/app-storage-support.ts`) |
+| Route test splits | Done: `root-layout-guest-merge-session*` and `root-layout-offline-queue*`, tests unchanged |
+| Owed purge carried again after a failed removal | Accepted, no fix (below) |
 
 ## Dependency audit
 
@@ -103,14 +118,19 @@ Recorded in `docs/ARCHITECTURE.md` §9 with their mitigations; those decided by 
 
 Decided by R-09:
 
-- The owed purges: an owed record whose removal fails after its carry is carried again at each launch, purging that signed-out user again (the device-wide steps included when nobody is signed in; whether it needs a fix is R-10); a failed first-launch discard leaves stale ids for a later launch to carry; a user who signs in again during their purge on memory, and whose session then ends on its own, still gets their files purged at the next launch; memory caused by an unreadable secure store makes the record fail too, which only the `owe` report tells; a sign out or a gone purge records it with the marker before `signOut()` (a kill inside `signOut()` still reaches the files, R-09 review), and a sign out that rejects while still signed in keeps the record, so a next launch that cannot restore that session purges that user's files. The next-launch purge also deletes that user's queued writes left in the files by an earlier launch, which the memory process could not count: the user asked for the purge, and ADR-0018 refuses notes at rest on a handed-over device.
+- The owed purges: an owed record whose removal fails after its carry is carried again at each launch, purging that signed-out user again (the device-wide steps included when nobody is signed in; accepted by R-10, below); a failed first-launch discard leaves stale ids for a later launch to carry; a user who signs in again during their purge on memory, and whose session then ends on its own, still gets their files purged at the next launch; memory caused by an unreadable secure store makes the record fail too, which only the `owe` report tells; a sign out or a gone purge records it with the marker before `signOut()` (a kill inside `signOut()` still reaches the files, R-09 review), and a sign out that rejects while still signed in keeps the record, so a next launch that cannot restore that session purges that user's files. The next-launch purge also deletes that user's queued writes left in the files by an earlier launch, which the memory process could not count: the user asked for the purge, and ADR-0018 refuses notes at rest on a handed-over device.
 - The orphaned verifier slots: on a first launch, stale PKCE verifier slots listed only in a discarded flow index stay in the keychain, never read (their codes long expired).
-- The deadlock between a replay call removing a key before a save and another device's upsert of that key: Postgres aborts one (`40P01`), read `unknown` and retried, nothing lost. The fix (the per-user advisory lock at the start of both definer functions) needs a migration and a pgTAP case, an optional follow-up in R-10; even then, a plain API UPDATE of `progress` takes the row lock before the per-user lock, and the app never sends one (saves are upserts).
+- The deadlock between a replay call removing a key before a save and another device's upsert of that key: Postgres aborts one (`40P01`), read `unknown` and retried, nothing lost. The fix (the per-user advisory lock at the start of both definer functions) needs a migration and a pgTAP case, not taken by R-10; even then, a plain API UPDATE of `progress` takes the row lock before the per-user lock, and the app never sends one (saves are upserts).
 - The Sentry credentials scrubber's limits: other sensitive keys (`cookie`, `authorization`, `session`) can stay hidden behind an unclosed quote; a value starting with `[` or `{` is kept; an unquoted value stops at white space or one of `&#,;`; percent-encoded keys are not found; over-scrubs (`tokens:`, `secretary:`, an unclosed quote to the end of the text).
-- auth-js `getClaims` would throw with an asymmetric JWT (the binding has no `subtle.importKey`); the app never calls it.
+- auth-js `getClaims` would throw with an asymmetric JWT (the binding has no `subtle.importKey`); the app never calls it, and since R-10 the lint rule `tsuzuki/no-get-claims` bans it.
+
+Decided by R-10:
+
+- The owed purge record carried again after a failed removal: no fix. It needs a secure store write to fail right after the same launch read that store, and each such launch reports `carry`; the repeat purges data the first carry already purged, the device-wide steps only when nobody is signed in (an owed purge never clears the guest library); a user who signs in again is unmarked at each launch restoring their session, and only a launch that cannot confirm it purges their copy and queue, like the offline launch with an expired access token above. Dropping the record before its marker is written would lose the purge on the files (`owed-device-purges.test.ts` pins the repeat; ADR-0018 Update of 2026-11-18).
+- The replay and upsert deadlock stays accepted: the optional migration was not taken (owner decision).
 
 Earlier residuals stay as recorded: deletion without re-authentication (ADR-0018), backdating one's own rows (ADR-0016), device clock skew (ADR-0016, ADR-0017), the catalog provider's IP logging (ADR-0013), native crash events outside `beforeSend` (§9).
 
 ## Status counts
 
-24 controls: 14 met, 3 accepted, 6 not applicable, 1 open (MASVS-PRIVACY-3: R-05). R-04 and R-09 are closed: ADR-0020 is wired; the R-09 follow-ups are R-10, none of them an open L1 control.
+24 controls: 14 met, 3 accepted, 6 not applicable, 1 open (MASVS-PRIVACY-3: R-05). R-04 and R-09 are closed: ADR-0020 is wired; the R-09 follow-ups are closed by R-10, none of them an open L1 control.
