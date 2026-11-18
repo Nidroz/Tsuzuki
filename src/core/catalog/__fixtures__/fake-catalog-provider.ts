@@ -30,6 +30,7 @@ export const SAMPLE_DETAIL: MediaDetail = {
   title: 'Sample',
   titleEnglish: null,
   imageUrl: null,
+  thumbnailUrl: null,
   format: 'tv',
   status: 'finished',
   totalUnits: 12,

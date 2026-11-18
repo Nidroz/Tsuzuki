@@ -87,6 +87,7 @@ const MEDIA: MediaSummary = {
   title: 'Sousou no Frieren',
   titleEnglish: null,
   imageUrl: null,
+  thumbnailUrl: null,
   format: 'tv',
   status: 'finished',
   totalUnits: 28,

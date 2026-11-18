@@ -8,6 +8,7 @@ const summary = (externalId: number, isAdult: boolean): MediaSummary => ({
   title: `Title ${String(externalId)}`,
   titleEnglish: null,
   imageUrl: null,
+  thumbnailUrl: null,
   format: 'tv',
   status: 'finished',
   totalUnits: null,

@@ -35,8 +35,9 @@ const FOREIGN_IMAGE_CALLS: readonly PageCall[] = [
   { method: 'getTop', kind: 'anime' },
 ];
 
+// both covers of each item: the full-size one and the list row one
 const imageUrlsOf = (items: readonly MediaSummary[]): readonly (string | null)[] =>
-  items.map((item) => item.imageUrl);
+  items.flatMap((item) => [item.imageUrl, item.thumbnailUrl]);
 
 // a cover is either absent or a url the allowlist keeps as it is
 const disallowedCovers = (
@@ -155,13 +156,16 @@ export const describeCatalogProviderBoundaries = <TRequest>(
       },
     );
 
-    it.each(MEDIA_KINDS)('%s detail: its cover is allowed and present', async (kind) => {
+    it.each(MEDIA_KINDS)('%s detail: both its covers are allowed and present', async (kind) => {
       harness.serve('detail', { method: 'getDetail', kind });
 
       const detail = await resultOf(harness.createProvider().getDetail(detailKey(kind)));
 
       expect(detail.imageUrl).not.toBeNull();
-      expect(disallowedCovers([detail.imageUrl], harness.allowedImageHosts)).toStrictEqual([]);
+      expect(detail.thumbnailUrl).not.toBeNull();
+      expect(
+        disallowedCovers([detail.imageUrl, detail.thumbnailUrl], harness.allowedImageHosts),
+      ).toStrictEqual([]);
     });
 
     it.each(FOREIGN_IMAGE_CALLS)(
@@ -172,7 +176,7 @@ export const describeCatalogProviderBoundaries = <TRequest>(
         const { items } = await resultOf(fetchPage(harness.createProvider(), call, 1));
 
         expect(items.length).toBeGreaterThan(0);
-        expect(imageUrlsOf(items)).toStrictEqual(items.map(() => null));
+        expect(imageUrlsOf(items)).toStrictEqual(items.flatMap(() => [null, null]));
       },
     );
   });

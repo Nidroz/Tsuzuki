@@ -26,15 +26,17 @@ const contentOrder = () =>
     .map((child) => child.props.testID as unknown);
 
 describe('MediaDetailContent', () => {
-  it('loads exactly the cover url of the detail, with no placeholder', async () => {
+  it('loads exactly the full-size cover url of the detail, with no placeholder', async () => {
     await renderContent(FRIEREN_DETAIL);
 
     expect(coverImage()?.props.source).toStrictEqual([{ uri: FRIEREN_DETAIL.imageUrl }]);
+    // the list row cover is for the rows only
+    expect(FRIEREN_DETAIL.thumbnailUrl).not.toBe(FRIEREN_DETAIL.imageUrl);
     expect(coverPlaceholder()).not.toBeOnTheScreen();
   });
 
   it('shows the cover placeholder and no image without a cover url', async () => {
-    await renderContent({ ...FRIEREN_DETAIL, imageUrl: null });
+    await renderContent({ ...FRIEREN_DETAIL, imageUrl: null, thumbnailUrl: null });
 
     expect(coverImage()).toBeNull();
     expect(coverPlaceholder()).not.toBeNull();

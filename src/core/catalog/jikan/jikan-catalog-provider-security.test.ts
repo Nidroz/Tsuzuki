@@ -163,7 +163,7 @@ describe('a failed search', () => {
   );
 });
 
-describe('the cover image', () => {
+describe('the covers', () => {
   const detailWithImages = (webpLarge: string, jpgLarge: string, jpg: string) =>
     buildJikanDetail(
       buildJikanAnime({
@@ -183,6 +183,7 @@ describe('the cover image', () => {
         `${CDN}/101.jpg`,
       ),
       `${CDN}/101l.jpg`,
+      `${CDN}/101.jpg`,
     ],
     [
       'no url when every url is http',
@@ -191,6 +192,7 @@ describe('the cover image', () => {
         'http://cdn.myanimelist.net/images/anime/1/101l.jpg',
         'http://cdn.myanimelist.net/images/anime/1/101.jpg',
       ),
+      null,
       null,
     ],
     [
@@ -201,8 +203,9 @@ describe('the cover image', () => {
         'https://cdn.myanimelist.net:8443/images/anime/1/101.jpg',
       ),
       null,
+      null,
     ],
-  ])('keeps %s', async (_, body, imageUrl) => {
+  ])('keeps %s', async (_, body, imageUrl, thumbnailUrl) => {
     serveJikan('/anime/101', jsonAnswer(body));
 
     const detail = await createProvider().getDetail({
@@ -212,6 +215,7 @@ describe('the cover image', () => {
     });
 
     expect(detail.imageUrl).toBe(imageUrl);
+    expect(detail.thumbnailUrl).toBe(thumbnailUrl);
   });
 });
 

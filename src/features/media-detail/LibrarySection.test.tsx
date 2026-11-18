@@ -107,7 +107,8 @@ describe('LibrarySection', () => {
       score: 8,
       media: {
         title: FRIEREN_DETAIL.title,
-        imageUrl: FRIEREN_DETAIL.imageUrl,
+        // a snapshot takes the list row cover
+        imageUrl: FRIEREN_DETAIL.thumbnailUrl,
         format: FRIEREN_DETAIL.format,
         totalUnits: FRIEREN_DETAIL.totalUnits,
       },

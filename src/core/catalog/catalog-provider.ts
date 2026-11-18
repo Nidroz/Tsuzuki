@@ -21,7 +21,14 @@ export interface MediaSummary {
   readonly key: MediaKey;
   readonly title: string;
   readonly titleEnglish: string | null;
+  /** the full-size cover, for the detail screen; null when the provider has none. */
   readonly imageUrl: string | null;
+  /**
+   * the cover sized for a list row: the provider's medium image (about 225 px wide on jikan).
+   * falls back to the full cover when the provider has no medium one, so it is null only when
+   * `imageUrl` is too.
+   */
+  readonly thumbnailUrl: string | null;
   readonly format: MediaFormat;
   readonly status: MediaStatus;
   // episodes or chapters, null when unknown

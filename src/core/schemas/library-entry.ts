@@ -92,17 +92,18 @@ export const libraryEntrySchema: z.ZodType<LibraryEntry> = z.object({
 
 /**
  * the snapshot written with an entry (FR-10, ADR-0009), from a search or Discover row or the detail
- * (MediaDetail extends MediaSummary). the title, untrusted provider text the catalog adapter does
- * not bound, is first made storable (toStorableText: NUL removed, lone surrogates replaced with
- * U+FFFD), then cut to MEDIA_TITLE_MAX_LENGTH code points without splitting a surrogate pair;
- * `isAdult` is always copied, since the column default false would fail open (BR-06). anything
- * else outside the database limits (a title empty after cleaning included) throws a
- * LibrarySnapshotError (a RangeError) whose message holds no value.
+ * (MediaDetail extends MediaSummary). its cover is the list row one (`thumbnailUrl`): a snapshot
+ * cover is shown only in library rows, never on the detail. the title, untrusted provider text
+ * the catalog adapter does not bound, is first made storable (toStorableText: NUL removed, lone
+ * surrogates replaced with U+FFFD), then cut to MEDIA_TITLE_MAX_LENGTH code points without
+ * splitting a surrogate pair; `isAdult` is always copied, since the column default false would
+ * fail open (BR-06). anything else outside the database limits (a title empty after cleaning
+ * included) throws a LibrarySnapshotError (a RangeError) whose message holds no value.
  */
 export const toLibraryMediaSnapshot = (summary: MediaSummary): LibraryMediaSnapshot => {
   const result = libraryMediaSnapshotSchema.safeParse({
     title: truncateToCodePoints(toStorableText(summary.title), MEDIA_TITLE_MAX_LENGTH),
-    imageUrl: summary.imageUrl,
+    imageUrl: summary.thumbnailUrl,
     format: summary.format,
     totalUnits: summary.totalUnits,
     isAdult: summary.isAdult,

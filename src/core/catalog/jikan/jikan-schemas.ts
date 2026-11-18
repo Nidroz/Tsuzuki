@@ -43,8 +43,10 @@ export interface JikanEntry {
   readonly genreRefs: readonly JikanGenreRef[];
   // the anime audience rating; null for a manga or an unrated anime
   readonly rating: string | null;
-  // image urls in order of preference, not yet checked
+  // full-size cover urls in order of preference, not yet checked
   readonly imageCandidates: readonly (string | null)[];
+  // list row cover urls in order of preference, not yet checked
+  readonly thumbnailCandidates: readonly (string | null)[];
 }
 
 // a display field: a wrong or missing value becomes null
@@ -68,10 +70,15 @@ const imageVariantSchema = z
   .object({ image_url: lenientText, large_image_url: lenientText })
   .catch({ image_url: null, large_image_url: null });
 
+// the full cover takes the large images first, the list row cover the medium ones (image_url,
+// about 225 px wide); small_image_url (about 50 px) is too small for any cover and never read
 const imagesSchema = z
   .object({ jpg: imageVariantSchema, webp: imageVariantSchema })
-  .transform(({ jpg, webp }) => [webp.large_image_url, jpg.large_image_url, jpg.image_url])
-  .catch([]);
+  .transform(({ jpg, webp }) => ({
+    cover: [webp.large_image_url, jpg.large_image_url, jpg.image_url],
+    thumbnail: [webp.image_url, jpg.image_url, webp.large_image_url, jpg.large_image_url],
+  }))
+  .catch({ cover: [], thumbnail: [] });
 
 // the start year of an `aired` or `published` date range
 const startYearSchema = z
@@ -120,7 +127,8 @@ const toEntry = (item: SharedItem, fields: KindFields, ctx: z.RefinementCtx): Ji
     synopsis: textOrNull(item.synopsis),
     score: scoreOf(item.score),
     genreRefs: [...item.genres, ...item.explicit_genres, ...item.themes, ...item.demographics],
-    imageCandidates: item.images,
+    imageCandidates: item.images.cover,
+    thumbnailCandidates: item.images.thumbnail,
     ...fields,
   };
 };

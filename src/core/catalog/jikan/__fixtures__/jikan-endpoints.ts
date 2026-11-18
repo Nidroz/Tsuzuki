@@ -139,6 +139,7 @@ export const DETAIL_ENDPOINT: JikanEndpoint = {
         titleEnglish: 'Sample Anime in English',
         titleNative: 'サンプルアニメ',
         imageUrl: 'https://cdn.myanimelist.net/images/anime/1/101l.webp',
+        thumbnailUrl: 'https://cdn.myanimelist.net/images/anime/1/101.webp',
         format: 'tv',
         status: 'finished',
         totalUnits: 12,

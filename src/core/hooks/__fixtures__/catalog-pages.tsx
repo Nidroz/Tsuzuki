@@ -21,6 +21,7 @@ export const summaryOf = (
   title: `Title ${String(externalId)}`,
   titleEnglish: null,
   imageUrl: null,
+  thumbnailUrl: null,
   format: kind === 'anime' ? 'tv' : 'manga',
   status: 'finished',
   totalUnits: null,
