@@ -332,3 +332,17 @@ Migration `supabase/migrations/20261111143207_library_input_byte_bounds.sql` rep
 ### Residual (R-09)
 
 Both cap triggers take a per-user transaction advisory lock. A replay call whose removal of a key comes before a save (the save's insert takes the lock) and another device's upsert of the removed key (the lock first, then a wait on the deleted row) can deadlock: Postgres aborts one with `40P01`, which the client reads as `unknown` and retries (a replay run's backoff, or a direct write kept queued); nothing is lost. Taking the per-user lock at the start of both definer functions would remove it (Low).
+
+## Update (2026-11-18)
+
+Pointers to the R-02 and R-03 follow-ups (R-08). They record where things now live and what was done; the decisions above and in the earlier Updates are unchanged.
+
+### Interfaces after the R-02 split
+
+- `LibraryReplayRun` and `OfflineAccountLibraryRepository`, given under "Interfaces (`src/core/repositories/library-repository.ts`)", now live in `src/core/repositories/offline-account-library-repository.ts`, whose doc comments hold their contracts. `library-repository.ts` keeps `LibraryCallOptions`, `AccountLibraryRepository` and `RemoteAccountLibraryRepository` and does not re-export the moved types (`ARCHITECTURE.md` §2, §4).
+- The same applies to "New members of `OfflineAccountLibraryRepository` (contracts in `library-repository.ts`)" of the Update of 2026-11-04: the contracts of `stuckWriteCount`, `subscribeToSyncState`, `retryStuckWrites` and `discardStuckWrites` are in `offline-account-library-repository.ts`.
+
+### Stuck writes notice after R-03
+
+- `useLibrarySyncIssues()` returns `{ stuckCount, retrying, feedback, feedbackId, retry, discard }`, not the four members given under "Visible state" of the Update of 2026-11-04. The running retry, `feedback` and `feedbackId` are shared per account instance (`src/core/hooks/library-sync-actions.ts`), so the library and favorites tabs show one retry and one feedback. `feedback` is `offline` after a retry run that ended `offline` and `discard-failed` after a discard whose storage threw. It is cleared when the next retry or discard starts and with the last stuck write, and it is `null` while the live library is not an account library. `feedbackId` changes with each feedback set, including the same feedback again, and is 0 while the live library is not an account library.
+- The failed Discard "with no visible error (a residual, tracked in R-03)" is done. `LibrarySyncNotice` shows the feedback as an `InlineError` under the notice (`library.sync.feedback.offline`, `library.sync.feedback.discardFailed`). The `InlineError` is keyed by `feedbackId`, so a second failed Discard in a row is announced again, once across both tabs (`LIBRARY_SYNC_FEEDBACK_ANNOUNCE_KEY`; `ARCHITECTURE.md` §2 "Accessibility conventions", §4 "Stuck writes notice"). A throwing discard still returns 0 and is reported as before.
