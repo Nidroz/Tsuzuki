@@ -163,6 +163,34 @@ describe('settleOwedDevicePurges', () => {
     expect(owed.stored()).toStrictEqual([]);
   });
 
+  it('reports a carried purge whose owed record cannot be removed as carry, and carries it again at each next launch', () => {
+    const owedPurge = markerOf(USER_A, false, true);
+    const { owed, markers, captureError, settle } = setup([owedPurge]);
+    failCalls(owed, 'remove');
+
+    expect(() => {
+      settle(true, false);
+    }).not.toThrow();
+
+    expect(captureError.mock.calls).toStrictEqual([operationReport('carry')]);
+    expect(JSON.stringify(captureError.mock.calls)).not.toContain(USER_A);
+    // the marker of the files holds the user, and the owed record stays
+    expect(markers.stored()).toStrictEqual([owedPurge]);
+    expect(owed.stored()).toStrictEqual([owedPurge]);
+
+    // the driver purges the user and removes the marker; the next launch on the files carries
+    // the record again, device-wide included: that user is purged again
+    markers.remove(USER_A);
+    settle(true, false);
+
+    expect(markers.stored()).toStrictEqual([owedPurge]);
+    expect(owed.stored()).toStrictEqual([owedPurge]);
+    expect(captureError.mock.calls).toStrictEqual([
+      operationReport('carry'),
+      operationReport('carry'),
+    ]);
+  });
+
   it.each(['owed', 'markers'] as const)(
     'carries nothing when the %s cannot be listed, reported as carry',
     (store) => {
