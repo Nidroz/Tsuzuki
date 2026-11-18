@@ -339,3 +339,23 @@ The gap of the Update of 2026-11-04 ("Residuals found while implementing", the i
 ### Reports of the stuck writes discard
 
 `useLibrarySyncIssues` reports a discard whose storage throws as a fixed `LibraryCleanupError('stuck-writes-discard')` (`src/core/errors/library-report-errors.ts`) through the reporter of `DevicePurgeContextProvider`, never the storage error; the same reporter receives the programming errors of the library actions as `LibraryActionError` (source `library-action`). A rejected retry is still reported with its error (value-free by construction today; R-09).
+
+## Update (2026-11-18)
+
+The purges owed while the app storage runs on memory (ADR-0020), built by the security follow-ups R-09, with the residual R-10 decided (`docs/security-review.md` "R-09 items"). The text above and the earlier Updates are kept as accepted; where they differ, this section applies.
+
+### Owed purges
+
+- Gap: a process can run its app storage on memory (`openAppStorage` gives `persistent` false: the key unavailable, or the instance not opened). In that case a sign out, an account deletion, a gone purge or a launch purge deletes that user's data from memory only. The files keep that user's copy, queue, recent searches and cache with no marker, and the next launch that reads the files shows them again.
+- Record: the composition root passes `owedPurges` to `DevicePurgeContextProvider` only while `persistent` is false; otherwise the provider uses `OWE_NO_DEVICE_PURGE`. `owedPurges` is a `createLocalDevicePurgeMarkerRepository` over `createSecureDocumentStorage()` (`src/platform/secure-documents.ts`), holding the secure document `tsuzuki.documents.device-purge-pending`. That storage is synchronous, `WHEN_UNLOCKED_THIS_DEVICE_ONLY` and at most 2,048 UTF-8 bytes.
+- When a purge is recorded: each device purge on memory records `{ userId, clearGuestLibrary: false, deviceWide }` before any step (`owePurge` of `DevicePurgeValue`, called by `useDevicePurge()`). The sign out and the gone purge record it earlier, together with the purge-pending marker and before `signOut()` (`useMarkDevicePurge`), so a kill inside `signOut()` still reaches the files. A flag already recorded is never lowered.
+- `clearGuestLibrary` is always false: the memory process merged only its memory guest library, and the guest library in the files stays under its own rule. A failed record is reported as `DevicePurgeMarkerOperationError('owe')`, never thrown, and the purge still runs.
+- Launch: `app/_layout.tsx` calls `settleOwedDevicePurges` (`src/core/hooks/owed-device-purges.ts`) at module level, once per process, before the tree mounts. A first launch drops every owed purge, because the files they were owed to are gone. A launch on the files carries each owed purge into the purge-pending markers (flags merged, never lowered), then removes it; a failure is reported as `carry` and that record is kept for the next launch. A launch on memory leaves the owed purges untouched. `DevicePurgeDriver` then applies the carried markers under its rules ("Purge-pending marker" and the driver precisions of the Update of 2026-11-04). That purge also deletes the user's queued writes left in the files, which the memory process could not count: the user asked for the purge.
+
+### Residuals
+
+The residuals accepted by R-09 are listed in `docs/security-review.md` "Residuals accepted" and `ARCHITECTURE.md` §9. R-10 decides the one R-09 left open.
+
+- An owed record whose removal fails after its carry is carried again at each launch. This is accepted without a fix. It needs a secure store write to fail right after the same launch read that store, and each such launch reports `carry`.
+- What the repeat costs: it purges data the first carry already purged. The device-wide steps run again only when nobody is signed in, so the cache and recent searches are cleared again; an owed purge never clears the guest library. A user who signs in again is unmarked at each launch that restores their session. Only a launch that cannot confirm the session purges their device copy and queue; that is the accepted "offline launch with an expired access token" residual (Update of 2026-11-11).
+- Alternatives rejected: dropping the owed record before the marker is written would lose the purge on the files when that write fails, which R-09 exists to prevent. Retrying the removal later repeats the same failing secure store write. `owed-device-purges.test.ts` pins the behaviour: the record is carried again at the next launch, `carry` is reported each time, and no report holds a user id.
